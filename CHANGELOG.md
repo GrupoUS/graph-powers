@@ -1,6 +1,45 @@
 # Changelog
 
-## 1.1.0 — it updates itself, and the Codex side is real
+## 1.1.0 — it updates itself, and there is nothing to publish
+
+### Changed — distribution
+
+**npm is gone. Two ways in remain: the Claude Code marketplace, and `git clone`.**
+
+1.0.0 published to a registry, and the cost showed up on the first fix: an account, a 2FA device
+and a release standing between a one-line correction and the machine that needed it. A publish was
+refused mid-session for a missing OTP while the same commit was already on `main` and already
+correct.
+
+What a registry buys is dependency resolution, versioned installs and a build artefact. This
+repository has none of those: no dependencies, no build step, and its artefact is markdown, JSON
+and standard-library Python. The checkout **is** the thing that runs. So the registry was charging
+a release and buying nothing.
+
+```
+# Claude Code
+/plugin marketplace add GrupoUS/graph-powers
+/plugin install graph-powers@graph-powers
+
+# Codex CLI, or a clone on either harness
+git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
+node ~/.graph-powers/src/bin/graph-powers.mjs
+```
+
+`--update` fast-forwards the clone and reinstalls from it; the auto-updater's Codex half does the
+same thing on its own, pulling the clone the manifest recorded at install time. `--ff-only`
+throughout: a merge commit made by a background process is a state nobody chose, and a clone with
+local edits refuses to update and says so.
+
+The trade-off, stated plainly: consumers get no version pinning, because a clone tracks a branch
+rather than a tag. That is acceptable for a harness meant to converge — a project pinned to an old
+copy of the guardrails is the failure this repository exists to end — and anyone who needs a pin
+can check out a tag.
+
+`package.json` is now `private: true`: it exists so `node` treats the `.mjs` files as modules, not
+as a manifest for anything to publish.
+
+### The rest
 
 1.0.0 shipped the harness. This release closes the two gaps that made it a snapshot rather than
 something you install once: it had no way to reach an installed machine after publication, and its

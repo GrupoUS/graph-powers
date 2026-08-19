@@ -37,8 +37,8 @@ toolchain commands, and domains/IDs.
 **The consequence that matters:** `hooks/_config.py` is the only file in the repository that knows
 projects are different. Every hook is byte-for-byte identical in every installation.
 
-**Refused:** letting each hook read what it needs. It spreads config reading across eleven files and
-turns any contract change into eleven edits. Three hooks had drifted back into their own readers by
+**Refused:** letting each hook read what it needs. It spreads config reading across a dozen files and
+turns any contract change into a dozen edits. Three hooks had drifted back into their own readers by
 the time of the public release; they were folded back.
 
 ---
@@ -102,7 +102,7 @@ not, silently.
 
 ## 6. The installer deletes nothing
 
-**Decided:** `bunx graph-powers` registers the marketplace, installs the plugin, writes the Codex
+**Decided:** the installer registers the marketplace, installs the plugin, writes the Codex
 artefacts and, optionally, a starting config. It does not remove a single file.
 
 Cleaning up the existing `.claude/` is the step that decides whether adoption works, and it is the
@@ -114,13 +114,35 @@ human approval. It is slower on purpose.
 
 ---
 
+## 6b. Distribution is a clone, not a registry
+
+**Decided:** two ways in — the Claude Code marketplace, and `git clone`. No npm package.
+
+1.0.0 published to npm, and the cost showed up immediately: a registry account, a 2FA device and a
+release for every one-line fix, sitting between the fix and the machine that needed it. A publish
+was refused mid-session for a missing OTP while the same commit was already on `main` and already
+correct.
+
+What a registry buys is dependency resolution, versioned installs and a build artefact. This
+repository has no dependencies, no build step, and its "artefact" is markdown, JSON and
+standard-library Python — the checkout **is** the thing that runs. So the registry was buying
+nothing and charging a release.
+
+**The trade-off, stated plainly:** there is no version pinning for consumers. A clone tracks a
+branch, not a tag. That is acceptable here because the harness is meant to converge, not to fork —
+a project pinned to an old copy of the guardrails is the exact failure this repository exists to
+end. Anyone who does need a pin can check out a tag; the update refuses to fast-forward a clone
+that is not on a tracking branch.
+
+---
+
 ## 7. External plugins stay external
 
 **Decided:** `superpowers` and `impeccable` are required dependencies installed from their own
 channels, not vendored copies.
 
 The first version of this repository shipped a 3.3 MB snapshot of impeccable — 70% of the package,
-one minor version behind what its own npm registry served, with no licence file and no attribution.
+one minor version behind what its own registry served, with no licence file and no attribution.
 That is the divergence problem this repository exists to end, reproduced inside the fix for it.
 
 **The trade-off, stated plainly:** the plugin now has runtime dependencies it does not control. The
@@ -135,7 +157,7 @@ versions, and tells the user how to keep them current.
 Code.
 
 It turned out to be cheaper than expected: Codex hooks use the same event names, the same stdin
-payload and the same deny semantics, so the eleven Python files run unchanged. Skills use the same
+payload and the same deny semantics, so the twelve Python files run unchanged. Skills use the same
 `SKILL.md` frontmatter, so they are copied rather than converted. Only subagents needed a real
 translation, into TOML.
 

@@ -19,7 +19,7 @@ python3 hooks/test_hooks.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node bin/graph-powers.mjs --help > /dev/null
-npm pack --dry-run > /dev/null
+git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
   --include='*.mjs' . | grep -v node_modules | grep -v 'grep -rnE'
 ```
@@ -162,7 +162,7 @@ PY
 ## After approving
 
 The change reaches the projects on the next plugin update (`claude plugin update graph-powers`, plus
-`bunx graph-powers --target codex` for the generated side). There is no gradual rollout: either it is
+`node <clone>/bin/graph-powers.mjs --target codex` for the generated side). There is no gradual rollout: either it is
 published or it is not.
 
 If something got through and broke, the path is to revert in the repository and publish again — not

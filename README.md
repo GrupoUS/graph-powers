@@ -5,18 +5,28 @@ A shared harness for [Claude Code](https://claude.com/claude-code) and
 in any repository. Whatever changes from project to project leaves the code and enters one config
 file.
 
-```bash
-bunx graph-powers          # or: npx graph-powers
+**Claude Code** — two lines in any session:
+
+```
+/plugin marketplace add GrupoUS/graph-powers
+/plugin install graph-powers@graph-powers
 ```
 
-One command, at the root of your project. Then one prompt, pasted into an agent session:
+**Codex CLI**, or a clone on either harness:
+
+```bash
+git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
+node ~/.graph-powers/src/bin/graph-powers.mjs
+```
+
+Then one prompt, pasted into an agent session opened in your project:
 
 ```
 Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
 Stop for my approval before each write, as the playbook instructs.
 ```
 
-That second step is not decoration. The installer wires the plugin in; the playbook is what makes
+That second step is not decoration. Installing wires the plugin in; the playbook is what makes
 it take effect — it installs the required external plugins, writes your project's parameters,
 improves the `CLAUDE.md` / `AGENTS.md` / rules you already have instead of replacing them, and
 removes the local copies that would otherwise keep shadowing the plugin. It stops for your approval
@@ -61,7 +71,7 @@ graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
   skills/       12 skills              .claude/rules/             <- only your domain
   commands/     12 commands            .claude/agents/            <- only what is yours alone
-  hooks/        11 guardrails
+  hooks/        12 guardrails
   references/   safety floor, shared context
   schema/       the config contract
   DESIGN.md     specs for the three authorities
@@ -84,7 +94,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 11 guardrails, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 12 guardrails, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
@@ -99,7 +109,7 @@ differs per project stays in that project.
 | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | Only what this project genuinely overrides — and by precedence, an override here beats the plugin |
 
 **Why one global copy is correct rather than sloppy:** the guardrails read *the project's own*
-config at runtime. The same eleven files enforce `dev-test` and `ACME_ALLOW_COMMIT` in one
+config at runtime. The same twelve files enforce `dev-test` and `ACME_ALLOW_COMMIT` in one
 repository and `develop` and `OTHER_ALLOW_COMMIT` in the next. Copying the harness into each project
 would buy nothing and reintroduce exactly the divergence this plugin exists to end — twelve skills
 copied into five repositories is five copies that drift.
@@ -108,9 +118,12 @@ copied into five repositories is five copies that drift.
 half is already present at this version and skips it: what gets written is the rules and the
 instruction block, and that is all.
 
+On Claude Code there is nothing to do: a plugin installed at user scope already serves every
+project on the machine, including ones that do not exist yet. On Codex, from your clone:
+
 ```bash
-bunx graph-powers                    # global by default
-bunx graph-powers --scope project    # everything into this repository instead — see below
+node ~/.graph-powers/src/bin/graph-powers.mjs                    # global by default
+node ~/.graph-powers/src/bin/graph-powers.mjs --scope project    # everything into this repository
 ```
 
 Use `--scope project` only when the team has to receive the harness by cloning the repository, on
@@ -136,7 +149,8 @@ twice.
 The Codex hooks file is **merged, never overwritten**. Other tools write it too — `npx impeccable
 install` is one — and clobbering it would silently disable someone else's guardrails, which is this
 project's own failure mode pointed the other way. Every entry added is recorded, so
-`bunx graph-powers --uninstall` removes exactly what was added and leaves the rest standing.
+`node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
+standing.
 
 ---
 
@@ -179,19 +193,37 @@ Each skill states what it needs; none is required for the guardrails.
 
 - [Claude Code](https://claude.com/claude-code) or [Codex CLI](https://developers.openai.com/codex) — or both
 - **Python 3.10 or newer** — the guardrails are standard library only, with no dependencies.
-  `engines` cannot express this, so the installer checks for it and says so if it is missing
-- [Bun](https://bun.sh) or Node 18+
-- Git, and a clean working tree
+  The installer checks for it and says so if it is missing
+- Node 18+ (or Bun) — only to run the installer; nothing here has dependencies to fetch
+- Git
 
-### One command
+There is no package to publish and none to install. The plugin is markdown, JSON and
+standard-library Python: a clone **is** the artefact, and a `git pull` **is** the update. A
+registry in between would add an account, a token and a release for every fix, and buy nothing.
 
-```bash
-bunx graph-powers            # npx graph-powers works the same
+### Claude Code
+
+```
+/plugin marketplace add GrupoUS/graph-powers
+/plugin install graph-powers@graph-powers
 ```
 
-It detects which CLIs are present, registers the marketplace, installs the plugin at `user` scope,
+Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
+unless you also use Codex.
+
+### Codex CLI, or installing from a clone
+
+```bash
+git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
+node ~/.graph-powers/src/bin/graph-powers.mjs
+```
+
+It detects which CLIs are present, registers the marketplace for Claude Code if that CLI is there,
 writes the Codex artefacts — global half then project half — and verifies. If the global half is
 already present at this version, it says so and skips it.
+
+Clone anywhere you like; `~/.graph-powers/src` is only a suggestion, and the installer records
+wherever it actually ran from so updates find it again.
 
 | Option | What it does |
 |---|---|
@@ -203,6 +235,7 @@ already present at this version, it says so and skips it.
 | `--config` | Also writes a starting `.graph-powers/config.json`, inferred from the stack |
 | `--prefix NAME` | Opt-in key prefix (with `--config`). Default: the directory name |
 | `--source <org/repo\|path>` | Where the marketplace comes from. Useful for a fork or a local clone |
+| `--update` | `git pull --ff-only` on the clone, then reinstall from it |
 | `--uninstall` | Removes exactly the Codex artefacts a previous run recorded |
 
 ### Staying current
@@ -211,15 +244,29 @@ A plugin is a copy, and a copy starts ageing the moment it is installed. Six mon
 machines run five versions of guardrails that were meant to be identical — which is the failure
 this harness exists to end, one level up. So it updates itself.
 
-At session start, at most once every twelve hours, a detached worker asks each harness to update
-itself through its own supported path: `claude plugin marketplace update` then `claude plugin
-update` on Claude Code, and a regenerate from the published package on Codex. Nothing waits on
-the network, nothing inside your project is touched, and the new version applies at the next
-session start — so the session after an update opens with one line saying what changed.
+At session start, at most once every twelve hours, a detached worker updates each harness through
+its own path:
 
-On Codex the artefacts are regenerated **only when the registry version actually moved**. Codex
-trusts a hooks file by its content, so an identical rewrite would cost you a `/hooks`
-re-approval and leave the guardrails inert until you gave it.
+| Harness | What runs | Applies |
+|---|---|---|
+| Claude Code | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers` | Next session start |
+| Codex CLI | `git pull --ff-only` on the clone it was installed from, then a regenerate — only if the clone moved | Next session start |
+
+Nothing waits on the network, and nothing inside your project is touched. The session after an
+update opens with one line saying what changed, printed once.
+
+`--ff-only` is deliberate: a merge commit created by a background process is a state nobody chose,
+and a clone you have edited locally refuses to update and says so rather than rewriting itself.
+
+On Codex the artefacts are regenerated **only when the clone actually moved**. Codex trusts a
+hooks file by its content, so an identical rewrite would cost you a `/hooks` re-approval and leave
+the guardrails inert until you gave it.
+
+To update by hand, at any moment:
+
+```bash
+node ~/.graph-powers/src/bin/graph-powers.mjs --update
+```
 
 ```jsonc
 // .graph-powers/config.json — all optional, these are the defaults
@@ -356,7 +403,7 @@ cannot mix them — a lockfile that must not fork — declares its own:
 
 ## The guardrails
 
-Eleven hooks, declared in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) and therefore
+Twelve hooks, declared in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) and therefore
 live the moment the plugin is installed, with no manual wiring. That closes one of the audit's
 findings: two of the projects had **nine hooks each, written and never connected**. They existed on
 disk and never ran once.
@@ -367,6 +414,7 @@ disk and never ran once.
 | `graph_guardrails` | Kill switch (`AGENT_STOP` at the root), spawn ceiling, per-agent round ceiling, write lease | `<PREFIX>_ALLOW_SPAWN_OVER=1`, `<PREFIX>_ALLOW_OFF_LEASE=1` |
 | `protect_files` | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles` | — |
 | `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
+| `auto_update` | Keeps the harness at the published version, in a detached process, at most once per interval | `autoUpdate.enabled: false` |
 | `branch_session_notice` · `session_context` · `notify` | Inform; never block | — |
 
 All of them are **fail-open**: missing, unreadable or mistyped configuration falls back to the
@@ -442,9 +490,11 @@ setup playbook applies them in Step 6.
 A fix lands here and reaches every project on the next update:
 
 ```bash
-claude plugin update graph-powers
-bunx graph-powers --target codex     # regenerate the Codex artefacts
+claude plugin update graph-powers@graph-powers        # Claude Code
+node ~/.graph-powers/src/bin/graph-powers.mjs --update  # the clone, and the Codex artefacts
 ```
+
+Both happen on their own at session start — this is only the manual form.
 
 That is the only reason this repository exists. If a change ever has to be made in five places
 again, something went back to the old model.
@@ -459,16 +509,21 @@ Contributions: read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a PR.
 
 ## Compatibility notes
 
-`bunx graph-powers` and `npx graph-powers` resolve the published npm package. To install from a
-fork or a local clone instead:
+There is no npm package. Installing from a fork is the same two paths pointed somewhere else:
 
 ```bash
-git clone https://github.com/GrupoUS/graph-powers && node graph-powers/bin/graph-powers.mjs
+# from a fork's clone
+git clone https://github.com/<you>/graph-powers && node graph-powers/bin/graph-powers.mjs
 
-# or the native commands, no installer
-claude plugin marketplace add GrupoUS/graph-powers
-claude plugin install graph-powers@graph-powers --scope project
+# or the native Claude Code commands, no installer at all
+claude plugin marketplace add <you>/graph-powers
+claude plugin install graph-powers@graph-powers --scope user
 ```
+
+A `graph-powers` package exists on npm at 1.0.0 and is **not** maintained. It was the first
+release's distribution channel and was dropped: publishing put an account, a token and a release
+between a one-line fix and the machine that needed it, for a plugin with no build step and no
+dependencies. Use git.
 
 Codex tracks hook trust by definition, so after an install or update, open `/hooks` in Codex and
 approve the project hooks.

@@ -130,7 +130,7 @@ jobs:
           broken=$(find . -path ./.git -prune -o -type l ! -exec test -e {} \; -print 2>/dev/null || true)
           if [ -n "$broken" ]; then
             echo "$broken"
-            echo "::error::broken symlink — it ships in the npm tarball and breaks any tree walk"
+            echo "::error::broken symlink — it lands in every clone and breaks any tree walk"
             exit 1
           fi
           echo "no broken symlinks"
@@ -229,14 +229,14 @@ jobs:
           print("uninstall removed exactly what it added, and nothing else")
           PY
 
-  package:
+  clone:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: The installer runs under node and under bun
         run: |
@@ -245,22 +245,28 @@ jobs:
           node bin/audit-settings.mjs > /dev/null
           echo "installer OK on both runtimes"
 
-      - name: The package builds, and stays small
+      - name: A clone is the artefact — everything it needs is committed
+        run: python3 .github/check_clone.py
+
+      - name: Installing from a clone, into an empty machine
+        # The path a stranger takes: clone, run the installer, get the Codex artefacts. Claude Code
+        # is not on the runner, so this covers the half that does not need it.
         run: |
-          npm pack --silent > /dev/null
-          size=$(du -k graph-powers-*.tgz | cut -f1)
-          echo "tarball: ${size} KB"
-          if [ "$size" -gt 2048 ]; then
-            echo "::error::tarball above 2 MB — check what got vendored back in"
-            exit 1
-          fi
-          if tar -tzf graph-powers-*.tgz | grep -E '__pycache__|\.pyc$'; then
-            echo "::error::compiled Python leaked into the tarball"
-            exit 1
-          fi
-          for required in package/AGENT_SETUP.md package/DESIGN.md package/PRODUCT.md \
-                          package/REVIEW.md package/templates package/references package/codex; do
-            tar -tzf graph-powers-*.tgz | grep -q "^$required" || {
-              echo "::error::$required missing from the published package"; exit 1; }
-          done
-          echo "package contents OK"
+          clone=$(mktemp -d); fakehome=$(mktemp -d); project=$(mktemp -d)
+          git clone --quiet "$PWD" "$clone/graph-powers"
+          git -C "$project" init -q
+          # The installer refuses to run inside the plugin's own repository, and takes its target
+          # from the working directory — so this runs from the project, as a person would.
+          cd "$project"
+          HOME="$fakehome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+            --target codex > /dev/null
+          cd - > /dev/null
+          test -f "$fakehome/.codex/graph-powers-installed.json" \
+            || { echo "::error::a fresh clone did not produce a Codex install"; exit 1; }
+          python3 -c "
+          import json, sys
+          m = json.load(open('$fakehome/.codex/graph-powers-installed.json'))
+          assert m['complete'] is True, m
+          assert m['pluginRoot'].endswith('graph-powers'), m['pluginRoot']
+          print('installed from a clone;', len(m['paths']), 'paths recorded')
+          "

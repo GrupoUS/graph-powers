@@ -76,8 +76,12 @@ if (has("-h", "--help")) {
 ${bold("graph-powers")} — install the shared Claude Code + Codex CLI harness in this repository.
 
 ${bold("USAGE")}
-  bunx graph-powers [options]
-  npx  graph-powers [options]
+  node <clone>/bin/graph-powers.mjs [options]
+
+  On Claude Code you do not need this at all — the marketplace installs the plugin:
+    /plugin marketplace add ${DEFAULT_REPO}
+    /plugin install graph-powers@graph-powers
+  This script is what wires Codex CLI, and what installs from a clone on either harness.
 
 ${bold("OPTIONS")}
   --target <claude|codex|both>   Which harness to wire. Default: autodetect from the CLIs present.
@@ -98,13 +102,14 @@ ${bold("OPTIONS")}
   --prefix <NAME>                Opt-in key prefix (with --config). Default: the directory name.
   --dry-run                      Show what it would do, without doing it.
   --skip-marketplace             Skip registering the marketplace (already registered).
+  --update                       Pull the latest commit into this clone and reinstall from it.
   --uninstall                    Remove the generated Codex artefacts recorded by a previous run.
   --agent-setup                  Print the prompt that hands AGENT_SETUP.md to the agent, and exit.
   -h, --help                     This help.
 
 ${bold("AFTER INSTALLING")}
   Restart the session — hooks and skills are read at startup.
-  Then run the setup playbook: ${dim("bunx graph-powers --agent-setup")}
+  Then run the setup playbook: ${dim("node <clone>/bin/graph-powers.mjs --agent-setup")}
   Installing without cleaning the project's existing .claude/ changes nothing: precedence is
   Project > Plugin, so every local copy with the same name keeps winning.
 `);
@@ -174,6 +179,52 @@ function readJsonSafe(p) {
   } catch {
     return null;
   }
+}
+
+// ── update ───────────────────────────────────────────────────────────────────
+
+/**
+ * `--update`: fast-forward this clone and reinstall from it.
+ *
+ * `--ff-only` on purpose. A merge commit created by a background update is a state nobody chose
+ * and nobody will be able to explain later; a clone with local edits should refuse to update and
+ * say so, not quietly rewrite itself.
+ */
+function gitUpdate(root) {
+  const git = (...args) =>
+    spawnSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 120000 });
+
+  if (git("rev-parse", "--git-dir").status !== 0) {
+    die(`${root} is not a git clone.`, "Install with: git clone https://github.com/" + DEFAULT_REPO);
+  }
+  const before = (git("rev-parse", "HEAD").stdout ?? "").trim();
+  const pull = git("pull", "--ff-only");
+  if (pull.status !== 0) {
+    console.error(`${pull.stdout}${pull.stderr}`.trim());
+    die("could not fast-forward the clone.",
+        "Local commits or uncommitted changes? Resolve them, then run --update again.");
+  }
+  const after = (git("rev-parse", "HEAD").stdout ?? "").trim();
+  return { changed: before !== after, before, after };
+}
+
+if (has("--update")) {
+  console.log(`\n${bold("Graph Powers")} ${dim("— updating this clone")}`);
+  const { changed, before, after } = gitUpdate(PLUGIN_ROOT);
+  if (changed) ok(`${before.slice(0, 8)} → ${after.slice(0, 8)}`);
+  else {
+    ok("already at the latest commit");
+    if (!has("--force")) {
+      info("Nothing to reinstall. Use --force to regenerate the artefacts anyway.");
+      process.exit(0);
+    }
+  }
+  info("Reinstalling from the updated clone…");
+  // Re-exec rather than continue: the files this process already loaded are the old ones.
+  const again = spawnSync(process.execPath,
+    [join(PLUGIN_ROOT, "bin/graph-powers.mjs"), ...argv.filter((a) => a !== "--update")],
+    { stdio: "inherit" });
+  process.exit(again.status ?? 0);
 }
 
 // ── uninstall ────────────────────────────────────────────────────────────────
@@ -412,6 +463,15 @@ let n = 0;
 console.log(`\n${bold("Graph Powers")} ${dim("— shared harness for Claude Code and Codex CLI")}`);
 if (dryRun) console.log(yellow("  dry-run: nothing will be changed"));
 
+// Installing the harness into its own repository is always an accident, and a quiet one: it adds
+// a `.codex/rules/` and a block in the AGENTS.md that *is* the source of those templates, and the
+// next commit ships them. It happened here, once, from a `--update` that re-ran the installer in
+// the clone's own directory.
+if (resolve(cwd) === PLUGIN_ROOT && !has("--force")) {
+  die("this is the plugin's own repository — installing it into itself writes the artefacts it generates.",
+      "Run it from the project you want to wire, or pass --force if you really mean it.");
+}
+
 step(++n, TOTAL, "Checking the environment");
 {
   if (claudeVersion) ok(`claude ${claudeVersion}`);
@@ -475,11 +535,16 @@ if (wantClaude) {
     info("It already serves every project on this machine, including ones that do not exist yet.");
   } else if (already.installed && already.version !== localVersion) {
     info(`global install is at ${already.version}, this source is ${localVersion} — updating`);
-    const r = claude(["plugin", "update", PLUGIN, "--scope", "user", "-y"], { capture: true });
-    if (r.status === 0) ok(`${PLUGIN} updated to ${localVersion} · restart the session to apply`);
-    else {
-      console.error(`${r.stdout}${r.stderr}`.trim());
-      warn("update failed — the existing install still works; try `claude plugin update graph-powers`.");
+    // The qualified `<plugin>@<marketplace>` form: the bare name is "not found". The command also
+    // exits 0 when it fails, so its output is what gets read, not its status.
+    const r = claude(["plugin", "update", `${PLUGIN}@${MARKETPLACE}`, "--scope", "user", "-y"],
+                     { capture: true });
+    const out = `${r.stdout}${r.stderr}`;
+    if (r.status === 0 && !/not found|failed/i.test(out)) {
+      ok(`${PLUGIN} updated to ${localVersion} · restart the session to apply`);
+    } else {
+      console.error(out.trim());
+      warn(`update failed — the existing install still works; try \`claude plugin update ${PLUGIN}@${MARKETPLACE}\`.`);
     }
   } else {
     const r = claude(["plugin", "install", `${PLUGIN}@${MARKETPLACE}`, "--scope", scope, "-y"], { capture: true });
@@ -597,6 +662,9 @@ ${AGENT_PROMPT.split("\n").map((l) => `       ${dim(l)}`).join("\n")}
      It installs the required external plugins, writes or improves your config, rules and
      instructions, and — the step that decides whether any of this changes anything — cleans the
      local copies that currently shadow the plugin. It stops for your approval before every write.
+
+Updating later: ${dim(`node ${join(PLUGIN_ROOT, "bin/graph-powers.mjs")} --update`)}
+${dim("  (the harness also checks for itself at session start — see autoUpdate in the README)")}
 
 Docs: ${dim(`https://github.com/${DEFAULT_REPO}#readme`)}
 `);

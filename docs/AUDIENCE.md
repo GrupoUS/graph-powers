@@ -55,7 +55,7 @@ Fixing it in one repository never reached the others. There was no copy — ther
 | **12 agents** | research, review, debugging, planning, verification, frontend, mobile, security, and an audit of the harness itself |
 | **12 skills** | process (planning, debugging, skill creation, harness audit) and craft (UX, performance, SEO, accessibility, Astro, browser testing) |
 | **12 commands** | from planning to verification, chained |
-| **11 guardrails** | git rails, execution ceilings, file protection, kill switch — running on both harnesses from the same files |
+| **12 guardrails** | git rails, execution ceilings, file protection, kill switch — running on both harnesses from the same files |
 | **1 contract** | `schema/config.schema.json` — the parameters that make all of the above work in any repository |
 
 The guardrails are the part that pays for itself fastest. They stop an agent — with code, not with a

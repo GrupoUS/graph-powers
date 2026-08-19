@@ -44,11 +44,11 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 32 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 71 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node bin/graph-powers.mjs --help > /dev/null
-npm pack --dry-run > /dev/null
+git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 ```
 
 Before opening a PR, also run the sweep that protects cardinal 2 — it must come back empty:

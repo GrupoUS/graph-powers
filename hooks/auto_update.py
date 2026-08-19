@@ -16,10 +16,15 @@ The hook itself does almost nothing: it reads a throttle file and, at most once 
 starts a detached worker. It never waits for the network. SessionStart has a timeout, and a
 guardrail that delays every session start by a DNS lookup is a guardrail people uninstall.
 
-The worker asks each harness to update **itself**, through its own supported command:
+The worker asks each harness to update **itself**, through its own supported path:
 
-  Claude Code   claude plugin marketplace update <mp> && claude plugin update <plugin>
-  Codex CLI     npx -y graph-powers@latest --target codex --scope user --force
+  Claude Code   claude plugin marketplace update <mp> && claude plugin update <plugin>@<mp>
+  Codex CLI     git -C <clone> pull --ff-only, then regenerate the artefacts from it
+
+The Codex half needs a clone because that is how Codex installs: the manifest written at install
+time records where it came from, and that is the directory this pulls. When the recorded path is
+not a git clone — a Claude Code plugin cache, say — the Codex half is skipped: the Claude half
+already updated those files, and guessing a second source is how two copies start disagreeing.
 
 Neither of those touches the running session. Claude Code unpacks a new version directory and
 picks it up at the next start; the Codex artefacts are read at startup too. So the honest report
@@ -216,24 +221,38 @@ def registered_version() -> str:
     return ""
 
 
-def published_version() -> str:
-    """The version on the registry, or "" when it cannot be established.
+def codex_manifest() -> dict[str, typing.Any]:
+    """What the Codex install recorded about itself, including where it was installed from."""
+    home = os.environ.get("HOME")
+    if not home:
+        return {}
+    try:
+        raw = json.loads(
+            (Path(home) / ".codex/graph-powers-installed.json").read_text(encoding="utf-8")
+        )
+        return raw if isinstance(raw, dict) else {}
+    except Exception:
+        return {}
 
-    An empty string is a real answer here and the callers treat it as one: no network, no
-    registry, no update. Guessing a version would be worse than not checking — it would trigger a
-    reinstall of something that is already current, and on Codex that costs a re-approval.
+
+def git(root: Path, *args: str, timeout: int = 120) -> tuple[int, str]:
+    return run(["git", "-C", str(root), *args], timeout=timeout)
+
+
+def pull_clone(root: Path) -> tuple[bool, str]:
+    """Fast-forward the clone. Returns (moved, new HEAD).
+
+    `--ff-only` deliberately. A merge commit created by a background process is a state nobody
+    chose and nobody can explain later, and a clone somebody edited locally should refuse to
+    update rather than quietly rewrite itself. A refusal here is a no-op, not a failure.
     """
-    for cmd in (["npm", "view", PLUGIN, "version"], ["bun", "pm", "view", PLUGIN, "version"]):
-        if not which(cmd[0]):
-            continue
-        code, out = run(cmd, timeout=60)
-        if code != 0:
-            continue
-        for line in reversed(out.strip().splitlines()):
-            token = line.strip().strip('"')
-            if token and token[0].isdigit():
-                return token
-    return ""
+    if git(root, "rev-parse", "--git-dir")[0] != 0:
+        return False, ""
+    before = git(root, "rev-parse", "HEAD")[1].strip()
+    if git(root, "pull", "--ff-only")[0] != 0:
+        return False, before
+    after = git(root, "rev-parse", "HEAD")[1].strip()
+    return (before != after and bool(after)), after
 
 
 def worker() -> int:
@@ -250,29 +269,23 @@ def worker() -> int:
             notices.append(f"Claude Code plugin {before} -> {after_claude}")
 
     if os.environ.get("GRAPH_POWERS_UPDATE_CODEX") == "1" and which("codex"):
-        home = os.environ.get("HOME")
-        manifest = Path(home) / ".codex/graph-powers-installed.json" if home else None
-        if manifest is not None and manifest.is_file():
-            latest = published_version()
-            current = ""
-            try:
-                current = str(json.loads(manifest.read_text(encoding="utf-8")).get("version") or "")
-            except Exception:
-                pass
-            # Only when the registry genuinely moved. Regenerating unchanged Codex artefacts is
-            # not free: `.codex/hooks.json` is trusted by content, so rewriting it costs the user
-            # a `/hooks` re-approval and leaves the guardrails inert until they give it.
-            if latest and current and latest != current:
-                runner = "bunx" if which("bunx") else ("npx" if which("npx") else "")
-                if runner:
-                    code, _ = run([runner, "-y", f"{PLUGIN}@latest", "--target", "codex",
-                                   "--scope", "user", "--force", "--skip-marketplace"], timeout=300)
-                    if code == 0:
-                        notices.append(f"Codex artefacts regenerated at {latest}")
+        source = str(codex_manifest().get("pluginRoot") or "")
+        if source and Path(source).is_dir() and which("git"):
+            moved, head = pull_clone(Path(source))
+            # Only when the clone genuinely moved. Regenerating unchanged Codex artefacts is not
+            # free: `.codex/hooks.json` is trusted by content, so rewriting it costs the user a
+            # `/hooks` re-approval and leaves the guardrails inert until they give it.
+            if moved:
+                code, _ = run([
+                    "node", str(Path(source) / "bin/graph-powers.mjs"),
+                    "--target", "codex", "--scope", "user", "--force", "--skip-marketplace",
+                ], timeout=300)
+                if code == 0:
+                    notices.append(f"Codex artefacts regenerated at {head[:8]}")
 
     after = registered_version()
     if notices or (before and after and before != after):
-        version = after or published_version() or "a newer version"
+        version = after or "a newer version"
         write_state({
             "pendingNotice": (
                 f"[graph-powers] updated to {version} ({'; '.join(notices) or 'plugin files replaced'}). "

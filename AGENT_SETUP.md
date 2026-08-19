@@ -121,9 +121,21 @@ test -f .claude/settings.json && echo "settings.json present"
 Then locate the plugin on this machine, in this order, and **say which one you found**:
 
 1. `$GRAPH_POWERS`, if the variable is set;
-2. `~/.claude/plugins/cache/graph-powers/graph-powers/*/` (where Claude Code keeps installed plugins);
-3. the `node_modules/graph-powers/` of this project, if it was installed as a dependency;
-4. if none exists, **ask**. Do not guess a path.
+2. `~/.claude/plugins/cache/graph-powers/graph-powers/*/` — where Claude Code keeps installed
+   plugins. Prefer the highest version directory there;
+3. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
+4. if none exists, install it and say which route you took:
+
+   ```bash
+   # Claude Code, inside a session:
+   #   /plugin marketplace add GrupoUS/graph-powers
+   #   /plugin install graph-powers@graph-powers
+   # Anywhere, from a clone:
+   git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
+   ```
+
+   There is no package to install from a registry: a clone is the artefact, and `git pull` is the
+   update.
 
 **Export it, do not just name it.** The rest of this playbook runs commands that use
 `$PLUGIN`, and a convention that lives only in prose resolves to an empty string in a real shell —
@@ -472,6 +484,11 @@ both run. Nothing breaks immediately, which is why it goes unnoticed.
 ```bash
 node "$PLUGIN/bin/graph-powers.mjs" --target codex          # global half + project half
 ```
+
+If `$PLUGIN` is a git clone, that same script takes `--update`: it fast-forwards the clone and
+reinstalls from it. If it is a Claude Code plugin cache, updates come from
+`claude plugin update graph-powers@graph-powers` instead — note the qualified form, because the
+bare name is not found and the command exits 0 either way.
 
 It does the two halves in order, and **skips the global half when it is already there at this
 version** — so running it in a tenth project costs two files, not thirty.
