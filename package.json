@@ -1,0 +1,59 @@
+{
+  "name": "graph-powers",
+  "version": "1.0.0",
+  "description": "A shared harness for Claude Code and Codex CLI: agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in one config file and the plugin adapts.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "graph-powers": "./bin/graph-powers.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "codex",
+    "codex-cli",
+    "agents",
+    "agent-skills",
+    "skills",
+    "hooks",
+    "guardrails",
+    "harness"
+  ],
+  "files": [
+    "bin",
+    "codex",
+    "agents",
+    "skills",
+    "commands",
+    "references",
+    "hooks",
+    "schema",
+    "templates",
+    "examples",
+    ".claude-plugin",
+    "AGENT_SETUP.md",
+    "REVIEW.md",
+    "PRODUCT.md",
+    "DESIGN.md",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "!**/__pycache__",
+    "!**/*.pyc"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GrupoUS/graph-powers.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GrupoUS/graph-powers/issues"
+  },
+  "homepage": "https://github.com/GrupoUS/graph-powers#readme"
+}

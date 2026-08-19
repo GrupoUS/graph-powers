@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "project": {
+    "name": "acme-platform",
+    "displayName": "Acme Platform",
+    "stack": "monorepo-bun-trpc-drizzle-postgres-react19",
+    "locale": "en-US",
+    "stagingUrl": "https://staging.acme.example",
+    "productionUrl": "https://acme.example"
+  },
+  "git": {
+    "workBranch": "dev-test",
+    "protectedBranches": ["main", "master"],
+    "optInPrefix": "ACMEPLATFORM"
+  },
+  "tooling": {
+    "packageManager": "bun",
+    "typeChecker": "tsgo",
+    "linter": "biome",
+    "buildTool": "turbo",
+    "testRunner": "vitest",
+    "commands": {
+      "typeCheck": "bun run type-check",
+      "lint": "bun run lint",
+      "format": "bunx biome check --write",
+      "test": "bun run test",
+      "build": "bun run build"
+    }
+  },
+  "paths": {
+    "frontendRoot": "apps/web/src",
+    "backendRoot": "apps/api/src",
+    "schemaRoot": "apps/api/drizzle",
+    "componentsRoot": "apps/web/src/components",
+    "libRoot": "apps/web/src/lib",
+    "planDir": "docs/plans"
+  },
+  "codex": {
+    "model": "gpt-5.6",
+    "reasoningEffort": "high"
+  },
+  "graphGuardrails": { "maxSpawnsPerSession": 25, "maxRoundsPerAgent": 8 }
+}

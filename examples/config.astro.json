@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "project": {
+    "name": "acme-site",
+    "displayName": "Acme Site",
+    "stack": "astro-static-tailwindv4",
+    "locale": "en-US",
+    "productionUrl": "https://acme.example"
+  },
+  "git": {
+    "workBranch": "dev-test",
+    "protectedBranches": ["main"],
+    "optInPrefix": "ACMESITE"
+  },
+  "tooling": {
+    "packageManager": "bun",
+    "linter": "biome",
+    "buildTool": "astro",
+    "testRunner": null,
+    "commands": {
+      "typeCheck": "bunx astro check",
+      "lint": "bunx biome check",
+      "format": "bunx biome check --write",
+      "build": "bunx astro build"
+    }
+  },
+  "paths": {
+    "frontendRoot": "src",
+    "componentsRoot": "src/components",
+    "stylesRoot": "src/styles"
+  }
+}

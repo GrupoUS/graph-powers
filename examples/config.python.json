@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "project": {
+    "name": "acme-api",
+    "stack": "python-fastapi-postgres",
+    "locale": "en-US"
+  },
+  "git": {
+    "workBranch": "dev",
+    "protectedBranches": ["main"],
+    "optInPrefix": "ACMEAPI"
+  },
+  "tooling": {
+    "packageManager": "uv",
+    "typeChecker": "mypy",
+    "linter": "ruff",
+    "testRunner": "pytest",
+    "commands": {
+      "typeCheck": "uv run mypy src",
+      "lint": "uv run ruff check",
+      "format": "uv run ruff format",
+      "test": "uv run pytest"
+    }
+  },
+  "paths": {
+    "backendRoot": "src",
+    "schemaRoot": "alembic"
+  },
+  "protectedFiles": {
+    "exact": ["alembic.ini"],
+    "contains": [".env"]
+  }
+}

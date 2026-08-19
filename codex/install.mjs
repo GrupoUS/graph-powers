@@ -1,0 +1,527 @@
+#!/usr/bin/env node
+/**
+ * Generate the Codex CLI side of Graph Powers.
+ *
+ *   node codex/install.mjs [--project <dir>] [--plugin <dir>] [--scope project|user] [--dry-run]
+ *
+ * Codex reads four surfaces, and this writes all four from the artefacts that already exist
+ * for Claude Code:
+ *
+ *   .codex/hooks.json          <- .claude-plugin/plugin.json   (identical event names and schema)
+ *   .agents/skills/<name>/     <- skills/ and commands/        (identical SKILL.md frontmatter)
+ *   .codex/agents/<name>.toml  <- agents/*.md                  (translated)
+ *   AGENTS.md                  <- a delimited, idempotent block
+ *
+ * Two properties matter more than anything else here:
+ *
+ *   **Merge, never overwrite.** Other tools write `.codex/hooks.json` too — `npx impeccable
+ *   install` is one of them. Clobbering it would silently disable somebody else's guardrails,
+ *   which is the same failure this plugin exists to prevent, pointed the other way.
+ *
+ *   **Record what was written.** `.graph-powers/installed.json` lists every generated path and
+ *   every hook entry added, so removal is exact rather than a guess with a glob.
+ */
+
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  asList, copyTree, listDirs, listMarkdown, parseFrontmatter, readJson,
+  tomlBlock, tomlString, writeFile,
+} from "./lib.mjs";
+
+const MARKER_START = "<!-- graph-powers:start -->";
+const MARKER_END = "<!-- graph-powers:end -->";
+const MANIFEST = ".graph-powers/installed.json";
+
+// ── hooks ────────────────────────────────────────────────────────────────────
+
+/**
+ * Codex event names, payload shape and blocking semantics match Claude Code's, so the Python
+ * files run unchanged. Only the wiring is regenerated, and only the plugin-root placeholder
+ * has to be resolved — Codex does not export CLAUDE_PLUGIN_ROOT.
+ */
+export function buildHooks(pluginJson, pluginRoot) {
+  const out = {};
+  const added = [];
+  for (const [event, matchers] of Object.entries(pluginJson.hooks ?? {})) {
+    out[event] = matchers.map((group) => ({
+      ...(group.matcher ? { matcher: group.matcher } : {}),
+      hooks: group.hooks.map((h) => {
+        const command = h.command.replaceAll("${CLAUDE_PLUGIN_ROOT}", pluginRoot);
+        added.push({ event, command });
+        return { type: h.type, command, ...(h.timeout ? { timeout: h.timeout } : {}) };
+      }),
+    }));
+  }
+  return { hooks: out, added };
+}
+
+/** Union of an existing hooks file and ours, keyed by (event, matcher, command). */
+export function mergeHooks(existing, ours) {
+  const merged = JSON.parse(JSON.stringify(existing?.hooks ? existing : { hooks: {} }));
+  merged.hooks ??= {};
+
+  for (const [event, groups] of Object.entries(ours)) {
+    const target = (merged.hooks[event] ??= []);
+    for (const group of groups) {
+      const slot = target.find((g) => (g.matcher ?? null) === (group.matcher ?? null));
+      if (!slot) {
+        target.push(JSON.parse(JSON.stringify(group)));
+        continue;
+      }
+      slot.hooks ??= [];
+      for (const hook of group.hooks) {
+        if (!slot.hooks.some((h) => h.command === hook.command)) {
+          slot.hooks.push({ ...hook });
+        }
+      }
+    }
+  }
+  return merged;
+}
+
+/** Remove only the entries a previous run recorded; leave every other tool's hooks alone. */
+export function unmergeHooks(existing, addedCommands) {
+  if (!existing?.hooks) return existing;
+  const kill = new Set(addedCommands);
+  const out = { ...existing, hooks: {} };
+  for (const [event, groups] of Object.entries(existing.hooks)) {
+    const kept = groups
+      .map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !kill.has(h.command)) }))
+      .filter((g) => g.hooks.length > 0);
+    if (kept.length) out.hooks[event] = kept;
+  }
+  return out;
+}
+
+// ── subagents ────────────────────────────────────────────────────────────────
+
+const JUDGING_ROLES = new Set(["evaluator", "researcher", "orchestrator"]);
+
+/**
+ * `agents/*.md` -> `.codex/agents/<name>.toml`.
+ *
+ * The one translation that carries meaning: `disallowedTools: Write, Edit` becomes
+ * `sandbox_mode = "read-only"`. Codex has no per-tool denylist, and a read-only claim that
+ * survives only as prose in the body is exactly the defect this plugin found in its own agents.
+ */
+export function agentToToml(markdown, { model, reasoningEffort }) {
+  const { data, body } = parseFrontmatter(markdown);
+  if (!data.name || !data.description) return null;
+
+  // Read-only means the agent cannot produce a file. Denying only `Edit` (as the planner does,
+  // to keep Write for its plan file) is not read-only, and sandboxing it as such would break it.
+  const denied = asList(data.disallowedTools).map((t) => String(t).toLowerCase());
+  const readOnly = denied.includes("write");
+
+  const lines = [
+    "# Generated by graph-powers from agents/" + data.name + ".md — do not edit by hand.",
+    "# Change the source agent and re-run the installer; an edit here is lost on the next update.",
+    "",
+    `name = ${tomlString(data.name)}`,
+    `description = ${tomlString(data.description)}`,
+  ];
+
+  if (model) lines.push(`model = ${tomlString(model)}`);
+  const effort = JUDGING_ROLES.has(String(data.role_type)) ? (reasoningEffort || "high") : reasoningEffort;
+  if (effort) lines.push(`model_reasoning_effort = ${tomlString(effort)}`);
+  if (readOnly) lines.push(`sandbox_mode = "read-only"`);
+
+  lines.push("", `developer_instructions = ${tomlBlock(body)}`, "");
+  return lines.join("\n");
+}
+
+// ── AGENTS.md ────────────────────────────────────────────────────────────────
+
+export function agentsBlock(refsDir = "~/.codex/graph-powers", { global: isGlobal = false } = {}) {
+  return [
+    MARKER_START,
+    "## Graph Powers",
+    "",
+    isGlobal
+      ? "This machine runs the Graph Powers harness, installed once and shared by every project."
+      : "This project runs the Graph Powers harness.",
+    "",
+    "Two files carry everything else:",
+    "",
+    `- \`${refsDir}/shared-context.md\` — config loader, quality gates, complexity routing, agent`,
+    "  matrix, spawn patterns. Read it before acting on any non-trivial task.",
+    `- \`${refsDir}/safety-floor.md\` — the invariants that hold regardless of the task: git and`,
+    "  outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,",
+    "  scope, completion claims, accessibility.",
+    "",
+    "**What is global and what is this project's.** The harness itself — skills, subagents,",
+    "commands, guardrails — is installed once for the whole machine, because it is identical",
+    "everywhere. What belongs to this repository and nothing else lives here:",
+    "",
+    "- `.graph-powers/config.json` — the branch, the gate commands, the paths, the opt-in prefix",
+    "- `.codex/rules/` and `.claude/rules/` — this project's domain rules",
+    "- `DESIGN.md`, `PRODUCT.md`, `REVIEW.md` — its design, product and review authorities",
+    "",
+    "The guardrails are what make one global copy correct rather than sloppy: they read **this**",
+    "project's config at runtime, so the same files enforce a different work branch and a different",
+    "opt-in key in every repository.",
+    "",
+    "Read the config; never assume it. A denied command is the rule working, not a bug to route",
+    "around: it names the environment variable that releases it, and a person sets that variable,",
+    "in the turn they approved it.",
+    MARKER_END,
+  ].join("\n");
+}
+
+export function upsertBlock(existing, block) {
+  const text = existing ?? "";
+  const start = text.indexOf(MARKER_START);
+  const end = text.indexOf(MARKER_END);
+  if (start !== -1 && end !== -1 && end > start) {
+    return text.slice(0, start) + block + text.slice(end + MARKER_END.length);
+  }
+  return text.trimEnd() ? `${text.trimEnd()}\n\n${block}\n` : `${block}\n`;
+}
+
+// ── orchestration ────────────────────────────────────────────────────────────
+
+// Where each surface lives, by scope.
+//
+// The split is not arbitrary. **The harness is identical in every project, so it installs once,
+// globally.** What differs per project — the branch, the gate commands, the paths, the opt-in
+// prefix, the domain rules, the design and product and review authorities — is what stays local.
+//
+// The guardrails make this work rather than break it: one global copy of the hooks reads each
+// project's own `.graph-powers/config.json` at runtime through `_config.py`. So a single install
+// enforces a different work branch and a different opt-in key in every repository, without a
+// second copy of anything.
+export function codexPaths(scope, projectDir) {
+  const home = process.env.CODEX_HOME || join(process.env.HOME ?? projectDir, ".codex");
+  const agentsHome = process.env.HOME ?? projectDir;
+  return scope === "user"
+    ? {
+        skills: join(agentsHome, ".agents/skills"),
+        agents: join(home, "agents"),
+        hooks: join(home, "hooks.json"),
+        references: join(home, "graph-powers"),
+        // `~/.codex/` is the same path on every machine, so an AGENTS.md that points there stays
+        // portable when it is committed — unlike an absolute plugin path.
+        referencesRef: "~/.codex/graph-powers",
+        instructions: join(home, "AGENTS.md"),
+        manifest: join(home, "graph-powers-installed.json"),
+      }
+    : {
+        skills: join(projectDir, ".agents/skills"),
+        agents: join(projectDir, ".codex/agents"),
+        hooks: join(projectDir, ".codex/hooks.json"),
+        references: join(projectDir, ".codex/graph-powers"),
+        referencesRef: ".codex/graph-powers",
+        instructions: join(projectDir, "AGENTS.md"),
+        manifest: join(projectDir, MANIFEST),
+      };
+}
+
+/** Is the harness already installed globally for Codex, at this version? */
+export function globallyInstalled(pluginRoot) {
+  const paths = codexPaths("user", process.cwd());
+  const manifest = readJson(paths.manifest);
+  if (!manifest) return { installed: false };
+  const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json")) ?? {};
+  return {
+    installed: true,
+    sameVersion: manifest.version === pluginJson.version,
+    version: manifest.version,
+    available: pluginJson.version,
+    manifest: paths.manifest,
+  };
+}
+
+/**
+ * The global half: everything that is identical in every project.
+ *
+ * Skipped entirely when it is already present at the same version — re-copying 12 skills on every
+ * project setup is work nobody asked for, and on Codex it would also churn `hooks.json`, which
+ * costs the user a re-approval prompt for no change.
+ */
+export function installGlobal({ pluginRoot, dryRun = false, force = false, log = () => {} }) {
+  const paths = codexPaths("user", process.cwd());
+  const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
+  if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
+
+  const state = globallyInstalled(pluginRoot);
+  if (state.installed && state.sameVersion && !force) {
+    log(`already global at ${state.version} — skipped`);
+    return { skipped: true, written: [], ...state };
+  }
+
+  const written = [];
+  const emit = (path, contents) => {
+    log(path);
+    if (!dryRun) writeFile(path, contents);
+    written.push(path);
+  };
+
+  // Hooks, merged. Another tool writes this file too (`npx impeccable install` is one), and
+  // clobbering it would silently disable somebody else's guardrails.
+  const { hooks, added } = buildHooks(pluginJson, pluginRoot);
+  emit(paths.hooks, `${JSON.stringify(mergeHooks(readJson(paths.hooks, { hooks: {} }), hooks), null, 2)}\n`);
+
+  // Skills — identical format, copied rather than converted.
+  //
+  // **Record each skill directory, never the parent.** `~/.agents/skills` is shared: it already
+  // holds whatever else the person installed. Putting the parent in the manifest would make
+  // `--uninstall` delete their other tools' skills along with ours.
+  const skipJunk = (_src, entry) => entry === "__pycache__" || entry.endsWith(".pyc");
+  if (!dryRun) copyTree(join(pluginRoot, "skills"), paths.skills, skipJunk);
+  for (const name of listDirs(join(pluginRoot, "skills"))) {
+    written.push(join(paths.skills, name));
+  }
+  log(`${paths.skills}/ (${listDirs(join(pluginRoot, "skills")).length} skills)`);
+
+  // Commands become skills: Codex deprecated custom prompts in favour of them.
+  for (const file of listMarkdown(join(pluginRoot, "commands"))) {
+    const name = basename(file, ".md");
+    const { data, body } = parseFrontmatter(readFileSync(join(pluginRoot, "commands", file), "utf8"));
+    if (!data.description) continue;
+    written.push(join(paths.skills, `graph-powers-${name}`));
+    emit(join(paths.skills, `graph-powers-${name}`, "SKILL.md"), [
+      "---",
+      `name: graph-powers-${name}`,
+      `description: ${JSON.stringify(String(data.description))}`,
+      "---",
+      "",
+      `> Generated from the \`/${name}\` command of Graph Powers. On Claude Code this is a slash`,
+      "> command; Codex reads it as a skill, which is the surface Codex kept.",
+      "",
+      body.trimStart(),
+    ].join("\n"));
+  }
+
+  // Subagents.
+  const codexCfg = {};
+  for (const file of listMarkdown(join(pluginRoot, "agents"))) {
+    const toml = agentToToml(readFileSync(join(pluginRoot, "agents", file), "utf8"), codexCfg);
+    if (toml) emit(join(paths.agents, `${basename(file, ".md")}.toml`), toml);
+  }
+
+  // Shared references, and the instruction block that points at them.
+  if (!dryRun) copyTree(join(pluginRoot, "references"), paths.references);
+  log(`${paths.references}/ (shared references)`);
+  written.push(paths.references);
+
+  const current = existsSync(paths.instructions) ? readFileSync(paths.instructions, "utf8") : "";
+  emit(paths.instructions, upsertBlock(current, agentsBlock(paths.referencesRef, { global: true })));
+
+  emit(paths.manifest, `${JSON.stringify({
+    version: pluginJson.version,
+    scope: "user",
+    pluginRoot,
+    hookCommands: added.map((a) => a.command),
+    paths: written.filter((p) => p !== paths.manifest),
+  }, null, 2)}\n`);
+
+  return { skipped: false, written, version: pluginJson.version };
+}
+
+/**
+ * The project half: only what cannot be anything but local.
+ *
+ * Rules, and the instruction block that names this project's config. Everything else already
+ * exists globally, so a second copy here would be the divergence this plugin was built to end.
+ */
+export function installProject({ projectDir, pluginRoot, dryRun = false, log = () => {} }) {
+  const paths = codexPaths("user", projectDir);
+  const written = [];
+  const emit = (path, contents) => {
+    log(path);
+    if (!dryRun) writeFile(path, contents);
+    written.push(path);
+  };
+
+  // Rule templates — the project adapts them; they are its own, and they diverge on purpose.
+  const rulesSrc = join(pluginRoot, "templates/rules");
+  const rulesDst = join(projectDir, ".codex/rules");
+  if (existsSync(rulesSrc)) {
+    if (!dryRun) copyTree(rulesSrc, rulesDst);
+    log(`${rulesDst}/ (rule templates — adapt them, they are yours)`);
+    written.push(rulesDst);
+  }
+
+  const agentsPath = join(projectDir, "AGENTS.md");
+  const current = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "";
+  emit(agentsPath, upsertBlock(current, agentsBlock(paths.referencesRef, { global: true })));
+
+  return written;
+}
+
+/** Backwards-compatible entry point: global first, then the project half. */
+export function install({ projectDir, pluginRoot, scope = "user", dryRun = false, force = false, log = () => {} }) {
+  if (scope === "project") {
+    return installProjectOnlyLegacy({ projectDir, pluginRoot, dryRun, log });
+  }
+  const global = installGlobal({ pluginRoot, dryRun, force, log });
+  const project = installProject({ projectDir, pluginRoot, dryRun, log });
+  return [...global.written, ...project];
+}
+
+/**
+ * Everything into the project, nothing global. Kept for the case the global default cannot serve:
+ * a machine where several people share a home directory, or a repository that must carry its own
+ * pinned copy. It is not the default, and the setup playbook says why.
+ */
+function installProjectOnlyLegacy({ projectDir, pluginRoot, dryRun = false, log = () => {} }) {
+  const paths = codexPaths("project", projectDir);
+  const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
+  if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
+
+  const written = [];
+  const emit = (path, contents) => {
+    log(path);
+    if (!dryRun) writeFile(path, contents);
+    written.push(path);
+  };
+
+  const { hooks, added } = buildHooks(pluginJson, pluginRoot);
+  emit(paths.hooks, `${JSON.stringify(mergeHooks(readJson(paths.hooks, { hooks: {} }), hooks), null, 2)}\n`);
+
+  const skipJunk = (_src, entry) => entry === "__pycache__" || entry.endsWith(".pyc");
+  if (!dryRun) copyTree(join(pluginRoot, "skills"), paths.skills, skipJunk);
+  for (const name of listDirs(join(pluginRoot, "skills"))) {
+    written.push(join(paths.skills, name));
+  }
+  log(`${paths.skills}/ (skills)`);
+
+  for (const file of listMarkdown(join(pluginRoot, "commands"))) {
+    const name = basename(file, ".md");
+    const { data, body } = parseFrontmatter(readFileSync(join(pluginRoot, "commands", file), "utf8"));
+    if (!data.description) continue;
+    written.push(join(paths.skills, `graph-powers-${name}`));
+    emit(join(paths.skills, `graph-powers-${name}`, "SKILL.md"), [
+      "---", `name: graph-powers-${name}`,
+      `description: ${JSON.stringify(String(data.description))}`, "---", "",
+      body.trimStart(),
+    ].join("\n"));
+  }
+
+  for (const file of listMarkdown(join(pluginRoot, "agents"))) {
+    const toml = agentToToml(readFileSync(join(pluginRoot, "agents", file), "utf8"), {});
+    if (toml) emit(join(paths.agents, `${basename(file, ".md")}.toml`), toml);
+  }
+
+  const rulesSrc = join(pluginRoot, "templates/rules");
+  if (existsSync(rulesSrc)) {
+    if (!dryRun) copyTree(rulesSrc, join(projectDir, ".codex/rules"));
+    written.push(join(projectDir, ".codex/rules"));
+  }
+
+  if (!dryRun) copyTree(join(pluginRoot, "references"), paths.references);
+  written.push(paths.references);
+
+  const agentsPath = join(projectDir, "AGENTS.md");
+  const current = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "";
+  emit(agentsPath, upsertBlock(current, agentsBlock(paths.referencesRef)));
+
+  emit(paths.manifest, `${JSON.stringify({
+    version: pluginJson.version,
+    pluginRoot,
+    scope: "project",
+    hookCommands: added.map((a) => a.command),
+    machineSpecific: [".codex/hooks.json", ".codex/agents/", ".agents/skills/"],
+    paths: written.filter((p) => p !== paths.manifest),
+  }, null, 2)}\n`);
+
+  return written;
+}
+
+/**
+ * Remove exactly what a previous run recorded — in both scopes.
+ *
+ * There are two manifests, because there are two halves: the global one in the Codex home and the
+ * project one. An uninstall that reads only one leaves the other half installed while reporting
+ * success, which is how a "clean" machine keeps running old hooks.
+ */
+export function uninstall({ projectDir, scope = "all", dryRun = false, log = () => {} }) {
+  const targets = [];
+  if (scope !== "project") targets.push({ kind: "global", ...codexPaths("user", projectDir) });
+  if (scope !== "user") {
+    targets.push({ kind: "project", ...codexPaths("project", projectDir), manifest: join(projectDir, MANIFEST) });
+  }
+
+  const removed = [];
+  for (const target of targets) {
+    const manifest = readJson(target.manifest);
+    if (!manifest) {
+      log(`${target.kind}: no manifest — nothing recorded, nothing removed`);
+      continue;
+    }
+
+    // Hooks: subtract only the entries we added. Another tool writes this file too.
+    const existing = readJson(target.hooks);
+    if (existing) {
+      const cleaned = unmergeHooks(existing, manifest.hookCommands ?? []);
+      log(target.hooks);
+      if (!dryRun) writeFile(target.hooks, `${JSON.stringify(cleaned, null, 2)}\n`);
+    }
+
+    for (const path of manifest.paths ?? []) {
+      if (path === target.hooks) continue;
+
+      if (path.endsWith("AGENTS.md")) {
+        const text = existsSync(path) ? readFileSync(path, "utf8") : "";
+        const a = text.indexOf(MARKER_START);
+        const b = text.indexOf(MARKER_END);
+        if (a !== -1 && b !== -1) {
+          log(`${path} (block removed)`);
+          if (!dryRun) writeFile(path, `${(text.slice(0, a) + text.slice(b + MARKER_END.length)).trim()}\n`);
+        }
+        continue;
+      }
+
+      // Never delete a directory that other tools share. `~/.agents/skills` holds whatever else
+      // the person installed; only the specific skill folders below it are ours.
+      if (/(^|\/)(\.agents|skills|\.codex|agents)$/.test(path)) {
+        log(`${path} — refused: shared directory, not ours to delete`);
+        continue;
+      }
+      if (!existsSync(path)) continue;
+      log(path);
+      if (!dryRun) rmSync(path, { recursive: true, force: true });
+      removed.push(path);
+    }
+
+    if (!dryRun) rmSync(target.manifest, { force: true });
+  }
+
+  // Prune only directories we created, and only when nothing else moved in.
+  for (const dir of [
+    join(projectDir, ".codex/agents"), join(projectDir, ".codex/graph-powers"),
+    join(projectDir, ".codex/rules"), join(projectDir, ".graph-powers"),
+    join(codexPaths("user", projectDir).references),
+    join(codexPaths("user", projectDir).agents),
+  ]) {
+    try {
+      if (existsSync(dir) && readdirSync(dir).length === 0 && !dryRun) rmSync(dir, { recursive: true });
+    } catch { /* non-empty or unreadable stays — never guess here */ }
+  }
+  return removed;
+}
+
+// ── CLI ──────────────────────────────────────────────────────────────────────
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+  const argv = process.argv.slice(2);
+  const value = (flag, fallback) => {
+    const i = argv.indexOf(flag);
+    return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[i + 1] : fallback;
+  };
+  const opts = {
+    projectDir: resolve(value("--project", process.cwd())),
+    pluginRoot: resolve(value("--plugin", join(fileURLToPath(new URL(".", import.meta.url)), ".."))),
+    scope: value("--scope", "user"),
+    dryRun: argv.includes("--dry-run"),
+    log: (p) => console.log(`  ${p}`),
+  };
+  if (argv.includes("--uninstall")) {
+    uninstall(opts);
+  } else {
+    install(opts);
+  }
+}

@@ -1,0 +1,377 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "title": "Graph Powers — project configuration contract",
+  "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .graph-powers/config.json instead; both locations are read, .graph-powers/ first.",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "object",
+      "description": "Identity. Shows up in reports and gate messages; nothing here changes behaviour.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Slug, e.g. acme-web"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "stack": {
+          "type": "string",
+          "description": "Free-form stack identifier. Stack-gated skills and rules read this — 'astro' turns on the astro skill.",
+          "examples": [
+            "astro-static-tailwindv4",
+            "monorepo-bun-trpc-drizzle-postgres-react19",
+            "python-fastapi"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "default": "en-US"
+        },
+        "stagingUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "productionUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "description": "The git rails. Read by git_commit_gate, git_push_gate, git_branch_gate and branch_session_notice.",
+      "properties": {
+        "workBranch": {
+          "type": "string",
+          "default": "dev-test",
+          "description": "The branch work happens on. A session that starts outside it gets a notice."
+        },
+        "protectedBranches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "main",
+            "master"
+          ],
+          "description": "No checkout that lands HEAD here, and no push, without an explicit opt-in in the turn."
+        },
+        "optInPrefix": {
+          "type": "string",
+          "default": "GRAPHPOWERS",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "Prefix of the keys that release a risky action: <PREFIX>_ALLOW_COMMIT, _ALLOW_PUSH, _ALLOW_PUSH_MAIN, _ALLOW_MAIN_CHECKOUT, _ALLOW_SPAWN_OVER, _ALLOW_OFF_LEASE. Use one prefix per project: with the same key in two repositories, an approval given in one starts counting in the other."
+        }
+      }
+    },
+    "tooling": {
+      "type": "object",
+      "description": "The commands the gates run. Without these, a gate 'passes' because the command does not exist.",
+      "properties": {
+        "packageManager": {
+          "type": "string",
+          "examples": [
+            "bun",
+            "pnpm",
+            "npm",
+            "yarn",
+            "uv",
+            "cargo"
+          ]
+        },
+        "typeChecker": {
+          "type": "string",
+          "examples": [
+            "tsgo",
+            "tsc",
+            "mypy"
+          ]
+        },
+        "linter": {
+          "type": "string",
+          "examples": [
+            "biome",
+            "oxlint",
+            "eslint",
+            "ruff"
+          ]
+        },
+        "buildTool": {
+          "type": "string",
+          "examples": [
+            "vite",
+            "astro",
+            "next",
+            "turbo"
+          ]
+        },
+        "testRunner": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "null when the project has no tests — the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
+        },
+        "commands": {
+          "type": "object",
+          "description": "The literal command per gate. Whatever is here beats any inference.",
+          "properties": {
+            "typeCheck": {
+              "type": "string",
+              "examples": [
+                "bun run type-check"
+              ]
+            },
+            "lint": {
+              "type": "string",
+              "examples": [
+                "bun run lint"
+              ]
+            },
+            "format": {
+              "type": "string",
+              "examples": [
+                "bunx biome check --write"
+              ]
+            },
+            "test": {
+              "type": "string"
+            },
+            "build": {
+              "type": "string",
+              "examples": [
+                "bun run build"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "description": "Where the code lives. A single app sets frontendRoot='src' and omits the rest. An empty field means the project has no such layer — plans must not invent one.",
+      "properties": {
+        "frontendRoot": {
+          "type": "string",
+          "examples": [
+            "src",
+            "apps/web/src"
+          ]
+        },
+        "backendRoot": {
+          "type": "string",
+          "examples": [
+            "apps/api/src"
+          ]
+        },
+        "schemaRoot": {
+          "type": "string",
+          "examples": [
+            "apps/api/drizzle",
+            "prisma"
+          ]
+        },
+        "componentsRoot": {
+          "type": "string",
+          "examples": [
+            "src/components"
+          ]
+        },
+        "libRoot": {
+          "type": "string",
+          "examples": [
+            "src/lib"
+          ]
+        },
+        "stylesRoot": {
+          "type": "string",
+          "examples": [
+            "src/styles"
+          ]
+        },
+        "planDir": {
+          "type": "string",
+          "default": "docs/plans"
+        },
+        "rulesDir": {
+          "type": "string",
+          "default": ".claude/rules"
+        }
+      }
+    },
+    "codex": {
+      "type": "object",
+      "description": "Codex CLI specifics. Only read when generating .codex/ artefacts; ignored under Claude Code.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model written into generated .codex/agents/*.toml. Left to the project because model names age faster than this plugin does.",
+          "examples": [
+            "gpt-5.6",
+            "gpt-5.6-codex"
+          ]
+        },
+        "reasoningEffort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "high",
+          "description": "model_reasoning_effort for generated subagents. The node that judges runs high — a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
+        },
+        "skillsDir": {
+          "type": "string",
+          "default": ".agents/skills",
+          "description": "Where the installer writes skills for Codex. Codex also reads ~/.agents/skills at user scope."
+        }
+      }
+    },
+    "graphGuardrails": {
+      "type": "object",
+      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work — calibrate by measuring, not by guessing.",
+      "properties": {
+        "maxSpawnsPerSession": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 25
+        },
+        "maxRoundsPerAgent": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 8,
+          "description": "Re-spawning the same specialist many times is the signature of a loop that is not converging."
+        }
+      }
+    },
+    "protectedFiles": {
+      "type": "object",
+      "description": "Files no agent writes, under any circumstance. Each list extends the generic defaults; it never replaces them.",
+      "properties": {
+        "exact": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "description": "Quality thresholds (Lighthouse, Core Web Vitals, bundle size). Consumed by the performance skill.",
+      "properties": {
+        "lighthouse": {
+          "type": "object"
+        },
+        "lcp": {
+          "type": "number"
+        },
+        "cls": {
+          "type": "number"
+        },
+        "inp": {
+          "type": "number"
+        },
+        "initialJsKb": {
+          "type": "number"
+        }
+      }
+    },
+    "autonomy": {
+      "type": "object",
+      "description": "How much the agent does without stopping to ask. This is the field that decides whether a session feels like work or like clicking Approve. Read by smart_bash_approver and the three git gates, and used by the installer to write a matching permissions allowlist.",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "guarded",
+            "autonomous"
+          ],
+          "default": "guarded",
+          "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key — the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
+        },
+        "bashDefault": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "allow"
+          ],
+          "description": "What happens to a command matching no known pattern. Defaults to ask under guarded and allow under autonomous. This single field is the source of most approval prompts."
+        },
+        "cleanup": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "allow"
+          ],
+          "description": "Deleting build output, caches, __pycache__, logs. Defaults to ask under guarded and allow under autonomous."
+        },
+        "git": {
+          "type": "object",
+          "description": "Per-action git autonomy. 'auto' means the gate passes without the opt-in key; the gate still runs and still reports what it let through.",
+          "properties": {
+            "commit": {
+              "type": "string",
+              "enum": [
+                "ask",
+                "auto"
+              ]
+            },
+            "push": {
+              "type": "string",
+              "enum": [
+                "ask",
+                "auto"
+              ]
+            },
+            "protectedBranch": {
+              "type": "string",
+              "enum": [
+                "ask",
+                "auto"
+              ],
+              "description": "Checking out or pushing to a protected branch. Left at ask even under autonomous by default: it is the one git action whose blast radius is other people."
+            }
+          }
+        },
+        "destructiveFloor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
+        },
+        "allowPackageManagers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project — a lockfile that must not fork.",
+          "examples": [
+            [
+              "bun"
+            ],
+            [
+              "pnpm",
+              "npx"
+            ]
+          ]
+        }
+      }
+    }
+  }
+}

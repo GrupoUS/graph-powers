@@ -1,0 +1,131 @@
+{
+  "skill": "debugger",
+  "version": "1.0.0",
+  "assertions": [
+    {
+      "id": "A01",
+      "description": "Output follows Iron Law: no fix without root cause investigation",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"root cause\", \"Root Cause\", \"root-cause\", \"hipotese\", \"hypothesis\"]",
+      "critical": true
+    },
+    {
+      "id": "A02",
+      "description": "Output does NOT tell the author to replace db.transaction() with db.batch(). Splitting related writes into independent statements to dodge a driver-capability error is the wrong fix: it turns an atomic update (a ledger mirror plus a stock deduction) into a half-appliable one, which is the damage the old 'no transactions on HTTP serverless drivers' rule existed to prevent. The correct answer verifies which driver the connection module imports before touching any call site. Asserting not_contains db.transaction() instead would fail every correct answer about atomic writes.",
+      "type": "behavioral",
+      "check": "not_contains: \"db.batch(\"",
+      "critical": true
+    },
+    {
+      "id": "A03",
+      "description": "Output references quality gates (type-check, lint, test)",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"type-check\", \"bun run type-check\", \"quality gate\", \"verification gate\"]",
+      "critical": true
+    },
+    {
+      "id": "A04",
+      "description": "Output prefers CDP attach for session-bound pages (agent-browser --cdp), not headless-only",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"--cdp\", \"CDP attach\", \"browser-setup\"]",
+      "critical": true
+    },
+    {
+      "id": "A05",
+      "description": "Output references snapshot-before-interaction for agent-browser",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"snapshot\", \"browser-setup\"]",
+      "critical": false
+    },
+    {
+      "id": "A06",
+      "description": "Output uses agent-browser default browser session for public pages",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"agent-browser open\", \"bunx agent-browser open\", \"agent-browser\"]",
+      "critical": false
+    },
+    {
+      "id": "A07",
+      "description": "Output does NOT use console.log in fix suggestions (stability rule H)",
+      "type": "behavioral",
+      "check": "not_contains: \"console.log\"",
+      "critical": false
+    },
+    {
+      "id": "A08",
+      "description": "Output does NOT use non-null assertion ! on optional data (stability rule B)",
+      "type": "behavioral",
+      "check": "not_contains: \".returning()[0]!\"",
+      "critical": true
+    },
+    {
+      "id": "A09",
+      "description": "Output guards .returning()[0] access against empty arrays (stability rule C)",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"guard\", \"if (!result\", \"if (!inserted\", \"??\", \"|| throw\", \"throw new\"]",
+      "critical": false
+    },
+    {
+      "id": "A10",
+      "description": "Output selects correct pack based on symptom type",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"frontend-debug\", \"backend-debug\", \"auth-db-debug\", \"systematic-audit\"]",
+      "critical": false
+    },
+    {
+      "id": "A11",
+      "description": "Output references one fix at a time principle",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"one change\", \"one fix\", \"uma correcao\", \"minimal fix\", \"smallest possible\"]",
+      "critical": false
+    },
+    {
+      "id": "A12",
+      "description": "Output does NOT use as any to silence type errors (stability rule I)",
+      "type": "behavioral",
+      "check": "not_contains: \"as any\"",
+      "critical": false
+    },
+    {
+      "id": "A13",
+      "description": "Output length is under 800 words for focused responses",
+      "type": "format",
+      "check": "word_count_max: 800",
+      "critical": false
+    },
+    {
+      "id": "A14",
+      "description": "Output references evidence confirmation (screenshot or DB validation)",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"screenshot\", \"evidence\", \"screenshot\", \"psql\", \"validation\", \"browser\"]",
+      "critical": false
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "T01",
+      "input": "The CRM kanban page at /crm/leads shows a blank white screen after clicking a lead card. No errors in the console. How should I debug this?",
+      "expected_assertions": ["A01", "A03", "A04", "A05", "A10", "A11", "A13"]
+    },
+    {
+      "id": "T02",
+      "input": "I'm getting 'Cannot read properties of undefined' after inserting a new lead via mutation. The insert uses .returning()[0] to get the created row.",
+      "expected_assertions": ["A01", "A02", "A03", "A08", "A09", "A10", "A11", "A13"]
+    },
+    {
+      "id": "T03",
+      "input": "The landing page at / shows broken layout on mobile (375px). All data is public, no login needed.",
+      "expected_assertions": ["A01", "A03", "A06", "A10", "A11", "A13", "A14"]
+    },
+    {
+      "id": "T04",
+      "input": "Users report seeing data from other tenants on the financial summary page. This is a cross-tenant data leak.",
+      "expected_assertions": ["A01", "A02", "A03", "A04", "A05", "A10", "A11", "A12", "A13"]
+    },
+    {
+      "id": "T05",
+      "input": "Full debug: a dashboard page shows stale metrics that don't update after creating a new record. Need to investigate the full stack from query/cache layer to API handler to ORM query.",
+      "expected_assertions": ["A01", "A02", "A03", "A04", "A05", "A07", "A10", "A11", "A13", "A14"]
+    }
+  ]
+}

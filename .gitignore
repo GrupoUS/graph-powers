@@ -1,0 +1,24 @@
+# Local execution state — never versioned.
+AGENT_STOP
+.claude/logs/
+.graph-powers/logs/
+.graph-powers/installed.json
+.claude/settings.local.json
+
+# Generated for Codex: these embed this machine's plugin path and are regenerated
+# per machine by `bunx graph-powers --target codex`.
+.codex/hooks.json
+.codex/agents/
+.agents/skills/
+
+# Packaging artefacts
+*.tgz
+node_modules/
+
+# Python cache (the hooks are stdlib, but the interpreter leaves this behind)
+__pycache__/
+*.pyc
+
+# Operating system
+.DS_Store
+Thumbs.db

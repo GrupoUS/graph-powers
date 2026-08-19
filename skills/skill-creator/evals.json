@@ -1,0 +1,79 @@
+{
+  "skill": "skill-creator",
+  "version": "1.0.0",
+  "assertions": [
+    {
+      "id": "A01",
+      "description": "Output includes YAML frontmatter with name and description fields",
+      "type": "structural",
+      "check": "contains_one_of: [\"frontmatter\", \"name:\", \"description:\"]",
+      "critical": true
+    },
+    {
+      "id": "A02",
+      "description": "Output references the SKILL.md file as the required entry point",
+      "type": "structural",
+      "check": "contains: \"SKILL.md\"",
+      "critical": true
+    },
+    {
+      "id": "A03",
+      "description": "Output references the skill anatomy (scripts/, references/, assets/)",
+      "type": "structural",
+      "check": "contains_one_of: [\"scripts/\", \"references/\", \"assets/\", \"anatomy\"]",
+      "critical": false
+    },
+    {
+      "id": "A04",
+      "description": "Output references Agent Search Optimization for discoverability",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"discoverability\", \"discovery\", \"trigger\", \"description\"]",
+      "critical": true
+    },
+    {
+      "id": "A05",
+      "description": "Output mentions testing or evals for skill quality verification",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"evals\", \"test\", \"assertion\", \"verify\", \"quality\"]",
+      "critical": false
+    },
+    {
+      "id": "A06",
+      "description": "Output classifies skill type (Technique, Pattern, Reference, Discipline)",
+      "type": "behavioral",
+      "check": "contains_one_of: [\"Technique\", \"Pattern\", \"Reference\", \"Discipline\", \"type\"]",
+      "critical": false
+    },
+    {
+      "id": "A07",
+      "description": "Output does NOT create skills without the required frontmatter structure",
+      "type": "behavioral",
+      "check": "not_contains: \"skip frontmatter\"",
+      "critical": true
+    },
+    {
+      "id": "A08",
+      "description": "Output length is under 600 words for focused responses",
+      "type": "format",
+      "check": "word_count_max: 600",
+      "critical": false
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "T01",
+      "input": "Create a new skill for managing Stripe webhook integrations.",
+      "expected_assertions": ["A01", "A02", "A03", "A04", "A05", "A07", "A08"]
+    },
+    {
+      "id": "T02",
+      "input": "How should I structure a skill that provides API documentation reference for a third-party service?",
+      "expected_assertions": ["A01", "A02", "A03", "A04", "A06", "A07", "A08"]
+    },
+    {
+      "id": "T03",
+      "input": "Full skill creation: design, build, and verify a new debugging skill with scripts, references, and evals.",
+      "expected_assertions": ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08"]
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+---
+description: Capture learnings after successful tasks. Updates skills and project AGENTS.md to prevent recurring errors.
+workflow_type: prompt-chaining
+---
+
+# /evolve — Learning Capture
+
+**ARGUMENTS**: $ARGUMENTS
+
+> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
+> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
+> number lives there. Read it before step 0; do not reconstruct it from memory.
+
+---
+
+## 0. Mode detection
+
+| Token in `$ARGUMENTS` | Behavior |
+|---|---|
+| (none) | Manual capture flow (§ 1-5) |
+| `auto` | Skip § 1-5, run AutoResearch Loop per `shared-context.md` § 10. Target skill is second arg (e.g. `/evolve auto debugger`). Default: all skills with `evals.json`. |
+| `handoff` | Write session state to `.graph-powers/HANDOFF.md` (§ 6) |
+
+---
+
+## 1. First action
+
+```typescript
+Skill("superpowers:using-superpowers"); // meta — bootstrap (per shared-context.md § 0.5)
+```
+
+---
+
+## 2. Capture flow
+
+### 2.1 Gather session context
+
+Analyze the current conversation to identify:
+
+```markdown
+## Session Context
+
+### Task completed
+[brief description]
+
+### Problem found
+[bug/error/issue]
+
+### Root cause
+[identified root cause]
+
+### Solution applied
+[code or specific changes]
+
+### Validation
+[commands run: type-check, lint, test, etc.]
+```
+
+### 2.2 Append to the project log
+
+Append the block above to `.graph-powers/logs/learnings.md`, newest last, under a dated heading.
+
+Plain markdown, on purpose. A learning store with a database behind it is a store that stops working
+the day the script moves, and this file has to survive being read by a person six months from now
+with no tooling at all.
+
+Skip the append when the learning is already recorded there — a log that repeats itself stops being
+read.
+
+---
+
+## 3. Skill selection
+
+Based on modified file paths + `shared-context.md` § 6 (Skill-to-Domain Matrix), identify affected skills.
+
+Generic mapping (the project overrides it in `${rulesDir}/` when it has its own routing):
+
+- `${paths.backendRoot}` → `debugger`
+- `${paths.schemaRoot}` → `debugger` + host database skill if configured
+- `${paths.frontendRoot}` → `debugger` + the project's design rule (if styling/design)
+- Performance changes → `performance-optimization`
+- Skill files themselves → `skill-creator`
+- Harness wiring → `harness-audit`
+
+Ask user which skills to update if multiple are relevant and not obvious.
+
+---
+
+## 4. Improve skills
+
+If this learning calls for editing or creating a SKILL.md (skill body change, new reference doc, frontmatter `description:` update), invoke `Skill("superpowers:writing-skills")` first. It enforces RED-GREEN-REFACTOR discipline on the skill itself (pressure-test the new skill against a subagent before committing). Skip if the learning only adds a new entry to an existing `references/` markdown without changing the SKILL.md body.
+
+For each selected skill, add to `references/` or the relevant SKILL.md section:
+
+```markdown
+## Case: [Bug/Problem Name]
+
+**Symptom:** [user-perceived]
+**Root cause:** [technical]
+**Fix:** [solution applied]
+**Files:** [file list]
+**Validation:** [gates run]
+
+### Anti-pattern discovered
+
+// ❌ WRONG
+[problematic code]
+
+// ✅ CORRECT
+[correct code]
+```
+
+Categorize:
+
+| Type | Where | When |
+|---|---|---|
+| Stability rule | dedicated section | Rules to prevent crashes |
+| Anti-pattern | existing section | Problematic patterns |
+| Known case | `references/` | Complex documented cases |
+| Quick reference | existing table | Quick tips |
+
+---
+
+## 5. Improve AGENTS.md (project-level)
+
+Identify the target AGENTS.md from the modified file path:
+
+- Edits in `${paths.backendRoot}/**` → backend AGENTS.md if it exists
+- Edits in `${paths.frontendRoot}/**` → frontend AGENTS.md if it exists
+- Edits in `${paths.schemaRoot}/**` → schema AGENTS.md if it exists
+- Otherwise → root `AGENTS.md`
+
+Add a new section:
+
+```markdown
+### [YYYY-MM-DD] [Learning Title]
+
+> Added after bug fix in `[file]`.
+
+**Problem:** [description]
+**Cause:** [root cause]
+**Solution:** [fix applied]
+```
+
+---
+
+## 6. Handoff mode (`/evolve handoff`)
+
+Write `.graph-powers/HANDOFF.md`, overwriting it. One file, always the same path, because a handoff
+nobody can find is a handoff nobody wrote:
+
+```markdown
+# Handoff — <YYYY-MM-DD HH:MM>
+
+## Where this stopped
+<the last thing that was true: what works, what does not, what was mid-flight>
+
+## Next action
+<the single next step, concrete enough to start without re-deriving anything>
+
+## Do not repeat
+<what was already tried and ruled out, with why>
+
+## Open questions
+<what needs a person, and who>
+
+## State
+- Branch: <branch> · working tree: <clean | files listed>
+- Gates last run: <command → result>
+- Files touched this session: <list>
+```
+
+A handoff that says "continue the work" is not a handoff. The test: could someone with no memory of
+this session take the next action from this file alone?
+
+`/prime` reads this file first when it exists.
+
+---
+
+## 7. Summary
+
+```
+Learning captured.
+
+Log:        .graph-powers/logs/learnings.md
+Skills:     [list, or none]
+AGENTS.md:  [list, or none]
+```
+
+---
+
+## References
+
+- `skill-creator` skill — for any change to a SKILL.md body
+- AutoResearch Loop: `shared-context.md` § 10

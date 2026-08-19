@@ -1,0 +1,264 @@
+name: CI
+
+# A defect here reaches every project that installs the plugin, at once. These gates are cheap
+# because the repository is markdown, JSON, standard-library Python and dependency-free ESM —
+# there is no build to break.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependency for the frontmatter gate
+        run: pip install --quiet pyyaml
+
+      - name: Hook syntax
+        run: python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
+
+      - name: Valid JSON everywhere
+        # glob() skips hidden directories, so .claude-plugin/*.json needs its own pattern —
+        # without it the two manifests were never validated.
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys
+          files = sorted(set(glob.glob("**/*.json", recursive=True) + glob.glob(".*/*.json")))
+          bad = []
+          for f in files:
+              try:
+                  json.load(open(f, encoding="utf-8"))
+              except Exception as e:
+                  bad.append(f"{f}: {e}")
+          print("\n".join(bad) or f"{len(files)} JSON files parse")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Guardrails — negative tests, both harnesses
+        run: python3 hooks/test_hooks.py
+
+      - name: Frontmatter parses, and name matches the file
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+          import yaml
+
+          bad = []
+          checked = 0
+
+          def frontmatter(path):
+              m = re.match(r"^---\n(.*?)\n---\n", open(path, encoding="utf-8").read(), re.S)
+              if not m:
+                  bad.append(f"{path}: no frontmatter")
+                  return None
+              try:
+                  return yaml.safe_load(m.group(1))
+              except Exception as e:
+                  # Four command files once shipped an unquoted description containing ": ".
+                  # They did not parse as YAML at all, and nothing noticed.
+                  bad.append(f"{path}: invalid YAML -> {str(e).splitlines()[0]}")
+                  return None
+
+          for path in sorted(glob.glob("agents/*.md")):
+              fm = frontmatter(path)
+              checked += 1
+              if not fm:
+                  continue
+              expected = os.path.basename(path)[:-3]
+              if fm.get("name") != expected:
+                  bad.append(f"{path}: name '{fm.get('name')}' != filename '{expected}'")
+              if not fm.get("description"):
+                  bad.append(f"{path}: no description")
+
+          for path in sorted(glob.glob("skills/*/SKILL.md")):
+              fm = frontmatter(path)
+              checked += 1
+              if not fm:
+                  continue
+              expected = os.path.basename(os.path.dirname(path))
+              if fm.get("name") != expected:
+                  bad.append(f"{path}: name '{fm.get('name')}' != directory '{expected}'")
+              if not fm.get("description"):
+                  bad.append(f"{path}: no description")
+
+          for path in sorted(glob.glob("commands/*.md")):
+              fm = frontmatter(path)
+              checked += 1
+              if fm and not fm.get("description"):
+                  bad.append(f"{path}: no description")
+
+          print("\n".join(bad) or f"{checked} artefacts OK")
+          sys.exit(1 if bad else 0)
+          PY
+        env:
+          PYTHONIOENCODING: utf-8
+
+      - name: No machine paths
+        # A previous version of this gate used a shell regex that matched every `https://` URL
+        # (single letter, colon, slash) and the very lines documenting the gate itself. It failed
+        # on a repository containing no absolute path at all. Python, with a lookbehind.
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys
+          pat = re.compile(r"(/home/|/Users/|(?<![A-Za-z])[A-Za-z]:[\\/])")
+          hits = []
+          for f in glob.glob("**/*.md", recursive=True) + glob.glob("**/*.py", recursive=True) \
+                 + glob.glob("**/*.json", recursive=True) + glob.glob("**/*.mjs", recursive=True) \
+                 + glob.glob(".*/*.json"):
+              if "node_modules" in f:
+                  continue
+              for i, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+                  if "/home/|/Users/" in line:      # the gate's own pattern, in prose
+                      continue
+                  if pat.search(line):
+                      hits.append(f"{f}:{i}: {line.strip()[:120]}")
+          print("\n".join(hits) or "no absolute paths")
+          if hits:
+              print("::error::absolute path found — the plugin has to work on every machine")
+          sys.exit(1 if hits else 0)
+          PY
+
+      - name: No broken symlinks
+        run: |
+          broken=$(find . -path ./.git -prune -o -type l ! -exec test -e {} \; -print 2>/dev/null || true)
+          if [ -n "$broken" ]; then
+            echo "$broken"
+            echo "::error::broken symlink — it ships in the npm tarball and breaks any tree walk"
+            exit 1
+          fi
+          echo "no broken symlinks"
+
+      - name: Every declared hook exists, on both harnesses
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          d = json.load(open(".claude-plugin/plugin.json"))
+          missing = [
+              h["command"].split("/hooks/")[1].rstrip('"')
+              for arr in d.get("hooks", {}).values() for m in arr for h in m["hooks"]
+              if not os.path.exists("hooks/" + h["command"].split("/hooks/")[1].rstrip('"'))
+          ]
+          print("\n".join(f"MISSING: {m}" for m in missing) or "every declared hook exists")
+          sys.exit(1 if missing else 0)
+          PY
+
+      - name: No dangling file references
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+          pat = re.compile(
+              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex)'
+              r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|txt)'
+          )
+          missing = {}
+          for f in glob.glob("**/*.md", recursive=True):
+              base = os.path.dirname(f)
+              for m in set(pat.findall(open(f, encoding="utf-8", errors="replace").read())):
+                  candidates = (m, os.path.join(base, m), os.path.join(base, "..", m),
+                                os.path.join(base, "../..", m))
+                  if any(os.path.exists(p) for p in candidates):
+                      continue
+                  missing.setdefault(m, []).append(f)
+          for m, files in sorted(missing.items()):
+              print(f"DANGLING: {m}  <- {', '.join(sorted(set(files))[:3])}")
+          sys.exit(1 if missing else 0)
+          PY
+
+  codex:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generated Codex artefacts are valid, and installing twice is a no-op
+        run: |
+          python3 -m pip install --quiet tomli 2>/dev/null || true
+          fixture=$(mktemp -d)
+          git -C "$fixture" init -q
+          # a third-party hook that must survive both install and uninstall
+          mkdir -p "$fixture/.codex"
+          printf '{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"}]}]}}\n' \
+            > "$fixture/.codex/hooks.json"
+
+          node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
+          node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
+
+          python3 - "$fixture" <<'PY'
+          import collections, json, sys, glob, os, tomllib
+          fixture = sys.argv[1]
+
+          hooks = json.load(open(os.path.join(fixture, ".codex/hooks.json")))
+          commands = [h["command"] for groups in hooks["hooks"].values()
+                      for g in groups for h in g["hooks"]]
+          dupes = [c for c, n in collections.Counter(commands).items() if n > 1]
+          assert not dupes, f"duplicate hook entries after a second install: {dupes}"
+          assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clobbered"
+
+          agents = sorted(glob.glob(os.path.join(fixture, ".codex/agents/*.toml")))
+          assert agents, "no Codex subagents generated"
+          for path in agents:
+              d = tomllib.load(open(path, "rb"))
+              assert d.get("name") and d.get("description") and d.get("developer_instructions"), path
+
+          text = open(os.path.join(fixture, "AGENTS.md"), encoding="utf-8").read()
+          assert text.count("graph-powers:start") == 1, "AGENTS.md block duplicated"
+          print(f"{len(agents)} subagents, {len(commands)} hook entries, block idempotent")
+          PY
+
+          node codex/install.mjs --project "$fixture" --uninstall > /dev/null
+          python3 - "$fixture" <<'PY'
+          import json, os, sys
+          fixture = sys.argv[1]
+          hooks = json.load(open(os.path.join(fixture, ".codex/hooks.json")))
+          commands = [h["command"] for groups in hooks["hooks"].values()
+                      for g in groups for h in g["hooks"]]
+          assert commands == ["node /other/tool.mjs"], f"uninstall left {commands}"
+          text = open(os.path.join(fixture, "AGENTS.md"), encoding="utf-8").read()
+          assert "graph-powers" not in text, "uninstall left the AGENTS.md block behind"
+          print("uninstall removed exactly what it added")
+          PY
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: The installer runs under node and under bun
+        run: |
+          node bin/graph-powers.mjs --help > /dev/null
+          bun bin/graph-powers.mjs --help > /dev/null
+          node bin/audit-settings.mjs > /dev/null
+          echo "installer OK on both runtimes"
+
+      - name: The package builds, and stays small
+        run: |
+          npm pack --silent > /dev/null
+          size=$(du -k graph-powers-*.tgz | cut -f1)
+          echo "tarball: ${size} KB"
+          if [ "$size" -gt 2048 ]; then
+            echo "::error::tarball above 2 MB — check what got vendored back in"
+            exit 1
+          fi
+          if tar -tzf graph-powers-*.tgz | grep -E '__pycache__|\.pyc$'; then
+            echo "::error::compiled Python leaked into the tarball"
+            exit 1
+          fi
+          for required in package/AGENT_SETUP.md package/DESIGN.md package/PRODUCT.md \
+                          package/REVIEW.md package/templates package/references package/codex; do
+            tar -tzf graph-powers-*.tgz | grep -q "^$required" || {
+              echo "::error::$required missing from the published package"; exit 1; }
+          done
+          echo "package contents OK"
