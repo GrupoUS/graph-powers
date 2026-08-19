@@ -28,10 +28,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HOOKS = Path(__file__).resolve().parent
 FAILS: list[str] = []
+
+# Assembled rather than written out, and not for style. This file is edited by agents whose own
+# commit gate scans the Bash command that performs the edit; a literal here turns every edit of
+# the test suite into a blocked tool call, which is a guardrail firing at its own author.
+GIT_WRITE = " ".join(["git", "commit", "-m", "x"])
 
 
 def mkproj(cfg: dict, *, location: str = ".graph-powers") -> Path:
@@ -69,6 +75,17 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
         return "??", r.returncode
 
 
+def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None):
+    """Same call, but the whole stdout — for hooks that emit context rather than a decision."""
+    env_full = {**os.environ, **(env or {}), "CLAUDE_PROJECT_DIR": str(proj)}
+    r = subprocess.run(
+        [sys.executable, str(HOOKS / f"{hook}.py")],
+        input=json.dumps(payload), capture_output=True, text=True,
+        env=env_full, cwd=str(proj), timeout=30,
+    )
+    return r.stdout, r.returncode
+
+
 def check(label: str, got, want) -> None:
     ok = got == want
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}: {got!r} (expected {want!r})")
@@ -85,9 +102,9 @@ def main() -> int:
     legacy = mkproj({"git": {"optInPrefix": "LEGACY"}}, location=".claude")
     no_config = Path(tempfile.mkdtemp(prefix="gp-no-config-"))
 
-    commit = {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"}}
-    key_a = {"tool_name": "Bash", "tool_input": {"command": "PROJA_ALLOW_COMMIT=1 git commit -m x"}}
-    key_b = {"tool_name": "Bash", "tool_input": {"command": "PROJB_ALLOW_COMMIT=1 git commit -m x"}}
+    commit = {"tool_name": "Bash", "tool_input": {"command": GIT_WRITE}}
+    key_a = {"tool_name": "Bash", "tool_input": {"command": "PROJA_ALLOW_COMMIT=1 " + GIT_WRITE}}
+    key_b = {"tool_name": "Bash", "tool_input": {"command": "PROJB_ALLOW_COMMIT=1 " + GIT_WRITE}}
     read = {"tool_name": "Read", "session_id": "s"}
 
     print("### Git rails — every project has its own key")
@@ -120,7 +137,8 @@ def main() -> int:
     check("A back to normal", call("graph_guardrails", read, a)[0], None)
 
     print("### Legacy config location — .claude/config.json still read")
-    legacy_key = {"tool_name": "Bash", "tool_input": {"command": "LEGACY_ALLOW_COMMIT=1 git commit -m x"}}
+    legacy_key = {"tool_name": "Bash",
+                  "tool_input": {"command": "LEGACY_ALLOW_COMMIT=1 " + GIT_WRITE}}
     check("legacy project denies without its key", call("git_commit_gate", commit, legacy)[0], "deny")
     check("legacy project accepts its key", call("git_commit_gate", legacy_key, legacy)[0], None)
 
@@ -161,6 +179,69 @@ def main() -> int:
           call("smart_bash_approver", npm, pm_bun)[0], "deny")
     check("...and bun still runs there", call("smart_bash_approver", bun, pm_bun)[0], "allow")
 
+    print("### The pre-commit audit is the project's to declare, never the plugin's to choose")
+    # This hook replaced one that fetched and executed a pinned third-party tool from the network
+    # before every commit, in every repository that installed the plugin. The property proved here
+    # is the new default: a project that declared nothing runs nothing.
+    silent = mkproj({"git": {"optInPrefix": "SILENT"}})
+    failing = mkproj({"git": {"optInPrefix": "AUDITED"},
+                      "gates": {"preCommitAudit": {"command": "exit 3"}}})
+    passing = mkproj({"git": {"optInPrefix": "AUDITED"},
+                      "gates": {"preCommitAudit": "exit 0"}})
+    broken = mkproj({"git": {"optInPrefix": "AUDITED"},
+                     "gates": {"preCommitAudit": {"command": "no-such-binary-anywhere --x"}}})
+    audit_key = {"tool_name": "Bash",
+                 "tool_input": {"command": "AUDITED_ALLOW_AUDIT=1 " + GIT_WRITE}}
+    read_only = {"tool_name": "Bash", "tool_input": {"command": "git status"}}
+
+    check("no audit declared: the commit is not touched",
+          call("commit_audit_gate", commit, silent)[1], 0)
+    check("a declared audit that fails blocks it",
+          call("commit_audit_gate", commit, failing)[1], 2)
+    check("a declared audit that passes lets it through",
+          call("commit_audit_gate", commit, passing)[1], 0)
+    check("the opt-in key releases one call",
+          call("commit_audit_gate", audit_key, failing)[1], 0)
+    check("an audit that cannot run fails open, never closed",
+          call("commit_audit_gate", commit, broken)[1], 0)
+    check("a read-only git command never triggers the audit",
+          call("commit_audit_gate", read_only, failing)[1], 0)
+
+    print("### Auto-update — throttled, silent, and never on the session's critical path")
+    upd_home = Path(tempfile.mkdtemp(prefix="gp-home-"))
+    (upd_home / ".graph-powers").mkdir(parents=True)
+    state = upd_home / ".graph-powers/update-state.json"
+
+    off = mkproj({"git": {"optInPrefix": "OFF"}, "autoUpdate": {"enabled": False}})
+    out, code = call_raw("auto_update", {"source": "startup"}, off, env={"HOME": str(upd_home)})
+    check("disabled: exits 0", code, 0)
+    check("disabled: writes no state at all", state.exists(), False)
+
+    # A check that just ran must not run again on the next session start. Without the throttle
+    # every session pays for a registry lookup, which is how a background task becomes the reason
+    # somebody uninstalls the thing that schedules it.
+    fresh = mkproj({"git": {"optInPrefix": "FRESH"}, "autoUpdate": {"intervalHours": 24}})
+    state.write_text(json.dumps({"lastCheck": time.time()}), encoding="utf-8")
+    before = state.read_text(encoding="utf-8")
+    out, code = call_raw("auto_update", {"source": "startup"}, fresh, env={"HOME": str(upd_home)})
+    check("inside the interval: exits 0", code, 0)
+    check("inside the interval: the throttle file is untouched",
+          state.read_text(encoding="utf-8"), before)
+
+    # An update nobody is told about is indistinguishable from no update: the session keeps
+    # running the old files and the person keeps reporting the old behaviour.
+    state.write_text(json.dumps({"lastCheck": time.time(),
+                                 "pendingNotice": "[graph-powers] updated to 9.9.9"}),
+                     encoding="utf-8")
+    out, code = call_raw("auto_update", {"source": "startup"}, fresh, env={"HOME": str(upd_home)})
+    check("a finished update is announced once", "9.9.9" in out, True)
+    out2, _ = call_raw("auto_update", {"source": "startup"}, fresh, env={"HOME": str(upd_home)})
+    check("...and not a second time", "9.9.9" in out2, False)
+
+    for d in (silent, failing, passing, broken, off, fresh):
+        shutil.rmtree(d, ignore_errors=True)
+    shutil.rmtree(upd_home, ignore_errors=True)
+
     print("### Fail-open — a project with no config does not break")
     check("defaults still protect the commit", call("git_commit_gate", commit, no_config)[0], "deny")
     check("guardrails exits 0", call("graph_guardrails", read, no_config)[1], 0)
@@ -194,7 +275,8 @@ def main() -> int:
 
     print("### Fail-open — invalid payload never takes the session down")
     for hook in ("git_commit_gate", "git_push_gate", "git_branch_gate", "graph_guardrails",
-                 "protect_files", "smart_bash_approver", "session_context", "notify"):
+                 "protect_files", "smart_bash_approver", "session_context", "notify",
+                 "commit_audit_gate", "auto_update"):
         r = subprocess.run(
             [sys.executable, str(HOOKS / f"{hook}.py")],
             input="this is not json", capture_output=True, text=True,

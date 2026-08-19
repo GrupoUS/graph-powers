@@ -329,6 +329,25 @@ function detectStack() {
   return { stack: parts.join("-") || "unknown", pm, commands, hasTests: Boolean(scripts.test) };
 }
 
+/**
+ * The Codex model and reasoning effort, from this project's config.
+ *
+ * Never a default written here. A model name in the installer is a file that ages out the week
+ * the next model ships, and every machine that installed before then keeps generating the old one.
+ */
+function codexSettings() {
+  const cfg = readJson(join(cwd, ".graph-powers/config.json"))
+    ?? readJson(join(cwd, ".claude/config.json"))
+    ?? {};
+  const codex = cfg.codex ?? {};
+  return {
+    ...(typeof codex.model === "string" && codex.model ? { model: codex.model } : {}),
+    ...(typeof codex.reasoningEffort === "string" && codex.reasoningEffort
+      ? { reasoningEffort: codex.reasoningEffort }
+      : {}),
+  };
+}
+
 function currentBranch() {
   const r = spawnSync("git", ["branch", "--show-current"], { encoding: "utf8", cwd });
   return (r.stdout ?? "").trim() || null;
@@ -412,9 +431,20 @@ step(++n, TOTAL, "Checking the environment");
     warn("codex is not on PATH — the artefacts will still be written, but nothing will read them yet.");
   }
 
+  // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
+  // `engines` cannot express a Python requirement, so this is the only place it gets checked.
   const py = spawnSync("python3", ["--version"], { encoding: "utf8" });
-  if (py.status === 0) ok((py.stdout || py.stderr).trim());
-  else warn("python3 not found — the guardrails are Python stdlib and will not run without it.");
+  if (py.status === 0) {
+    const version = (py.stdout || py.stderr).trim();
+    const [, major, minor] = /(\d+)\.(\d+)/.exec(version) ?? [];
+    if (Number(major) > 3 || (Number(major) === 3 && Number(minor) >= 10)) {
+      ok(version);
+    } else {
+      warn(`${version} — the guardrails need Python 3.10 or newer; they will fail open and never run.`);
+    }
+  } else {
+    warn("python3 not found — the guardrails are Python stdlib and will not run without it.");
+  }
 
   info(`target: ${target}`);
 }
@@ -485,6 +515,7 @@ if (wantCodex) {
         pluginRoot: PLUGIN_ROOT,
         dryRun,
         force: has("--force"),
+        codex: codexSettings(),
         log: (p) => info(String(p).replace(process.env.HOME ?? "~", "~")),
       });
       if (g.skipped) ok(`global harness already at ${g.version} — skipped`);
@@ -507,6 +538,7 @@ if (wantCodex) {
         pluginRoot: PLUGIN_ROOT,
         scope: "project",
         dryRun,
+        codex: codexSettings(),
         log: (p) => info(String(p).replace(`${cwd}/`, "")),
       });
       ok(`${written.length} path(s) written into this project`);
@@ -534,9 +566,21 @@ step(++n, TOTAL, "Verifying");
     }
   }
   if (wantCodex && !dryRun) {
-    const manifest = readJson(join(cwd, ".graph-powers", "installed.json"));
-    if (manifest?.hookCommands?.length) ok(`${manifest.hookCommands.length} Codex hook entries recorded`);
-    else warn("no Codex manifest was written — check the output above.");
+    // Which manifest to read depends on the scope, and reading the wrong one is not a cosmetic
+    // slip: the global install records its hooks in the Codex home, so looking in the project
+    // always found nothing and always warned — on a run that had just succeeded.
+    const manifest = scope === "user"
+      ? readJson(join(process.env.HOME ?? cwd, ".codex", "graph-powers-installed.json"))
+      : readJson(join(cwd, ".graph-powers", "installed.json"));
+    if (manifest?.hookCommands?.length) {
+      ok(`${manifest.hookCommands.length} Codex hook entries recorded`);
+      if (manifest.complete === false) warn("the manifest says the install did not finish — re-run it.");
+    } else if (manifest) {
+      ok("Codex manifest written");
+    } else {
+      warn("no Codex manifest was written — check the output above.");
+    }
+    info("Codex asks you to approve hooks once: open a session and run /hooks, or they stay inert.");
   }
 }
 

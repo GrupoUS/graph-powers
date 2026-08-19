@@ -125,7 +125,14 @@ Then locate the plugin on this machine, in this order, and **say which one you f
 3. the `node_modules/graph-powers/` of this project, if it was installed as a dependency;
 4. if none exists, **ask**. Do not guess a path.
 
-Call it `$PLUGIN` for the rest of this playbook.
+**Export it, do not just name it.** The rest of this playbook runs commands that use
+`$PLUGIN`, and a convention that lives only in prose resolves to an empty string in a real shell —
+turning `node "$PLUGIN/bin/graph-powers.mjs"` into `node /bin/graph-powers.mjs`:
+
+```bash
+export PLUGIN=<the directory you just found>
+test -f "$PLUGIN/AGENT_SETUP.md" && echo "PLUGIN=$PLUGIN"   # prove it before going on
+```
 
 **Back up before the first write, and show the command you ran:**
 
@@ -143,7 +150,7 @@ Graph Powers builds on two external plugins and vendors neither. A copied snapsh
 else's work goes stale and cannot be updated — which is the exact failure this harness exists to
 end, one level up.
 
-**Both are required.** Ten of the fourteen commands call superpowers skills; without it `/plan`,
+**Both are required.** Ten of the twelve commands call superpowers skills; without it `/plan`,
 `/debug` and `/implement` stop mid-run. `/design` delegates every craft pass to impeccable.
 
 ### superpowers — the method layer
@@ -270,6 +277,18 @@ Three things to get right, because they are the ones that go wrong quietly:
   data layer. A guessed one makes it plan a phase for a repository that does not exist.
 - **`testRunner: null` is an answer.** It says the absence is deliberate. Omitting the field says
   nobody looked.
+
+**Leave `autoUpdate` alone unless the project asks otherwise.** The harness keeps itself current
+on its own: at session start, at most once every twelve hours, a detached worker asks each CLI to
+update itself through its own supported path. Nothing waits on the network and nothing inside the
+project is touched. Do **not** write a cron job, a CI step or a git hook to do this — there is
+already one mechanism, and a second one is how two of them start disagreeing.
+
+Write the group only to turn something off, and say why in the same breath:
+
+```json
+"autoUpdate": { "enabled": false }
+```
 
 Then **prove it is being read**, and show the output:
 
@@ -470,7 +489,9 @@ Then tell the user two things:
 
 1. **Open `/hooks` in Codex and approve the hooks.** Codex tracks trust by hook definition, so a
    change to the file needs approval again. Until they approve, those guardrails do not run — say
-   that plainly rather than letting them assume they are covered.
+   that plainly rather than letting them assume they are covered. The installer will not rewrite
+   an unchanged `hooks.json` for exactly this reason, so a routine update costs no re-approval;
+   a genuine change to the guardrails does, and it should.
 2. **What to gitignore.** Far less than before, because the harness is global now:
 
    ```gitignore

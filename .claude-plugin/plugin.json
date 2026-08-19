@@ -1,11 +1,11 @@
 {
   "name": "graph-powers",
   "description": "Agents, skills, commands and git/execution guardrails that work in any repository, on Claude Code and Codex CLI. The project declares its stack in .graph-powers/config.json and the plugin adapts; nothing here is specific to one product.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "GrupoUS"
   },
-  "license": "MIT",
+  "license": "MIT AND Apache-2.0",
   "homepage": "https://github.com/GrupoUS/graph-powers#readme",
   "repository": "https://github.com/GrupoUS/graph-powers",
   "keywords": [
@@ -53,7 +53,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/fallow_gate.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/commit_audit_gate.py\"",
             "timeout": 60
           }
         ]
@@ -72,6 +72,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/auto_update.py\"",
+            "timeout": 10
+          },
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/branch_session_notice.py\"",

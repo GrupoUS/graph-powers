@@ -162,6 +162,11 @@ npx impeccable install --providers=claude,codex --scope=project
 npx impeccable update      # keep it current
 ```
 
+Three more plugins are optional, and only the commands that call them notice their absence:
+`code-review` (bundled with Claude Code, invoked by `/pr-review`), and the Codex plugin's
+`rescue` and `codex-result-handling` skills (invoked by `/debug` and `/research` when a second
+implementation pass is worth having).
+
 Some skills also expect MCP servers (Context7 for library docs, Tavily for research,
 sequential-thinking for multi-step reasoning) and `bunx agent-browser` for browser verification.
 Each skill states what it needs; none is required for the guardrails.
@@ -173,7 +178,8 @@ Each skill states what it needs; none is required for the guardrails.
 ### Requirements
 
 - [Claude Code](https://claude.com/claude-code) or [Codex CLI](https://developers.openai.com/codex) — or both
-- **Python 3** — the guardrails are Python standard library, with no dependencies
+- **Python 3.10 or newer** — the guardrails are standard library only, with no dependencies.
+  `engines` cannot express this, so the installer checks for it and says so if it is missing
 - [Bun](https://bun.sh) or Node 18+
 - Git, and a clean working tree
 
@@ -198,6 +204,30 @@ already present at this version, it says so and skips it.
 | `--prefix NAME` | Opt-in key prefix (with `--config`). Default: the directory name |
 | `--source <org/repo\|path>` | Where the marketplace comes from. Useful for a fork or a local clone |
 | `--uninstall` | Removes exactly the Codex artefacts a previous run recorded |
+
+### Staying current
+
+A plugin is a copy, and a copy starts ageing the moment it is installed. Six months later five
+machines run five versions of guardrails that were meant to be identical — which is the failure
+this harness exists to end, one level up. So it updates itself.
+
+At session start, at most once every twelve hours, a detached worker asks each harness to update
+itself through its own supported path: `claude plugin marketplace update` then `claude plugin
+update` on Claude Code, and a regenerate from the published package on Codex. Nothing waits on
+the network, nothing inside your project is touched, and the new version applies at the next
+session start — so the session after an update opens with one line saying what changed.
+
+On Codex the artefacts are regenerated **only when the registry version actually moved**. Codex
+trusts a hooks file by its content, so an identical rewrite would cost you a `/hooks`
+re-approval and leave the guardrails inert until you gave it.
+
+```jsonc
+// .graph-powers/config.json — all optional, these are the defaults
+"autoUpdate": { "enabled": true, "intervalHours": 12, "claude": true, "codex": true }
+```
+
+`GRAPH_POWERS_NO_AUTO_UPDATE=1` turns it off for one machine without editing the project's
+config.
 | `--agent-setup` | Prints the setup prompt and exits |
 | `--dry-run` | Shows what it would do, without doing it |
 
@@ -336,7 +366,7 @@ disk and never ran once.
 | `git_commit_gate` · `git_push_gate` · `git_branch_gate` | Nothing is committed, pushed, or lands on a protected branch without approval in the turn | `<PREFIX>_ALLOW_COMMIT=1` etc. |
 | `graph_guardrails` | Kill switch (`AGENT_STOP` at the root), spawn ceiling, per-agent round ceiling, write lease | `<PREFIX>_ALLOW_SPAWN_OVER=1`, `<PREFIX>_ALLOW_OFF_LEASE=1` |
 | `protect_files` | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles` | — |
-| `fallow_gate` · `smart_bash_approver` · `ultracite` | Import audit before commit, refusal of destructive commands, formatting after an edit | — |
+| `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
 | `branch_session_notice` · `session_context` · `notify` | Inform; never block | — |
 
 All of them are **fail-open**: missing, unreadable or mistyped configuration falls back to the
@@ -344,7 +374,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 32 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 71 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,

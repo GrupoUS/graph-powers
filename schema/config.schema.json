@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
-  "title": "Graph Powers — project configuration contract",
+  "title": "Graph Powers \u2014 project configuration contract",
   "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .graph-powers/config.json instead; both locations are read, .graph-powers/ first.",
   "type": "object",
   "properties": {
@@ -18,7 +18,7 @@
         },
         "stack": {
           "type": "string",
-          "description": "Free-form stack identifier. Stack-gated skills and rules read this — 'astro' turns on the astro skill.",
+          "description": "Free-form stack identifier. Stack-gated skills and rules read this \u2014 'astro' turns on the astro skill.",
           "examples": [
             "astro-static-tailwindv4",
             "monorepo-bun-trpc-drizzle-postgres-react19",
@@ -113,7 +113,7 @@
             "string",
             "null"
           ],
-          "description": "null when the project has no tests — the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
+          "description": "null when the project has no tests \u2014 the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
         },
         "commands": {
           "type": "object",
@@ -152,7 +152,7 @@
     },
     "paths": {
       "type": "object",
-      "description": "Where the code lives. A single app sets frontendRoot='src' and omits the rest. An empty field means the project has no such layer — plans must not invent one.",
+      "description": "Where the code lives. A single app sets frontendRoot='src' and omits the rest. An empty field means the project has no such layer \u2014 plans must not invent one.",
       "properties": {
         "frontendRoot": {
           "type": "string",
@@ -219,10 +219,11 @@
           "enum": [
             "low",
             "medium",
-            "high"
+            "high",
+            "xhigh"
           ],
           "default": "high",
-          "description": "model_reasoning_effort for generated subagents. The node that judges runs high — a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
+          "description": "model_reasoning_effort for generated subagents. The node that judges runs high \u2014 a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
         },
         "skillsDir": {
           "type": "string",
@@ -233,7 +234,7 @@
     },
     "graphGuardrails": {
       "type": "object",
-      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work — calibrate by measuring, not by guessing.",
+      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work \u2014 calibrate by measuring, not by guessing.",
       "properties": {
         "maxSpawnsPerSession": {
           "type": "integer",
@@ -274,10 +275,33 @@
     },
     "gates": {
       "type": "object",
-      "description": "Quality thresholds (Lighthouse, Core Web Vitals, bundle size). Consumed by the performance skill.",
+      "description": "Quality thresholds (Lighthouse, Core Web Vitals, bundle size) consumed by the performance skill, plus the audit this project wants run before a commit.",
       "properties": {
         "lighthouse": {
-          "type": "object"
+          "type": "object",
+          "description": "Minimum Lighthouse category scores, 0-100. A gate whose threshold is not written down is a gate that moves whenever the run is inconvenient.",
+          "properties": {
+            "performance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "accessibility": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "bestPractices": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "seo": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
         },
         "lcp": {
           "type": "number"
@@ -290,6 +314,36 @@
         },
         "initialJsKb": {
           "type": "number"
+        },
+        "preCommitAudit": {
+          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; anything else blocks it and shows the command's own output. Declare nothing and no audit runs \u2014 the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "The command, with default timeout."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 120,
+                  "description": "Seconds. A slow audit on every commit is a hook people disable."
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          ],
+          "examples": [
+            "bunx fallow@2.99.0 audit --format json --quiet --gate new-only",
+            "npm run lint:staged"
+          ]
         }
       }
     },
@@ -304,7 +358,7 @@
             "autonomous"
           ],
           "default": "guarded",
-          "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key — the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
+          "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key \u2014 the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
         },
         "bashDefault": {
           "type": "string",
@@ -353,14 +407,14 @@
         "destructiveFloor": {
           "type": "boolean",
           "default": true,
-          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
+          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list \u2014 git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
         },
         "allowPackageManagers": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project — a lockfile that must not fork.",
+          "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project \u2014 a lockfile that must not fork.",
           "examples": [
             [
               "bun"
@@ -372,6 +426,34 @@
           ]
         }
       }
+    },
+    "autoUpdate": {
+      "type": "object",
+      "description": "Whether the harness keeps itself at the published version. A plugin is a copy, and a copy starts ageing the moment it is installed \u2014 six months later five machines run five versions of guardrails that were meant to be identical. The check runs at session start, in a detached process, at most once per interval; it never delays the session and never touches anything inside the project.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "false disables the check entirely. GRAPH_POWERS_NO_AUTO_UPDATE=1 does the same for one machine without editing the project's config."
+        },
+        "intervalHours": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 12,
+          "description": "Minimum hours between checks. The throttle is recorded before the check runs, so a failed check backs off instead of retrying every session."
+        },
+        "claude": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update the Claude Code plugin (claude plugin marketplace update, then claude plugin update). The new version applies at the next session start, never mid-session."
+        },
+        "codex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Regenerate the Codex artefacts when the registry version moved. Skipped when it did not: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

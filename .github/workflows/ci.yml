@@ -149,6 +149,9 @@ jobs:
           sys.exit(1 if missing else 0)
           PY
 
+      - name: Every placeholder is a declared config key
+        run: python3 .github/check_placeholders.py
+
       - name: No dangling file references
         run: |
           python3 - <<'PY'
@@ -177,54 +180,53 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
-      - name: Generated Codex artefacts are valid, and installing twice is a no-op
+      - name: Codex artefacts, both scopes, install and removal
+        # Two scopes, because they are two code paths and only one of them is the default.
+        # `HOME` is redirected at the fixture: the global half writes into the Codex home, and a
+        # test that let it write into the runner's real home would prove nothing about isolation
+        # and would leak between steps.
         run: |
-          python3 -m pip install --quiet tomli 2>/dev/null || true
           fixture=$(mktemp -d)
+          fakehome=$(mktemp -d)
           git -C "$fixture" init -q
-          # a third-party hook that must survive both install and uninstall
-          mkdir -p "$fixture/.codex"
-          printf '{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"}]}]}}\n' \
-            > "$fixture/.codex/hooks.json"
+          mkdir -p "$fixture/.codex" "$fakehome/.codex" "$fakehome/.agents/skills/someone-else"
+          third='{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"}]}]}}'
+          printf '%s\n' "$third" > "$fixture/.codex/hooks.json"
+          printf '%s\n' "$third" > "$fakehome/.codex/hooks.json"
+          echo "keep me" > "$fakehome/.agents/skills/someone-else/SKILL.md"
 
-          node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
-          node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
+          echo "── project scope ──"
+          node codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
+          node codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
+          python3 .github/check_codex.py "$fixture" "$fixture" project
 
-          python3 - "$fixture" <<'PY'
-          import collections, json, sys, glob, os, tomllib
-          fixture = sys.argv[1]
+          echo "── user scope (the default) ──"
+          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
+          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" --force > /dev/null
+          python3 .github/check_codex.py "$fakehome" "$fixture" user
+          test -f "$fakehome/.agents/skills/someone-else/SKILL.md" || {
+            echo "::error::a third party's skill was destroyed by the install"; exit 1; }
 
-          hooks = json.load(open(os.path.join(fixture, ".codex/hooks.json")))
-          commands = [h["command"] for groups in hooks["hooks"].values()
-                      for g in groups for h in g["hooks"]]
-          dupes = [c for c, n in collections.Counter(commands).items() if n > 1]
-          assert not dupes, f"duplicate hook entries after a second install: {dupes}"
-          assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clobbered"
-
-          agents = sorted(glob.glob(os.path.join(fixture, ".codex/agents/*.toml")))
-          assert agents, "no Codex subagents generated"
-          for path in agents:
-              d = tomllib.load(open(path, "rb"))
-              assert d.get("name") and d.get("description") and d.get("developer_instructions"), path
-
-          text = open(os.path.join(fixture, "AGENTS.md"), encoding="utf-8").read()
-          assert text.count("graph-powers:start") == 1, "AGENTS.md block duplicated"
-          print(f"{len(agents)} subagents, {len(commands)} hook entries, block idempotent")
-          PY
-
-          node codex/install.mjs --project "$fixture" --uninstall > /dev/null
-          python3 - "$fixture" <<'PY'
+          echo "── removal ──"
+          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" --uninstall > /dev/null
+          python3 - "$fakehome" "$fixture" <<'PY'
           import json, os, sys
-          fixture = sys.argv[1]
-          hooks = json.load(open(os.path.join(fixture, ".codex/hooks.json")))
+          home, fixture = sys.argv[1], sys.argv[2]
+          hooks = json.load(open(os.path.join(home, ".codex/hooks.json")))
           commands = [h["command"] for groups in hooks["hooks"].values()
                       for g in groups for h in g["hooks"]]
           assert commands == ["node /other/tool.mjs"], f"uninstall left {commands}"
+          assert os.path.exists(os.path.join(home, ".agents/skills/someone-else/SKILL.md")), \
+              "uninstall deleted a third party's skill"
           text = open(os.path.join(fixture, "AGENTS.md"), encoding="utf-8").read()
           assert "graph-powers" not in text, "uninstall left the AGENTS.md block behind"
-          print("uninstall removed exactly what it added")
+          # Rules are copied as a starting point and then edited by the project. Removing them
+          # would delete the line somebody added after an incident.
+          assert os.path.isdir(os.path.join(fixture, ".codex/rules")), \
+              "uninstall deleted the project's adapted rules"
+          print("uninstall removed exactly what it added, and nothing else")
           PY
 
   package:

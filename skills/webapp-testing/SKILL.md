@@ -4,6 +4,8 @@ description: Use when verifying frontend functionality in a real browser, drivin
 license: Complete terms in LICENSE.txt
 ---
 
+> Derived from `webapp-testing` in anthropics/skills (Apache-2.0, see `LICENSE.txt`). Modified by GrupoUS: the target URL is read from `project.stagingUrl` instead of being hardcoded, and the browser stack is the `agent-browser` CLI. Changes are listed in the NOTICE file at the root of the plugin.
+
 # Web Application Testing
 
 Primary browser stack: **`bunx agent-browser`** (the vercel-labs CLI, invoked through Bash). Full command reference, headless versus `--cdp` attach for authenticated routes, snapshot and ref semantics, and troubleshooting: `references/browser-setup.md`.

@@ -1,5 +1,80 @@
 # Changelog
 
+## 1.1.0 — it updates itself, and the Codex side is real
+
+1.0.0 shipped the harness. This release closes the two gaps that made it a snapshot rather than
+something you install once: it had no way to reach an installed machine after publication, and its
+Codex artefacts were generated with defects that were invisible in the generated files.
+
+### Added
+
+- **The harness keeps itself current.** `hooks/auto_update.py` runs at session start, reads a
+  throttle file, and at most once every twelve hours starts a *detached* worker. The worker asks
+  each CLI to update itself through its own supported path — `claude plugin marketplace update`
+  then `claude plugin update`, and a regenerate from the published package on Codex. Nothing waits
+  on the network, so no session start pays for a DNS lookup, and nothing inside the project is
+  ever touched. The session after an update opens with one line naming the new version, printed
+  once. Configurable under `autoUpdate`; `GRAPH_POWERS_NO_AUTO_UPDATE=1` turns it off for one
+  machine without editing the project's config.
+- **On Codex, an unchanged `hooks.json` is left alone.** Codex trusts a hooks file by its content,
+  so rewriting an identical one costs a `/hooks` re-approval and leaves the guardrails inert until
+  it is given. An update that quietly disarms what it updated is worse than no update.
+- **A CI gate for undeclared placeholders.** Every `${config.key}` in an artefact must exist in
+  the schema. One that does not resolves to an empty string, and the instruction that depended on
+  it reads as satisfied — thirteen such keys shipped in an earlier version of this harness.
+- The `codex` job now runs both scopes against an isolated `HOME`, and asserts what the generated
+  files must be true of rather than only that they exist.
+
+### Fixed
+
+- **The Codex frontmatter reader split every `description:` on its commas.** Multi-clause
+  descriptions became arrays, so each generated Codex skill carried a description truncated at the
+  first comma. A skill nobody can find is a skill that is not installed. The shape is now decided
+  by the key.
+- **Generated subagents ignored the agent's own `model:` and `effort:`.** Twelve deliberately
+  different agents came out of the generator identical — the scout and the evaluator
+  indistinguishable. Effort now comes from the agent's declaration, then from what its Claude
+  model implies, then from its role, then from the project's config.
+- **`${CLAUDE_PLUGIN_ROOT}` survived into the Codex copies.** Codex never sets that variable, so
+  86 cross-references pointed at nothing: the reference read as present and loaded as empty. Each
+  subtree is now rewritten to the path Codex actually reads.
+- **The Codex manifest was written last.** An install that died halfway left artefacts with no
+  record of them, and `--uninstall` then reported success while every one of those files stayed.
+  It is now written first, listing what the run intends to create, and rewritten complete at the
+  end.
+- **The project half wrote no manifest at all**, so `--uninstall` left `.codex/rules/` and the
+  `AGENTS.md` block behind. It does now — and the rules are recorded as *adopted*, so removal
+  keeps them: they were copied as a starting point and then edited, and the line somebody added
+  after an incident lives in those files.
+- **`--uninstall` removed only one half.** The scope flag says where to *write* on an install; on
+  a removal it silently meant what to leave behind. Removal now defaults to both halves.
+- **An unparseable `.codex/hooks.json` was treated as absent** — the exact overwrite the merge
+  exists to prevent, pointed at somebody else's guardrails. A file that exists and does not parse
+  is now copied aside, and the caller is told where it went.
+- **The installer's Codex verification read the wrong manifest** at user scope, so it warned "no
+  Codex manifest was written" on every run that had just succeeded.
+- `codex.model` and `codex.reasoningEffort` from the project config never reached the generator.
+
+### Changed
+
+- **`fallow_gate.py` is now `commit_audit_gate.py`, and it runs what the project declared.** The
+  old hook fetched and executed a pinned third-party auditor from the network before every commit,
+  in every repository that installed this plugin — a download and execution on a machine whose
+  owner never asked for it. The tool is now named in `gates.preCommitAudit`; declare nothing and
+  no audit runs, which is the default. Exit 0 lets the commit through, anything else blocks it and
+  shows the command's own output, `127` fails open because a missing binary is a fact about the
+  machine and not a verdict about the changeset, and `<PREFIX>_ALLOW_AUDIT=1` releases one call.
+- Python **3.10** is stated as the floor and checked by the installer. `engines` cannot express a
+  Python requirement, and several hooks use `X | None` in annotations evaluated at import time.
+- `license` is `MIT AND Apache-2.0` in both manifests: the package vendors two Apache-2.0 skills,
+  and a bare `MIT` was a false statement about the tarball's contents.
+- `NOTICE` now names every third-party origin — including the MIT material adapted from
+  `mattpocock/skills` and `obra/superpowers` — and records the modifications Apache-2.0 §4(b)
+  requires, with a matching notice in each modified skill.
+- `docs/`, `AGENTS.md` and `CONTRIBUTING.md` ship in the package; the README linked all three and
+  every link was a 404 inside the tarball.
+- The guardrail suite went from 32 checks to 71.
+
 ## 1.0.0 — first public release
 
 Graph Powers began as `gpus-harness`, the single copy of a harness that had been maintained by
