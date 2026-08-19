@@ -38,10 +38,9 @@ def normalize_evals(doc: dict) -> dict:
     Shape C (prose):         {"skill_name",
                               "evals": [{"id", "prompt", "expectations": [str]}]}
 
-    Shapes B and C are what ${CLAUDE_PLUGIN_ROOT}/skills/{deploy,asaas-platform-billing,
-    senior-architect,shadcn,skill-improve}/evals/evals.json use. Before this
-    normalizer the runner raised KeyError on `assertions` for those files, so nothing
-    they declared ever ran. Shape C has no machine-checkable predicate, so its entries
+    Shapes B and C appear in real skills in the wild. Before this normalizer the runner
+    raised KeyError on `assertions` for those files, so nothing they declared ever ran —
+    a whole eval suite reporting green because it never executed. Shape C has no machine-checkable predicate, so its entries
     become assertions flagged `manual: True` with no `check` at all: reported for human
     review, printed as `◻ MANUAL`, and excluded from pass_rate (neither pass nor fail).
     """
