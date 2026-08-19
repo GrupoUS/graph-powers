@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "project": {
+    "name": "graph-powers",
+    "displayName": "Graph Powers",
+    "stack": "markdown-json-python-esm",
+    "locale": "en-US"
+  },
+  "git": {
+    "workBranch": "main",
+    "protectedBranches": [],
+    "optInPrefix": "GRAPHPOWERS"
+  },
+  "tooling": {
+    "packageManager": "npm",
+    "testRunner": "python3 hooks/test_hooks.py",
+    "commands": {
+      "test": "python3 hooks/test_hooks.py"
+    }
+  },
+  "paths": {
+    "rulesDir": ".claude/rules"
+  },
+  "autonomy": {
+    "level": "autonomous",
+    "destructiveFloor": true,
+    "git": { "commit": "auto", "push": "auto", "protectedBranch": "auto" }
+  }
+}

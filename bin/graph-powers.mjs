@@ -220,15 +220,21 @@ function permissionAllowlist(pm) {
     "count-objects", "stash list", "worktree list",
   ].map((c) => `Bash(git ${c}:*)`);
 
-  const managers = [pm, "bunx", "npx", "pnpm", "yarn", "uv", "uvx"].filter(Boolean);
+  // Every manager, not only the one this repository happens to use: the agent runs `npx`/`bunx`
+  // for one-off tools regardless, and a missing entry here is a permission prompt per call.
+  const managers = [pm, "bun", "bunx", "npm", "npx", "pnpm", "pnpx", "yarn", "uv", "uvx", "pip", "pipx"]
+    .filter(Boolean);
 
   return [
     ...readOnlyGit,
     "Bash(git add:*)",
     "Bash(git config --get:*)",
     ...[...new Set(managers)].map((m) => `Bash(${m}:*)`),
-    "Bash(python3:*)",
-    "Bash(node:*)",
+    "Bash(python3:*)", "Bash(python:*)", "Bash(node:*)", "Bash(deno:*)",
+    "Bash(make:*)", "Bash(just:*)", "Bash(cargo:*)", "Bash(go:*)",
+    "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)", "Bash(touch:*)", "Bash(diff:*)",
+    "Bash(test:*)", "Bash(which:*)", "Bash(env:*)", "Bash(printf:*)", "Bash(echo:*)",
+    "Bash(awk:*)", "Bash(sort:*)", "Bash(uniq:*)", "Bash(cut:*)", "Bash(tr:*)", "Bash(du:*)",
     "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)",
     "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)", "Bash(jq:*)", "Bash(sed -n:*)",
     "Bash(gh pr view:*)", "Bash(gh pr list:*)", "Bash(gh pr diff:*)", "Bash(gh pr checks:*)",
