@@ -100,13 +100,6 @@ def settings(cfg: dict[str, typing.Any]) -> dict[str, typing.Any]:
     }
 
 
-def plugin_root() -> Path:
-    env = os.environ.get("CLAUDE_PLUGIN_ROOT")
-    if env:
-        return Path(env)
-    return Path(__file__).resolve().parent.parent
-
-
 # ── the hook half: fast, and never on the network ────────────────────────────
 
 def read_payload() -> dict[str, typing.Any]:
@@ -167,7 +160,6 @@ def spawn_worker(opts: dict[str, typing.Any]) -> None:
     """Start the network half detached, and do not wait for it."""
     try:
         env = dict(os.environ)
-        env["GRAPH_POWERS_PLUGIN_ROOT"] = str(plugin_root())
         env["GRAPH_POWERS_UPDATE_CLAUDE"] = "1" if opts["claude"] else "0"
         env["GRAPH_POWERS_UPDATE_CODEX"] = "1" if opts["codex"] else "0"
         subprocess.Popen(
@@ -198,12 +190,30 @@ def which(binary: str) -> bool:
     return _which(binary) is not None
 
 
-def installed_version(root: Path) -> str:
+def registered_version() -> str:
+    """The version Claude Code records for this plugin at user scope, or "".
+
+    Deliberately not the version of the directory this hook is running from. `claude plugin
+    update` unpacks a *new* version directory and leaves the running one exactly as it was —
+    which is why it says "restart to apply". Reading the running copy would therefore report
+    "no change" after every successful update.
+    """
+    home = os.environ.get("HOME")
+    if not home:
+        return ""
     try:
-        raw = json.loads((root / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
-        return str(raw.get("version") or "")
+        raw = json.loads(
+            (Path(home) / ".claude/plugins/installed_plugins.json").read_text(encoding="utf-8")
+        )
     except Exception:
         return ""
+    for key, installs in (raw.get("plugins") or {}).items():
+        if not str(key).startswith(f"{PLUGIN}@"):
+            continue
+        for install in installs or []:
+            if install.get("scope") == "user":
+                return str(install.get("version") or "")
+    return ""
 
 
 def published_version() -> str:
@@ -227,17 +237,17 @@ def published_version() -> str:
 
 
 def worker() -> int:
-    root = Path(os.environ.get("GRAPH_POWERS_PLUGIN_ROOT") or plugin_root())
-    before = installed_version(root)
+    before = registered_version()
     notices: list[str] = []
 
     if os.environ.get("GRAPH_POWERS_UPDATE_CLAUDE") == "1" and which("claude"):
         run(["claude", "plugin", "marketplace", "update", MARKETPLACE])
-        code, out = run(["claude", "plugin", "update", PLUGIN])
-        # `update` exits 0 with "already up to date" too — the version comparison below is what
-        # decides whether anything is worth telling the user, not this exit code.
-        if code == 0 and "up to date" not in out.lower():
-            notices.append("Claude Code plugin updated")
+        # The qualified `<plugin>@<marketplace>` form, because the bare name is not found — and
+        # the command exits 0 when it fails, so nothing downstream may trust its exit code.
+        run(["claude", "plugin", "update", f"{PLUGIN}@{MARKETPLACE}"])
+        after_claude = registered_version()
+        if before and after_claude and after_claude != before:
+            notices.append(f"Claude Code plugin {before} -> {after_claude}")
 
     if os.environ.get("GRAPH_POWERS_UPDATE_CODEX") == "1" and which("codex"):
         home = os.environ.get("HOME")
@@ -260,7 +270,7 @@ def worker() -> int:
                     if code == 0:
                         notices.append(f"Codex artefacts regenerated at {latest}")
 
-    after = installed_version(root)
+    after = registered_version()
     if notices or (before and after and before != after):
         version = after or published_version() or "a newer version"
         write_state({

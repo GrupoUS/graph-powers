@@ -16,6 +16,13 @@ Codex artefacts were generated with defects that were invisible in the generated
   ever touched. The session after an update opens with one line naming the new version, printed
   once. Configurable under `autoUpdate`; `GRAPH_POWERS_NO_AUTO_UPDATE=1` turns it off for one
   machine without editing the project's config.
+
+  Two details only running it against the real CLI surfaced: `claude plugin update` needs the
+  qualified `<plugin>@<marketplace>` form (the bare name is "not found"), and it exits 0 when it
+  fails — so the worker trusts neither its exit code nor its output, and reads the version out of
+  `installed_plugins.json` before and after. That registry is also the only thing that moves: the
+  update unpacks a *new* version directory and leaves the running one untouched, which is exactly
+  why it says "restart to apply".
 - **On Codex, an unchanged `hooks.json` is left alone.** Codex trusts a hooks file by its content,
   so rewriting an identical one costs a `/hooks` re-approval and leaves the guardrails inert until
   it is given. An update that quietly disarms what it updated is worse than no update.
