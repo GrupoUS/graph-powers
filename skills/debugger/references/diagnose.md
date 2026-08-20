@@ -59,18 +59,19 @@ bunx agent-browser errors  > ".graph-powers/logs/<bug>-errors.log"
 bunx agent-browser network requests --filter "api-staging" > ".graph-powers/logs/<bug>-net.log"
 ```
 
-**tRPC 500 repro via curl:**
+**tRPC 500 repro:**
 ```bash
-# Read the token with the Read tool and paste it in — `$(cat …)` is POSIX substitution and
-# `cat` is not on a Windows shell. Never commit the token; vault-only.
-curl -sS -X POST "${project.stagingUrl}/api/<endpoint>" -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '{"0":{"json":{}}}' | jq '.'
+# Read the token with the Read tool and paste it in place of <token>. Never commit it; vault-only.
+# Not `curl … | jq`: in PowerShell `curl` is an alias of `Invoke-WebRequest`, which rejects `-s`,
+# and `jq` is not there at all — so on Windows this printed a parameter error, not a response body.
+python -X utf8 -c "import json,urllib.request as u;r=u.Request('${project.stagingUrl}/api/<endpoint>',data=json.dumps({'0':{'json':{}}}).encode(),headers={'authorization':'Bearer <token>','content-type':'application/json'});print(json.dumps(json.load(u.urlopen(r)),indent=2))"
 ```
 
-**SSE leak / listener count probe:**
+**SSE leak / listener count probe:** hold the stream open and read it line by line, then disconnect
+and check the server's `listener.attach` / `listener.detach` pairs for that wid. Same reason as
+above — a backgrounded `curl -N` is two POSIX-only constructs, the alias and the trailing `&`:
 ```bash
-curl -N "${project.stagingUrl}/api/<stream-endpoint>" -H "authorization: Bearer $TOKEN" &
-# In another shell, observe listener count for that wid; grep server logs for
-# `listener.attach` / `listener.detach` pairs after disconnect.
+python -X utf8 -c "import urllib.request as u;r=u.Request('${project.stagingUrl}/api/<stream-endpoint>',headers={'authorization':'Bearer <token>'});[print(l.decode('utf-8','replace').rstrip()) for l in u.urlopen(r)]"
 ```
 
 **Third-party integration repro:** when the project ships a skill for the integration, load it; otherwise reproduce against the provider's sandbox before touching code.

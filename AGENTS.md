@@ -66,7 +66,7 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 212 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 295 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
@@ -77,7 +77,7 @@ python3 .github/check_listing_budget.py     # what the plugin costs before anyth
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 python3 .github/check_placeholders.py       # every ${…} is a key the schema declares
 node bin/graph-powers.mjs --help          # the installer still starts under node
-git ls-files | wc -l                       # a clone is the artefact; nothing is packed
+python3 .github/check_clone.py              # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 ```
 

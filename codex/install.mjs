@@ -22,9 +22,9 @@
  *   every hook entry added, so removal is exact rather than a guess with a glob.
  */
 
-import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -121,8 +121,9 @@ export function readHooksFile(path, log = () => {}) {
  * of each running code from a directory that no longer had a reason to exist. Comparing against
  * the template with the root wildcarded is what makes the merge idempotent across a move.
  */
+const escapeRe = (value) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 function ourCommandPattern(template, roots) {
-  const escapeRe = (value) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // The roots this install can vouch for: where it is running from now, plus wherever the manifest
   // says the previous install ran from. `.+` used to stand in for "any root", and it matched more
   // than any root — `python3 "/opt/other-tool/hooks/notify.py"` satisfies
@@ -775,6 +776,103 @@ function installProjectOnlyLegacy({
   return written;
 }
 
+// ── containment ──────────────────────────────────────────────────────────────
+//
+// Everything below exists to answer one question before `rmSync` or `writeFile` is handed a path
+// that came out of a JSON file: **did this installer write inside there?** `manifest.paths` is
+// `JSON.parse` with no schema over a file on disk, and in the project scope that file is
+// `.graph-powers/installed.json` — a normal, committable artefact of any repository that installs
+// the plugin. Whoever can land a commit can therefore name a path, and until this check existed
+// the only things standing between that name and a recursive delete were a basename regex and a
+// suffix test, neither of which asks where the path is.
+//
+// It is not only the hostile case. Manifest paths are absolute, so a manifest committed from one
+// machine names *that* machine's directories; a teammate on a shared-path machine — a container, a
+// `/workspace` checkout, the same username — running `--uninstall` deletes them by name.
+
+/** Keys of `codexPaths()` that are not filesystem paths, and so cannot bound a deletion. */
+const NOT_A_PATH = new Set(["kind", "referencesRef"]);
+
+/**
+ * A path in the only form containment can be decided on: absolute, `..` collapsed, symlinks
+ * followed as far as the filesystem actually goes, and — on Windows — spelled the way the volume
+ * spells it, drive letter included.
+ *
+ * Neither half is sufficient alone. `resolve` is purely lexical, so a symlink sitting inside an
+ * install root and pointing anywhere at all passes through it unchanged. `realpathSync` throws for
+ * a path that is not on disk, and both a manifest entry for a file already gone and a root that
+ * was never created are ordinary. So the deepest ancestor that does exist is resolved for real,
+ * and the remainder — which cannot be a symlink, because it does not exist — is joined back on.
+ *
+ * Roots and candidates go through this same function, which is what keeps a home directory that is
+ * itself a symlink (a dotfiles farm does this) from refusing every legitimate removal.
+ */
+function canonicalPath(value) {
+  if (typeof value !== "string" || !value) return null;
+  let head;
+  try {
+    head = resolve(value);
+  } catch {
+    return null;
+  }
+  const tail = [];
+  for (;;) {
+    try {
+      return join(realpathSync.native(head), ...tail);
+    } catch {
+      const parent = dirname(head);
+      // A volume root is its own parent on every platform, so this terminates. Reaching it means
+      // nothing on the branch exists: the lexical form is the best available, and it is applied to
+      // both sides of the comparison, so the two stay comparable.
+      if (parent === head) return resolve(value);
+      tail.unshift(basename(head));
+      head = parent;
+    }
+  }
+}
+
+/**
+ * Is `candidate` the root itself, or something beneath it?
+ *
+ * A `startsWith` on the two strings is not this test, and cardinal 8 is why: `<root>-evil` starts
+ * with `<root>` and is not inside it, Windows spells the separator the other way, and its drive
+ * letter comes back in either case. `relative` knows all three — `""` for the root itself, a path
+ * beginning with `..` for anything above it, an absolute path when the two sit on different
+ * volumes. The `..` test is anchored on the separator on purpose: a sibling directory named
+ * `..cache` inside the root yields `..cache`, which a bare `startsWith("..")` would refuse.
+ */
+function isInside(root, candidate) {
+  const rel = relative(root, candidate);
+  if (rel === "") return true;
+  if (isAbsolute(rel)) return false;
+  return rel !== ".." && !rel.startsWith(`..${sep}`);
+}
+
+/**
+ * The directories one uninstall target is allowed to touch: every destination `codexPaths()` named
+ * for that scope, and nothing else.
+ *
+ * Derived from the target rather than written out, so a seventh surface added to `codexPaths()` is
+ * bounded here without a second edit — the divergence this repository exists to end.
+ *
+ * `projectDir` itself is deliberately *not* a root. The manifest is a committable file inside the
+ * project it describes, so admitting the whole repository would leave `.git` in the blast radius of
+ * a path anybody can send in a pull request. Everything the project half writes and records already
+ * lives under one of the paths below; the rule templates are `adopted`, and never deleted at all.
+ *
+ * An empty list is a refusal of everything, which is the intended direction: a root that cannot be
+ * resolved must not be read as permission.
+ */
+function installRoots(target) {
+  const roots = [];
+  for (const [key, value] of Object.entries(target)) {
+    if (NOT_A_PATH.has(key)) continue;
+    const root = canonicalPath(value);
+    if (root) roots.push(root);
+  }
+  return roots;
+}
+
 /**
  * Remove exactly what a previous run recorded — in both scopes.
  *
@@ -813,8 +911,21 @@ export function uninstall({ projectDir, scope = "all", dryRun = false, log = () 
       if (existsSync(path)) log(`${path} — kept: adapted by this project, not ours to delete`);
     }
 
+    // The roots this scope installed into, resolved once per target.
+    const roots = installRoots(target);
+
     for (const path of manifest.paths ?? []) {
       if (path === target.hooks) continue;
+
+      // Before anything below is allowed to write to this path or delete it. The two branches that
+      // follow both act on it — one rewrites a file, the other removes a tree recursively — and
+      // neither of their own filters asks where the path is. This one does, and a path that is not
+      // under something this scope installed into is refused and the removal carries on.
+      const canonical = canonicalPath(path);
+      if (!canonical || !roots.some((root) => isInside(root, canonical))) {
+        log(`${path} — refused: outside every directory this install writes to`);
+        continue;
+      }
 
       if (path.endsWith("AGENTS.md")) {
         const text = existsSync(path) ? readFileSync(path, "utf8") : "";

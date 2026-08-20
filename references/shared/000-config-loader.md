@@ -2,9 +2,15 @@
 
 Every command reads `.graph-powers/config.json` at start to resolve project-specific values. Pattern:
 
+Read it with the **`Read` tool**, on `.graph-powers/config.json`. A file that is not there is the
+"declares nothing" case, not an error — every default below still applies.
+
+`test` and `cat` are the spelling this line used to carry, and cardinal 8 bans both: neither exists
+on cmd.exe or PowerShell, so on Windows the config never loaded and every `${…}` resolved to
+nothing, silently. Where a command genuinely needs the value inside a shell rather than in context:
+
 ```bash
-# read config (commands invoke via Bash or Read)
-test -f .graph-powers/config.json && cat .graph-powers/config.json
+python -X utf8 -c "import json,pathlib;p=pathlib.Path('.graph-powers/config.json');print(p.read_text(encoding='utf-8') if p.exists() else '{}')"
 ```
 
 Substitution placeholders used in commands (resolve at runtime):

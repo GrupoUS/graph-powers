@@ -294,6 +294,24 @@ const release = (t) => {
   wake()
 }
 
+// Every dispatched task produces an outcome, including the ones whose agent died. `agent()` returns
+// null when the spawn produced nothing, and dropping those — which is what the collection below used
+// to do with `.filter(Boolean)` — deletes the task from the outcome while the run reports the
+// survivors as a clean build. A dead agent is a FAILED task: recorded, with its id and the reason.
+//
+// The id is the ORCHESTRATOR's, never the agent's self-report. A model that renames itself in its
+// own result must not make its task look unaccounted-for in the reconciliation after the loop.
+const TERMINAL = new Set(['done', 'partial', 'blocked', 'failed'])
+const outcomeOf = (t, r) => {
+  if (!r || typeof r !== 'object') {
+    return { id: t.id, status: 'failed', changedPaths: [], notes: `${t.agent} returned no result — the agent died or produced nothing, so this task was NOT implemented` }
+  }
+  if (!TERMINAL.has(r.status)) {
+    return { ...r, id: t.id, status: 'failed', changedPaths: r.changedPaths ?? [], notes: `${r.notes ?? ''} [reported a status this workflow cannot interpret: ${JSON.stringify(r.status)} — treated as failed rather than as done]`.trim() }
+  }
+  return { ...r, id: t.id }
+}
+
 log(`Rolling dispatch: ${order.length} task(s), up to ${WAVE_CAP} in flight, dependency-ordered`)
 const started = new Map()
 for (const t of order) {
@@ -301,7 +319,7 @@ for (const t of order) {
     await Promise.all(depsOf(t).map((d) => started.get(d)))
     await acquire(t)
     try {
-      return await agent(
+      return outcomeOf(t, await agent(
         `Implement this task from ${PLAN_PATH}. ${skillLine}Do NOT invoke any process skill that dispatches agents — this workflow already orchestrates; implement directly (the debug chain is reserved for ultra-verify's fix loop).
 TASK ${t.id}: ${t.title}
 DETAIL: ${t.detail ?? ''}
@@ -310,20 +328,38 @@ ACCEPTANCE: ${t.criterion}
 ${GIT_RAILS}
 Return id, status, changedPaths, gateEvidence.`,
         { agentType: AG(t.agent), phase: 'Act', schema: TASK_RESULT, label: `${t.agent}:${t.id}` }
-      )
+      ))
     } finally {
       release(t)
     }
   })())
 }
-results.push(...(await Promise.all(started.values())).filter(Boolean))
+results.push(...(await Promise.all(started.values())))
+
+// Every planned task, exactly once, in a terminal state — checked, not assumed. This is the
+// structural half of the promise in the design notes at the top of this file: the run accounts for
+// the whole plan or it throws. Without it a three-task plan whose scheduler lost two of them
+// returned `tasksTotal: 1, done: 1, blocked: []` and handed the tree to verification as complete,
+// which is a false success — the most expensive thing this workflow can produce.
+const seen = new Map()
+for (const r of results) seen.set(r.id, (seen.get(r.id) ?? 0) + 1)
+const unaccounted = plannedIds.filter((id) => (seen.get(id) ?? 0) !== 1)
+const unplanned = [...seen.keys()].filter((id) => !plannedIds.includes(id))
+if (unaccounted.length || unplanned.length || results.length !== plannedTasks) {
+  throw new Error(
+    `ultra-build: ${results.length} outcome(s) for ${plannedTasks} planned task(s) — the run cannot account for the whole plan. ` +
+    (unaccounted.length ? `Never reported exactly once: ${unaccounted.map((id) => JSON.stringify(id)).join(', ')}. ` : '') +
+    (unplanned.length ? `Reported but never planned: ${unplanned.map((id) => JSON.stringify(id)).join(', ')}. ` : '') +
+    'Refusing to hand a partial build to verification as a complete one.'
+  )
+}
 
 const blocked = results.filter((r) => r.status !== 'done')
 return {
   planPath: PLAN_PATH,
   wavesPlanned: rawWaves.length,
   dispatchGroups: waves.length, // the fallback ordering; real dispatch is per task, not per group
-  tasksTotal: results.length,
+  tasksTotal: plannedTasks, // what the PLAN asked for, never what survived — the two diverging is the false success above
   done: results.filter((r) => r.status === 'done').length,
   blocked: blocked.map((r) => ({ id: r.id, status: r.status, notes: r.notes })),
   changedPaths: [...new Set(results.flatMap((r) => r.changedPaths ?? []))],

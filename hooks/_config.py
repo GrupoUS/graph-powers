@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -282,7 +283,7 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     person has never opened, so a value that *releases* a guarantee there is a decision taken on
     behalf of code nobody has read yet. Two blocks needed narrowing, for two different reasons.
 
-    **`autonomy.git`.** The comment on `USER_SCOPED_KEYS` says git is excluded deliberately, and
+    **`autonomy`.** The comment on `USER_SCOPED_KEYS` says git is excluded deliberately, and
     that was true only of the top-level `git` block — branch names and the opt-in prefix. The three
     *decisions* rode in under `autonomy` and were honoured: a home file setting them to `auto`
     silenced `git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository with no
@@ -290,6 +291,16 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     stays legal — `ask` under a personal `autonomous` is someone holding themselves to a stricter
     line, which costs nobody anything. Releasing does not: `auto` has to be written in the
     repository it applies to, where a reviewer sees it.
+
+    That rule was written for `autonomy.git` and enforced only there, which left the same escalation
+    reachable by three shorter routes. `level` is the sharpest: it is a preset, so
+    `{"autonomy": {"level": "autonomous"}}` in a home file expanded to `commit: auto, push: auto,
+    bashDefault: allow, cleanup: allow` in every repository that declared no `autonomy` of its own
+    — the whole thing the paragraph above refuses, spelled in one word, and the suite certified it
+    because it only ever tested the `git: {commit: auto}` spelling. `destructiveFloor: false` turns
+    off the one list in this plugin that is unconditional, and a loose `bashDefault`/`cleanup` is
+    the same release written out longhand. All four are stripped; `level: "guarded"` is a
+    tightening and stays, as does `allowPackageManagers`, which only ever narrows.
 
     **`protectedFiles`.** Lists replace on merge, so `{"segments": []}` at home deleted the
     defaults everywhere, and — unlike `autonomy` — a project declaring its own `protectedFiles`
@@ -306,13 +317,24 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     out = dict(user)
 
     autonomy = out.get("autonomy")
-    if isinstance(autonomy, dict) and isinstance(autonomy.get("git"), dict):
+    if isinstance(autonomy, dict):
         autonomy = dict(autonomy)
-        held = {k: v for k, v in autonomy["git"].items() if v == "ask"}
-        if held:
-            autonomy["git"] = held
-        else:
-            autonomy.pop("git")
+        # A preset that releases four decisions at once. `guarded` is a tightening and survives.
+        if autonomy.get("level") != "guarded":
+            autonomy.pop("level", None)
+        # The floor is unconditional or it is not a floor.
+        if autonomy.get("destructiveFloor") is not True:
+            autonomy.pop("destructiveFloor", None)
+        # `level: autonomous` written out one field at a time.
+        for key in ("bashDefault", "cleanup"):
+            if autonomy.get(key) != "ask":
+                autonomy.pop(key, None)
+        if isinstance(autonomy.get("git"), dict):
+            held = {k: v for k, v in autonomy["git"].items() if v == "ask"}
+            if held:
+                autonomy["git"] = held
+            else:
+                autonomy.pop("git")
         out["autonomy"] = autonomy
 
     protected = out.get("protectedFiles")
@@ -326,6 +348,74 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
         out["protectedFiles"] = merged
 
     return out
+
+
+# ── The git command, in one spelling ─────────────────────────────────────────
+#
+# `git` accepts a prefix of global options between the executable and the verb, and none of the
+# rules any hook writes are about that prefix — they are about the verb. Written as regexes, each
+# list ends up carrying its own idea of which prefixes exist, and the lists drift: the bash
+# approver's destructive floor anchored on `^git\s+<verb>` while its safe list accepted an optional
+# ` --no-pager` of its own, so `git --no-pager reset --hard HEAD~3` missed the floor, matched the
+# safe list, and was allowed in a guarded project while the bare spelling was denied.
+#
+# So the prefix is removed once, here, and every list downstream judges the same canonical string.
+# One thing, one place: a new global flag is added to the two tuples below and every hook that
+# normalises gets it, instead of eleven patterns being edited and ten of them remembered.
+_GIT_HEAD_RE = re.compile(r"^git(?=\s|$)")
+_GIT_NEXT_TOKEN_RE = re.compile(r"\s+(\S+)")
+
+# Global options that stand alone.
+_GIT_GLOBAL_FLAGS = frozenset({
+    "--no-pager", "-P", "--paginate", "-p", "--bare", "--literal-pathspecs",
+    "--no-replace-objects", "--no-optional-locks", "--glob-pathspecs",
+    "--noglob-pathspecs", "--icase-pathspecs",
+})
+# Global options whose value is the next token: `git -C <path> …`, `git -c <key>=<value> …`.
+_GIT_GLOBAL_FLAGS_WITH_VALUE = frozenset({"-C", "-c"})
+# Global options that carry their value attached: `git --git-dir=<path> …`.
+_GIT_GLOBAL_FLAGS_ATTACHED = (
+    "--git-dir=", "--work-tree=", "--namespace=", "--exec-path=", "--config-env=",
+)
+
+
+def strip_git_global_flags(command: str) -> str:
+    """`git --no-pager -C . reset --hard` -> `git reset --hard`. Anything else is returned as is.
+
+    Only the prefix is rewritten; everything from the verb onwards is copied verbatim, so a rule
+    that inspects the rest of the line sees exactly what the user typed. Never raises — a shape
+    this does not recognise is simply not normalised, which leaves the caller with the string it
+    already had rather than with an exception.
+    """
+    try:
+        raw = command if isinstance(command, str) else ""
+        if not raw:
+            return command
+        lead = len(raw) - len(raw.lstrip())
+        body = raw[lead:]
+        if not _GIT_HEAD_RE.match(body):
+            return command
+        pos = 3  # past the literal "git"
+        while True:
+            token_match = _GIT_NEXT_TOKEN_RE.match(body, pos)
+            if token_match is None:
+                break
+            token = token_match.group(1)
+            if token in _GIT_GLOBAL_FLAGS or token.startswith(_GIT_GLOBAL_FLAGS_ATTACHED):
+                pos = token_match.end()
+                continue
+            if token in _GIT_GLOBAL_FLAGS_WITH_VALUE:
+                value_match = _GIT_NEXT_TOKEN_RE.match(body, token_match.end())
+                if value_match is None:
+                    break  # `git -C` with nothing after it: leave the line alone
+                pos = value_match.end()
+                continue
+            break
+        if pos == 3:
+            return command
+        return raw[:lead] + "git" + body[pos:]
+    except Exception:
+        return command
 
 
 # ── Shortcuts the hooks use ──────────────────────────────────────────────────
@@ -484,13 +574,42 @@ def opt_in(action: str, cfg: dict[str, Any] | None = None) -> str:
     return f"{_prefix(cfg)}_ALLOW_{action}"
 
 
+# Where an environment assignment can legally sit: the start of the line, or the start of a
+# command after a separator. Same idiom as `git_commit_gate._SEPARATOR`, and for the same reason —
+# a token's POSITION is what makes it syntax rather than text.
+_OPT_IN_POSITION = r"(?:^|[;&|(\n\r])\s*"
+# The other two shells do not write bare inline assignments, and the opt-in has to work in them or
+# it does not work on Windows at all. `set KEY=1 && …` is cmd.exe; `$env:KEY=1; …` is PowerShell.
+_OPT_IN_SHELL_PREFIX = r"(?:[Ss][Ee][Tt]\s+)?(?:\$env:)?"
+# `=1`, optionally quoted (PowerShell people write `$env:KEY="1"`), and then the token has to end:
+# `KEY=10` and `KEY=1x` are different variables.
+_OPT_IN_VALUE = r"=[\"']?1[\"']?(?=$|[\s;&|)])"
+
+
 def opted_in(action: str, command: str = "", cfg: dict[str, Any] | None = None) -> bool:
-    """True when the key appears inline in the command or in the environment.
+    """True when the key is assigned inline in the command, or set in the environment.
 
     The inline form (`GRAPHPOWERS_ALLOW_COMMIT=1 git commit -m "..."`) is the one that
     matters: it is written once, for one command, after a person approved that turn.
+
+    It is an ASSIGNMENT, and that word is the whole guarantee. This was `f"{key}=1" in command` —
+    the key as free text anywhere on the line — so the gates released on
+    `git commit -m "<KEY>=1 refactor"` and on `git push -o <KEY>=1 origin <branch>`: a model that
+    had read the refusal message could put the key in the payload of the very command being
+    refused, and the approval a person never gave was granted by the text of the thing they were
+    being asked about. Requiring the position an assignment occupies is what separates the two,
+    without requiring a shell that understands the syntax — which cmd.exe and PowerShell do not.
     """
     if auto(action, cfg):
         return True
     key = opt_in(action, cfg)
-    return os.environ.get(key) == "1" or f"{key}=1" in (command or "")
+    if os.environ.get(key) == "1":
+        return True
+    try:
+        pattern = _OPT_IN_POSITION + _OPT_IN_SHELL_PREFIX + re.escape(key) + _OPT_IN_VALUE
+        return re.search(pattern, command or "") is not None
+    except Exception:
+        # Cardinal 3, strict side: a key this cannot be compiled into is a key that releases
+        # nothing. The gate stays shut, which is the state the user can always override by
+        # exporting the variable.
+        return False

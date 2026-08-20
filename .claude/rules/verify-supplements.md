@@ -53,5 +53,7 @@ Two more that need arguments and therefore run in CI rather than here:
 - `ruff`, `basedpyright`, `oxlint`, `biome`. `biome ci` reports formatting drift in the five `.mjs`
   files and always has; the same tree produced 190 ruff findings while CI was green. Reformatting
   them is a standalone change with its own commit, never a rider on somebody else's work.
-- `git ls-files | wc -l` is a number to read, not a threshold to pass. A clone is the artefact here;
-  nothing is packed, so the count only matters when it moves for a reason nobody can name.
+- The tracked-file count `python3 .github/check_clone.py` prints is a number to read, not a
+  threshold to pass. A clone is the artefact here; nothing is packed, so the count only matters
+  when it moves for a reason nobody can name. (It used to be spelled `git ls-files | wc -l`, which
+  is two coreutils cardinal 8 bans — the script reports the same number and runs on Windows.)

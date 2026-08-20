@@ -1039,10 +1039,12 @@ Do not start fixing. Establish, in this order, how many of them are about this p
 python3 -c "import json;print(json.load(open('.graph-powers/config.json'))['tooling']['commands'])"
 
 # 2. Where do the findings live? Directory, not rule — this is the question that resolves it.
-oxlint 2>&1 | grep -oE "^[^:]+" | sed "s|/.*||" | sort | uniq -c | sort -rn | head
+#    `grep`/`sed`/`sort`/`uniq`/`head` are five coreutils cardinal 8 bans; Python does the same
+#    counting and runs on cmd.exe and PowerShell too.
+python -X utf8 -c "import collections,re,subprocess;o=subprocess.run(['oxlint'],capture_output=True,text=True,encoding='utf-8',errors='replace');c=collections.Counter(m.group(1).split('/')[0] for l in (o.stdout+o.stderr).splitlines() if (m:=re.match(r'^([^:\s]+):',l)));[print(f'{n:6} {d}') for d,n in c.most_common(10)]"
 
 # 3. Only once 2 shows the project's own source, group by rule.
-oxlint 2>&1 | grep -oE "(warning|error) [a-z-]+\([a-z0-9-]+\)" | sort | uniq -c | sort -rn
+python -X utf8 -c "import collections,re,subprocess;o=subprocess.run(['oxlint'],capture_output=True,text=True,encoding='utf-8',errors='replace');c=collections.Counter(re.findall(r'(?:warning|error) ([a-z-]+\([a-z0-9-]+\))',o.stdout+o.stderr));[print(f'{n:6} {r}') for r,n in c.most_common()]"
 ```
 
 Step 2 is the one that ends most of these. On the project measured above it returned 235 findings

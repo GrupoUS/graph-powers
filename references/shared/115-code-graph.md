@@ -34,8 +34,6 @@ one, so it costs whatever the size of the tree costs. Install: `python -m pip in
 
 ### Query cookbook
 
-| Question | Command |
-|---|---|
 Every row below is prefixed by the same `python -X utf8 -m code_review_graph` as the block above —
 written out in full each time, for the reason given there.
 
@@ -69,16 +67,22 @@ functions (`CRG_MAX_CHANGED_FUNCS`) — prefer explicit `--files` from the diff 
 ### Limits — where the graph is NOT authoritative `[HARD]`
 
 The parser resolves **static** imports and call sites. It does not see anything reached through a
-string or assembled at runtime. For these five, **grep is the authority and the graph is the hint**:
+string or assembled at runtime. For these five, **`Grep` is the authority and the graph is the
+hint** — the agent's own `Grep` tool, never a shell `grep`: that binary does not exist on Windows,
+and cmd.exe does not treat `'` as a quote, so an `--include='*test*'` matches nothing and the empty
+result reads as "nothing found" when it means "the command did not run".
 
 1. tRPC client paths (`trpc.<domain>.<proc>.useQuery`) — the procedure↔caller edge does not exist.
 2. TanStack Router route ids / `to="/…"` targets.
 3. Drizzle column reads (a column is not a node).
 4. Anything behind a dynamic `import()`, a registry map, or a string key.
-5. **`tests_for` is incomplete** — verified on this repo: `applyMovement` returns 0 tests while
-   `stock-service.test.ts` references it 7×. A zero here means "no static edge found", NEVER
-   "untested". Confirm with `grep -rln "<symbol>" apps/*/src/**/*.test.ts*` before claiming a test gap.
+5. **`tests_for` is incomplete** — measured: one exported function returned 0 tests while a single
+   test file referenced it 7×. A zero here means "no static edge found", NEVER "untested". Before
+   claiming a test gap, confirm with the `Grep` tool: the symbol under `${paths.backendRoot}` and
+   `${paths.frontendRoot}`, then again with `glob: "*test*"` and with `glob: "*spec*"`. The union is
+   the answer. A project whose tests live somewhere else says so in `paths` — do not assume a layout
+   this repository cannot see.
 
 A graph result therefore **widens** the search and **never narrows** a safety check: it may add
-consumers you would have missed, but an empty result never authorizes skipping the grep that a
+consumers you would have missed, but an empty result never authorizes skipping the `Grep` that a
 `[HARD]` rule (tenant filter, PII gate, financial mirror) depends on.

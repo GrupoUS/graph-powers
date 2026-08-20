@@ -80,18 +80,38 @@ EXEMPT_FILES = {
 
 FENCE_START = re.compile(r"^```(bash|sh|shell|console)?\s*$")
 
-# Where a shell would START a command, which is where a POSIX binary is a defect — not only where
-# the line starts. This pattern was `^\s*(…)` read with `.match()`, so everything after the first
-# word of a line was invisible to it: `git ls-files | wc -l` sits in this repository's own list of
-# gates, twenty-five lines below the paragraph that bans `wc`, and the gate reported zero problems.
-# The positions are the ones a shell recognises — start of line, after a pipe, after `&&`/`||`/`;`,
-# inside `$(…)` or backticks, and as the command `xargs` is given to run.
-COMMAND_POSITION = r"(?:^|[;&|]|\$\(|`|\bxargs(?:\s+-\S+)*\s)\s*"
+# A POSIX binary is a defect wherever the shell would START it, not only where the line starts.
+# The pattern here was `^\s*(…)` read with `.match()`, so everything after the first word of a line
+# was invisible: `git ls-files | wc -l` sits in this repository's own list of gates, twenty-five
+# lines below the paragraph that bans `wc`, and this gate reported zero problems. Every other check
+# in the file already used `.search()`; the binary list was the one that did not.
+#
+# The shell's command separators. Split a line on them and the first word of each piece is a
+# command — which is the only position where one of these names means the binary rather than a word.
+COMMAND_SEPARATORS = re.compile(r"[|;&`]|\$\(")
 
-# ...and where it is NOT a command, however much it looks like one. A `; ` inside a Python one-liner
-# is a statement separator, so `python -c "import time; time.sleep(1)"` would otherwise report
-# `time`. An attribute, a call, a subscript or an assignment is never a shell command.
-NOT_A_COMMAND = r"(?![\w.(\[=])"
+# `xargs` runs what follows it, so what follows it is in command position too. Rewriting it as a
+# separator (while leaving `xargs` itself in place to be reported on its own account) is what makes
+# `find . -type f | xargs rm -f` report `find`, `xargs` AND `rm` instead of stopping at the pipe.
+XARGS_RUNS_NEXT = re.compile(r"\bxargs\b((?:\s+-\S+)*)\s+")
+
+# The first word of a segment, if it has one. A segment starting with `-` or a quote has no command.
+FIRST_WORD = re.compile(r"^\s*([A-Za-z_][\w-]*)")
+
+# ...and what proves the first word is NOT a command, however much it looks like one. `;` is also
+# Python's statement separator, so `python -X utf8 -c "import time; time.sleep(1)"` would otherwise
+# report `time`. An attribute, a call, a subscript or an assignment is never a shell command.
+NOT_A_COMMAND = (".", "(", "[", "=")
+
+
+def posix_binaries_in(line: str) -> list[str]:
+    """Every POSIX-only binary this line puts in command position, in the order they appear."""
+    hits: list[str] = []
+    for segment in COMMAND_SEPARATORS.split(XARGS_RUNS_NEXT.sub(r"xargs\1 ; ", line)):
+        m = FIRST_WORD.match(segment)
+        if m and m.group(1) in POSIX_BINARIES and segment[m.end(1):m.end(1) + 1] not in NOT_A_COMMAND:
+            hits.append(m.group(1))
+    return hits
 
 
 def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
@@ -129,7 +149,6 @@ def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
 
 def scan_markdown() -> list[str]:
     problems: list[str] = []
-    binaries = re.compile(COMMAND_POSITION + r"(" + "|".join(POSIX_BINARIES) + r")\b" + NOT_A_COMMAND)
     roots = ["commands", "skills", "references", "templates", "agents", "workflows"]
     # The repository root was missing, and it is where the file a new installer reads first lives.
     # `AGENT_SETUP.md` ships (`check_version_bump.SHIPPED` lists it), it is the longest set of
@@ -149,9 +168,9 @@ def scan_markdown() -> list[str]:
             for lineno, line in lines:
                 # Every occurrence, not the first: `find . | wc -l` is two defects on one line, and
                 # reporting one of them makes the second survive the fix that answered the report.
-                for m in binaries.finditer(line):
+                for name in posix_binaries_in(line):
                     problems.append(
-                        f"SHELL {path}:{lineno}: `{m.group(1)}` is not on a Windows shell — "
+                        f"SHELL {path}:{lineno}: `{name}` is not on a Windows shell — "
                         f"use the agent's own tool, or one line of Python"
                     )
                 for why, pattern in SHELL_CONSTRUCTS.items():

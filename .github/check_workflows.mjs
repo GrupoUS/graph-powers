@@ -10,6 +10,11 @@
  * It also asserts the two things the runtime needs to find the workflow: an `export const meta`
  * with a `name`, and that the name matches the filename. A mismatch does not fail loudly at
  * startup; the workflow is simply registered under a name nobody calls.
+ *
+ * That second assertion used to be `source.match(/name:\s*['"]([^'"]+)['"]/)` over the whole file,
+ * which asserts something else entirely: that SOME `name: '<stem>'` literal exists somewhere in the
+ * text. A `meta` with no `name` at all passed as long as any later object — an agent schema, a
+ * phase, a prompt — happened to carry one. `readMeta` below reads the `meta` literal itself.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -36,6 +41,139 @@ function checkAgentSet(path, source, onDisk) {
         `AGENTS ${path}: agents/${name}.md exists but PLUGIN_AGENTS omits it — a spawn of it would go unnamespaced`,
       );
   return problems;
+}
+
+/**
+ * The end of the string literal that opens at `start`, or -1 if it never closes.
+ *
+ * Brace counting that does not know about strings is brace counting that is wrong here: two of the
+ * three shipped workflows carry `Pass { planPath, config }` inside `meta.whenToUse`, and one carries
+ * an escaped quote (`the project\'s plan directory`). Both would end the literal early.
+ */
+function endOfString(text, start) {
+  const quote = text[start];
+  for (let i = start + 1; i < text.length; i++) {
+    if (text[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (text[i] === quote) return i;
+  }
+  return -1;
+}
+
+/**
+ * The index of the `}` that closes the object opening at `open`, or -1.
+ *
+ * Bounded on purpose: this is not a JavaScript parser, it is a brace matcher that knows about
+ * strings and comments. `.claude/rules/artifacts.md` requires `meta` to be a pure literal — "no
+ * variable, call, spread or interpolation" — which is exactly the grammar this can read, and
+ * anything outside it is refused below rather than guessed at.
+ */
+function closingBrace(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (c === "'" || c === '"' || c === "`") {
+      const end = endOfString(text, i);
+      if (end === -1) return -1;
+      i = end;
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "/") {
+      const nl = text.indexOf("\n", i);
+      if (nl === -1) return -1;
+      i = nl;
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      if (end === -1) return -1;
+      i = end + 1;
+      continue;
+    }
+    if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * `meta.name`, read from the `meta` literal and from nowhere else.
+ *
+ * Only a TOP-LEVEL `name` counts. `meta.phases` is an array of objects and a phase is free to be
+ * called anything; the whole-file regex this replaces would happily have registered a workflow
+ * under a phase's title, or under a `name` field of an agent output schema three hundred lines
+ * down. Depth tracking is what makes the difference.
+ *
+ * A computed `meta` FAILS rather than being skipped. The runtime reads `meta` before the body runs,
+ * so a spread, a variable or a call there does not register under a different name — it does not
+ * register at all, and a gate that stays quiet about it is worse than no gate.
+ */
+function readMeta(source) {
+  // `\s*` and not `[ \t]*`: a CRLF checkout puts a `\r` everywhere this pattern would otherwise
+  // have to stop, and the whole file's docstring is about matches that anchor to `\n` and then
+  // never fire on Windows.
+  const decl = /(?:^|\n)\s*(?:export\s+)?const\s+meta\s*=\s*/.exec(source);
+  if (!decl) return { error: "no `export const meta` — the runtime has nothing to register" };
+  const open = decl.index + decl[0].length;
+  if (source[open] !== "{")
+    return {
+      error:
+        "`meta` is not an object literal — the runtime reads it before the body runs, so a variable, a call or a spread never resolves and the workflow registers under nothing",
+    };
+  const close = closingBrace(source, open);
+  if (close === -1) return { error: "the `meta` object literal is never closed" };
+  const literal = source.slice(open, close + 1);
+  if (literal.includes("..."))
+    return {
+      error:
+        "`meta` spreads another object — it has to be a pure literal, because the runtime reads it before anything exists to spread from",
+    };
+
+  let depth = 0;
+  for (let i = 0; i < literal.length; i++) {
+    if (depth === 1 && !/[\w$]/.test(literal[i - 1] ?? "")) {
+      const key = /^(['"]?)name\1\s*:\s*/.exec(literal.slice(i));
+      if (key) {
+        const at = i + key[0].length;
+        const quote = literal[at];
+        if (quote !== "'" && quote !== '"' && quote !== "`")
+          return {
+            error:
+              "`meta.name` is not a string literal — the runtime reads `meta` before the body runs, so a variable, a call or an expression there resolves to nothing",
+          };
+        const end = endOfString(literal, at);
+        if (end === -1) return { error: "the `meta.name` string is never closed" };
+        const value = literal.slice(at + 1, end);
+        if (quote === "`" && value.includes("${"))
+          return {
+            error:
+              "`meta.name` interpolates — nothing is in scope when the runtime reads `meta`, so the name it registers is not the name you wrote",
+          };
+        return { name: value };
+      }
+    }
+    const c = literal[i];
+    if (c === "'" || c === '"' || c === "`") {
+      const end = endOfString(literal, i);
+      if (end === -1) return { error: "an unterminated string inside `meta`" };
+      i = end;
+    } else if (c === "/" && literal[i + 1] === "/") {
+      const nl = literal.indexOf("\n", i);
+      if (nl === -1) break;
+      i = nl;
+    } else if (c === "/" && literal[i + 1] === "*") {
+      const end = literal.indexOf("*/", i + 2);
+      if (end === -1) break;
+      i = end + 1;
+    } else if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") depth--;
+  }
+  return { error: "`meta` has no top-level `name` — the runtime has nothing to register" };
 }
 
 /**
@@ -77,10 +215,23 @@ function sampleFor(schema) {
 // Executing the script IS the check: a workflow that parses but throws on the first `agent()` call
 // is a workflow nobody can run, and only running it finds that. The cost is stated rather than
 // hidden: `new Function` gives the body the ambient globals — `process`, `fetch`, dynamic `import`
-// — and the scope below shadows six names rather than removing anything. `node:vm` would not change
-// that; the Node documentation is explicit that it is not a security boundary. What bounds this is
-// the CI job: `permissions: contents: read`, no secrets on a fork's pull request, and an ephemeral
-// runner. Do not run this gate against a workflow directory you did not review.
+// — and the scope below shadows eight names rather than removing anything. `node:vm` would not
+// change that; the Node documentation is explicit that it is not a security boundary. So the
+// simulator is strictly MORE privileged than the thing it simulates: the real workflow runtime has
+// no `fs` and no `require` (`.claude/rules/artifacts.md § Workflow scripts`), while here `require`
+// is indeed undefined but `await import('node:fs')` returns the module and writes to disk —
+// measured, not assumed.
+//
+// The boundary, for both modes, because naming only one of them was the defect:
+//
+//   DIRECTORY mode runs it, and the files are the repository's own — reviewed, versioned, and in
+//   CI bounded further by `permissions: contents: read`, no secrets on a fork's pull request and an
+//   ephemeral runner. Do not point this mode at a workflows/ directory you did not review.
+//
+//   EXPLICIT-PATH mode does NOT run it unless `--run` is passed. That mode's whole purpose is "one
+//   script, before it is ever run" — a body nobody has vouched for yet, frequently one a model just
+//   wrote — and executing it to prove it is safe to execute is the question begging its own answer.
+//   Parse-only is the default there; `--run` is the operator saying they read the file.
 async function dryRun(body, args) {
   const spawned = [];
   const scope = {
@@ -119,7 +270,8 @@ async function dryRun(body, args) {
  * Two modes, one check.
  *
  *   node .github/check_workflows.mjs                 the gate: every file in workflows/
- *   node .github/check_workflows.mjs <file> [...]    one script, before it is ever run
+ *   node .github/check_workflows.mjs <file> [...]    one script, before it is ever run — PARSE ONLY
+ *   node .github/check_workflows.mjs <file> --run    ...and execute its body against the stubs
  *
  * The second mode exists because the failure this file was written to catch does not only happen
  * to workflows that ship. A script authored inline for a single run — the shape `Workflow({script})`
@@ -132,11 +284,23 @@ async function dryRun(body, args) {
  *
  * Explicit-path mode drops the two checks that only make sense for a shipped workflow — the
  * filename/`meta.name` agreement and the refuses-empty-args guard — because a one-run script is not
- * registered under a name and has no contract to refuse. What it keeps is what actually breaks:
- * the parse, and the dry run.
+ * registered under a name and has no contract to refuse.
+ *
+ * It also does not EXECUTE the body unless `--run` says so, and that is not caution for its own
+ * sake. The dry run is `new Function` with the ambient globals (see `dryRun`), and this mode is
+ * pointed at exactly the file nobody has vouched for yet — the one a model wrote a minute ago, the
+ * one whose contents are the open question. "Check this before it runs" cannot be implemented by
+ * running it. So the default here is the parse, which catches the failure this mode was built for
+ * (the stray backtick), and `--run` is the operator stating they read the file and want the rest:
+ * a helper used before it is defined, a destructure of a field the schema never returns, a typo in
+ * a variable name.
  */
 const EXPLICIT = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 const CHECKING_ONE_OFF = EXPLICIT.length > 0;
+const RUN_REQUESTED = process.argv.slice(2).includes("--run");
+// Directory mode always executes: those files are in the repository and reviewed, and the dry run
+// is the check they exist for.
+const WILL_EXECUTE = !CHECKING_ONE_OFF || RUN_REQUESTED;
 
 const DIR = "workflows";
 if (!CHECKING_ONE_OFF && !existsSync(DIR)) {
@@ -171,6 +335,11 @@ const agentsOnDisk = existsSync("agents")
     )
   : new Set();
 
+if (CHECKING_ONE_OFF && RUN_REQUESTED)
+  console.log(
+    "--run: the body of each file below is EXECUTED in this process. The stubs replace the workflow runtime, not the platform — `process`, `fetch`, `globalThis` and `await import('node:fs')` all stay reachable, and the real runtime has none of them. Pass this only for a file you have read.",
+  );
+
 let failed = 0;
 for (const file of files) {
   const path = CHECKING_ONE_OFF ? file : join(DIR, file);
@@ -188,19 +357,17 @@ for (const file of files) {
     continue;
   }
 
-  const declared = source.match(/name:\s*['"]([^'"]+)['"]/);
-  if (!declared) {
-    console.error(
-      `META   ${path}: no \`name\` in \`export const meta\` — the runtime has nothing to register`,
-    );
+  const meta = readMeta(source);
+  if (meta.error) {
+    console.error(`META   ${path}: ${meta.error}`);
     failed++;
     continue;
   }
   // A one-off script is invoked by `scriptPath`, never by name, so the filename it happens to sit
   // under carries no meaning and disagreeing with `meta.name` breaks nothing.
   const expected = basename(file, ".js");
-  if (!CHECKING_ONE_OFF && declared[1] !== expected) {
-    console.error(`NAME   ${path}: meta.name is "${declared[1]}" but the file is "${expected}.js"`);
+  if (!CHECKING_ONE_OFF && meta.name !== expected) {
+    console.error(`NAME   ${path}: meta.name is "${meta.name}" but the file is "${expected}.js"`);
     failed++;
     continue;
   }
@@ -215,25 +382,27 @@ for (const file of files) {
   // Every workflow here takes a string first argument (a task, or a plan path). Passing one
   // exercises the real path; passing nothing exercises the guard that should reject it.
   let spawnCount = 0;
-  try {
-    // One workflow at a time, so a failure names the file it came from without interleaving.
-    // oxlint-disable-next-line no-await-in-loop
-    const { spawned } = await dryRun(body, "dry-run/plan.md");
-    spawnCount = spawned.length;
-    const unnamespaced = [...new Set(spawned)].filter(
-      (a) => a !== "(inherited)" && !a.includes(":") && agentsOnDisk.has(a),
-    );
-    if (unnamespaced.length) {
-      console.error(
-        `SPAWN  ${path}: spawns ${unnamespaced.join(", ")} without the plugin namespace`,
+  if (WILL_EXECUTE) {
+    try {
+      // One workflow at a time, so a failure names the file it came from without interleaving.
+      // oxlint-disable-next-line no-await-in-loop
+      const { spawned } = await dryRun(body, "dry-run/plan.md");
+      spawnCount = spawned.length;
+      const unnamespaced = [...new Set(spawned)].filter(
+        (a) => a !== "(inherited)" && !a.includes(":") && agentsOnDisk.has(a),
       );
+      if (unnamespaced.length) {
+        console.error(
+          `SPAWN  ${path}: spawns ${unnamespaced.join(", ")} without the plugin namespace`,
+        );
+        failed++;
+        continue;
+      }
+    } catch (error) {
+      console.error(`RUN    ${path}: ${error.message}`);
       failed++;
       continue;
     }
-  } catch (error) {
-    console.error(`RUN    ${path}: ${error.message}`);
-    failed++;
-    continue;
   }
 
   // A shipped workflow must refuse an empty invocation; a one-off script written for one known set
@@ -252,19 +421,27 @@ for (const file of files) {
     }
   }
 
-  console.log(
-    CHECKING_ONE_OFF
-      ? `ok     ${path} (${declared[1]}) — parses, runs dry in ${spawnCount} stubbed spawns`
-      : `ok     ${path} (${declared[1]}) — parses, runs dry in ${spawnCount} stubbed spawns, refuses empty args`,
-  );
+  if (!CHECKING_ONE_OFF)
+    console.log(
+      `ok     ${path} (${meta.name}) — parses, runs dry in ${spawnCount} stubbed spawns, refuses empty args`,
+    );
+  else if (WILL_EXECUTE)
+    console.log(`ok     ${path} (${meta.name}) — parses, runs dry in ${spawnCount} stubbed spawns`);
+  else
+    console.log(
+      `ok     ${path} (${meta.name}) — parses. The body was NOT executed; add --run to dry-run it, which executes this file's code here.`,
+    );
 }
 
 if (failed) {
   console.error(`\n${failed} workflow file(s) failed`);
   process.exit(1);
 }
-console.log(
-  CHECKING_ONE_OFF
-    ? `\n${files.length} script(s) parse and survive a dry run — safe to hand to Workflow`
-    : `\n${files.length} workflow(s) parse, and every meta.name matches its file`,
-);
+if (!CHECKING_ONE_OFF)
+  console.log(`\n${files.length} workflow(s) parse, and every meta.name matches its file`);
+else if (WILL_EXECUTE)
+  console.log(`\n${files.length} script(s) parse and survive a dry run — safe to hand to Workflow`);
+else
+  console.log(
+    `\n${files.length} script(s) parse — which is what catches the stray backtick. Nothing was executed: add --run, for a file you have read, to also exercise the control flow.`,
+  );
