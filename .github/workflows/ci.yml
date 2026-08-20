@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version gate compares this commit against the one before it. A depth-1 checkout
+          # has nothing to compare against and the gate would skip itself, silently.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -40,6 +44,11 @@ jobs:
           print("\n".join(bad) or f"{len(files)} JSON files parse")
           sys.exit(1 if bad else 0)
           PY
+
+      - name: A shipped change bumps the version
+        run: python3 .github/check_version_bump.py
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
 
       - name: Guardrails — negative tests, both harnesses
         run: python3 hooks/test_hooks.py

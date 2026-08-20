@@ -20,6 +20,7 @@ python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
+python3 .github/check_version_bump.py       # a shipped change bumps the version
 grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
   --include='*.mjs' . | grep -v node_modules | grep -v 'grep -rnE'
 ```

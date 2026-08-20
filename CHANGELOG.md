@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0 — the version is the delivery channel
+
+A CI gate now refuses any change that touches what the plugin ships without bumping the version in
+both manifests.
+
+That is not bookkeeping. `claude plugin update` compares the **version** in
+`.claude-plugin/plugin.json`, not the commit it came from — so a fix pushed without a bump sits on
+`main` while every installed machine keeps the old files and the command reports "already at the
+latest version". This release exists because that happened: 1.1.0 shipped, a follow-up fix landed
+without a bump, and the installed copy stayed on the commit before it, reporting itself current.
+
+Also fixed: the installer died with "neither claude nor codex was found on PATH" even when the
+caller had passed `--target` and said exactly what to wire. Generating Codex artefacts for a CLI
+that is not installed yet is a real case — a container image, a CI runner, a machine being
+prepared for someone else — and it is the case the project's own CI hits. A missing CLI is now
+fatal only when nobody said what to wire; Claude Code stays fatal either way, because its half of
+the install *is* the CLI.
+
 ## 1.1.0 — it updates itself, and there is nothing to publish
 
 ### Changed — distribution

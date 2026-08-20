@@ -128,6 +128,13 @@ repository has no dependencies, no build step, and its "artefact" is markdown, J
 standard-library Python — the checkout **is** the thing that runs. So the registry was buying
 nothing and charging a release.
 
+**What this costs, and how it is paid:** `claude plugin update` compares the version in
+`.claude-plugin/plugin.json`, not the commit. A fix pushed without a bump sits on `main` while
+every installed machine keeps the old files and the command reports "already at the latest
+version" — a report that says covered while the old guardrail is the one running. So the version
+is the delivery channel, and a CI gate refuses any change to what the plugin ships that does not
+move it. Nothing about that is left to memory.
+
 **The trade-off, stated plainly:** there is no version pinning for consumers. A clone tracks a
 branch, not a tag. That is acceptable here because the harness is meant to converge, not to fork —
 a project pinned to an old copy of the guardrails is the exact failure this repository exists to
