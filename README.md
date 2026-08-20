@@ -22,8 +22,7 @@ node ~/.graph-powers/src/bin/graph-powers.mjs
 Then one prompt, pasted into an agent session opened in your project:
 
 ```
-Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
-Stop for my approval before each write, as the playbook instructs.
+Read AGENT_SETUP.md from the graph-powers plugin (https://github.com/GrupoUS/graph-powers) and execute it for this project.
 ```
 
 That second step is not decoration. Installing wires the plugin in; the playbook is what makes

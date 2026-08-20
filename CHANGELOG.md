@@ -1,5 +1,79 @@
 # Changelog
 
+## 1.8.0 — the multi-agent /verify the reference layer had already specified
+
+Four shipped files described a `/verify` that consolidates signals from parallel agents: `090-verdict-matrix.md:3` said it consolidates "gates + agents + reviews", `parallel-batch-contracts.md:19` listed a "Phase 8 — parallel codex review + adversarial review", `agent-handoff-contracts.md:58` described its "consolidator" reading handoff JSON, and `015-verification-gate.md:13` cited a "Phase 0". The command had five sections, zero agent spawns, and loaded none of the four. This release builds the command those files were describing, and deletes the two claims that were never true.
+
+### Added — `references/shared/125-change-set.md`, and both commands now compute a scope
+
+`/verify` § 2 asserted that no file outside the task's scope had changed **without the command ever computing a scope**, and `/pr-review` § 1 derived its risk from a line count and path names. The new shared reference carries the three-tier base detection `ultra-verify` already had — `git diff HEAD`, then `merge-base origin/<workBranch> HEAD`, then `HEAD~1`, with a union rule and a confidence label — plus the surface map and the code-graph contract. It is charged to the ceiling, not to either command's floor.
+
+### Added — the code graph reaches the two commands that judge changes
+
+Neither mentioned it; only `/plan` did. `/pr-review` § 1 gains `detect-changes --brief` (a per-file risk score, which is what the cookbook built it for) and `impact --depth 2` (the "12 files changed, 80 affected" case a PR view structurally hides). `/verify` § 3 gains `callers_of` intersected with the change set for the reuse ledger — the same question `/plan` asked to produce the row, asked again after the fact — and `impact` for watchlist rows the plan's own author could not have known to write. Every one of them degrades: the probe is `status`, unavailable is recorded `SKIPPED (graph unavailable)`, and grep continues. `tests_for` is explicitly a candidate proof and never a coverage finding, because a measured case in `115-code-graph.md` returns zero tests for a symbol its test file references seven times.
+
+### Added — `/verify § 1.5`, a real parallel review batch
+
+Its three tree-reading blocks share no data: the safety floor runs `git status`/`git log`/`git diff --cached`, and the review checklist reads the plan, the rules directory, the host `REVIEW.md` and the branch. Neither consumes a gate exit code. Written `1 → 2 → 3` they looked sequential and were not. Four tracks now dispatch in one message — floor, correctness, security, design — every one read-only by frontmatter, surface-gated, and extensible through `chain.lenses`, the same config contract `ultra-verify` honours.
+
+### Added — `/verify loop`, the first way to reach `ultra-verify` without `/plan`
+
+`commands/plan.md:306` was the only line in the repository that invoked the 509-line workflow. The workflow's own header says the division out loud — verifying without a plan "already has a home: `/verify`" — but only one side of that contract was written down. `/verify loop` now hands the plan-measured half over when a plan exists, carrying the three-failure fallback doctrine `/plan` already proved, and keeps what the workflow does not do: the safety floor, `verify-supplements.md`, `NOT DECLARED` per gate, `## Rollback` and the `## Reuse ledger` walk.
+
+### Fixed — one need, two rival mechanisms for the project's extra gates
+
+`chain.contractGates` in the schema and `${rulesDir}/verify-supplements.md` answer the same question — where a repository keeps the checks it already had beyond type-check, lint and test — and neither knew the other existed. `ultra-verify` honoured the first and never read the second; `/verify` read the second and never knew about the first, so a project that put its checks in the config got them run by the chain and skipped by a direct `/verify`. `/verify § 0` now reads both, fires the contract gates whose `when` matches the surfaces from § 0.1, and reports which mechanism produced each row. The difference between them is real rather than historical: one is prose every run executes, the other is structured and conditional.
+
+### Fixed — a third verdict vocabulary, in the file nothing loaded
+
+`090-verdict-matrix.md` decided in Ship / Hold / Ship-with-follow-up while `/verify` and `ultra-verify` both return VERIFIED / VERIFIED-WITH-NOTES / NEEDS-WORK. Now that `/verify § 4` actually loads it, the third vocabulary would have been a contradiction shipped into the one place the verdict is written down. It adopts the three words, and states that a signal which did not run is its own row — `SKIPPED` and `NOT DECLARED` are different answers from `PASS`.
+
+### Fixed — `/pr-review § 3` was titled "parallel" and dispatched nothing
+
+Zero `subagent_type`, zero `Agent(`, four prose headings. It is a dispatch table now, and it gained the two lenses `ultra-verify` has always had and the review command never did: `performance-regression` and `design-tokens-a11y`. Projects extend it through `chain.lenses`; a lens naming an agent this plugin does not ship is named in the output **before** the batch, because a misspelt value otherwise spawns nothing and the review reports one check fewer than it claims.
+
+### Fixed — the demotion half of the consolidation rule was dead text
+
+§ 4 demoted a finding "only one path raised **and the others explicitly checked**", while the § 2 return contract said "Findings only. No praise, no summary" — so no track could ever report what it checked and found clean. Every track now returns a `COVERED` line, all on one P0-P3 scale, and the third case is spelled out: raised once with nothing else looking is a coverage gap, not agreement.
+
+### Fixed — three of four audit agents could write to the diff they were auditing
+
+`references/audit-agent-prompts.md` routed D3/D8/D9 and D4/D5 to `graph-powers:debugger` and D6/D7 to `graph-powers:frontend-specialist`, all carrying `Write` and `Edit`. The only thing between them and the tree was a prose "MUST NOT DO: edit any file" — a request, not a permission, and this repository has already paid for that: a review agent partitioned ownership of the diff it was reviewing and reverted about eighty lines of it. `/pr-review § 3F` reaches those agents through `/debug audit pr`, so the command was violating its own Iron Law transitively. All four slots are now read-only by frontmatter; D7 moved to the explorer slice because judging whether a gate can fail needs `Bash`, which the UX critic deliberately lacks.
+
+### Fixed — the performance lens was a write-capable agent, in both places
+
+`ultra-verify` has dispatched `performance-optimizer` as its `performance-regression` skeptic since the lens roster was written, and the first draft of `/pr-review § 3C` copied it. That agent resolves with `Write` and `Edit` and no `disallowedTools`, and a skeptic only reports — so both were handing review work to an agent that could edit the diff it was judging, which is the one rule this repository wrote down as an incident rather than a preference. Both now ask the performance question through `graph-powers:explorer`, which is read-only by frontmatter and has the `Bash` a pattern hunt needs. The fix loop is a separate dispatch and stays write-capable, which is where that specialist belongs. Every agent either command dispatches for review was re-checked against its own frontmatter, not against its description.
+
+### Fixed — `ultra-verify` requested a build gate and silently never ran it
+
+`commands.build` was declared in `CONFIG_SHAPE`, named in the config prompt, and consumed nowhere: `gateList` was `[typeCheck, lint, test]`. A project declaring `tooling.commands.build` got a gate that read as covered and never ran, while `/verify` ran it. It now runs **once**, in the opening gate pass, and deliberately not in `REGATE` — that list re-runs after every fix batch, and rebuilding per round is the most expensive thing this workflow could do. A project wanting it per round declares it as a `chain.contractGates` entry, which is what the file's own comment already recommended.
+
+### Fixed — three smaller things that had gone stale
+
+`/pr-review` hardcoded "three failed attempts" while the schema default for `graphGuardrails.maxRepatch` is 2 and `/verify` reads the key; it reads the key now. Its "read-only by default" claim did not survive § 3F writing `docs/AUDIT-REPORT-<date>.md` in the default mode — the claim is now accurate about what it means. And `ultra-verify.js` justified replicating a simplify pass partly because "the `debugger` agent has no Skill tool", which stopped being true in 1.7.0 when that agent was granted it; the remaining reason — an inner `/simplify` re-fans-out — stands on its own.
+
+### Changed — `/perf` and `performance-optimization` each keep one copy of a procedure
+
+The command and the skill were two implementations of the same seven procedures. The Vercel RUM run existed three times — `perf.md § 2.7` (4,097 B), the `vercel-rum` pack (4,243 B) and `vercel-data.md` — and the database scan, the PSI invocation, the CWV target table and the React-Doctor loop twice each. On top of that the skill carried three separate "bottleneck routing" tables and seven report templates, and both files are charged to `/perf`'s floor, so every duplicated byte was paid on every invocation. The split is now stated in both files and applied: **the command is the procedure** (which mode, what to run, what comes out), **the skill is the method and the catalogue** (rules, targets, pattern-to-fix), **a reference is one tool's exact invocation**. `/perf`'s floor drops from 49,326 B to 32,873 B — a third — with no mode and no pack removed.
+
+Two anchors were held deliberately fixed because code and prose cite them: `ultra-verify.js:358` reads `perf.md § 4.2-4.4` for the N+1, `select *` and foreign-key-index scan, and `parallel-batch-contracts.md:121` cites `/perf § 2.5` as the worked per-route fan-out.
+
+### Added — `/perf seo` and `/perf sec`
+
+The `seo-geo-baseline` and `security-baseline` packs had no route through the command that loads them: `/perf`'s dispatch table listed seven modes, none of which reached either pack, while `AGENT_SETUP.md:364` and `:448` told installers that `gitleaks` is needed by `/perf security-baseline` — a mode that did not exist. Both are now dispatch rows, and the two `AGENT_SETUP` references point at `/perf sec`.
+
+### Removed — the parts that were filler
+
+`references/unlighthouse.md` was a 13-line file whose body began "TODO: full reference deferred"; its four useful lines are now the Unlighthouse row of `psi-api.md`'s tool ladder. The memory pack's 11-step playbook lost steps 9 to 11 — container limits, alerting dashboards and "production memory management" — which were generic SRE advice with no call site in this harness; what remains is the baseline rule, a four-row browser/Node triage table and the four anti-patterns.
+
+### Fixed — POSIX-only commands the portability gate could not see
+
+`check_portability.py` anchors its binary check to the start of a line, so `curl -s … | jq` passed. The performance skill and its references carried five such blocks: the PSI and robots/sitemap fetches, the SEO score parse, a `<title>` check piped into `grep -oP`, and a CSV path hardcoded to `/tmp/vercel-cwv.csv`. All are `python -X utf8 -c` now. Two more in the same territory: `vercel-data.md § 3` built its dashboard URL from `$SCOPE`, a variable it never set — empty string in POSIX, literal text in cmd.exe, a plausible-looking wrong link either way — and the `security-baseline` pack opened with `bun audit` in a plugin that resolves `${tooling.packageManager}`. The gate's own blind spot is left as its own defect.
+
+### Fixed — the PSI quota note said the wrong thing
+
+`/perf § 2.1` promised "25k/day free, no key needed for ad-hoc use". The 25,000/day figure is the quota of a Google Cloud **project that has a key**; keyless requests are rate-limited per IP at a level Google does not publish. `psi-api.md` now says which is which, so a repeated run reaches for a key before it reaches a 429.
+
 ## 1.7.0 — the browser reference that shipped with the binary, and nobody read it
 
 `skills/webapp-testing/references/browser-setup.md` was 465 lines of hand-written `agent-browser` command reference. The CLI ships its own usage skill — `bunx agent-browser skills get core --full`, 432 lines, versioned with the binary and therefore never stale. The file already knew: it recommended that command twice, at `:309-318` and `:382-392`, in two byte-identical blocks, and the second one stated the thesis out loud — *"This file covers what a project has to decide … everything else is upstream."* It then kept mirroring upstream for another 250 lines. This release makes the file obey the sentence it was already carrying.

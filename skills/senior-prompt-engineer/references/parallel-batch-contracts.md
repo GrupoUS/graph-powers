@@ -16,7 +16,6 @@ Whenever a command spawns ≥2 agents in a single message via the parallel patte
 | `/debug` (L4-L5) | two `graph-powers:explorer` instances, under the role labels `code-archaeologist` and `regression-hunter` |
 | `/implement` (L6+ Phase 2 PARALLEL) | 2-3 `graph-powers:frontend-specialist` instances on independent tasks |
 | `/perf fix` | 1 `graph-powers:performance-optimizer` per route cluster |
-| `/verify` Phase 8 | parallel codex review + adversarial review |
 
 **Single-agent spawns** use only the schema in `agent-handoff-contracts.md` — no findings table required.
 

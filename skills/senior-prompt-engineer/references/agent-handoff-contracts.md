@@ -55,7 +55,7 @@ Every agent returns this block at the end of its response. Single canonical shap
 - **Resume hint:** <one sentence telling the next agent where to pick up>
 ```
 
-### JSON form (for `/verify` consolidator + tooling)
+### JSON form (for a consolidating caller, and for tooling)
 
 ```json
 {

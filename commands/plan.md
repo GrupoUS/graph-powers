@@ -52,8 +52,10 @@ Doctrine, the fog test and map mode: `${CLAUDE_PLUGIN_ROOT}/skills/planning/refe
 (`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`); unavailable is SKIPPED, never blocking.
 
 ```bash
-# Written out in full, once per line. A shell variable plus `export` is POSIX syntax: in
-# PowerShell `$CRG` is simply undefined and every line below silently loses its command.
+# Written out in full, once per line. Abbreviating it to a shell variable plus `export` is
+# POSIX syntax: in PowerShell that variable is simply undefined and every line below
+# silently loses its command. It does not survive on POSIX either — each command an agent
+# runs is its own shell, so a definition made in one block is already gone by the next.
 # `-X utf8` is the interpreter flag, and it replaces PYTHONIOENCODING on every platform.
 python -X utf8 -m code_review_graph update -q                        # never plan on a stale graph
 python -X utf8 -m code_review_graph search "<capability>" --kind Function --limit 15
@@ -74,10 +76,12 @@ verdict of **REUSE** · **EXTEND** · **NEW**, in that order of preference. **A 
 grep:
 
 ```bash
-$CRG impact --files <file1> <file2> --depth 2 --max-results 60   # dependents + affected files
-$CRG query callers_of   "<exported-symbol>"        # who calls it today
-$CRG query importers_of "<file>"                   # who imports the module
-$CRG query tests_for    "<exported-symbol>"        # candidate proofs — NOT authoritative
+# Spelled out in full for the reason given in 0.2, and with the same interpreter fallback:
+# `python`, else `python3`, else `py -3`.
+python -X utf8 -m code_review_graph impact --files <file1> <file2> --depth 2 --max-results 60   # dependents + affected files
+python -X utf8 -m code_review_graph query callers_of   "<exported-symbol>"   # who calls it today
+python -X utf8 -m code_review_graph query importers_of "<file>"              # who imports the module
+python -X utf8 -m code_review_graph query tests_for    "<exported-symbol>"   # candidate proofs — NOT authoritative
 ```
 
 Then the **`Grep` tool** — always, not only as a fallback, and never a shell `grep`: the binary does

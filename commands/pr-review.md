@@ -8,14 +8,14 @@ workflow_type: prompt-chaining
 **ARGUMENTS**: $ARGUMENTS
 
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md`
 
 ```
 gh pr checkout <PR#>
 /pr-review <PR#>              # full path
 /pr-review --current          # already on the PR branch
 /pr-review --branch <name>    # local branch review, no PR open
-/pr-review <PR#> --quick      # skip the deep paths (§ 3C, § 3D, § 4)
+/pr-review <PR#> --quick      # 3B only, and only on a sensitive surface (§ 7)
 /pr-review <PR#> full         # deep: every path, references loaded in full
 /pr-review <PR#> --fix        # opt-in: apply P0/P1 findings, test-first
 ```
@@ -32,8 +32,14 @@ Every PR comment and every P0/P1 finding passes through superpowers:receiving-co
 before it turns into a decision.
 ```
 
-This command is read-only by default. It mutates only under an explicit `--fix`, and then only
-through a foreground `graph-powers:debugger` agent with gates between fixes.
+This command changes **source** only under an explicit `--fix`, and then only through a foreground
+`graph-powers:debugger` agent with gates between fixes.
+
+One honest exception, because "read-only" was overstated before: § 3F runs `/debug audit pr`, which
+writes its consolidated report to `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`. That happens in the default
+mode, with no `--fix`. It touches no source and no git state, but it is a file this command creates
+— say so in the output rather than letting the claim stand. `--no-debug` skips 3F and with it the
+report.
 
 ---
 
@@ -44,8 +50,10 @@ through a foreground `graph-powers:debugger` agent with gates between fixes.
 - Any field of the § 2 review bundle fails to resolve (base SHA, head SHA, description, focus) → stop. Dispatching an agent with an unresolved placeholder is the anti-pattern this bundle exists to prevent.
 - The diff exceeds 1000 lines with no scope justification in the PR body → surface it before spawning the deep review; a review that large is a review nobody actually performed.
 - A path returns P0/P1 → present and ask. Never auto-fix.
+- A `chain.lenses` entry names an agent that does not resolve → say so in the output before the batch;
+  never let the lens drop out silently.
 - `receiving-code-review` classifies a comment as **clarify** → surface the question before deciding.
-- Three failed fix attempts on the same file (`--fix` mode) → escalate to `/debug recover`.
+- `graphGuardrails.maxRepatch` failed fix attempts on the same file (`--fix` mode) → escalate to `/debug recover`.
 
 ---
 
@@ -70,13 +78,21 @@ for every touched path. `full` overrides `--quick` and `--no-debug`.
 
 Collect, from the diff alone — no memory, no assumption:
 
+Resolve the base ref and the surfaces per
+`${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md § A-B`, and probe the graph once (§ C).
+
 | Signal | How |
 |---|---|
 | Files touched, by layer | diff paths mapped onto `paths.*` |
 | Total added/removed lines | `git diff --shortstat <base>...HEAD` |
-| Any file crossing 1000 lines | `git diff --numstat` plus current file length |
+| Any file crossing 1000 lines | `git diff --numstat`, then the **Read tool** for length — `wc` does not exist on Windows |
 | Sensitive surfaces touched | auth, payment, personal data, schema, environment, CI |
 | Declared gates that changed | anything under the CI config or the scripts the gates call |
+| **Risk, ranked, from structure** | `detect-changes --base <baseRef> --brief` — a per-file score the line count cannot give |
+| **What the diff reaches but does not show** | `impact --files <changed> --depth 2` — the "12 files changed, 80 affected" case a PR view structurally hides |
+
+The last two are `SKIPPED (graph unavailable)` when § C said so, and the review continues. They are
+the reason this section stopped being a line count and a path-name guess.
 
 A sensitive surface in the diff raises the floor: it is reported in the output **even when the
 verdict is approve**. Hiding drift because the decision went the other way is how a review stops
@@ -112,33 +128,65 @@ Every unresolved field is a stop, not a placeholder.
 
 ## 3. Review paths (parallel)
 
-Dispatch in one message. Each path is blind to the others — that is the point; agreement between
-independent paths is evidence, agreement inside one path is not.
+Invoke `Skill("superpowers:dispatching-parallel-agents")`, then dispatch **every applicable track in
+one message**, each `run_in_background: true`. Until 1.7.0 this section was titled "(parallel)" and
+said "dispatch in one message" while naming no agent to dispatch — four prose headings and no
+`subagent_type` anywhere. The table below is the dispatch.
 
-### 3A. `graph-powers:evaluator` — adversarial review (foreground)
+**Read-only by frontmatter, never by instruction.** Every agent here resolves with
+`disallowedTools: Write, Edit` or an allowlist without them. A prompt saying "do not fix" is a
+request; the incident behind that rule is in
+`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`.
 
-Mode: PR/branch review. Read-only by construction (`disallowedTools: Write, Edit`). Applies the
-structural lens from `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/structural-quality.md`:
-size crossings, spaghetti growth, incidental complexity preserved, wrapper/cast churn, layer leaks,
-near-duplicates of an existing helper.
+| # | Agent | The question it asks | Fires when |
+|---|---|---|---|
+| 3A | `graph-powers:evaluator` | is it correct, and does it hold structurally | always |
+| 3B | `graph-powers:security-reviewer` | is it exploitable — tenant, personal data, authorization, secrets | sensitive surface touched, or `full` |
+| 3C | `graph-powers:explorer` | did this regress a hot path — N+1, `select *`, missing FK index, bundle growth | `api`, `schema` or `web` touched |
+| 3D | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport | `web` touched |
+| 3E | `code-review:code-review` | the bundled skill's own lens | when the plugin is installed |
+| 3F | `/debug audit pr` | code quality, dependencies, technical debt on changed files | not `--quick`, not `--no-debug` |
 
-### 3B. `graph-powers:security-reviewer` — exploitability (background)
+3C and 3D are new, and they are not inventions: `graph-powers:ultra-verify` has run
+`performance-regression` and `design-tokens-a11y` as built-in lenses all along. A review command
+missing two lenses its sibling workflow already had was the gap, not the addition.
 
-Finder mode over the diff. Report-only. Cross-tenant access, personal-data exposure, injection,
-authorization gaps, secrets, weakened production defaults.
+3C asks the performance question through `graph-powers:explorer` rather than through
+`graph-powers:performance-optimizer`, and the reason is the rule three lines above: that specialist
+resolves with `Write` and `Edit` and no `disallowedTools`. It is the right agent to *fix* a hot path
+and the wrong one to *review* it. The question it is asked here is a pattern hunt over a diff, which
+is what the explorer is for.
 
-Skipped in `--quick` **only** when § 1 found no sensitive surface. A security path skipped over a
-diff that touches auth is a skipped path, not a fast one — say which happened.
+**The project extends this table.** `chain.lenses` in the config is a first-class contract — each
+entry a `name`, its own binding `checks`, an optional `agent` and a `when` — and the schema states
+the principle it exists for: *each lens is a distinct question; identical skeptics agree with each
+other and miss the same things*. Honour every lens whose `when` matches the touched surfaces. A lens
+naming an agent this plugin does not ship is **named in the output before the batch runs**, because
+a misspelt value otherwise spawns nothing and the review reports one check fewer than it claims.
 
-### 3C. `code-review:code-review` — the bundled skill (best-effort)
+### What every track returns
 
-Runs when available. Skipped silently is not acceptable: if it is unavailable, the output says so.
+The findings table of
+`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/parallel-batch-contracts.md`, with
+severity on the **P0-P3 scale** — one scale for every track, so § 4 can compare them. Then, and this
+is the part the bundle used to forbid:
 
-### 3D. `/debug audit pr` (skipped in `--quick` or `--no-debug`)
+```
+COVERED   <what this track examined and found clean, one line>
+```
 
-Narrowed to code quality, dependencies and technical debt on changed files only.
+Without it, § 4's "only one path raised it, the others checked" cannot be evaluated — the previous
+return contract said "findings only, no summary", which made half of the consolidation rule dead
+text. Negative coverage is evidence and has to be asked for.
 
----
+Each track is blind to the others by construction, and where it cannot be — 3E is a `Skill()` and 3F
+a slash command, both running in this thread — say so rather than claiming an isolation that is not
+there.
+
+### 3F narrows
+
+`/debug audit pr` covers code quality, dependencies and technical debt on changed files only. It
+writes `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`; see the Iron Law note about what "read-only" means here.
 
 ## 4. Consolidate
 
@@ -151,8 +199,16 @@ Skill("superpowers:receiving-code-review");
 3. **Classify each item**: `implement` (real, fix it), `clarify` (needs the author or the user),
    `pushback` (technically wrong, with the reason).
 
-A finding two independent paths raised is promoted one severity level. A finding only one path
-raised and the others explicitly checked is demoted.
+4. **Weigh by agreement**, on the P0-P3 scale every track now returns:
+   - raised by two or more tracks → **promote one level**, capped at P0;
+   - raised by one track, and another track's `COVERED` line names that same ground → **demote one
+     level**, floored at P3;
+   - raised by one track and nothing else looked → **keep the severity, and say no other track
+     covered it.** That is a coverage gap, not agreement, and collapsing the two is how a review
+     reads as thorough while one opinion carries it.
+
+   The `COVERED` line is what makes the second rule evaluable at all. Before it, demotion asked
+   whether "the others explicitly checked" while the return contract forbade them from saying.
 
 ---
 
@@ -182,8 +238,12 @@ even when the verdict is approve>
 |---|---|---|
 | evaluator (3A) | APPROVED / CHANGES_REQUESTED / SKIPPED | P0=<n> P1=<n> P2=<n> |
 | security-reviewer (3B) | PASS / FINDINGS / SKIPPED (+reason) | <n> |
-| code-review skill (3C) | PASS / FINDINGS / UNAVAILABLE | <n> |
-| /debug audit pr (3D) | PASS / FINDINGS / SKIPPED | <n> |
+| performance-optimizer (3C) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
+| ui-ux-designer (3D) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
+| code-review skill (3E) | PASS / FINDINGS / UNAVAILABLE | <n> |
+| /debug audit pr (3F) | PASS / FINDINGS / SKIPPED | <n> |
+| project lenses (`chain.lenses`) | per lens: PASS / FINDINGS / SKIPPED / AGENT NOT FOUND | <names> |
+| Change set | baseRef `<ref>` · confidence high/low · graph USED / SKIPPED | <n files> |
 | Declared gates | per gate: PASS / FAIL / NOT DECLARED | <evidence> |
 | Project blocking list (`REVIEW.md`) | per ID: PASS / HIT / NOT DECLARED | <which IDs> |
 | CI checks | PASS / PENDING / FAIL | <failing names or "all green"> |
@@ -214,7 +274,9 @@ the person decides and runs it.
 1. List the `implement` items, P0 first.
 2. One item at a time, foreground `graph-powers:debugger`: failing test first, then the fix.
 3. Gates from `tooling.commands` between items — not once at the end.
-4. Stop after three failed attempts on the same file → `/debug recover`.
+4. Stop after `graphGuardrails.maxRepatch` failed attempts on the same file → `/debug recover`.
+   Read the number from the config; do not hardcode one. This line said "three" while the schema
+   default is 2 and `/verify` reads the key — three sibling artefacts, two ceilings.
 5. Re-run the affected review path on the result. A fix nobody re-reviewed is an untested claim.
 
 Never commit. The fixes land in the working tree; the person commits them.
@@ -230,8 +292,11 @@ Never commit. The fixes land in the working tree; the person commits them.
 | 2 bundle | yes | yes | yes | yes | yes |
 | 3A evaluator | yes | yes (+ source citation per finding) | skip | yes | yes |
 | 3B security-reviewer | yes | yes | only if sensitive surface | yes | yes |
-| 3C code-review skill | yes | yes | skip | yes | yes |
-| 3D /debug audit pr | yes (skip on `--no-debug`) | yes (`--no-debug` overridden) | skip | limited | yes |
+| 3C performance-optimizer | if surface touched | yes | skip | if surface touched | yes |
+| 3D ui-ux-designer | if `web` touched | yes | skip | if `web` touched | yes |
+| 3E code-review skill | yes | yes | skip | yes | yes |
+| 3F /debug audit pr | yes (skip on `--no-debug`) | yes (`--no-debug` overridden) | skip | limited | yes |
+| project `chain.lenses` | per `when` | all | skip | per `when` | per `when` |
 | 4 consolidate | yes | yes | yes | yes (no PR comments) | yes |
 | 5 output | yes | yes | yes | yes | yes |
 | 6 fix loop | no | no | no | no | **yes** |
@@ -240,7 +305,12 @@ Never commit. The fixes land in the working tree; the person commits them.
 
 ## 8. Output guarantees
 
-- Never states APPROVE without 3A having run and passed.
+- Never states APPROVE without 3A having run and passed. `--quick` skips 3A, so **`--quick` cannot
+  produce APPROVE** — it produces COMMENT and names the mode as the reason.
 - Never hides drift: a sensitive surface in the diff appears in the output regardless of the verdict.
-- Never reports a skipped path as a passed path.
-- Every severity in the table traces to a `file:line` someone opened.
+- Never reports a skipped path as a passed path, and never reports a lens whose agent did not
+  resolve as a lens that ran.
+- Every severity in the table traces to a `file:line` someone opened. The blocking and non-blocking
+  tables carry the locations; the matrix carries the counts, and the two must reconcile.
+- Never claims the graph was used when § 1 recorded `SKIPPED`, and never turns a `tests_for` zero
+  into a coverage finding.

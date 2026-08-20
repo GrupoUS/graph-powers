@@ -196,11 +196,27 @@ Group into WAVES: tasks in the same wave MUST have DISJOINT file sets and no int
 phase('Act')
 const results = []
 const rawWaves = graph?.waves ?? []
-const plannedTasks = rawWaves.reduce((n, w) => n + (w.tasks?.length ?? 0), 0)
+// The PLANNED ids, in plan order. Everything below reconciles against this list rather than against
+// whatever survived: it is what the plan asked for, and no later step may shrink it in silence.
+const plannedIds = rawWaves.flatMap((w) => (w.tasks ?? []).map((t) => t.id))
+const plannedTasks = plannedIds.length
 if (plannedTasks > TOTAL_CAP) {
   throw new Error(
     `ultra-build: plan has ${plannedTasks} tasks, over the ceiling of ${TOTAL_CAP}. ` +
     `Split the plan and run it in parts — refusing to spawn ${plannedTasks} implementers.`
+  )
+}
+
+// An id is the key the whole scheduler runs on: `byId`, `remaining` and `started` below are all Maps
+// keyed by it, so two tasks sharing one id collapse into a single node — the second overwrites the
+// first, one task is never dispatched, and the run still reports the survivors as the total. That is
+// a malformed plan, not something to reconcile, so it throws HERE, before any implementer is spawned
+// and while the duplicated id can still be named.
+const duplicateIds = [...new Set(plannedIds.filter((id, i) => plannedIds.indexOf(id) !== i))]
+if (duplicateIds.length) {
+  throw new Error(
+    `ultra-build: duplicate task id(s) in the classified plan — ${duplicateIds.map((id) => JSON.stringify(id)).join(', ')}. ` +
+    'Ids key the dependency graph, so a repeat drops a task without a trace. Give every task its own id and re-run.'
   )
 }
 

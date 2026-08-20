@@ -80,32 +80,18 @@ EXEMPT_FILES = {
 
 FENCE_START = re.compile(r"^```(bash|sh|shell|console)?\s*$")
 
+# Where a shell would START a command, which is where a POSIX binary is a defect — not only where
+# the line starts. This pattern was `^\s*(…)` read with `.match()`, so everything after the first
+# word of a line was invisible to it: `git ls-files | wc -l` sits in this repository's own list of
+# gates, twenty-five lines below the paragraph that bans `wc`, and the gate reported zero problems.
+# The positions are the ones a shell recognises — start of line, after a pipe, after `&&`/`||`/`;`,
+# inside `$(…)` or backticks, and as the command `xargs` is given to run.
+COMMAND_POSITION = r"(?:^|[;&|]|\$\(|`|\bxargs(?:\s+-\S+)*\s)\s*"
 
-def executable_lines(path: str):
-    """Yield (line number, text) for lines an agent is told to run.
-
-    A fenced block with no language, or tagged `bash`/`sh`/`shell`/`console`, is treated as
-    executable. Anything else — `typescript`, `json`, `text`, a table, prose — is not, because the
-    cost of a false positive here is somebody switching the gate off.
-    """
-    open_fence = False       # inside any fenced block
-    executable = False       # ...and that block is one an agent runs
-    with open(path, encoding="utf-8", errors="replace") as fh:
-        for i, line in enumerate(fh, 1):
-            if line.startswith("```"):
-                # Track "am I in a fence" separately from "is this fence executable". Conflating
-                # them meant a ```json block reset the state and its closing fence re-opened the
-                # scanner as if bash had begun — which reported prose as if it were a command.
-                if open_fence:
-                    open_fence, executable = False, False
-                else:
-                    open_fence, executable = True, bool(FENCE_START.match(line))
-                continue
-            if not (open_fence and executable):
-                continue
-            code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
-            if code.strip():
-                yield i, code.rstrip("\n")
+# ...and where it is NOT a command, however much it looks like one. A `; ` inside a Python one-liner
+# is a statement separator, so `python -c "import time; time.sleep(1)"` would otherwise report
+# `time`. An attribute, a call, a subscript or an assignment is never a shell command.
+NOT_A_COMMAND = r"(?![\w.(\[=])"
 
 
 def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
@@ -143,7 +129,7 @@ def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
 
 def scan_markdown() -> list[str]:
     problems: list[str] = []
-    binaries = re.compile(r"^\s*(" + "|".join(POSIX_BINARIES) + r")\b")
+    binaries = re.compile(COMMAND_POSITION + r"(" + "|".join(POSIX_BINARIES) + r")\b" + NOT_A_COMMAND)
     roots = ["commands", "skills", "references", "templates", "agents", "workflows"]
     # The repository root was missing, and it is where the file a new installer reads first lives.
     # `AGENT_SETUP.md` ships (`check_version_bump.SHIPPED` lists it), it is the longest set of
@@ -161,8 +147,9 @@ def scan_markdown() -> list[str]:
             # beside its PowerShell counterpart is coverage, not a gap.
             both_shells = "$env:" in raw
             for lineno, line in lines:
-                m = binaries.match(line)
-                if m:
+                # Every occurrence, not the first: `find . | wc -l` is two defects on one line, and
+                # reporting one of them makes the second survive the fix that answered the report.
+                for m in binaries.finditer(line):
                     problems.append(
                         f"SHELL {path}:{lineno}: `{m.group(1)}` is not on a Windows shell — "
                         f"use the agent's own tool, or one line of Python"

@@ -19,12 +19,60 @@ Programmatic-data options (in priority order):
 
 ---
 
+## 0. The run — this is the whole procedure
+
+Neither `/perf vercel` nor the `vercel-rum` pack restates these five steps; they route here.
+
+### 0.1 Pre-flight
+
+Per § 1. Not authed → stop: "run `vercel login`, or set `VERCEL_TOKEN`". Not linked → stop: "run
+`vercel link` first". Never guess a project slug — a wrong dashboard URL costs more than a missing one.
+
+### 0.2 Print both dashboard URLs, and measure the lab in parallel
+
+The URLs come from § 3. At the same time, run the PSI mobile + desktop audit (`psi-api.md`) against
+the same production URL. The person opens the dashboards; the lab data is the cross-check.
+
+### 0.3 Read the field data
+
+p75 LCP / INP / CLS per route from Speed Insights, plus top pages from Web Analytics. More than five
+routes → CSV export (§ 4). Under 24h since the deploy, or no traffic → there is no RUM column yet:
+say so and stop, rather than reporting zeros.
+
+### 0.4 Cross-check, per route
+
+Fail a row against `gates.lcp` / `gates.inp` / `gates.cls`, then read the two disagreements:
+
+- **lab good + RUM bad** → device mix or network: real users are slower than PSI's Slow-4G profile. Act on it.
+- **lab bad + RUM good** → the PSI profile is harsher than the audience. Investigate; do not act on lab alone.
+
+### 0.5 Failing route → fix
+
+Map `routeId` to its file under `${paths.frontendRoot}` and read it: heavy synchronous import → lazy
+plus `<Suspense>`; `<img>` with no `width`/`height` → CLS; inline third-party script → blocks LCP;
+long unvirtualized list → INP. Then `/perf fix` scoped to those routes.
+
+Report shape: `/perf § 2.7`.
+
+| Symptom | Cause |
+|---|---|
+| LCP > gate | route chunk or vendor chunk too big; below-fold work not deferred |
+| INP > gate | heavy event handlers; unstable handler identity re-rendering the tree |
+| CLS > gate | images without explicit dimensions; ads or embeds reflowing |
+| Dashboard empty | Speed Insights toggle off, under 24h since enable, or zero traffic |
+| One mega-row for every route | `<SpeedInsights route={…}>` receives the resolved URL, not the route template |
+
+---
+
 ## 1. Pre-flight
 
 ```bash
 bunx vercel --version          # require >= 53
 bunx vercel whoami             # confirms auth; else: bunx vercel login
 ```
+
+`bunx` is the spelling in this file only because `vercel` is commonly a dev dependency; in a project
+whose `autonomy.allowPackageManagers` excludes bun, use its own runner (`pnpm dlx`, `npx`, …).
 
 CI / non-interactive: set `VERCEL_TOKEN` (create at https://vercel.com/account/tokens). All `vercel` calls auto-pick it up.
 
@@ -69,26 +117,30 @@ Then persist into `.graph-powers/config.json::vercel`:
 
 Build directly from config:
 
-```bash
-# Read the value with the Read tool, or one Python line — `jq` is a separate install and
-# `$( )` is POSIX substitution that cmd.exe passes through as literal text:
-python -X utf8 -c "import json;print(json.load(open('.graph-powers/config.json',encoding='utf-8')).get('vercel',{}).get('scope',''))"
-PROJECT_NAME=<project>-web    # from .vercel/project.json::projectName
+One line, both URLs, no shell variables: an unset `$SCOPE` is empty string in POSIX and literal text
+in cmd.exe, and either way the printed link is wrong in a way that looks right.
 
-echo "Speed Insights: https://vercel.com/${SCOPE}/${PROJECT_NAME}/speed-insights"
-echo "Web Analytics:  https://vercel.com/${SCOPE}/${PROJECT_NAME}/analytics"
+```bash
+python -X utf8 -c "import json,pathlib;c=json.loads(pathlib.Path('.graph-powers/config.json').read_text(encoding='utf-8')).get('vercel',{});p=pathlib.Path('.vercel/project.json');n=json.loads(p.read_text(encoding='utf-8')).get('projectName','') if p.is_file() else '';s=c.get('scope','');print(f'Speed Insights: https://vercel.com/{s}/{n}/speed-insights\nWeb Analytics:  https://vercel.com/{s}/{n}/analytics') if s and n else print('not linked - run `vercel link`, then copy scope into .graph-powers/config.json::vercel')"
 ```
 
-Open in browser. Read p75 LCP/INP/CLS per route, top pages, traffic shape. Copy numbers into `/perf vercel` output table manually.
+Open in browser. Read p75 LCP/INP/CLS per route, top pages, traffic shape. Copy the numbers into the
+`/perf vercel` table by hand — there is no read API (see TL;DR).
 
 ## 4. CSV export (Path 2)
 
-Dashboard → Speed Insights → "Export" button (top-right). CSV includes per-route p75 LCP/INP/CLS + sample count. Save to `/tmp/vercel-cwv.csv`, parse:
+Dashboard → Speed Insights → "Export" (top-right). The CSV carries per-route p75 LCP/INP/CLS plus a
+sample count. Save it wherever the user keeps scratch files — ask, or
+`python -X utf8 -c "import tempfile;print(tempfile.gettempdir())"` — then print only the rows that
+fail. Thresholds come from `gates.*`; the literals below are the web.dev line, for a project that
+has not set them:
 
 ```bash
-# example, schema may evolve
-python -X utf8 -c "import csv,sys;[print(f'{r[0]:<40} LCP={r[1]} INP={r[2]} CLS={r[3]} n={r[4]}') for i,r in enumerate(csv.reader(open(sys.argv[1],newline='',encoding='utf-8'))) if i]" <path-to-csv>
+python -X utf8 -c "import csv,sys;rows=list(csv.reader(open(sys.argv[1],newline='',encoding='utf-8')));print('header:',rows[0]);[print(f'FAIL {r[0]:<40} LCP={r[1]} INP={r[2]} CLS={r[3]} n={r[4]}') for r in rows[1:] if float(r[1])>2500 or float(r[2])>200 or float(r[3])>0.1]" <path-to-csv>
 ```
+
+The header is printed first on purpose: the column order is Vercel's and may change, so confirm the
+route/LCP/INP/CLS/samples mapping before trusting the FAIL rows.
 
 Web Analytics dashboard also exports CSV (top pages, referrers, devices, countries).
 
@@ -110,9 +162,8 @@ Out of scope for free tier — skip unless team upgrades.
 
 If programmatic data needed without Drains:
 
-```bash
-cd ${paths.frontendRoot} && bun add web-vitals
-```
+Install `web-vitals` into `${paths.frontendRoot}` with the project's own package manager
+(`${tooling.packageManager}`) — `cd … &&` chains do not survive every shell this plugin runs in.
 
 ```tsx
 // ${paths.frontendRoot}/telemetry/cwv-self.tsx
@@ -145,7 +196,7 @@ Endpoints same-origin: `/_vercel/insights/view`, `/_vercel/insights/event`, `/_v
 
 | Error | Cause | Fix |
 |---|---|---|
-| `vercel: command not found` | CLI missing | `bun add -d vercel` at repo root |
+| `vercel: command not found` | CLI missing | add `vercel` as a dev dependency with `${tooling.packageManager}`, at the repo root |
 | HTTP 401 on `vercel api` | Token invalid / expired | `bunx vercel login` again or rotate `VERCEL_TOKEN` |
 | Dashboard shows "No data yet" | Speed Insights toggle off, or < 24h since enable, or no traffic | Vercel dashboard → project → Speed Insights → Enable; wait + drive traffic |
 | All routes show same URL | `<SpeedInsights route={...}>` not wired correctly | Confirm `useMatches()[-1]?.routeId` returns route template, not full URL |

@@ -31,9 +31,7 @@ export const meta = {
 //     gate `maxRepatch` times (reported `blocked`, not looped to the round ceiling).
 //
 // Why the Simplify phase REPLICATES a simplify pass instead of calling a skill (do not "fix"):
-//   1. The `debugger` agent has no Skill tool (`agents/debugger.md` → tools: Read, Write, Edit,
-//      Bash, Glob, Grep), so `Skill()` is uncallable from inside it.
-//   2. A bundled `/simplify` fans out its own parallel agents — an inner call is exactly the
+//   1. A bundled `/simplify` fans out its own parallel agents — an inner call is exactly the
 //      re-fan-out the note above forbids. The prompt below mirrors its four angles.
 //
 // Model tiering: mechanical work (gates, regate, extract-reqs, scope) → 'haiku'. Judgment
@@ -174,9 +172,18 @@ const AGENT_ENUM = [
 
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boolean)
+// `build` is deliberately NOT in `gateList`: that list also drives REGATE, which runs after every
+// fix batch, and rebuilding per round is the most expensive thing this workflow could do. It runs
+// ONCE, in the opening gate pass, because a tree that type-checks can still fail to build — a
+// bundler resolution error, a missing asset, a plugin that only runs at build time. Before this it
+// was requested in CONFIG_SHAPE, named in the config prompt, and then consumed nowhere: a declared
+// gate that silently never ran, which is the exact failure the gate table exists to prevent.
+// A project wanting the build re-run per round declares it as a `chain.contractGates` entry instead.
+const openingGateList = [...gateList, commands.build].filter(Boolean)
 // Presented one per line, never chained: `;` is not a separator in cmd.exe, and a chained
 // line makes "capture each exit code" unanswerable even where the chain does work.
 const gateBlock = gateList.map((c) => `  - \`${c}\``).join('\n')
+const openingGateBlock = openingGateList.map((c) => `  - \`${c}\``).join('\n')
 const GIT_RAILS =
   'HARD RULES (no inherited config): never git commit/push/checkout/reset/stash. Leave changes in ' +
   'the working tree.' + projectRules +
@@ -231,8 +238,8 @@ const deadCodeProbe = commands.deadCode
   : ''
 const [g0, scope] = await parallel([
   () => agent(
-    gateList.length
-      ? `Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${gateBlock}\nReport pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
+    openingGateList.length
+      ? `Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\nReport pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
       : `This project declares no gate commands in its config. Return allGreen:true with an empty gates list, and note in \`failing\` that no gate was declared. Read-only.`,
     { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: 'haiku' }
   ),
@@ -330,7 +337,12 @@ const reqs = await agent(
 const BUILTIN_LENSES = [
   { name: 'correctness', agent: 'evaluator', when: [] },
   { name: 'security-tenant-PII', agent: 'security-reviewer', when: [] },
-  { name: 'performance-regression', agent: 'performance-optimizer', when: [] },
+  // `explorer`, not `performance-optimizer`: a lens is a SKEPTIC and skeptics only report, while
+  // that specialist resolves with `Write` and `Edit` and no `disallowedTools`. Handing review work
+  // to a write-capable agent is the incident recorded in the debugging anti-pattern catalogue, and
+  // a prose "report only" is a request rather than a permission. The fixers below are a separate
+  // dispatch and stay write-capable, which is where that specialist belongs.
+  { name: 'performance-regression', agent: 'explorer', when: [] },
   paths.frontendRoot && { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
 ].filter(Boolean)
 // `chain.lenses[].agent` stays a free string on purpose — a project must be able to name its own
