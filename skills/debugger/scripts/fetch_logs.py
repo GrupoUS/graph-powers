@@ -23,13 +23,14 @@ def detect_repo() -> str:
     try:
         r = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=3, check=False,
+            capture_output=True, encoding="utf-8", errors="replace",
+            timeout=3, check=False,
         )
         url = r.stdout.strip()
         if url.startswith("git@github.com:"):
-            return url.split(":", 1)[1].rstrip(".git")
+            return url.split(":", 1)[1].removesuffix(".git")
         if url.startswith("https://github.com/"):
-            return url.removeprefix("https://github.com/").rstrip(".git")
+            return url.removeprefix("https://github.com/").removesuffix(".git")
     except Exception:
         pass
     return ""
@@ -102,7 +103,8 @@ def fetch_vps_status() -> None:
         ["ssh", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes",
          f"root@{VPS_HOST}",
          "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"],
-        capture_output=True, text=True, timeout=15, check=False,
+        capture_output=True, encoding="utf-8", errors="replace",
+        timeout=15, check=False,
     )
     if r.returncode == 0:
         print(r.stdout)

@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.3.1 — the Codex install stops accumulating
+
+### Fixed — every guardrail on the Codex side was registered twice
+
+Found by updating a real machine rather than a fixture. `~/.codex/hooks.json` pointed all twelve
+hooks at a scratch clone under `/tmp`, left by a session weeks earlier — a directory that survives
+until the next reboot clears it, at which point every Codex guardrail silently stops existing.
+
+Re-installing from a stable plugin root did not repair it, it doubled it. `mergeHooks` recognised
+its own previous entries by exact command string, and the string contains the plugin root, so the
+same hook installed from a different directory read as a stranger's and was kept. The result was
+twenty-four registrations: each guardrail running once from the current code and once from a
+version-old copy in a doomed directory.
+
+The merge now recognises a command by the manifest template with the root wildcarded, so a hook
+this plugin wrote is replaced wherever it was written from, and a third party's hook — which never
+matches a template of ours — still survives untouched.
+
+### Fixed — the portability gate read one line at a time, and calls are not one line
+
+`subprocess.run(...)` is routinely written across four lines. Every check in
+`.github/check_portability.py` matched a single line, so a call with the opening paren on one line
+and `text=True` on the next was invisible: the gate reported zero while three real instances sat in
+the tree — `.github/check_clone.py`, and two in `skills/debugger/scripts/fetch_logs.py`. Each
+decodes subprocess output with the machine's locale code page, which is how a non-ASCII filename
+stops matching on a Windows checkout. The scanner now reads a call whole, however many lines it
+spans, and the three are fixed.
+
+### Fixed — `strip()` used as if it removed a suffix, for the second time
+
+`fetch_logs.py` resolved the repository slug with `.rstrip(".git")`. `strip` takes a **set of
+characters**, so it keeps eating: `owner/my-agent.git` becomes `owner/my-agen`, and every log
+lookup for that repository silently queries one that does not exist. `owner/digit.git` becomes
+`owner/d`.
+
+This is the same defect that made `protect_files.py` use `.lstrip("./")` and quietly unprotect every
+declared dotfile. Twice is a pattern, so the gate now refuses it — but only for a literal shaped
+like an affix: `"\n"` and `"> "` are genuine character sets, and a gate that reports those is a gate
+somebody switches off.
+
+### Fixed — `--force` did nothing
+
+`install()` and `installGlobal()` have honoured a `force` option since they were written. The argv
+parser never set it, so `--force` on the command line was ignored, including in the CI fixture whose
+second install was proving an idempotence it had not exercised. `README.md` has documented the flag
+the whole time.
+
+It matters beyond tidiness: a global install whose plugin root moved is skipped as "already at this
+version", so without `--force` there was no way to repair one short of a version bump.
+
+### Added — a CI step for the scenario that produced both
+
+`.github/workflows/ci.yml` installs from one root, then from a second root at a higher version, then
+again with `--force` at the same version, and asserts three things: no command points at the old
+root, no guardrail is registered more than once, and the third party's hook is still there.
+
 ## 1.3.0 — the chain ships, and the bash gate asks about the right things
 
 ### Added — the plan → build → verify chain

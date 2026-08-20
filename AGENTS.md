@@ -152,8 +152,9 @@ This machine runs the Graph Powers harness, installed once and shared by every p
 
 Two files carry everything else:
 
-- `~/.codex/graph-powers/shared-context.md` — config loader, quality gates, complexity routing, agent
-  matrix, spawn patterns. Read it before acting on any non-trivial task.
+- `~/.codex/graph-powers/shared-context.md` — an index of the shared patterns, one file each under
+  `~/.codex/graph-powers/shared/`: config loader, quality gates, complexity routing, agent matrix,
+  spawn patterns, and the rest. Read the index, then only the fragments the task needs.
 - `~/.codex/graph-powers/safety-floor.md` — the invariants that hold regardless of the task: git and
   outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,
   scope, completion claims, accessibility.
