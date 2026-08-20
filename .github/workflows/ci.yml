@@ -117,29 +117,10 @@ jobs:
           PYTHONIOENCODING: utf-8
 
       - name: No machine paths
-        # A previous version of this gate used a shell regex that matched every `https://` URL
-        # (single letter, colon, slash) and the very lines documenting the gate itself. It failed
-        # on a repository containing no absolute path at all. Python, with a lookbehind.
-        run: |
-          python3 - <<'PY'
-          import glob, re, sys
-          pat = re.compile(r"(/home/|/Users/|(?<![A-Za-z])[A-Za-z]:[\\/])")
-          hits = []
-          for f in glob.glob("**/*.md", recursive=True) + glob.glob("**/*.py", recursive=True) \
-                 + glob.glob("**/*.json", recursive=True) + glob.glob("**/*.mjs", recursive=True) \
-                 + glob.glob("**/*.js", recursive=True) + glob.glob(".*/*.json"):
-              if "node_modules" in f:
-                  continue
-              for i, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
-                  if "/home/|/Users/" in line:      # the gate's own pattern, in prose
-                      continue
-                  if pat.search(line):
-                      hits.append(f"{f}:{i}: {line.strip()[:120]}")
-          print("\n".join(hits) or "no absolute paths")
-          if hits:
-              print("::error::absolute path found — the plugin has to work on every machine")
-          sys.exit(1 if hits else 0)
-          PY
+        # Inline no longer: three copies of this pattern existed — here, in AGENTS.md and in
+        # CONTRIBUTING.md — and the moment one was corrected the other two were wrong. One script,
+        # cited by the other two. It also states which paths it deliberately lets through.
+        run: python3 .github/check_machine_paths.py
 
       - name: No broken symlinks
         run: |

@@ -274,6 +274,23 @@ constructs in executable blocks, and the silent half in Python — `startswith("
 result, bare `HOME`, `select.select`, `subprocess` without an encoding, `shlex.split` without
 `posix=`. `AGENTS.md` gains cardinal 8 to say why.
 
+### Fixed — the Windows fixtures turned the machine-path gate red
+
+The destructive floor now has tests, and a test that proves the floor stops
+`Remove-Item -Recurse -Force C:\` has to contain that string. The machine-path gate matched any
+drive letter, so the evidence that the plugin defends Windows was what failed CI — eight hits, all
+of them either a hazard being named or `C:\Windows\System32`, which is the same path on every
+Windows install.
+
+The rule is now stated as one class instead of three shapes: a **home directory** — a path whose
+first segment is `home` or `Users`, in any of its three spellings. That is the thing that only
+exists on the machine that wrote it, and the POSIX arm never caught `/opt/x` either, so the three
+arms now agree.
+
+**`python3 .github/check_machine_paths.py`** replaces the pattern that lived inline in three files —
+`ci.yml`, `AGENTS.md` and `CONTRIBUTING.md` — where correcting one left the other two wrong. It
+prints what it deliberately lets through, so the next person does not re-widen it.
+
 ### Verified in this session
 
 - The bash reclassification ran under itself for the whole of the work that produced this release.

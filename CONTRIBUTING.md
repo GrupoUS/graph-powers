@@ -24,8 +24,7 @@ python3 .github/check_version_bump.py       # a shipped change bumps the version
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 node .github/check_workflows.mjs            # workflow scripts parse, run dry, and name real agents
-grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
-  --include='*.mjs' --include='*.js' . | grep -v node_modules | grep -v 'grep -rnE'
+python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 ```
 
 On Windows the interpreter is `python` or `py -3`, not `python3` — the Microsoft Store ships a

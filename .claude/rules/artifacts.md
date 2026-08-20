@@ -4,11 +4,13 @@ paths:
   - "skills/**"
   - "commands/**"
   - "references/**"
+  - "workflows/**"
 ---
 
 # The contract for distributed artefacts
 
-Applies to everything that travels to the projects: `agents/`, `skills/`, `commands/`, `references/`.
+Applies to everything that travels to the projects: `agents/`, `skills/`, `commands/`,
+`references/`, `workflows/`.
 
 ## Frontmatter
 
@@ -45,3 +47,26 @@ from a command resolves against the wrong directory. Paths into the host project
 Every artefact needs a real call site. An agent no skill dispatches, and a skill no routing
 mentions, are dead weight in the context budget of every session. The audit that produced this
 repository found 13 orphans of exactly that kind.
+
+## Workflow scripts
+
+`workflows/*.js` has no frontmatter and none of the rules above about it. Its own contract:
+
+- `export const meta` is a **pure literal** — no variable, call, spread or interpolation. The
+  runtime reads it before the body runs, and a computed field fails the whole script.
+- `meta.name` identical to the filename. Claude Code registers it as `graph-powers:<name>`.
+- Every `agentType` carries the `graph-powers:` prefix. Without it the spawn fails with
+  `agent type '<name>' not found`, because a workflow resolves against the global registry, not the
+  plugin's.
+- The script scope is `agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`,
+  `budget`. There is no
+  `fs`, no `require`, and `Date.now()` / `Math.random()` / `new Date()` throw — they would break
+  resume. Config arrives through `args`, never off disk.
+- `${CLAUDE_PLUGIN_ROOT}` inside a template literal is a `ReferenceError`. A plugin path reaches the
+  script as a value in `args`.
+- Any field an agent fills that becomes a `subagent_type` is an `enum`, never a bare `string`.
+  Model-generated text naming an agent is how a typo becomes a spawn failure mid-run.
+
+`node .github/check_workflows.mjs` enforces the parse, the name match and the agent set, and
+dry-runs each script against stubs. `node --check` does **not** work on these files: they use a
+top-level `return`, legal only inside the async wrapper the runtime supplies.

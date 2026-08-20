@@ -34,9 +34,14 @@ Every measurement cited says how it was obtained and when. "221 files, 45 identi
 
 ## No machine paths
 
-No absolute machine path — nothing starting with `/home`, `/Users` or a Windows drive letter. Use
-`<org>/<repo>`, a shell variable the text defines itself, or the Claude Code default path, which is
-the same on every machine.
+No home directory in a tracked file: any path whose first segment is `home` or `Users`, in any of
+its three spellings. Use `<org>/<repo>`, a shell variable the text defines itself, or the Claude
+Code default path, which is the same on every machine.
+
+A bare drive root is **not** in that class and is allowed: `Remove-Item -Recurse -Force C:\` is how
+the destructive-floor tests spell the hazard they defend against, and `C:\Windows\System32` is the
+same path on every Windows install. `.github/check_machine_paths.py` is the one place the rule is
+written as code; the earlier version lived inline in three files and failed on those very fixtures.
 
 ## A published command is a tested command
 

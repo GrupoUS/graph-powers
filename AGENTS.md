@@ -73,6 +73,7 @@ node .github/check_workflows.mjs             # workflow scripts parse, and each 
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
+python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 node bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
@@ -96,13 +97,6 @@ type, a return that contradicts its own annotation.
 
 None of them run in CI. A gate has to be able to fail a pull request; these only stop the editor
 from inventing work.
-
-Before opening a PR, also run the sweep that protects cardinal 2 — it must come back empty:
-
-```bash
-grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
-  --include='*.mjs' --include='*.js' . | grep -v node_modules | grep -v 'grep -rnE'
-```
 
 ## Where things live
 
