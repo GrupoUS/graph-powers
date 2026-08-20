@@ -134,7 +134,7 @@ Complements the design capabilities above — reviews code changes through an ar
 
 > Guiding principle: **good architecture enables change. Flag anything that makes future changes harder.**
 
-> Routing: for adversarial PR or architecture review, `evaluator` (Mode 3/4) is the agent that runs it. Use this section's lenses and output format when the review is architectural.
+> Routing: for adversarial PR or architecture review, `graph-powers:evaluator` (Mode 3/4) is the agent that runs it. Use this section's lenses and output format when the review is architectural.
 
 ## Tech Stack
 

@@ -74,9 +74,9 @@ Based on modified file paths + `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skil
 
 Generic mapping (the project overrides it in `${rulesDir}/` when it has its own routing):
 
-- `${paths.backendRoot}` → `debugger`
-- `${paths.schemaRoot}` → `debugger` + host database skill if configured
-- `${paths.frontendRoot}` → `debugger` + the project's design rule (if styling/design)
+- `${paths.backendRoot}` → `graph-powers:debugger`
+- `${paths.schemaRoot}` → `graph-powers:debugger` + host database skill if configured
+- `${paths.frontendRoot}` → `graph-powers:debugger` + the project's design rule (if styling/design)
 - Performance changes → `performance-optimization`
 - Skill files themselves → `skill-creator`
 - Harness wiring → `harness-audit`

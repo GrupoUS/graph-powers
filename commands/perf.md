@@ -22,7 +22,7 @@ workflow_type: orchestrator-workers
 > /perf doctor                     # React Doctor render/effect health audit (local/advisory)
 > /perf compare baseline.json after.json    # compare two runs
 > ```
-> All modes use **Skill `performance-optimization`** + agent `performance-optimizer`.
+> All modes use **Skill `performance-optimization`** + agent `graph-powers:performance-optimizer`.
 
 ---
 
@@ -136,7 +136,7 @@ Before the batch spawn, invoke `Skill("superpowers:dispatching-parallel-agents")
 
 1. Measure baseline against all key routes.
 2. Identify routes with Performance < threshold.
-3. Spawn 1 `performance-optimizer` agent per failing route, all in **single message**, each with `isolation: "worktree"`.
+3. Spawn 1 `graph-powers:performance-optimizer` agent per failing route, all in **single message**, each with `isolation: "worktree"`.
 4. Each agent prompt includes: route-specific scores, CWV, top opportunities, failing audits, scope (which files/components), task (read web rules from `${rulesDir}/design.md`, fix top 3 opportunities by `savings_ms`, run quality gates per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, report changes).
 5. After all agents return: re-measure and verify improvements via `Skill("superpowers:verification-before-completion")` — capture the new PSI scores as evidence before claiming "regression fixed".
 

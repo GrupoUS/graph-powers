@@ -318,7 +318,7 @@ its own write policy; everything else is upstream.
 
 ---
 
-## Verification protocol (canonical, used by `verification`)
+## Verification protocol (canonical, used by `graph-powers:verification`)
 
 Per flow:
 

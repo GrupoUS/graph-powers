@@ -29,14 +29,14 @@ Do not use this skill for:
 
 | Need | Agent | Mode |
 |---|---|---|
-| Codebase discovery, impact map, existing patterns | `explorer` | read-only, background |
-| Current docs, package/API behavior, external best practice | `librarian` | read-only, background |
-| Root cause, tests, backend/API/data bug | `debugger` | write-capable only after root cause |
-| UI, React components, accessibility, responsive polish | `frontend-specialist` | write-capable, disjoint scope |
-| Performance, security, SEO/GEO, bundle, CWV | `performance-optimizer` | measure first |
-| Plan synthesis or sprint breakdown | `project-planner` | planning only |
-| Adversarial review or architecture tradeoff | `evaluator` | read-only |
-| UI/user-flow verification after implementation | `verification` | read-only, after code lands |
+| Codebase discovery, impact map, existing patterns | `graph-powers:explorer` | read-only, background |
+| Current docs, package/API behavior, external best practice | `graph-powers:librarian` | read-only, background |
+| Root cause, tests, backend/API/data bug | `graph-powers:debugger` | write-capable only after root cause |
+| UI, React components, accessibility, responsive polish | `graph-powers:frontend-specialist` | write-capable, disjoint scope |
+| Performance, security, SEO/GEO, bundle, CWV | `graph-powers:performance-optimizer` | measure first |
+| Plan synthesis or sprint breakdown | `graph-powers:project-planner` | planning only |
+| Adversarial review or architecture tradeoff | `graph-powers:evaluator` | read-only |
+| UI/user-flow verification after implementation | `graph-powers:verification` | read-only, after code lands |
 
 ## Delegation Contract
 
@@ -74,7 +74,7 @@ For review batches, add `Severity (P0-P3)` as the sixth table column.
 
 ## Parallel Patterns
 
-- Spawn `explorer` and `librarian` together when both repo facts and external docs matter.
+- Spawn `graph-powers:explorer` and `graph-powers:librarian` together when both repo facts and external docs matter.
 - Split write-capable agents only by disjoint file ownership or module boundary.
 - Keep read-only work in background; wait only when the main task needs the result.
 - Cap at 5 spawned agents per user request. If the natural fan-out is larger, cluster the work first.

@@ -16,7 +16,7 @@ Used by `/verify` to consolidate signals from gates + agents + reviews into a si
 | Spec compliance | manual or eval | PASS / FAIL | {requirements satisfied?} |
 | Codex review | `codex:rescue` | PASS / FAIL / N findings | {by severity} |
 | Codex adversarial | `codex:rescue` adversarial-review | PASS / FAIL / N findings | {by severity} |
-| Architecture review | `evaluator` Mode 3 | PASS / WARNINGS | {warnings if any} |
+| Architecture review | `graph-powers:evaluator` Mode 3 | PASS / WARNINGS | {warnings if any} |
 
 ## Decision
 - **Ship** if: all PASS + no P0/P1 findings unresolved

@@ -8,7 +8,6 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - debugger
 effort: xhigh
-triggers: ["mobile", "react native", "flutter", "kotlin", "swift", "android", "ios", "native module"]
 ---
 
 # Mobile Developer

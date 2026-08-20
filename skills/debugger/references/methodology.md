@@ -132,7 +132,7 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 
 ### 3-fix escalation rule
 - **< 3 fixes failed** → return to Step 1 (rebuild the reproducer if the loop drifted).
-- **≥ 3 fixes failed** → **STOP.** It's wrong architecture, not a wrong hypothesis. Escalate to `evaluator` Mode 3 before any further attempt.
+- **≥ 3 fixes failed** → **STOP.** It's wrong architecture, not a wrong hypothesis. Escalate to `graph-powers:evaluator` Mode 3 before any further attempt.
 
 ---
 
@@ -166,7 +166,7 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 - [ ] Original Step 1 reproducer **no longer fires** (re-run 3×, all green)
 - [ ] Regression test passes in CI and exercises the **real production seam**
 - [ ] `grep -rn "DEBUG_BUG_<ID>" ${paths.backendRoot} ${paths.frontendRoot}` returns **0**
-- [ ] No `console.log` or `debugger` left in the touched production paths. Get the changed files from `git diff --name-only HEAD~1 HEAD`, then search them with the **Grep tool** — `$(...)` and a `grep` binary are POSIX-only, and this check silently passes when either is missing
+- [ ] No `console.log` or `graph-powers:debugger` left in the touched production paths. Get the changed files from `git diff --name-only HEAD~1 HEAD`, then search them with the **Grep tool** — `$(...)` and a `grep` binary are POSIX-only, and this check silently passes when either is missing
 - [ ] No `as any`, no stub credentials, no test scaffolding left over
 
 ### Post-mortem (mandatory L6+, recommended for all)

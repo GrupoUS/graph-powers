@@ -4,7 +4,7 @@ When a task touches multiple domains, invoke skills in this order:
 
 1. **Meta layer** — `superpowers:using-superpowers` (always first, per `005-superpowers-bootstrap.md`)
 2. **Superpowers method** — `superpowers:brainstorming` / `writing-plans` / `executing-plans` / `subagent-driven-development` / `test-driven-development` / `systematic-debugging` / `verification-before-completion` / `requesting-code-review` / `receiving-code-review` / `dispatching-parallel-agents` / `using-git-worktrees` / `finishing-a-development-branch` / `writing-skills` (HOW: discipline + format)
-3. **Harness knowledge** — `planning`, `debugger`, `senior-architect` (WHAT: layer ordering, anti-pattern catalogue, architecture trade-offs)
+3. **Harness knowledge** — `planning`, `graph-powers:debugger`, `senior-architect` (WHAT: layer ordering, anti-pattern catalogue, architecture trade-offs)
 4. **Domain skills** — the project's own database/provider/deploy skills, `performance-optimization`, `webapp-testing`, `senior-prompt-engineer`
 5. **Implementation and design skills last** — `uxmaster`, the external `impeccable` plugin, `skill-creator`
 

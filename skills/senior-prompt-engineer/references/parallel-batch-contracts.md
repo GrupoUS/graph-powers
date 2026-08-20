@@ -12,10 +12,10 @@ Whenever a command spawns ≥2 agents in a single message via the parallel patte
 
 | Command | Parallel batch members |
 |---|---|
-| `/research` | `explorer` + `librarian` |
-| `/debug` (L4-L5) | `explorer` + `regression-hunter` |
-| `/implement` (L6+ Phase 2 PARALLEL) | 2-3 `frontend-specialist` instances on independent tasks |
-| `/perf fix` | 1 `performance-optimizer` per route cluster |
+| `/research` | `graph-powers:explorer` + `graph-powers:librarian` |
+| `/debug` (L4-L5) | `graph-powers:explorer` + `regression-hunter` |
+| `/implement` (L6+ Phase 2 PARALLEL) | 2-3 `graph-powers:frontend-specialist` instances on independent tasks |
+| `/perf fix` | 1 `graph-powers:performance-optimizer` per route cluster |
 | `/verify` Phase 8 | parallel codex review + adversarial review |
 
 **Single-agent spawns** use only the schema in `agent-handoff-contracts.md` — no findings table required.
@@ -100,14 +100,14 @@ The consolidated table is what the parent presents to the user — never the raw
 
 ## 6. Tool-precedence guidance for batch members
 
-When `/research` spawns `explorer` + `librarian`:
+When `/research` spawns `graph-powers:explorer` + `graph-powers:librarian`:
 
-- **`explorer`** uses Grep/Glob/Read first. Tavily/Context7/WebFetch are forbidden by agent definition (`explorer.md`).
-- **`librarian`** uses Context7 (`mcp__claude_ai_Context7__resolve-library-id` → `query-docs`) **first** for API signatures, config, version migration. Uses Tavily (`mcp__tavily__tavily_research` for deep passes, `mcp__tavily__tavily_search` for single CVE / version facts) for community-pattern news, ecosystem updates, advisories. WebFetch is the last resort for specific URLs not covered by either.
+- **`graph-powers:explorer`** uses Grep/Glob/Read first. Tavily/Context7/WebFetch are forbidden by agent definition (`explorer.md`).
+- **`graph-powers:librarian`** uses Context7 (`mcp__claude_ai_Context7__resolve-library-id` → `query-docs`) **first** for API signatures, config, version migration. Uses Tavily (`mcp__tavily__tavily_research` for deep passes, `mcp__tavily__tavily_search` for single CVE / version facts) for community-pattern news, ecosystem updates, advisories. WebFetch is the last resort for specific URLs not covered by either.
 
 **Why:** Context7 ships up-to-date library docs; Tavily ships current web. Calling Tavily for "what's the React 19 useEffect signature?" wastes tokens because Context7 has it.
 
-Commands that spawn `librarian` (currently `/research`, `/debug auto`) MUST inject this precedence guidance into the agent prompt — the agent definition does not enforce it.
+Commands that spawn `graph-powers:librarian` (currently `/research`, `/debug auto`) MUST inject this precedence guidance into the agent prompt — the agent definition does not enforce it.
 
 ---
 

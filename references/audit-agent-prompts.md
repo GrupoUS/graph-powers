@@ -9,10 +9,10 @@ de-duplicate by hand.
 
 | Agent | subagent_type | Dimensions |
 |---|---|---|
-| 1 | `evaluator` | D1 architecture · D2 structure |
-| 2 | `debugger` | D3 code quality · D8 dependencies · D9 technical debt |
-| 3 | `debugger` | D4 documentation · D5 missing flows |
-| 4 | `frontend-specialist` | D6 UX · D7 tests and CI |
+| 1 | `graph-powers:evaluator` | D1 architecture · D2 structure |
+| 2 | `graph-powers:debugger` | D3 code quality · D8 dependencies · D9 technical debt |
+| 3 | `graph-powers:debugger` | D4 documentation · D5 missing flows |
+| 4 | `graph-powers:frontend-specialist` | D6 UX · D7 tests and CI |
 
 All four spawn with `run_in_background: true` in a single message. Resolve every `${…}` placeholder
 from the project config **before** dispatching — a subagent inherits nothing and will otherwise

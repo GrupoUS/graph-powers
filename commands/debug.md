@@ -72,7 +72,7 @@ Skill("superpowers:systematic-debugging");     // 4-phase root-cause discipline 
 Skill("debugger");                     // the project anti-pattern catalog, packs, references, superpowers debug chain
 ```
 
-Chain rationale: `systematic-debugging` sets the investigation method (no fix without root cause); `debugger` provides project-specific bug patterns + Negative Constraints + the wired superpowers debug chain (its phases invoke TDD / dispatching-parallel-agents / verification-before-completion). Both load — they do not conflict. (`debugger`, not `debugger`: precedence personal > project shadows a same-named project skill — see § 0.42 header.)
+Chain rationale: `systematic-debugging` sets the investigation method (no fix without root cause); `graph-powers:debugger` provides project-specific bug patterns + Negative Constraints + the wired superpowers debug chain (its phases invoke TDD / dispatching-parallel-agents / verification-before-completion). Both load — they do not conflict. (`graph-powers:debugger`, not `graph-powers:debugger`: precedence personal > project shadows a same-named project skill — see § 0.42 header.)
 
 Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). For project-specific anti-patterns, load via `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (already loaded by debugger skill above).
 
@@ -120,7 +120,7 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 
 **L1-L2 — Direct fix.** Read file → identify root cause → apply minimal fix → run gates.
 
-**L3 — Single agent.** Spawn 1 `explorer` (foreground): investigate root cause, return a findings
+**L3 — Single agent.** Spawn 1 `graph-powers:explorer` (foreground): investigate root cause, return a findings
 table with file:line. Read-only by frontmatter, not by instruction — `anti-patterns.md § Agent
 misuse` is explicit that a review task never goes to a write-capable subagent, and a prompt
 saying "do not fix" is a request, not a permission. Fixing is a separate dispatch, after the
@@ -129,13 +129,13 @@ root cause is named.
 **L4-L5 — Parallel agents.** Before spawning, invoke `Skill("superpowers:dispatching-parallel-agents")` to enforce distinct scope + shared return contract. Spawn in same message:
 
 ```
-code-archaeologist (explorer, background):
+code-archaeologist (graph-powers:explorer, background):
   - Find exact file:line where flow breaks
   - git log --oneline -10 -- <affected-files> for recent regressions
   - Map dependency chain
   - Return findings table (# | Finding | Confidence 1-5 | Source | Impact). DO NOT FIX.
 
-regression-hunter (explorer, background):
+regression-hunter (graph-powers:explorer, background):
   - Read ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/methodology.md (or pack-guides.md)
   - Cross-check stability rules + Skill("debugger") ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md
   - If MATCH: return pattern + root cause + fix guidance
@@ -151,7 +151,7 @@ If agents return contradictory findings or no definitive file:line → escalate 
  Focus: [file:line range]"
 ```
 
-**L6+ — Full investigation.** Above + `db-state-inspector` (debugger, background): schema check, FK indexes, type exports, RLS/tenant boundaries, auth procedure levels.
+**L6+ — Full investigation.** Above + `db-state-inspector` (graph-powers:debugger, background): schema check, FK indexes, type exports, RLS/tenant boundaries, auth procedure levels.
 
 ### 1.4 While agents run
 
@@ -192,7 +192,7 @@ Edit → Quality Gates → Pass? → Next fix
                        → Fail? → Analyze new error → Back to triage
 ```
 
-**Parallel mode (independent issues, distinct areas):** spawn one `debugger` agent per area in same message. Each: read target → minimal fix → run gates → report file:line + gate output.
+**Parallel mode (independent issues, distinct areas):** spawn one `graph-powers:debugger` agent per area in same message. Each: read target → minimal fix → run gates → report file:line + gate output.
 
 | Criterion | Parallel OK | Sequential required |
 |---|---|---|
@@ -262,10 +262,10 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` § Severity classi
 
 Use prompts verbatim from `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md`:
 
-- **Agent 1** — `evaluator` (Mode 3) — Architecture & Structure (D1-D2)
-- **Agent 2** — `debugger` — Code Quality (D3 + D8 dependencies + D9 tech-debt)
-- **Agent 3** — `debugger` — Documentation + Missing Flows (D4-D5)
-- **Agent 4** — `frontend-specialist` — UX + Tests/CI (D6-D7)
+- **Agent 1** — `graph-powers:evaluator` (Mode 3) — Architecture & Structure (D1-D2)
+- **Agent 2** — `graph-powers:debugger` — Code Quality (D3 + D8 dependencies + D9 tech-debt)
+- **Agent 3** — `graph-powers:debugger` — Documentation + Missing Flows (D4-D5)
+- **Agent 4** — `graph-powers:frontend-specialist` — UX + Tests/CI (D6-D7)
 
 All `run_in_background: true`, same message. Resolve `${paths.*}` placeholders from config before spawning.
 
@@ -308,14 +308,14 @@ Run unit-test suite first (cheap, catches logic errors): `${tooling.testRunner}`
 ### 3.3 Static diagnosis (parallel)
 
 ```
-Agent 1 (frontend-specialist, background):
+Agent 1 (graph-powers:frontend-specialist, background):
   - Component tree, hooks, rerender triggers
   - Token/layout issues, controlled-vs-uncontrolled state
   - Flickering, unstable rerenders, key warnings
   - Scope: $ARGUMENTS (after mode token)
   - Return: file:line + root cause hypothesis. DO NOT FIX.
 
-Agent 2 (debugger, background):
+Agent 2 (graph-powers:debugger, background):
   - Frontend ↔ backend integration paths used by the failing flow
   - Silent failures, latency issues, suspense interactions
   - Mutations wrapped in try-catch (stability rule J)
@@ -326,14 +326,14 @@ Agent 2 (debugger, background):
 ### 3.4 Route + coverage discovery (parallel)
 
 ```
-Agent 1 (explorer, background):
+Agent 1 (graph-powers:explorer, background):
   - Map all routes recursively under ${paths.frontendRoot}
   - List: path, component, functionality
   - Identify critical user flows (auth, CRUD, integrations, settings)
   - List expected interactions per flow
   - Return: route table + prioritized journeys
 
-Agent 2 (explorer, background):
+Agent 2 (graph-powers:explorer, background):
   - Map existing E2E coverage (look for e2e/, tests/e2e/, playwright/, agent-browser/ — accept any historical layout)
   - For each test: routes covered, assertions, interactions tested
   - Cross-reference; identify routes WITHOUT coverage
@@ -498,10 +498,10 @@ the diff · escalating with a question too vague to answer.
 
 | Bug type | Mode | Sub-agents | Skill |
 |---|---|---|---|
-| API / handler error | `backend` | code-archaeologist + regression-hunter | `debugger` |
-| UI / component / hydration | `frontend` | (per § 3) + frontend-specialist + debugger | `debugger` |
-| Auth / permissions / RLS | `auth-db` | code-archaeologist + regression-hunter + db-state-inspector | `debugger` |
-| Database / schema / migration | `auth-db` | code-archaeologist + db-state-inspector | `debugger` |
+| API / handler error | `backend` | code-archaeologist + regression-hunter | `graph-powers:debugger` |
+| UI / component / hydration | `frontend` | (per § 3) + frontend-specialist + debugger | `graph-powers:debugger` |
+| Auth / permissions / RLS | `auth-db` | code-archaeologist + regression-hunter + db-state-inspector | `graph-powers:debugger` |
+| Database / schema / migration | `auth-db` | code-archaeologist + db-state-inspector | `graph-powers:debugger` |
 | Performance | (run `/perf` instead) | — | `performance-optimization` |
 | Full audit | `audit` | 4 parallel (evaluator/debugger/debugger/frontend-specialist) | all |
 | Failure recovery | `recover` | evaluator (Mode 3) | — |
@@ -513,7 +513,7 @@ the diff · escalating with a question too vague to answer.
 Before stopping, escalate in this order:
 1. 2+ failed fixes in same area → `codex:rescue` for full fix
 2. Contradictory agent findings → `codex:rescue` diagnosis mode
-3. Architecture-level blocker → `evaluator` (Mode 3)
+3. Architecture-level blocker → `graph-powers:evaluator` (Mode 3)
 4. All escalations exhausted → `/debug recover` → user decides
 
 **Hard STOP signs:**

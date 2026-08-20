@@ -33,7 +33,7 @@ before it turns into a decision.
 ```
 
 This command is read-only by default. It mutates only under an explicit `--fix`, and then only
-through a foreground `debugger` agent with gates between fixes.
+through a foreground `graph-powers:debugger` agent with gates between fixes.
 
 ---
 
@@ -115,14 +115,14 @@ Every unresolved field is a stop, not a placeholder.
 Dispatch in one message. Each path is blind to the others — that is the point; agreement between
 independent paths is evidence, agreement inside one path is not.
 
-### 3A. `evaluator` — adversarial review (foreground)
+### 3A. `graph-powers:evaluator` — adversarial review (foreground)
 
 Mode: PR/branch review. Read-only by construction (`disallowedTools: Write, Edit`). Applies the
 structural lens from `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/structural-quality.md`:
 size crossings, spaghetti growth, incidental complexity preserved, wrapper/cast churn, layer leaks,
 near-duplicates of an existing helper.
 
-### 3B. `security-reviewer` — exploitability (background)
+### 3B. `graph-powers:security-reviewer` — exploitability (background)
 
 Finder mode over the diff. Report-only. Cross-tenant access, personal-data exposure, injection,
 authorization gaps, secrets, weakened production defaults.
@@ -212,7 +212,7 @@ the person decides and runs it.
 ## 6. Fix loop (`--fix` only)
 
 1. List the `implement` items, P0 first.
-2. One item at a time, foreground `debugger`: failing test first, then the fix.
+2. One item at a time, foreground `graph-powers:debugger`: failing test first, then the fix.
 3. Gates from `tooling.commands` between items — not once at the end.
 4. Stop after three failed attempts on the same file → `/debug recover`.
 5. Re-run the affected review path on the result. A fix nobody re-reviewed is an untested claim.

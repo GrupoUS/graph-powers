@@ -238,6 +238,20 @@ in the config if you ran it.
 Target: `.graph-powers/config.json`. The contract is `$PLUGIN/schema/config.schema.json`; starting
 points are in `$PLUGIN/examples/`.
 
+**Only declare a command whose tool is installed.** `tooling.commands.format` runs after every
+edit and `tooling.commands.lint` at every stop; the plugin runs what you wrote and nothing more, so
+a command naming a binary that is not on PATH simply never runs. Install them globally — this
+harness follows the session into repositories that do not carry them as dependencies:
+
+```bash
+bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
+biome --version && oxlint --version   # both must answer before you declare them
+```
+
+Nothing is hidden if you get it wrong: every session start names what did not resolve
+(`NOT INSTALLED: lint needs \`oxlint\``). A command routed through the package manager
+(`bun run lint`) is never reported, because the tool is named in the manifest rather than here.
+
 **If a config already exists** (at `.graph-powers/config.json` or the legacy `.claude/config.json`):
 merge field by field, show the diff, and keep every value the project already chose. Never
 overwrite a config — someone tuned it, and they will not remember which field.
@@ -537,7 +551,17 @@ print(gp.config_path(), gp.work_branch(), gp.opt_in('COMMIT'))
 "
 
 # 4. every declared gate actually runs
-#    run each command from tooling.commands and report its exit code
+#    run each command from tooling.commands and report its exit code.
+#    The usual failure is not a broken gate but an absent tool — `biome`, `oxlint`, `eslint`,
+#    `ruff` — declared and never installed. This prints the same verdict the session tag will:
+python3 -c "
+import sys; sys.path.insert(0, '$PLUGIN/hooks')
+import _config as gp
+cmds = (gp.load().get('tooling') or {}).get('commands') or {}
+for key, command in cmds.items():
+    missing = gp.missing_tool(str(command))
+    print(f'{key:12} {command!r:38} ' + (f'MISSING: {missing}' if missing else 'ok'))
+"    
 
 # 5. a commit without approval is denied
 git commit --allow-empty -m "guardrail check"     # expected: denied, naming <PREFIX>_ALLOW_COMMIT
@@ -548,7 +572,27 @@ git commit --allow-empty -m "guardrail check"     # expected: denied, naming <PR
 #    Then, in the new session, ask for the chain: /plan on any L4+ task should reach
 #    `graph-powers:ultra-plan`. If it reports `Workflow "graph-powers:ultra-plan" not found`,
 #    the plugin is installed but the session predates it — restart again, do not debug.
+
+# 7. the agents resolve, by the name the registry uses
+#    Spawn one, in the new session, and read the error rather than guessing:
+#      Agent({ subagent_type: "graph-powers:explorer", prompt: "list the files in agents/" })
 ```
+
+**When an agent will not spawn**, the error names which of the two problems you have. They have
+opposite fixes, so read it before changing anything.
+
+| Message | What it means | Fix |
+|---|---|---|
+| `Agent type 'explorer' not found. Available agents: … graph-powers:explorer …` | The caller used the bare name. This plugin's agents are namespaced, and the error lists the string that works. | Use `graph-powers:<agent>`. Everything this plugin ships already does; a project's own command may not. |
+| `Unknown subagent_type 'graph-powers:explorer'. Valid: … explorer …` | **Not the CLI.** Its own refusal reads `Agent type 'X' not found. Available agents: …`. A `Valid:` phrasing with bare names is a `PreToolUse` hook matching `Agent`, denying from a local allowlist that was built by scanning `.claude/agents/` and therefore contains no plugin agent at all. | Fix the hook: it must not deny a `<plugin>:<agent>` name. The registry validates those itself. Restarting does not help — the hook runs on every call. |
+| The agent is missing from the list entirely | Check **which** list first. Absent from `claude plugin details <plugin>@<marketplace>` means the plugin does not ship it, or its frontmatter is malformed. Absent only from a hook's `Valid:` list means the hook's allowlist is stale, and the agent is fine. | `claude plugin details` is the authority on what ships; `python3 $PLUGIN/.github/check_wiring.py` checks the frontmatter contract. |
+
+The second row was misdiagnosed here for a while as a stale session, and a restart was prescribed;
+it is not, and a restart does not fix it. The distinguishing evidence is cheap: run the same spawn
+in a fresh process — `claude -p "spawn subagent_type 'graph-powers:explorer' …"`. A fresh process
+carries a fresh registry, so if the same message returns, nothing about the session is stale and the
+refusal is coming from a hook. `claude plugin details graph-powers@graph-powers`
+lists what the plugin actually ships, which is the tie-breaker when the two error lists disagree.
 
 Then check every path you cited in a file you touched actually exists. A dangling reference is
 silent: the agent reads it, finds nothing, and carries on with less context than it thinks it has.

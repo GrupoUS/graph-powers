@@ -75,9 +75,16 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
         return "??", r.returncode
 
 
-def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None):
+def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
+             harness: str = "claude"):
     """Same call, but the whole stdout — for hooks that emit context rather than a decision."""
-    env_full = {**os.environ, **(env or {}), "CLAUDE_PROJECT_DIR": str(proj)}
+    env_full = {**os.environ, **(env or {})}
+    payload = dict(payload)
+    if harness == "claude":
+        env_full["CLAUDE_PROJECT_DIR"] = str(proj)
+    else:
+        env_full.pop("CLAUDE_PROJECT_DIR", None)
+        payload["cwd"] = str(proj)
     r = subprocess.run(
         [sys.executable, str(HOOKS / f"{hook}.py")],
         input=json.dumps(payload), capture_output=True, encoding="utf-8", errors="replace",
@@ -507,7 +514,69 @@ def main() -> int:
     check("declared path denied", call("protect_files", declared, guarded)[0], "deny")
     check("an ordinary file is not denied", call("protect_files", ordinary, guarded)[0], None)
 
-    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun):
+    print("### Declared is not installed — the session says so instead of pretending")
+    # `ABSENT` cannot resolve on any machine; `sys.executable` resolves on every machine the
+    # suite runs on, which is what makes the mirrored case meaningful rather than decorative.
+    ABSENT = "gp-no-such-formatter-xyz"
+    here = Path(sys.executable).name
+    installed = mkproj({"project": {"name": "demo"},
+                        "tooling": {"commands": {"lint": f"{here} -c pass", "test": "echo t"}}})
+    absent = mkproj({"project": {"name": "demo"},
+                     "tooling": {"commands": {"lint": f"{ABSENT} .", "test": "echo t"}}})
+    indirect = mkproj({"project": {"name": "demo"},
+                       "tooling": {"commands": {"lint": "npm run lint", "test": "echo t"}}})
+    start = {"hook_event_name": "SessionStart", "source": "startup"}
+
+    def tag(proj: Path, harness: str = "claude") -> str:
+        out, _ = call_raw("session_context", start, proj, harness=harness)
+        try:
+            return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        except Exception:
+            return out.strip()
+
+    check("an installed linter is listed as a gate", "lint" in tag(installed).split("gates: ")[-1], True)
+    check("...and nothing is reported missing", "NOT INSTALLED" in tag(installed), False)
+    check("an absent linter is dropped from the gate list",
+          "lint" in tag(absent).split("gates: ")[-1].split(" |")[0], False)
+    check("...and it is named, with the tool", ABSENT in tag(absent), True)
+    # `npm run lint` hides the tool in the project's manifest. Guessing it would produce a
+    # confident wrong warning, which is worse than the silence.
+    check("a package-manager command makes no claim either way",
+          "NOT INSTALLED" in tag(indirect), False)
+    check("...and still counts as a declared gate", "lint" in tag(indirect), True)
+
+    # Codex passes `cwd` in the payload and exports no CLAUDE_PROJECT_DIR. This hook read the
+    # payload and then resolved the project without it, so the tag described whatever repository
+    # the hook process started in.
+    check("codex resolves the project from the payload", "DEMO" in tag(absent, harness="codex"), True)
+
+    print("### ultracite — a tool that is not installed skips, and never blocks")
+    marker = absent / "formatted.txt"
+    writer = absent / "fmt.py"
+    writer.write_text("import sys,pathlib\n"
+                      "pathlib.Path(sys.argv[0]).with_name('formatted.txt').write_text('ran')\n",
+                      encoding="utf-8")
+    target = absent / "src.ts"
+    target.write_text("const x=1\n", encoding="utf-8")
+    edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
+            "tool_input": {"file_path": str(target)}}
+
+    fmt_absent = mkproj({"tooling": {"commands": {"format": f"{ABSENT} --write"}}})
+    _, rc = call_raw("ultracite", edit, fmt_absent)
+    check("a missing formatter exits 0", rc, 0)
+    check("...and formats nothing", marker.exists(), False)
+
+    fmt_real = mkproj({"tooling": {"commands": {"format": f"{here} {writer}"}}})
+    call_raw("ultracite", edit, fmt_real)
+    check("an installed formatter is actually invoked", marker.exists(), True)
+
+    stop_absent = mkproj({"tooling": {"commands": {"lint": f"{ABSENT} ."}}})
+    out, rc = call_raw("ultracite", {"hook_event_name": "Stop"}, stop_absent)
+    check("a missing linter exits 0 at Stop", rc, 0)
+    check("...and does not block the stop", "block" in out, False)
+
+    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun,
+              installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
         shutil.rmtree(d, ignore_errors=True)
 
     print("\n" + ("FAILURES: " + ", ".join(FAILS) if FAILS else "EVERY GUARANTEE HELD"))

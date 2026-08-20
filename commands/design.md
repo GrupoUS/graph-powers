@@ -80,9 +80,9 @@ the spec it produces to `${paths.planDir}`.
 
 ---
 
-## 2. Critique before building (`ui-ux-designer`, read-only)
+## 2. Critique before building (`graph-powers:ui-ux-designer`, read-only)
 
-Spawn `ui-ux-designer` over the scope. It reads; it never writes. It returns prioritised findings —
+Spawn `graph-powers:ui-ux-designer` over the scope. It reads; it never writes. It returns prioritised findings —
 usability heuristics, WCAG 2.2 AA, visual hierarchy, information density — against the direction
 locked in § 1.
 
@@ -113,7 +113,7 @@ Two rules hold across every pass:
 - **Drift repair is never a side effect.** If a pass reports stale context, report it and stop.
   Fixing the toolchain in the middle of a design task hides what changed.
 
-Implementation lands through `frontend-specialist` (foreground, write-capable). `ui-ux-designer`
+Implementation lands through `graph-powers:frontend-specialist` (foreground, write-capable). `graph-powers:ui-ux-designer`
 never edits — it is the only reason its critique is worth reading.
 
 ---
@@ -125,7 +125,7 @@ broken build with better spacing.
 
 ---
 
-## 5. Closing audit (`ui-ux-designer`, read-only)
+## 5. Closing audit (`graph-powers:ui-ux-designer`, read-only)
 
 Re-run the § 2 critique against the implemented files and diff the findings:
 
@@ -142,7 +142,7 @@ Then the verdict, in the `/verify` vocabulary: `VERIFIED`, `VERIFIED-WITH-NOTES`
 | Don't | Do |
 |---|---|
 | Reimplement an impeccable pass inline because the plugin is missing | Stop and say the dependency is absent |
-| Let `ui-ux-designer` fix what it found | It reports; `frontend-specialist` fixes. A critic with a pen stops being a critic |
+| Let `graph-powers:ui-ux-designer` fix what it found | It reports; `graph-powers:frontend-specialist` fixes. A critic with a pen stops being a critic |
 | Ship a structural change without the three-direction comparison | The comparison is the deliverable, not overhead |
 | Adopt an external palette suggestion over the project's tokens | Project tokens are authoritative; report the conflict |
 | Skip the § 2 baseline on a `fix`/`improve` run | Without it there is nothing to measure the result against |

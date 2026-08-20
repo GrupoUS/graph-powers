@@ -1,6 +1,6 @@
 # Anti-Patterns + Negative Constraints
 
-> Project-specific bug patterns + consolidated "NEVER do" lookup. Loaded by `/debug` command and `debugger` skill.
+> Project-specific bug patterns + consolidated "NEVER do" lookup. Loaded by `/debug` command and `graph-powers:debugger` skill.
 > Append on discovery — do NOT delete entries.
 > The catalogue below is generic. Each project adds its own entries under `${rulesDir}/` — an anti-pattern list that never names anything the project it is installed in actually did is decoration.
 
@@ -27,7 +27,7 @@ Each constraint points to canonical source — this section is a lookup aid.
 - **NEVER** commit without running `${tooling.commands.format}` on edited files → `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`
 - **NEVER** use `localStorage` / `sessionStorage` → `${paths.frontendRoot}/AGENTS.md`
 - **NEVER** mark a task done without verification evidence → root `AGENTS.md § Cardinal Rule 2`
-- **NEVER** use `console.log` / `debugger` in production code → `${rulesDir}/stability.md § H`
+- **NEVER** use `console.log` / `graph-powers:debugger` in production code → `${rulesDir}/stability.md § H`
 - **NEVER** use `as any` — narrow types or use `unknown` → `${rulesDir}/backend.md`
 - **NEVER** use non-null assertion `!` on optional data → `${rulesDir}/stability.md § B`
 - **NEVER** use `href="#"` for actions — use `<button>` → `${rulesDir}/stability.md § K`
@@ -48,7 +48,7 @@ Each constraint points to canonical source — this section is a lookup aid.
 - **NEVER** spawn >5 sub-agents per user request without a checkpoint → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
 - **NEVER** attempt >3 fixes on the same hypothesis — escalate to evaluator → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
 - **NEVER** stack multi-agent patterns without justification → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
-- **NEVER** hand a review task to a write-capable subagent. Observed failure: a review agent with Bash and write tools "partitioned ownership" of a diff, classified in-flight uncommitted work as unrelated, and reverted it to HEAD — roughly 80 lines of the file under review, destroyed by the reviewer. Reviews go to read-only agents (`evaluator`, `security-reviewer`) or read-only slash commands
+- **NEVER** hand a review task to a write-capable subagent. Observed failure: a review agent with Bash and write tools "partitioned ownership" of a diff, classified in-flight uncommitted work as unrelated, and reverted it to HEAD — roughly 80 lines of the file under review, destroyed by the reviewer. Reviews go to read-only agents (`graph-powers:evaluator`, `graph-powers:security-reviewer`) or read-only slash commands
 - **NEVER** commit CRLF line endings → the project's own rules in `${rulesDir}/`
 - **NEVER** skip hooks with `--no-verify` / `--no-gpg-sign` unless user explicitly asks → `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`
 - **NEVER** use destructive git operations (`reset --hard`, `push --force`, branch deletion) without confirmation → root `AGENTS.md § Executing actions with care`

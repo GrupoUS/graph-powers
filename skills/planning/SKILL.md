@@ -7,7 +7,7 @@ description: planning chain for multi-layer features, third-party integrations, 
 
 ## Overview
 
-Produce **implementation-ready plans before code** by running three phases as a numbered workflow: **Step 0** classifies + tier-gates, then **A: Brainstorm → B: Writing-plans → C: Executing-plans**. Each phase **directly invokes the canonical `superpowers` skill as its engine** (`superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`) and wraps it with harness deltas — project agents (`explorer`, `librarian`, `project-planner`, `evaluator`, `frontend-specialist`, `debugger`), tier gating, branch policy, layer ordering. Direct-invoke (not reimplementation) keeps superpowers the single source of truth.
+Produce **implementation-ready plans before code** by running three phases as a numbered workflow: **Step 0** classifies + tier-gates, then **A: Brainstorm → B: Writing-plans → C: Executing-plans**. Each phase **directly invokes the canonical `superpowers` skill as its engine** (`superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`) and wraps it with harness deltas — project agents (`graph-powers:explorer`, `graph-powers:librarian`, `graph-powers:project-planner`, `graph-powers:evaluator`, `graph-powers:frontend-specialist`, `graph-powers:debugger`), tier gating, branch policy, layer ordering. Direct-invoke (not reimplementation) keeps superpowers the single source of truth.
 
 > Read the relevant phase guide END TO END before starting it — do not improvise from the summaries below. Project context comes from `.graph-powers/config.json` (`paths.*`, `tooling.*`) + optional `${rulesDir}/layer-map.md`. Subagent prompts conform to `Skill("senior-prompt-engineer")` -> `../senior-prompt-engineer/references/agent-handoff-contracts.md`. Engine skills are pre-allowlisted in `.claude/settings.local.json`.
 
@@ -40,7 +40,7 @@ Classify the task per `.claude/CLAUDE.md § Intent classification`, then route. 
 |---|---|---|---|---|
 | **L1-L2** | Trivial / single-file / known pattern | none — direct edit | none | — |
 | **L3** | Explicit, well-scoped, single layer | A (light) | inline 3-section spec, no file | none |
-| **L4** | Multi-layer or cross-domain | A + B | spec + plan files | GATE 1 (project-planner) post-spec |
+| **L4** | Multi-layer or cross-domain | A + B | spec + plan files | GATE 1 (graph-powers:project-planner) post-spec |
 | **L5+** | Multi-day or full feature | A + B + C | + atomic-task numbering + dispatch matrix | + GATE 2 (evaluator Mode 1) post-plan |
 | **L6+** | High-risk / migration / billing / auth | + pre-mortem + ADRs + risk column | + sprint contracts | + GATE 3 (evaluator Mode 3 architecture) |
 
@@ -58,12 +58,12 @@ Classify the task per `.claude/CLAUDE.md § Intent classification`, then route. 
 
 - **A0** Invoke the engine (L3+ only; tier gate decides entry).
 - **A1** Phase 0 framing (L4+): is this the right problem / one project / what are the real options (5-10 → narrow to 3); devil's-advocate at L6+.
-- **A2** Parallel research dispatch in ONE message: `explorer` (codebase) + `librarian` (external docs/CVEs), both `run_in_background: true`.
+- **A2** Parallel research dispatch in ONE message: `graph-powers:explorer` (codebase) + `graph-powers:librarian` (external docs/CVEs), both `run_in_background: true`.
 - **A3** Clarifying questions via `AskUserQuestion` — one topic per question, 2-4 choices, skip what the user already answered.
 - **A4** Consolidate findings + cross-check `references/layer-map.md` ordering; flag contradictions; label `[ASSUMED]`.
 - **A5** Present 2-3 approaches (from A1's narrowed set), lead with recommendation + project risks + layer chain.
 - **A6** Write spec at `${paths.planDir}/specs/YYYY-MM-DD-<topic>-design.md` as a working-tree artifact; self-review (no TBD, scope tight, every `[ASSUMED]` labeled).
-- **A7** GATE 1 — `project-planner` Plan Review (L4+, max 3 revisions).
+- **A7** GATE 1 — `graph-powers:project-planner` Plan Review (L4+, max 3 revisions).
 - **A8** User approval → "Phase A complete. Invoking Phase B."
 
 **Goal (loop exit):** L3 = inline 3-section spec acknowledged. L4+ = spec file + GATE 1 PASS + user approved + zero TBD/placeholder.
@@ -78,7 +78,7 @@ Classify the task per `.claude/CLAUDE.md § Intent classification`, then route. 
 - **B4** Dispatch matrix table at top of plan; write the plan as a reviewable working-tree artifact at `${paths.planDir}/YYYY-MM-DD-<feature>.md`.
 - **B5** Plan self-review (atomicity, runnable acceptance, ≤5 spawns/phase, verification phase ends with `/evolve`).
 - **B6** L6+: pre-mortem + ADR + risk column + sprint contracts (`§ Risk`; `references/loop-engineering.md § Sprint Contracts`).
-- **B7** GATE 2 — `evaluator` Mode 1 (L5+, scored vs calibration anchors, max 3 revisions); GATE 3 — `evaluator` Mode 3 (L6+).
+- **B7** GATE 2 — `graph-powers:evaluator` Mode 1 (L5+, scored vs calibration anchors, max 3 revisions); GATE 3 — `graph-powers:evaluator` Mode 3 (L6+).
 - **B8** User approval → intercept the engine's execution-handoff → "Phase B complete. Invoking Phase C."
 
 **Goal (loop exit):** plan file + GATE 2 meets anchors (Completeness ≥ 8 · Atomicity ≥ 7 · Risk Coverage ≥ 7 · Dependency Order ≥ 8) + disjoint-file check passes + user approved.
@@ -103,11 +103,11 @@ Classify the task per `.claude/CLAUDE.md § Intent classification`, then route. 
 
 | Gate | Trigger | Agent | Required at |
 |---|---|---|---|
-| GATE 1 | After Phase A spec written | `project-planner` (Plan Review) | L4+ |
-| GATE 2 | After Phase B plan written | `evaluator` (Mode 1 Plan Review) | L5+ |
-| GATE 3 | After Phase B plan, before approval | `evaluator` (Mode 3 Architecture) | L6+ |
-| GATE A | After every Phase C implementer task PASS | `evaluator` (spec reviewer) | L5+ (every task) |
-| GATE B | After every GATE A PASS | `evaluator` (code-quality reviewer) | L5+ (every task) |
+| GATE 1 | After Phase A spec written | `graph-powers:project-planner` (Plan Review) | L4+ |
+| GATE 2 | After Phase B plan written | `graph-powers:evaluator` (Mode 1 Plan Review) | L5+ |
+| GATE 3 | After Phase B plan, before approval | `graph-powers:evaluator` (Mode 3 Architecture) | L6+ |
+| GATE A | After every Phase C implementer task PASS | `graph-powers:evaluator` (spec reviewer) | L5+ (every task) |
+| GATE B | After every GATE A PASS | `graph-powers:evaluator` (code-quality reviewer) | L5+ (every task) |
 
 All gates: max 3 rejection iterations per artifact → escalate to user.
 
@@ -117,7 +117,7 @@ All gates: max 3 rejection iterations per artifact → escalate to user.
 |---|---|
 | 3 reviewer-rejection iterations on same artifact | Escalate to user, halt phase |
 | 5 agent-spawn cap reached per `/implement` | Checkpoint with user before 6th |
-| BLOCKED from any subagent / same hypothesis fails 3× | Surface; do not retry / escalate to `evaluator` Mode 3 |
+| BLOCKED from any subagent / same hypothesis fails 3× | Surface; do not retry / escalate to `graph-powers:evaluator` Mode 3 |
 | User typed "stop"/"wait"/"pause" | Halt immediately |
 | Scope keeps expanding mid-Phase A | Decompose into sub-projects, brainstorm only first |
 | Parallel batch returns mixed PASS/FAIL | Integrate PASS diffs, re-dispatch only FAIL |

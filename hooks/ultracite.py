@@ -8,7 +8,25 @@ Branches on `hook_event_name` from the stdin payload:
                                errors, block the stop with the tail of the output
 
 **Both are opt-in by configuration.** A project that declares no formatter is not formatted, and a
-project that declares no linter is not linted. This used to shell out to `bunx biome format --write`
+project that declares no linter is not linted.
+
+**And both need the tool itself to be installed.** `tooling.commands.format` and
+`tooling.commands.lint` name a command; this hook runs it and nothing more. If the command is
+`bunx biome check --write` and `biome` is not on PATH, the run raises `FileNotFoundError`, this hook
+fails open as it must, and the session goes on editing files that are never formatted — for hours,
+with nothing on screen. So the miss is now detected before the run rather than swallowed after it,
+and `session_context.py` names it at the start of every session:
+
+    | NOT INSTALLED: lint needs `oxlint`, format needs `biome` — install globally or these never run
+
+Installing globally is the fix, and global is the point: these run against whatever repository the
+session is in, including one that does not carry them as dependencies.
+
+    bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
+    biome --version && oxlint --version   # both must answer
+
+A command routed through the package manager — `npm run lint` — is not checked: the tool is named
+in the project's manifest, not in the command, and a warning that guesses is worse than none. This used to shell out to `bunx biome format --write`
 and `bunx oxlint` unconditionally, which meant installing the plugin silently rewrote every edited
 file with one specific formatter's defaults — in repositories that had chosen Prettier, or dprint,
 or nothing — and downloaded that formatter from npm to do it. A harness may enforce the project's
@@ -93,6 +111,11 @@ def run_format(data: dict[str, object]) -> None:
     if Path(file_path).suffix.lower() not in FORMATTABLE_EXTENSIONS:
         return
 
+    # Declared is not installed. Checking first turns "silently never formats" into a line
+    # `session_context.py` already prints at every session start.
+    if gp.missing_tool(str(command)):
+        return
+
     try:
         subprocess.run(
             [*argv_for(command), file_path],
@@ -101,6 +124,8 @@ def run_format(data: dict[str, object]) -> None:
             cwd=str(gp.project_dir(data)),
             check=False,
         )
+    except FileNotFoundError:
+        return  # the declared formatter is not installed; the session tag says so
     except Exception:
         pass
 
@@ -158,6 +183,9 @@ def run_check(data: dict[str, object]) -> None:
     lint_command = ((cfg.get("tooling") or {}).get("commands") or {}).get("lint")
     if not lint_command:
         return  # the project declares no linter; there is nothing to enforce
+
+    if gp.missing_tool(str(lint_command)):
+        return  # declared but absent — reported at session start, never a reason to block a stop
 
     try:
         result = subprocess.run(

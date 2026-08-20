@@ -97,7 +97,8 @@
             "oxlint",
             "eslint",
             "ruff"
-          ]
+          ],
+          "description": "Name of the linter, for reporting only. It must be installed and on PATH for tooling.commands.lint to run; install it globally."
         },
         "buildTool": {
           "type": "string",
@@ -129,13 +130,15 @@
               "type": "string",
               "examples": [
                 "bun run lint"
-              ]
+              ],
+              "description": "The tool itself must be installed and resolvable on PATH. This plugin runs the command you declare and nothing more: if it names biome, oxlint, eslint or prettier and that binary is absent, the run fails and the session is told at startup rather than silently skipping. Install globally (bun add -g @biomejs/biome oxlint, or npm i -g ...) so it works in every repository a session visits, not only one that carries it as a dependency. A command routed through the package manager (npm run lint) is not checked - the tool is named in the manifest, not here."
             },
             "format": {
               "type": "string",
               "examples": [
                 "bunx biome check --write"
-              ]
+              ],
+              "description": "The tool itself must be installed and resolvable on PATH. This plugin runs the command you declare and nothing more: if it names biome, oxlint, eslint or prettier and that binary is absent, the run fails and the session is told at startup rather than silently skipping. Install globally (bun add -g @biomejs/biome oxlint, or npm i -g ...) so it works in every repository a session visits, not only one that carries it as a dependency. A command routed through the package manager (npm run lint) is not checked - the tool is named in the manifest, not here."
             },
             "test": {
               "type": "string"

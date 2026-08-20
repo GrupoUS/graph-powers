@@ -51,14 +51,14 @@ Read `.graph-powers/config.json` for tooling + paths. If `${rulesDir}/routing-su
 Per `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` (Skill-to-Domain Matrix), load the skill matching the task domain **before spawning any agent for that phase**.
 
 If the plan touches:
-- Schema / migrations / data → load `debugger` skill and any host database skill listed in `${rulesDir}/routing-supplements.md`
-- API / handlers / services → `debugger`
+- Schema / migrations / data → load `graph-powers:debugger` skill and any host database skill listed in `${rulesDir}/routing-supplements.md`
+- API / handlers / services → `graph-powers:debugger`
 - Components / styling → the project's design rule, or its own design-system skill when it has one
 - Performance / SEO → `performance-optimization`
 - Skill creation / iteration → `skill-creator`
-- External provider/deployment/product API → host provider skill if configured; otherwise use `librarian` for docs
+- External provider/deployment/product API → host provider skill if configured; otherwise there is no skill for this — spawn the **agent** `graph-powers:librarian`, which is a different namespace from a skill
 
-Multiple skills may load. Process skills (`planning`, `debugger`) before implementation skills.
+Multiple skills may load. Process skills (`planning`, `graph-powers:debugger`) before implementation skills.
 
 ---
 
@@ -68,12 +68,12 @@ If plan doesn't specify `**Agent:**`, assign by file-path detection:
 
 | File-path pattern | Agent |
 |---|---|
-| `${paths.schemaRoot}/**` | `debugger` |
-| `${paths.backendRoot}/**` | `debugger` |
-| `${paths.frontendRoot}/**` (UI files) | `frontend-specialist` |
-| `${paths.frontendRoot}/**` (logic / hooks / non-UI) | `debugger` |
-| Cross-domain (3+ layers) | `project-planner` as coordinator |
-| Any failing task | `debugger` |
+| `${paths.schemaRoot}/**` | `graph-powers:debugger` |
+| `${paths.backendRoot}/**` | `graph-powers:debugger` |
+| `${paths.frontendRoot}/**` (UI files) | `graph-powers:frontend-specialist` |
+| `${paths.frontendRoot}/**` (logic / hooks / non-UI) | `graph-powers:debugger` |
+| Cross-domain (3+ layers) | `graph-powers:project-planner` as coordinator |
+| Any failing task | `graph-powers:debugger` |
 
 If `${rulesDir}/routing-supplements.md` extends this table → respect those bindings.
 
@@ -81,8 +81,8 @@ Background read-only agents (always `run_in_background: true`):
 
 | When | Agent |
 |---|---|
-| Before any phase — grep existing patterns | `explorer` |
-| External API docs, package versions | `librarian` |
+| Before any phase — grep existing patterns | `graph-powers:explorer` |
+| External API docs, package versions | `graph-powers:librarian` |
 
 ---
 
@@ -116,11 +116,11 @@ Skill("superpowers:dispatching-parallel-agents");  // distinct scope + shared re
 
 ### Before any phase
 
-Spawn `explorer` in background to grep existing patterns relevant to this phase:
+Spawn `graph-powers:explorer` in background to grep existing patterns relevant to this phase:
 
 ```typescript
 Agent({
-  subagent_type: "explorer",
+  subagent_type: "graph-powers:explorer",
   prompt: "Grep [domain] patterns in [paths]. Report file:line for reuse.",
   run_in_background: true
 });
@@ -147,10 +147,10 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` (Paral
 
 ```typescript
 // Write-capable → foreground:
-Agent({ subagent_type: "frontend-specialist", prompt: "..." })
-Agent({ subagent_type: "debugger", prompt: "..." })
+Agent({ subagent_type: "graph-powers:frontend-specialist", prompt: "..." })
+Agent({ subagent_type: "graph-powers:debugger", prompt: "..." })
 // Read-only → background:
-Agent({ subagent_type: "explorer", prompt: "...", run_in_background: true })
+Agent({ subagent_type: "graph-powers:explorer", prompt: "...", run_in_background: true })
 ```
 
 After all complete: parse each agent's `## Context Handoff` block, consolidate changes, run phase gate, then invoke `Skill("superpowers:verification-before-completion")` to capture the gate output as evidence before marking the phase complete.
@@ -169,7 +169,7 @@ If plan includes sprint contracts, after all tasks in a sprint:
 
 ### Coordinator pattern
 
-Create a **coordinator task** assigned to `project-planner` (or use native Agent Team tools when available). The coordinator:
+Create a **coordinator task** assigned to `graph-powers:project-planner` (or use native Agent Team tools when available). The coordinator:
 - Holds the full plan + sprint contracts
 - Delegates domain tasks via `SendMessage`
 - Validates `## Context Handoff` from each specialist against the contract
@@ -245,7 +245,7 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
 | Attempt | Action |
 |---|---|
 | 1st | Read error. Retry with error context added to agent prompt |
-| 2nd | Invoke `debugger` skill. Break task into smaller subtasks |
+| 2nd | Invoke `graph-powers:debugger` skill. Break task into smaller subtasks |
 | 3rd | Switch to `/debug recover`. Escalate to user with root-cause analysis |
 
 Never retry blindly. Never skip a gate because a task "looks correct."

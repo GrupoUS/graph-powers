@@ -115,23 +115,19 @@ def resolve(cited: str, base: str) -> str | None:
 
 
 def agent_frontmatter() -> list[str]:
-    """An agent file that exists but never registers is worse than one that is missing.
+    """The frontmatter contract from `.claude/rules/artifacts.md`, checked rather than trusted.
 
-    `agents/security-reviewer.md` and `agents/skill-improver.md` shipped for two releases and could
-    not be spawned once. Both wrote `disallowedTools` as a YAML block sequence:
+    The name that must match the filename, the `tools:` field without which an agent silently
+    inherits `Write` and `Edit` whatever its body promises, and `disallowedTools` in the inline
+    comma-separated shape the plugin reference documents.
 
-        disallowedTools:
-          - Write
-          - Edit
-
-    The ten agents that did register wrote it inline (`disallowedTools: Write, Edit`), and those two
-    were the only two absent from the CLI's agent list. `tools:` accepts either form — `evaluator`
-    ships a block list and loads — so the two keys are not interchangeable and the difference is
-    invisible unless you go looking. `claude plugin validate .` passes on both.
-
-    Everything else here is the frontmatter contract from `.claude/rules/artifacts.md`, checked
-    rather than trusted: the name that must match the filename, and the `tools:` field without
-    which an agent silently inherits `Write` and `Edit` no matter what its body promises.
+    On that last one, an honest note. It was introduced believing a YAML block sequence there kept
+    `security-reviewer` and `skill-improver` out of the registry for two releases. That was wrong:
+    the CLI listed both while they still carried the block form, and what did not list them was a
+    third-party `PreToolUse` hook whose allowlist predated them. The check stays because the
+    documented shape is the inline one and uniformity across twelve files is worth holding — but it
+    enforces a convention, not a known failure, and the difference matters if it ever has to be
+    argued with.
     """
     problems: list[str] = []
     for path in sorted(glob.glob("agents/*.md")):
@@ -156,6 +152,62 @@ def agent_frontmatter() -> list[str]:
         if not re.search(r"^tools:", block, re.MULTILINE):
             problems.append(
                 f"{path}: no `tools:` field — the agent inherits every tool, `Write` and `Edit` included"
+            )
+    return problems
+
+
+def namespaced_spawns() -> list[str]:
+    """A prescribed `subagent_type` names this plugin's agent the way the registry does.
+
+    The agents ship inside the plugin, so the registry knows them as `graph-powers:<agent>`. Until
+    1.3.1 every command and skill prescribed the bare name, copied from the assignment matrix, and
+    the spawn failed with
+
+        Agent type 'explorer' not found. Available agents: ... graph-powers:explorer ...
+
+    an error that named the working string in its own list. `check_wiring.py` did not catch it
+    because the file `agents/explorer.md` exists and the reference resolved — the path was right
+    and the name was wrong, which is the combination a path check cannot see.
+
+    A name that is not one of ours passes through untouched: a project may route to its own agent.
+    """
+    problems: list[str] = []
+    ours = have_agents()
+    if not ours:
+        return problems
+    literal = re.compile(r"""subagent_type\s*[:=]\s*["']?(?!graph-powers:)("""
+                         + "|".join(sorted(ours)) + r""")\b""")
+    # A backticked bare name in a routing file is a dispatch instruction too, and it is the shape
+    # the literal check above cannot see: an audit found 129 of them across fifteen files —
+    # role labels in fenced blocks, table cells, and prose reading "spawn `explorer`". They hand
+    # the reader the form that does not resolve.
+    backticked = re.compile(r"`(?!graph-powers:)(" + "|".join(sorted(ours)) + r")`")
+    for path in scan_files():
+        if os.path.dirname(path) == "agents":
+            continue          # an agent describing itself is not prescribing a spawn
+        text = read(path)
+        for m in literal.finditer(text):
+            problems.append(
+                f"{path}:{lineno(text, m.start())}: prescribes `subagent_type: {m.group(1)}` — "
+                f"the registry knows it as `graph-powers:{m.group(1)}`, and the bare name does not resolve"
+            )
+        # Where a bare name is the artefact's own name rather than a dispatch: the root specs
+        # describe the host project, the rubrics describe what an auditor checks, the
+        # prompt-engineering references discuss how agents are written, and `workflows/*.js` holds
+        # bare names in `PLUGIN_AGENTS` precisely so `AG()` can add the namespace.
+        rel = path.replace(os.sep, "/")
+        if (rel in ("REVIEW.md", "DESIGN.md", "PRODUCT.md", "AGENTS.md")
+                or rel.startswith(("references/rubrics/", "skills/senior-prompt-engineer/",
+                                   "workflows/"))):
+            continue
+        for m in backticked.finditer(text):
+            line = text[text.rfind("\n", 0, m.start()) + 1:text.find("\n", m.start())]
+            # A quoted CLI error message has to keep the bare name it actually prints.
+            if "not found" in line or "Valid:" in line or "Unknown subagent_type" in line:
+                continue
+            problems.append(
+                f"{path}:{lineno(text, m.start())}: names the agent `{m.group(1)}` without its "
+                f"namespace — write `graph-powers:{m.group(1)}`"
             )
     return problems
 
@@ -257,7 +309,7 @@ def main() -> int:
                     f"{path}:{lineno(text, m.start())}: cites {target} § {sec}, which has no such section"
                 )
 
-    frontmatter = agent_frontmatter()
+    frontmatter = agent_frontmatter() + namespaced_spawns()
     for p in frontmatter:
         print(f"AGENT:   {p}")
     for p in problems:
