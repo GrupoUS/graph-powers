@@ -54,7 +54,16 @@ from typing import cast
 # the project config via `_config`, never hardcoded — this
 # file is byte-for-byte the same in every repository that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A branch name or path outside that page then
+# raises `UnicodeDecodeError`, the hook falls open, and a gate that should have denied releases.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 
 OPT_IN = f"{gp.opt_in('PUSH')}=1"
@@ -94,6 +103,9 @@ REASON = (
     + "If — and only if — the user approved the push IN THIS TURN, repeat the command\n"
     "with the explicit opt-in:\n"
     f"    {OPT_IN} git push origin {WORK_BRANCH}\n"
+    "  Not in a POSIX shell? The hook matches the key as TEXT, not as syntax, so\n"
+    "  `$env:<KEY>=1; <command>` (PowerShell) and `set <KEY>=1 && <command>` (cmd)\n"
+    "  release it just as well.\n"
     "\n"
     "If you are a subagent: do NOT use the opt-in. Stop, leave the commit local, and\n"
     "report to the orchestrator."
@@ -135,11 +147,12 @@ def current_branch(cwd: str | None) -> str | None:
     `main` refspec is still caught by MAIN_REF_RE.
     """
     try:
-        proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],  # noqa: S607 - PATH lookup is intended
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=cwd or None,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=False,
         )

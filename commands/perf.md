@@ -7,9 +7,9 @@ workflow_type: orchestrator-workers
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 
 > First positional arg = mode. Examples:
 > ```
@@ -29,7 +29,7 @@ workflow_type: orchestrator-workers
 ## 0. Setup (every mode)
 
 ```typescript
-Skill("superpowers:using-superpowers");              // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers");              // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 Skill("superpowers:verification-before-completion"); // every PASS/FAIL claim must cite captured score / exit code
 Skill("performance-optimization");                    // the project performance + security + SEO knowledge
 ```
@@ -70,12 +70,11 @@ Google PageSpeed Insights v5 (zero-dependency). Falls back to Lighthouse CLI whe
 
 ```
 1. Try PSI API (preferred — no Chrome needed). No key needed for ad-hoc use
-   (25k/day free). For automated/repeated runs, append &key=$PSI_API_KEY to
+   (25k/day free). For automated/repeated runs, append `&key=<your PSI API key>` to
    dodge the per-IP 429 (key from https://console.cloud.google.com → PageSpeed
    Insights API). Endpoint: https://www.googleapis.com/pagespeedonline/v5/runPagespeed
 2. If HTTP 429 (quota) → Lighthouse CLI:
-   ${tooling.packageManager} dlx lighthouse URL --output=json \
-     --chrome-flags="--headless=new --no-sandbox --disable-gpu --no-first-run --disable-extensions"
+   ${tooling.packageManager} dlx lighthouse URL --output=json --chrome-flags="--headless=new --no-sandbox --disable-gpu --no-first-run --disable-extensions"
 3. For full crawl → Unlighthouse:
    ${tooling.packageManager} dlx unlighthouse --site URL --throttle --samples 1
 ```
@@ -138,7 +137,7 @@ Before the batch spawn, invoke `Skill("superpowers:dispatching-parallel-agents")
 1. Measure baseline against all key routes.
 2. Identify routes with Performance < threshold.
 3. Spawn 1 `performance-optimizer` agent per failing route, all in **single message**, each with `isolation: "worktree"`.
-4. Each agent prompt includes: route-specific scores, CWV, top opportunities, failing audits, scope (which files/components), task (read web rules from `${rulesDir}/DESIGN.md`, fix top 3 opportunities by `savings_ms`, run quality gates per `shared-context.md` § 1, report changes).
+4. Each agent prompt includes: route-specific scores, CWV, top opportunities, failing audits, scope (which files/components), task (read web rules from `${rulesDir}/design.md`, fix top 3 opportunities by `savings_ms`, run quality gates per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, report changes).
 5. After all agents return: re-measure and verify improvements via `Skill("superpowers:verification-before-completion")` — capture the new PSI scores as evidence before claiming "regression fixed".
 
 Skip routes already at threshold.
@@ -168,13 +167,12 @@ The dashboard URL needs the team/user scope and the project slug. Both come from
 **Step 1 — Print dashboard links + run synthetic baseline**
 
 ```bash
-SCOPE="$(bunx vercel whoami 2>/dev/null)"                              # team or personal scope slug
-PROJECT_NAME="$(jq -r '.projectName // empty' .vercel/project.json 2>/dev/null)"
-
-[ -n "$SCOPE" ] && [ -n "$PROJECT_NAME" ] \
-  && echo "Speed Insights: https://vercel.com/$SCOPE/$PROJECT_NAME/speed-insights" \
-  && echo "Web Analytics:  https://vercel.com/$SCOPE/$PROJECT_NAME/analytics"
+python -X utf8 -c "import json,pathlib,subprocess;r=subprocess.run(['vercel','whoami'],capture_output=True,text=True);s=r.stdout.strip() if r.returncode==0 else '';p=pathlib.Path('.vercel/project.json');n=json.loads(p.read_text(encoding='utf-8')).get('projectName','') if p.is_file() else '';print(f'Speed Insights: https://vercel.com/{s}/{n}/speed-insights\nWeb Analytics:  https://vercel.com/{s}/{n}/analytics') if s and n else print('not linked — run `vercel link` first')"
 ```
+
+One Python line rather than five shell constructs. The shell version used `$( )`, `2>/dev/null`,
+`[ -n … ]` and a line continuation — none of which exist in cmd.exe — and depended on `jq`, which
+§ 5 already admits may be absent.
 
 > If either value is empty, do not guess a slug — say the project is not linked and let the user open the dashboard.
 > A wrong dashboard URL costs more than a missing one.
@@ -199,12 +197,13 @@ If `<SpeedInsights>` not yet aggregating (< 24h since deploy), skip RUM column a
 
 **Step 3 — CSV export option**
 
-When > 5 routes need analysis, dashboard "Export" button → CSV → `/tmp/vercel-cwv.csv`. Parse:
+When > 5 routes need analysis, use the dashboard's "Export" button and save the CSV wherever the
+user keeps scratch files — ask, or use `python -X utf8 -c "import tempfile,os;print(os.path.join(tempfile.gettempdir(),'vercel-cwv.csv'))"`. Do not
+hardcode `/tmp`: it does not exist on Windows, and this repository's own rule forbids absolute
+machine paths. Then parse it:
 
 ```bash
-awk -F',' 'NR>1 && ($2+0>2500 || $3+0>200 || $4+0>0.1) {
-  printf "%-40s LCP=%s INP=%s CLS=%s n=%s\n", $1, $2, $3, $4, $5
-}' /tmp/vercel-cwv.csv
+python -X utf8 -c "import csv,sys;[print(f'{r[0]:<40} LCP={r[1]} INP={r[2]} CLS={r[3]} n={r[4]}') for i,r in enumerate(csv.reader(open(sys.argv[1],newline='',encoding='utf-8'))) if i and (float(r[1])>2500 or float(r[2])>200 or float(r[3])>0.1)]" <path-to-csv>
 ```
 
 **Step 4 — Failing routes → fix path**
@@ -266,21 +265,19 @@ Read config + project files to confirm:
 ### 3.2 Performance baseline
 
 ```bash
-# Clean build
-time ${tooling.packageManager} run build
+# Build timings. `time` is a bash keyword — PowerShell has Measure-Command with different
+# semantics, cmd has nothing — so the timing is done by the thing being timed's own runner.
+python -X utf8 -c "import subprocess,sys,time;t=time.perf_counter();c=subprocess.run(sys.argv[1:]).returncode;print(f'elapsed={time.perf_counter()-t:.1f}s exit={c}')" ${tooling.packageManager} run build
 
-# Incremental build (cache warm)
-time ${tooling.packageManager} run build
+# Repeat the same line for the warm-cache build, and for the type check if it is separate.
 
-# Type check (if separate)
-time ${tooling.packageManager} run ${tooling.typeChecker}
-
-# Output sizes — adapt path per build tool
-ls -lh ${paths.frontendRoot}/dist/assets/ 2>/dev/null \
-  || ls -lh ${paths.frontendRoot}/.output/public/ 2>/dev/null \
-  || ls -lh build/ 2>/dev/null \
-  | sort -k5 -hr | head -20
+# The 20 largest build outputs, from whichever output directory exists.
+python -X utf8 -c "import pathlib,sys;d=next((p for p in map(pathlib.Path,sys.argv[1:]) if p.is_dir()),None);print('no build output found') if not d else [print(f'{f.stat().st_size/1024:9.1f} KB  {f.relative_to(d)}') for f in sorted((f for f in d.rglob('*') if f.is_file()),key=lambda f:-f.stat().st_size)[:20]]" ${paths.frontendRoot}/dist/assets ${paths.frontendRoot}/.output/public build
 ```
+
+The shell version of that last one had a bug on every platform, not just Windows: `|` binds tighter
+than `||`, so `a || b || c | sort | head` parses as `a || b || (c | sort | head)` and the common
+case — the first listing succeeding — was never sorted or truncated.
 
 Document: clean vs incremental times, bundle sizes per chunk, type-check time, slowest phases from build log.
 
@@ -408,7 +405,9 @@ Report each hit with file:line + suggested batched alternative.
 ### 4.3 SELECT * scan
 
 ```bash
-grep -rn "select \*" ${paths.backendRoot} --include="*.ts" --include="*.js" --include="*.sql" | head -50
+# Grep tool: pattern `select \*`, path `${paths.backendRoot}`, glob `*.{ts,js,sql}`,
+# output_mode `content`, head_limit 50. Not a shell `grep | head` — neither binary exists
+# on Windows, and the pipe would take the first 50 lines of an error message.
 ```
 
 For each: verify whether all columns are actually used in the call site. Suggest column projection.

@@ -62,7 +62,7 @@ Every decision is **AFK** (agent alone) or **HITL** (needs the human, live).
 
 | Type | Mode | Resolver in this repo | Never |
 |---|---|---|---|
-| **Research** | AFK | `Agent({subagent_type:"explorer", run_in_background:true})` for repo facts · `librarian` for external API/version/CVE facts · code graph (`shared-context.md § 11.5`) | Asking the user something a `Grep` answers |
+| **Research** | AFK | `Agent({subagent_type:"explorer", run_in_background:true})` for repo facts · `librarian` for external API/version/CVE facts · code graph (`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`) | Asking the user something a `Grep` answers |
 | **Prototype** | HITL | Cheap, rough, throwaway artifact to react to — `/design` Phase 1 spike or a `frontend-specialist` stub, **linked** from the map, never pasted into it | Deciding "how should it look/behave" alone |
 | **Grilling** | HITL | `AskUserQuestion`, one topic at a time, recommended answer stated (`SKILL.md § Hard rule`) | Batching questions; answering for the user |
 | **Task** | AFK or HITL | Manual prerequisite that unblocks a *decision*: provisioning a key, creating a sandbox account, `db:push` on staging so a shape can be seen, obtaining a contract. Agent does it alone where it can; otherwise it hands the user a precise checklist. Resolution records the resulting facts (where the credential lives, new URL, row count) | Counting it as progress toward the destination — it only unblocks a decision |

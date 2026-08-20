@@ -12,7 +12,7 @@ Each constraint points to canonical source — this section is a lookup aid.
 
 ### Design / UI
 
-- **NEVER** use hardcoded hex colors → the project's own rules in `${rulesDir}/`, `${rulesDir}/DESIGN.md`
+- **NEVER** use hardcoded hex colors → the project's own rules in `${rulesDir}/`, `${rulesDir}/design.md`
 - **NEVER** introduce a colour outside the project's declared tokens → `${rulesDir}/design.md`
 - **NEVER** center all text by default → root `DESIGN.md` §11/§15
 - **NEVER** use emoji as design elements → root `DESIGN.md` §15

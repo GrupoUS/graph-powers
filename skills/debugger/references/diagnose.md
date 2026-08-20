@@ -58,12 +58,9 @@ bunx agent-browser network requests --filter "api-staging" > ".graph-powers/logs
 
 **tRPC 500 repro via curl:**
 ```bash
-TOKEN="$(cat .secrets/staging.jwt)"  # never commit; vault-only
-curl -sS \
-  -X POST "${project.stagingUrl}/api/<endpoint>" \
-  -H "authorization: Bearer $TOKEN" \
-  -H "content-type: application/json" \
-  -d '{"0":{"json":{}}}' | jq '.'
+# Read the token with the Read tool and paste it in — `$(cat …)` is POSIX substitution and
+# `cat` is not on a Windows shell. Never commit the token; vault-only.
+curl -sS -X POST "${project.stagingUrl}/api/<endpoint>" -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '{"0":{"json":{}}}' | jq '.'
 ```
 
 **SSE leak / listener count probe:**
@@ -189,7 +186,8 @@ Rationalisation is the **conscious** excuse for skipping process under pressure 
 ### Choose the Step 4 tag prefix
 Pick a unique tag, e.g., `DEBUG_BUG_C500` (≤24 chars, no spaces, ALL_CAPS). Every probe / log / breakpoint added in Step 4 must include this prefix verbatim, so Step 6 cleanup is a single grep:
 ```bash
-grep -rn "DEBUG_BUG_C500" ${paths.backendRoot} ${paths.frontendRoot}   # must return 0 at commit time
+# Grep tool: pattern `DEBUG_BUG_C500` under ${paths.backendRoot} and ${paths.frontendRoot}
+# — must return 0 hits at commit time
 ```
 
 ---

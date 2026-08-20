@@ -9,6 +9,17 @@ import subprocess
 import sys
 import typing
 
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
+
 
 
 def read_input() -> dict[str, object]:
@@ -47,10 +58,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show($toast)
 """
     try:
-        result = _ = subprocess.run(
+        result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-Command", ps_script],
             capture_output=True,
             timeout=5,
+            check=False,
         )
         return result.returncode == 0
     except Exception:
@@ -60,10 +72,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
 def notify_linux(title: str, message: str) -> bool:
     """Use notify-send for native Linux."""
     try:
-        result = _ = subprocess.run(
+        result = subprocess.run(
             ["notify-send", "--app-name=Claude Code", title, message],
             capture_output=True,
             timeout=5,
+            check=False,
         )
         return result.returncode == 0
     except FileNotFoundError:
@@ -76,10 +89,11 @@ def notify_macos(title: str, message: str) -> bool:
         safe_title = title.replace("\\", "\\\\").replace('"', '\\"')
         safe_message = message.replace("\\", "\\\\").replace('"', '\\"')
         script = f'display notification "{safe_message}" with title "{safe_title}"'
-        result = _ = subprocess.run(
+        result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True,
             timeout=5,
+            check=False,
         )
         return result.returncode == 0
     except FileNotFoundError:
@@ -91,17 +105,16 @@ def main() -> None:
     title = str(data.get("title", "Claude Code"))
     message = str(data.get("message", "Your agent session needs attention"))
 
-    if is_wsl():
-        if notify_wsl(title, message):
-            return
+    if is_wsl() and notify_wsl(title, message):
+        return
 
+    # `Darwin` and `Linux` are mutually exclusive, so these read as one chain even without the
+    # `elif`: the first backend that reports success ends the function.
     current_os = platform.system()
-    if current_os == "Darwin":
-        if notify_macos(title, message):
-            return
-    elif current_os == "Linux":
-        if notify_linux(title, message):
-            return
+    if current_os == "Darwin" and notify_macos(title, message):
+        return
+    if current_os == "Linux" and notify_linux(title, message):
+        return
 
     # Fallback: terminal bell
     print("\a", end="", flush=True)

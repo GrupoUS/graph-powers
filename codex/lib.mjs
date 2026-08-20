@@ -7,7 +7,7 @@
  * a second hand-written list is exactly the divergence this plugin was built to end.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, copyFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // ── frontmatter ──────────────────────────────────────────────────────────────
@@ -18,6 +18,10 @@ import { dirname, join } from "node:path";
  * parser — a dependency here would ship into every install, and the schema is ours.
  */
 export function parseFrontmatter(text) {
+  // Normalise line endings before matching. A clone on Windows has CRLF unless the
+  // repository says otherwise, and `^---\n` does not match `---\r\n` — which dropped every
+  // agent and every command-as-skill while the installer still printed success.
+  text = String(text).replace(/\r\n/g, "\n");
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(text);
   if (!m) return { data: {}, body: text };
 
@@ -28,7 +32,8 @@ export function parseFrontmatter(text) {
 
     const item = /^\s+-\s+(.*)$/.exec(raw);
     if (item && key) {
-      (data[key] ||= []).push(unquote(item[1].trim()));
+      data[key] ||= [];
+      data[key].push(unquote(item[1].trim()));
       continue;
     }
     const pair = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(raw);

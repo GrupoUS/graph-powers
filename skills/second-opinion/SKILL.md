@@ -19,12 +19,7 @@ all. An interactive session has no budget ceiling to set. A headless one does.
 ## The invocation
 
 ```bash
-timeout 900 claude -p \
-  --model opus \
-  --max-budget-usd 1.50 \
-  --permission-mode plan \
-  --disallowedTools Write Edit \
-  "<the question, self-contained — see below>"
+timeout 900 claude -p --model opus --max-budget-usd 1.50 --permission-mode plan --disallowedTools Write Edit "<the question, self-contained — see below>"
 ```
 
 Every flag earns its place:

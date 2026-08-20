@@ -29,8 +29,7 @@ from pathlib import Path
 # the project config via `_config`, never hardcoded — this
 # file is byte-for-byte the same in every repository that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
-
+import _config as gp
 
 WORK_BRANCH = gp.work_branch()
 PROTECTED = set(gp.protected_branches())
@@ -39,11 +38,12 @@ PROTECTED = set(gp.protected_branches())
 def git(*args: str, cwd: str | None) -> str | None:
     """Stdout of a git command, or None when it cannot be determined."""
     try:
-        proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
-            ["git", *args],  # noqa: S607 - PATH lookup is intended
+        proc = subprocess.run(
+            ["git", *args],
             cwd=cwd or None,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=False,
         )

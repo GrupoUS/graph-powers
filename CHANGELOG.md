@@ -1,5 +1,243 @@
 # Changelog
 
+## 1.3.0 — the chain ships, and the bash gate asks about the right things
+
+### Added — the plan → build → verify chain
+
+Three workflows now ship with the plugin (`workflows/`), and Claude Code registers them as
+`graph-powers:ultra-plan`, `graph-powers:ultra-build` and `graph-powers:ultra-verify`.
+
+`/plan` runs them end to end and stops **once**: at the only edge `git revert` cannot undo cheaply,
+which is committing to a plan before any code exists. Research fans out, the plan is scored against
+calibration anchors in code rather than by self-report, implementation runs in waves of disjoint
+files, and verification refutes from several angles at once before looping on what it found.
+
+They existed before this release — in two projects, copied, and already diverged: 287 lines of diff
+between the two copies of one of them, 99 in another. That is the exact failure this repository was
+created to end, reproduced in the most expensive layer. Worse, the plugin already *depended* on one
+of the copies: `commands/plan.md` promised an `approved` flag and a `splitByFileOwnership` re-slice
+that only one of the two ever had, and shipped neither.
+
+Everything specific to a repository was lifted out into config. A workflow script cannot read a file
+— its scope holds six names and none of them is a filesystem — so the contract arrives as `args`,
+passed by `/plan` or read by one cheap agent when a workflow is invoked on its own.
+
+### Changed — the shared context is seventeen files, and a command loads the ones it reads
+
+`references/shared-context.md` was 22 KB and every command opened by loading all of it. `/plan` used
+one section. `/delegate` and `/recover` used none, and paid the full 22 KB anyway — for `/recover`
+that was 88 % of everything it loaded.
+
+Each `## Section N` is now its own file under `references/shared/`, extracted byte for byte with its
+heading, so the words a citation lands on are unchanged. Each command's header names only what it
+acts on. **The shared layer went from 272,676 bytes across the twelve commands to 76,303 — 72 %
+less**, and the full chain (command + references + skills) fell 28 %; the rest is dominated by the
+skills a command loads, which this change does not touch.
+
+Deciding what each command *needs* could not be done by grepping citations, because a citation is
+not a need and this repository had both kinds of error: sections named in a header and never used,
+and sections used without ever being named. Twelve agents read one command each against the whole
+file. Their disagreements were the useful part, and are recorded here rather than smoothed over:
+
+- **§ 5 (Tool Usage) had no consumer at all.** Its one inbound citation was `/debug`'s AutoResearch
+  line, which said § 5 while meaning § 10. Meanwhile `/research` restated a chunk of it inline. The
+  command now loads the fragment for *which* tool and keeps only *how* to drive it — the half the
+  table never had.
+- **§ 11 (Guardrails Index) indexed no guardrails.** It listed eight rule files and not one of the
+  twelve hooks that actually deny. An index that omits everything enforced is worse than none:
+  somebody looking up "what stops me here" found the wrong list. It now separates what denies in
+  code from what is convention, and `/prime` and `harness-audit` read it.
+- **§ 9 claimed `/verify` as its consumer**, which returns three literal words and has no matrix.
+  **§ 11.5 claimed `/verify § 3`**, which has no code-graph step. Both now name who really reads
+  them.
+- **§ 1.5's apply-at list named `/design`, `/evolve` and `/verify`**, none of which invoke the skill
+  it describes. Left as a finding rather than papered over by adding the fragment to their headers:
+  that would launder a behavioural gap into a reading assignment.
+
+`shared-context.md` stays at its path as a one-page index — `codex/install.mjs` writes it into the
+generated `AGENTS.md`, and installed copies of older versions still point at it. What they find is
+a map, not a 404 and not 22 KB.
+
+### Fixed — three artefacts that looked orphaned, and one that was miswired
+
+`mobile-developer` is reachable again: the three workflows route to it, gated on `paths.mobileRoot`.
+`verification` — the browser-QA specialist, read-only, that nothing had ever spawned — is now the
+Evidence Collector in the debugging packs, which is the job it was written for.
+`agent-orchestration` is **not** deleted: a skill is invoked by its description as well as by
+`Skill()`, and its description is a routing trigger. What it lacked was an edge to `/delegate`, the
+command that owns the delegation contract. `second-opinion` is invoked by a person running
+`claude -p`, by design; it is now named at the moment it helps — recovery Step 4, where the thread
+has spent three attempts justifying one reading and needs a session that never saw it.
+
+### Added — `chain` in the config contract
+
+`schema/config.schema.json` gains one group. Its arrays are the reason it is a group and not a
+handful of booleans: `invariants` (code that looks redundant and must never be "simplified" away — a
+tenant filter, a PII gate, an idempotency guard), `lenses` (extra review angles), `contractGates`
+(commands that run only when a given surface changed), `hardRules`, `domainSkills`, `surfaces`.
+
+The plugin supplies the mechanism; a project supplies the content. Without these, adopting the
+plugin would cost a repository the review coverage it already had, which is not an upgrade.
+
+Also new: `paths.mobileRoot` (absent removes `mobile-developer` from every routing enum — an agent
+with nothing to work on is worse than no agent), `tooling.commands.deadCode` and
+`tooling.commands.renderHealth`, and three ceilings in `graphGuardrails` that were previously
+constants inside the workflows.
+
+### Fixed — one writer per file was armed and disarmed at the same time
+
+`graph_guardrails.py` has always refused a write outside `.graph-powers/logs/write-lease.json`. No
+code ever wrote that file, so the check stood down every time. `/plan` Step 4.2 now writes it, from
+the disjoint file sets `ultra-build` already computes to slice its waves.
+
+### Fixed — `subagent_type` could come from generated text
+
+Two schemas in the verification workflow typed `agent` as a bare string, so whatever an evaluator
+wrote became a subagent type: a hallucinated name either failed to spawn or silently degraded. Every
+`agent` field is now an enum, built from the lanes the project actually has.
+
+### Fixed — a routing target the plugin did not ship
+
+`/plan` sent L4+ work to a workflow that was not in the plugin, and reported the miss as an error.
+An unresolved name is a route, not a defect: the fallback is named, the three distinct failures are
+distinguished, and `FF-8.0` stops the post-return checks from running against a call that never
+happened.
+
+### Changed — the bash approver sorts by one question: does git undo it?
+
+The two lists were wrong in opposite directions. Measured before the change, on the shipped code:
+
+```
+guarded     ASK    git add · git checkout · git merge · git pull · rm -rf __pycache__ · bun run dev
+autonomous  ALLOW  git clean -fdx · git reset --hard · git stash clear · git gc --prune=now
+                   git filter-branch --all
+```
+
+It asked about work git restores for free, and ran what git cannot bring back. `destructiveFloor`
+was on the whole time; those commands simply were not on the list.
+
+Now: `git clean -f`, `reset --hard`, `stash drop|clear`, `reflog expire`, `gc --prune=now`,
+`filter-branch`, `filter-repo` and `update-ref -d` are on the floor, denied even under
+`autonomous`. Reversible git verbs, build artefacts (`__pycache__`, bundler and framework caches,
+coverage) and `mv`/`chown`/`gh pr create` run without a prompt.
+
+`git commit`, `git push` and `git checkout` also stop asking **here** — not because they became
+safe, but because `git_commit_gate`, `git_push_gate` and `git_branch_gate` already refuse them, and
+Claude Code merges hook decisions most-restrictive-first (`deny` > `defer` > `ask` > `allow`, every
+matching hook run to completion). One decision, one owner; what disappears is the second prompt for
+it. Both halves are proved in the suite: the approver allows, the dedicated gate still denies.
+
+The approver also stopped naming a package manager. `bun run dev` used to ask while `pnpm run dev`
+did not, in the same project, for the same kind of command.
+
+`hooks/test_hooks.py` goes from 71 checks to 133. Every reclassification carries the violation and
+the mirrored legitimate case, because a gate that fails the correct case trains people to ignore
+gates.
+
+### Fixed — every routing reference in the repository now resolves
+
+Found by the new gate and by reading the targets, not by trusting the citations:
+
+- **`/recover` was a second, divergent copy of the recovery protocol.** It announced five steps
+  under the same numbers as `references/recovery-protocol.md` — different steps — ended at an
+  `oracle` agent that has never existed in this repository, and carried a page of Astro and
+  Tailwind troubleshooting that reads as general advice and was general to one project. `/debug`
+  had the same defect from the other side: it said "execute its 5 steps verbatim" and then listed
+  five that were not in the file. The protocol is now written once, and both commands point at it.
+- **`${rulesDir}/DESIGN.md`, cited five times, where the shipped template is `design.md`.** On a
+  case-sensitive filesystem that has never resolved.
+- **`shared-context.md § 7.5`, cited twice, does not exist** — and § 7 does not cite those files
+  back. Both headers now name their real consumers, which for one of them is all twelve agents.
+- **`.claude/CLAUDE.md § Stopping conditions`, cited five times**, is in neither this repository
+  nor `templates/CLAUDE.md`. The table is real and lives in the planning skill; the citations point
+  there, and the skill stopped calling itself a mirror of a section that never existed.
+- **`/debug` sent the AutoResearch Loop to § 5** (Tool Usage). It is § 10.
+- **`/research` described `explorer` as `.claude/agents/explorer.md`** — the path where a project
+  would put an override, which is to say the one place it is guaranteed not to be.
+- **"D.R.P.I.V" was named in three files and defined in none.**
+
+**The spawn ceiling had three numbers and no conflict.** 25 (`maxSpawnsPerSession`) is a session
+total the hook refuses at; 5 is the width of a single fan-out, stated in a dozen places and enforced
+by nobody. They measure different things and nothing said so. The width is now
+`graphGuardrails.maxParallelWave`, the same field the build chain slices waves with, and § 7 spells
+out which quantity is which.
+
+**`/verify` now reads the plan sections that were produced for it.** `/plan` emits a Reuse ledger, a
+Regression watchlist and a Rollback, each labelled "consumed by /verify" — and `/verify` had never
+read any of them, while `/plan` cited three phases of it (1.5, 1.6, 4) that were never written. The
+three checks are now in `/verify § 3`, in the existing checklist rather than as new phases: the
+heavy verify was refused once already, for injecting 93 KB before any work started, and that
+decision still holds.
+
+### Fixed — three ceilings that shipped with no assertion behind them
+
+G2 (spawn ceiling), G3 (round ceiling) and G4 (write lease) had been in the plugin since the first
+release with zero tests, which is the state `.claude/rules/hooks.md` explicitly forbids: "a guardrail
+never seen denying is an assumption with syntax". All three now carry the violation, the mirrored
+legitimate case, the opt-in release, and the garbage-input case.
+
+Writing the tests surfaced one behaviour worth knowing: a spawn refused by the ceiling still consumes
+its slot, because the counter increments before the check. That is correct — the alternative lets a
+caller retry forever at no cost — and it is now asserted rather than merely true.
+
+### Added — two gates that would have caught this
+
+- `node .github/check_workflows.mjs`: four checks on every shipped workflow.
+  1. It **parses**, wrapped the way the runtime wraps it — `node --check` rejects a legal workflow
+     outright, because top-level `return` is only legal inside that wrapper.
+  2. `meta.name` matches the filename. A mismatch registers the workflow under a name nobody calls.
+  3. The set of plugin-owned agent names in the script matches `agents/` on disk, in both
+     directions. That set decides which spawns get the `graph-powers:` prefix, and a name missing
+     from it silently loses its namespace and fails at spawn time.
+  4. It **runs**, against stubs. Every runtime hook is replaced — `agent()` returns a minimal
+     object synthesised from the schema it was handed — so the whole control flow executes without
+     spawning anything. Parsing proves the file is legal; this proves it survives its own logic.
+     It also asserts the input guard fires on empty args.
+
+  Check 4 found a defect on its first execution: `ultra-verify` accepted an empty plan path and
+  went on to ask its agents to verify "the plan at ``" — a prompt that reads as valid and produces
+  confident findings about nothing, at the cost of a full skeptic panel. It now refuses, and points
+  at `/verify` for the gates-only pass that request actually wanted. The empty-diff exit became
+  honest in the same pass: a plan whose build wrote no files returns `NEEDS-WORK`, not the
+  `VERIFIED` an empty tree looks like to a gate.
+- `python3 .github/check_wiring.py`: every routing reference resolves. The old dangling gate checked
+  file paths, which is the easy half; this one checks the agent a command spawns, the workflow it
+  invokes, the skill it loads, the rule template it names, and the section of another file it tells
+  the reader to apply. Pointed at the tree before this release it found eight live misses, including
+  five citations of `${rulesDir}/DESIGN.md` where the shipped template is `design.md` — a reference
+  that has never resolved on a case-sensitive filesystem and reads as correct in every review.
+- The dangling-reference and machine-path gates now cover `workflows/` and `.js`. The copy of the
+  dangling regex in `CONTRIBUTING.md` had already drifted from the one in CI; both are updated.
+
+### Verified in this session
+
+- The bash reclassification ran under itself for the whole of the work that produced this release.
+- `node .github/check_workflows.mjs` dry-runs all three workflows against stubs: 3, 9 and 15
+  stubbed spawns respectively, and all three refuse empty args.
+- `python3 .github/check_wiring.py`: 130 routing references, 0 unresolved.
+- `python3 hooks/test_hooks.py`: 133 checks, exit 0.
+- `python3 .github/check_context_budget.py --compare`: the twelve commands load 28 % less; the
+  shared layer specifically, 72 %.
+- The Codex installer fixture (install, reinstall, uninstall, both scopes) still passes, a third
+  party's skill survives it, and no workflow leaks into the Codex tree — correctly, since Codex has
+  no `Workflow`.
+
+**Not verified: the chain end to end.** `Workflow({name:'graph-powers:ultra-plan'})` was called in
+this session and returned `not found`, exactly as the paragraph below predicts — the registry was
+built before `workflows/` existed. That is the documented behaviour observed rather than assumed,
+and the fallback it triggers is what produced this release. Running the chain itself needs a
+session started after the install.
+
+### Known
+
+Workflows are loaded when a session starts. Installing or updating the plugin mid-session leaves the
+new workflows invisible until a restart, and the symptom is
+`Workflow "graph-powers:ultra-plan" not found`. `AGENT_SETUP.md § Step 10` says so, and `/plan`
+treats it as a route rather than a failure.
+
+Codex has no `Workflow`, so the chain is Claude Code only. Under Codex — and under Claude Code when
+the name does not resolve — `/plan`, `/implement` and `/verify` do the same work as commands.
+
 ## 1.2.0 — the version is the delivery channel
 
 A CI gate now refuses any change that touches what the plugin ships without bumping the version in

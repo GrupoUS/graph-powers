@@ -7,9 +7,9 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`
 
 Modes, from the first positional argument:
 
@@ -51,7 +51,7 @@ passes inline; a half-remembered version of a design methodology is worse than n
 ## 0. Context
 
 ```typescript
-Skill("superpowers:using-superpowers");   // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 Skill("uxmaster");                        // UX judgement: conversion, onboarding, hierarchy
 ```
 

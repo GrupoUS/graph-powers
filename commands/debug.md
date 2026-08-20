@@ -7,9 +7,9 @@ workflow_type: routing
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
 > First positional arg = mode. Examples:
 > ```
@@ -64,7 +64,7 @@ Modes share the **§ 0.1 Setup** preamble.
 
 ### 0.1 Setup (every mode)
 
-Load the superpowers method layer **before** the the project debugger knowledge layer (per `shared-context.md` § 0.5 + § 12):
+Load the superpowers method layer **before** the the project debugger knowledge layer (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` + § 12):
 
 ```typescript
 Skill("superpowers:using-superpowers");        // meta — announce-before-action
@@ -76,9 +76,9 @@ Chain rationale: `systematic-debugging` sets the investigation method (no fix wi
 
 Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). For project-specific anti-patterns, load via `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (already loaded by debugger skill above).
 
-Run baseline quality gates from `shared-context.md` § 1 using `${tooling.typeChecker}` / `${tooling.linter}` / `${tooling.testRunner}`.
+Run baseline quality gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using `${tooling.typeChecker}` / `${tooling.linter}` / `${tooling.testRunner}`.
 
-Context load via `shared-context.md` § 4 (WISC):
+Context load via `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` (WISC):
 - Bug in frontend area → `/prime frontend`
 - Bug in backend area → `/prime backend`
 - Multi-layer → `/prime fullstack`
@@ -114,13 +114,17 @@ If error matches a known pattern → apply documented fix directly (L1-L2), no a
 
 ### 1.2 Complexity classification
 
-Per `shared-context.md` § 2.
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 
 ### 1.3 Investigation by complexity
 
 **L1-L2 — Direct fix.** Read file → identify root cause → apply minimal fix → run gates.
 
-**L3 — Single agent.** Spawn 1 `debugger` agent (foreground): investigate root cause, return findings table with file:line. DO NOT FIX — report only.
+**L3 — Single agent.** Spawn 1 `explorer` (foreground): investigate root cause, return a findings
+table with file:line. Read-only by frontmatter, not by instruction — `anti-patterns.md § Agent
+misuse` is explicit that a review task never goes to a write-capable subagent, and a prompt
+saying "do not fix" is a request, not a permission. Fixing is a separate dispatch, after the
+root cause is named.
 
 **L4-L5 — Parallel agents.** Before spawning, invoke `Skill("superpowers:dispatching-parallel-agents")` to enforce distinct scope + shared return contract. Spawn in same message:
 
@@ -238,15 +242,15 @@ Run § 0.1, then load `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` 
 
 ### 2.2 Quality gates baseline
 
-Per `shared-context.md` § 1 using config tooling. Also collect metrics:
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using config tooling. Also collect metrics:
+
+Count source and test files with the **Glob tool**, not `find`: on Windows `find` resolves to
+`C:\Windows\System32\find.exe`, which is a different program, and `wc` does not exist at all.
+
+- Glob `**/*.{ts,tsx,astro,py,go}` under `${paths.backendRoot}` and `${paths.frontendRoot}` — count the results.
+- Glob `**/*.{test,spec}.*` under the same roots — count those too.
 
 ```bash
-# Total source files (adapt extensions per project)
-find ${paths.backendRoot} ${paths.frontendRoot} -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.astro" -o -name "*.py" -o -name "*.go" \) | wc -l
-
-# Test files
-find ${paths.backendRoot} ${paths.frontendRoot} -type f \( -name "*.test.*" -o -name "*.spec.*" \) | wc -l
-
 git log --oneline -20
 ```
 
@@ -345,7 +349,7 @@ Pre-flight (mandatory): `bunx agent-browser --version`. If it fails → STOP, do
 Resolve target URL: `${project.stagingUrl}` from config (override via `/debug frontend url=http://...`).
 
 ```bash
-bunx agent-browser open "$TARGET_URL"
+bunx agent-browser open "<the URL, substituted before you run this — resolve it from ${project.stagingUrl}; a shell variable is not set anywhere and expands to nothing>"
 bunx agent-browser snapshot -i -c              # accessibility baseline, interactive + compact
 bunx agent-browser console                     # any error-level messages collected since open
 ```
@@ -354,7 +358,7 @@ bunx agent-browser console                     # any error-level messages collec
 
 ```bash
 # 1. Navigate (or just continue in the existing session)
-bunx agent-browser open "$URL"
+bunx agent-browser open "<the URL, substituted before you run this>"
 
 # 2. Snapshot (ALWAYS before any ref-based interaction — refs go stale on DOM mutation)
 bunx agent-browser snapshot -i -c
@@ -442,7 +446,7 @@ Date: {date} | Target: {url} | Viewports: Desktop, Mobile
 bunx agent-browser close --all   # headless sessions ONLY; over `--cdp` this kills the person's signed-in browser
 ```
 
-Run final quality gates per `shared-context.md` § 1.
+Run final quality gates per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
 
 ---
 
@@ -480,15 +484,13 @@ Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bu
 
 If the recovery was triggered by code-review feedback (codex review P0/P1, evaluator REVISION_REQUIRED, user pointing to a specific reviewer note), invoke `Skill("superpowers:receiving-code-review")` **before** reading the recovery protocol. The skill enforces technical evaluation of feedback (implement / clarify / pushback) instead of blind agreement.
 
-Load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute its 5 steps verbatim:
+Load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute its five steps verbatim.
+They are written there and nowhere else — this command used to restate them from memory, and the
+restatement had drifted into five different steps under the same numbers, so an agent obeying the
+command never ran the protocol and an agent reading the file contradicted the command.
 
-1. **STOP** — halt all fix attempts; no more changes
-2. **DOCUMENT** — structured failure report (original error, attempts, why each failed, current state, hypothesis tree)
-3. **REVERT** (if applicable) — show diff first; confirm with user before destructive ops
-4. **CONSULT evaluator (Mode 3)** — pass failure report; expect root-cause analysis + recommended approach
-5. **REPORT** — present evaluator analysis verbatim, options with effort estimates (S/M/L), ask user
-
-Anti-patterns: looping past 2 attempts · skipping documentation · reverting without showing diff · vague evaluator question.
+Anti-patterns: looping past 2 attempts · skipping the write-up in Step 1 · reverting without showing
+the diff · escalating with a question too vague to answer.
 
 ---
 
@@ -525,4 +527,4 @@ Before stopping, escalate in this order:
 
 ## 9. Auto mode
 
-If `auto` token in `$ARGUMENTS`: complete default flow (§ 1), then run AutoResearch Loop per `shared-context.md` § 5 on skills used in this session.
+If `auto` token in `$ARGUMENTS`: complete default flow (§ 1), then run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` on skills used in this session.

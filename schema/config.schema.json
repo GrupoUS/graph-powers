@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
-  "title": "Graph Powers \u2014 project configuration contract",
+  "title": "Graph Powers — project configuration contract",
   "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .graph-powers/config.json instead; both locations are read, .graph-powers/ first.",
   "type": "object",
   "properties": {
@@ -18,7 +18,7 @@
         },
         "stack": {
           "type": "string",
-          "description": "Free-form stack identifier. Stack-gated skills and rules read this \u2014 'astro' turns on the astro skill.",
+          "description": "Free-form stack identifier. Stack-gated skills and rules read this — 'astro' turns on the astro skill.",
           "examples": [
             "astro-static-tailwindv4",
             "monorepo-bun-trpc-drizzle-postgres-react19",
@@ -113,7 +113,7 @@
             "string",
             "null"
           ],
-          "description": "null when the project has no tests \u2014 the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
+          "description": "null when the project has no tests — the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
         },
         "commands": {
           "type": "object",
@@ -145,6 +145,20 @@
               "examples": [
                 "bun run build"
               ]
+            },
+            "deadCode": {
+              "type": "string",
+              "description": "A dead-code detector, run diff-scoped by the verify chain. Absent means the sweep is skipped, not faked.",
+              "examples": [
+                "bunx knip --reporter json"
+              ]
+            },
+            "renderHealth": {
+              "type": "string",
+              "description": "An advisory render/effect health scan, run only under the verify chain's deep flag. Usually networked, which is why it is opt-in twice.",
+              "examples": [
+                "npx react-doctor --scope changed"
+              ]
             }
           }
         }
@@ -152,7 +166,7 @@
     },
     "paths": {
       "type": "object",
-      "description": "Where the code lives. A single app sets frontendRoot='src' and omits the rest. An empty field means the project has no such layer \u2014 plans must not invent one.",
+      "description": "Where the code lives. A single app sets frontendRoot='src' and omits the rest. An empty field means the project has no such layer — plans must not invent one.",
       "properties": {
         "frontendRoot": {
           "type": "string",
@@ -199,6 +213,13 @@
         "rulesDir": {
           "type": "string",
           "default": ".claude/rules"
+        },
+        "mobileRoot": {
+          "type": "string",
+          "description": "Where the mobile app lives. Absent removes mobile-developer from every routing enum: an agent with nothing to work on is worse than no agent.",
+          "examples": [
+            "apps/mobile"
+          ]
         }
       }
     },
@@ -223,7 +244,7 @@
             "xhigh"
           ],
           "default": "high",
-          "description": "model_reasoning_effort for generated subagents. The node that judges runs high \u2014 a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
+          "description": "model_reasoning_effort for generated subagents. The node that judges runs high — a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
         },
         "skillsDir": {
           "type": "string",
@@ -232,9 +253,178 @@
         }
       }
     },
+    "chain": {
+      "type": "object",
+      "description": "What the plan/build/verify chain needs to know about THIS repository. The workflows ship the mechanism; every array here is the content, and it is the project's. A project that declares nothing still gets the full generic pass — these fields exist so that adopting the plugin never costs a repository review coverage it already had.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether /plan runs the full chain after the plan is approved. False stops at the plan file."
+        },
+        "commitOnGreen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Commit automatically when verification returns VERIFIED. Off by default: a stranger's first session should not be the one that discovers the harness commits. Never pushes, and never fires on VERIFIED-WITH-NOTES or NEEDS-WORK."
+        },
+        "maxFixRounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Fix rounds before the verify chain stops and reports what is still open. Absent lets the workflow choose from its token budget."
+        },
+        "riskSurfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "auth",
+            "payment",
+            "PII",
+            "schema",
+            "env",
+            "ci"
+          ],
+          "description": "The surfaces that floor a task at L4 and switch on the pre-mortem, the ADR and the architecture pass. Name yours if they differ; the default list is not universal."
+        },
+        "hardRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Non-negotiable conventions injected verbatim into every implementer prompt. One rule per line, phrased as an instruction.",
+          "examples": [
+            [
+              "Use semantic design tokens only — never a color literal in a component."
+            ]
+          ]
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Code that LOOKS redundant and must never be simplified away — a tenant filter, a PII gate, an idempotency guard. The simplify pass is told to report the skip instead of removing it. This is the field that prevents the most expensive class of automated cleanup damage.",
+          "examples": [
+            [
+              "Never remove the tenant filter on a query, even when it looks unreachable."
+            ]
+          ]
+        },
+        "domainSkills": {
+          "type": "array",
+          "description": "Which skill an implementer loads for conventions, by the files it is touching. Knowledge only — a skill that dispatches agents must not be listed here, because the workflow is already the orchestration.",
+          "items": {
+            "type": "object",
+            "required": [
+              "match",
+              "skill"
+            ],
+            "properties": {
+              "match": {
+                "type": "string",
+                "description": "Glob or plain description of the files this applies to."
+              },
+              "skill": {
+                "type": "string",
+                "description": "Skill name, as invoked."
+              }
+            }
+          }
+        },
+        "surfaces": {
+          "type": "array",
+          "description": "Extra change surfaces, on top of the path roots the plugin derives. Each one becomes a boolean the contract gates and lenses below can be gated on, so an untouched surface spawns no work at all.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "match"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "match": {
+                "type": "string",
+                "description": "How to recognise it in the change set — a path prefix or a regex, described plainly."
+              }
+            }
+          }
+        },
+        "contractGates": {
+          "type": "array",
+          "description": "Commands to run only when a given surface changed, reported as their own gate entries. This is where a project keeps the checks it already had beyond type-check/lint/test.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "command"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "command": {
+                "type": "string"
+              },
+              "when": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Surface names. Empty or absent means always."
+              },
+              "needsServer": {
+                "type": "string",
+                "description": "A command that must be running first, and stopped afterwards."
+              },
+              "runtime": {
+                "type": "string",
+                "description": "When this gate must run under something other than the project's default runtime."
+              }
+            }
+          }
+        },
+        "lenses": {
+          "type": "array",
+          "description": "Extra adversarial review lenses, on top of correctness, security, performance and design. Each lens is a distinct QUESTION — identical skeptics agree with each other and miss the same things.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "checks"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "agent": {
+                "type": "string",
+                "description": "Which subagent asks it. Defaults to evaluator."
+              },
+              "when": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Surface names. Empty or absent means always."
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "What this lens looks for, one item per check."
+              }
+            }
+          }
+        }
+      }
+    },
     "graphGuardrails": {
       "type": "object",
-      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work \u2014 calibrate by measuring, not by guessing.",
+      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work — calibrate by measuring, not by guessing.",
       "properties": {
         "maxSpawnsPerSession": {
           "type": "integer",
@@ -246,6 +436,24 @@
           "minimum": 1,
           "default": 8,
           "description": "Re-spawning the same specialist many times is the signature of a loop that is not converging."
+        },
+        "maxParallelWave": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 5,
+          "description": "Agents in one wave of the build chain, and fixes in one round of the verify chain. An oversized wave is split and logged, never truncated."
+        },
+        "maxTasksPerPlan": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 40,
+          "description": "Runaway backstop: a plan with more tasks than this throws instead of quietly implementing part of it."
+        },
+        "maxRepatch": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2,
+          "description": "How many times the verify chain re-patches one failing item before reporting it blocked. Without it a single unfixable item consumes every round."
         }
       }
     },
@@ -316,7 +524,7 @@
           "type": "number"
         },
         "preCommitAudit": {
-          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; anything else blocks it and shows the command's own output. Declare nothing and no audit runs \u2014 the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
+          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; anything else blocks it and shows the command's own output. Declare nothing and no audit runs — the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
           "oneOf": [
             {
               "type": "string",
@@ -358,7 +566,7 @@
             "autonomous"
           ],
           "default": "guarded",
-          "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key \u2014 the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
+          "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key — the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
         },
         "bashDefault": {
           "type": "string",
@@ -407,14 +615,14 @@
         "destructiveFloor": {
           "type": "boolean",
           "default": true,
-          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list \u2014 git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
+          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
         },
         "allowPackageManagers": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project \u2014 a lockfile that must not fork.",
+          "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project — a lockfile that must not fork.",
           "examples": [
             [
               "bun"
@@ -429,7 +637,7 @@
     },
     "autoUpdate": {
       "type": "object",
-      "description": "Whether the harness keeps itself at the published version. A plugin is a copy, and a copy starts ageing the moment it is installed \u2014 six months later five machines run five versions of guardrails that were meant to be identical. The check runs at session start, in a detached process, at most once per interval; it never delays the session and never touches anything inside the project.",
+      "description": "Whether the harness keeps itself at the published version. A plugin is a copy, and a copy starts ageing the moment it is installed — six months later five machines run five versions of guardrails that were meant to be identical. The check runs at session start, in a detached process, at most once per interval; it never delays the session and never touches anything inside the project.",
       "properties": {
         "enabled": {
           "type": "boolean",

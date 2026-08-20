@@ -2,7 +2,7 @@
 
 Load only for design critique, motion/dark mode, performance budgeting, test
 design, or frontend refactoring. Canonical brand rules remain in the project's design rule (`${rulesDir}/design.md`)
-and `${rulesDir}/DESIGN.md`; this file is a checkpoint aid, not a duplicate.
+and `${rulesDir}/design.md`; this file is a checkpoint aid, not a duplicate.
 
 ## Interaction and state
 

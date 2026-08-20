@@ -18,7 +18,7 @@
  * Runs under node and bun. Exits 0 whenever it could read; an audit is not a gate.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 

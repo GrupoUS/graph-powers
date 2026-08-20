@@ -18,13 +18,13 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   installGlobal as installCodexGlobal,
   installProject as installCodexProject,
-  globallyInstalled as codexGloballyInstalled,
   uninstall as uninstallCodex,
 } from "../codex/install.mjs";
 
@@ -56,7 +56,7 @@ function die(msg, hint) {
 // ── arguments ────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
 const has = (...names) => names.some((n) => argv.includes(n));
-const valueOf = (name, fallback) => {
+const flagValue = (name, fallback) => {
   const i = argv.indexOf(name);
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[i + 1] : fallback;
 };
@@ -119,34 +119,67 @@ ${bold("AFTER INSTALLING")}
 // Global by default. The harness is identical in every project, so it installs once and serves
 // every repository on the machine — including ones that do not exist yet. Only what genuinely
 // differs per project stays local, and the guardrails read that per-project config at runtime.
-const scope = valueOf("--scope", "user");
+const scope = flagValue("--scope", "user");
 if (!["project", "user", "local"].includes(scope)) {
   die(`invalid scope: ${scope}`, "use --scope project | user | local");
 }
-const source = valueOf("--source", DEFAULT_REPO);
+const source = flagValue("--source", DEFAULT_REPO);
 const dryRun = has("--dry-run");
 const wantConfig = has("--config");
-const autonomyLevel = valueOf("--autonomy", "autonomous");
+const autonomyLevel = flagValue("--autonomy", "autonomous");
 if (!["autonomous", "guarded"].includes(autonomyLevel)) {
   die(`invalid autonomy level: ${autonomyLevel}`, "use --autonomy autonomous | guarded");
 }
 const cwd = process.cwd();
 
 // ── harness detection ────────────────────────────────────────────────────────
+// On Windows an npm-installed CLI is `claude.cmd`, and `CreateProcess` will not run a `.cmd`:
+// `spawnSync("claude", …)` returns ENOENT, and this installer concluded Claude Code was not
+// installed on a machine where it was — then skipped its entire half of the install.
+// `shell: true` would also work and is worse: it changes how every argument is quoted.
+const WIN = process.platform === "win32";
+const CANDIDATES = (bin) => (WIN ? [`${bin}.cmd`, `${bin}.exe`, bin] : [bin]);
+
+function runCli(bin, args, options = {}) {
+  let last;
+  for (const candidate of CANDIDATES(bin)) {
+    last = spawnSync(candidate, args, options);
+    if (!(last.error && last.error.code === "ENOENT")) return last;
+  }
+  return last;
+}
+
 function cliVersion(bin) {
   try {
-    const r = spawnSync(bin, ["--version"], { encoding: "utf8", timeout: 15000 });
+    const r = runCli(bin, ["--version"], { encoding: "utf8", timeout: 15000 });
     return r.status === 0 ? (r.stdout ?? "").trim().split("\n")[0] : null;
   } catch {
     return null;
   }
 }
 
+// `python3` is not the interpreter's name everywhere. On Windows it is `python`, and there is a
+// Microsoft Store stub literally named `python3.exe` that opens the Store and exits non-zero — so
+// probing `python3` reports "missing" on a machine that has Python 3.12.
+function pythonProbe() {
+  for (const bin of ["python3", "python", "py"]) {
+    try {
+      const args = bin === "py" ? ["-3", "--version"] : ["--version"];
+      const r = spawnSync(bin, args, { encoding: "utf8", timeout: 15000 });
+      const text = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
+      if (r.status === 0 && /Python 3/.test(text)) return { bin, text };
+    } catch {
+      // try the next name
+    }
+  }
+  return null;
+}
+
 const claudeVersion = cliVersion("claude");
 const codexVersion = cliVersion("codex");
 
-const targetWasAsked = valueOf("--target", null) !== null;
-let target = valueOf("--target", null);
+const targetWasAsked = flagValue("--target", null) !== null;
+let target = flagValue("--target", null);
 if (!target) {
   target = claudeVersion && codexVersion ? "both" : codexVersion ? "codex" : "claude";
 }
@@ -163,7 +196,7 @@ const wantCodex = target === "codex" || target === "both";
  * something that is already serving every project on this machine.
  */
 function claudeGlobalInstall() {
-  const home = process.env.HOME ?? "";
+  const home = homedir();
   const record = readJsonSafe(join(home, ".claude/plugins/installed_plugins.json"));
   const entries = record?.plugins ?? {};
   for (const [key, installs] of Object.entries(entries)) {
@@ -196,7 +229,7 @@ function gitUpdate(root) {
     spawnSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 120000 });
 
   if (git("rev-parse", "--git-dir").status !== 0) {
-    die(`${root} is not a git clone.`, "Install with: git clone https://github.com/" + DEFAULT_REPO);
+    die(`${root} is not a git clone.`, `Install with: git clone https://github.com/${DEFAULT_REPO}`);
   }
   const before = (git("rev-parse", "HEAD").stdout ?? "").trim();
   const pull = git("pull", "--ff-only");
@@ -243,7 +276,7 @@ function claude(args, { capture = false } = {}) {
     info(`(dry-run) claude ${args.join(" ")}`);
     return { status: 0, stdout: "", stderr: "" };
   }
-  const r = spawnSync("claude", args, {
+  const r = runCli("claude", args, {
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
     encoding: "utf8",
     cwd,
@@ -296,14 +329,14 @@ function permissionAllowlist(pm) {
 }
 
 function settingsPathFor(theScope) {
-  if (theScope === "user") return join(process.env.HOME ?? cwd, ".claude/settings.json");
+  if (theScope === "user") return join(homedir(), ".claude/settings.json");
   if (theScope === "local") return join(cwd, ".claude/settings.local.json");
   return join(cwd, ".claude/settings.json");
 }
 
 function writePermissions(theScope) {
-  const target = settingsPathFor(theScope);
-  const current = readJsonSafe(target) ?? {};
+  const settingsFile = settingsPathFor(theScope);
+  const current = readJsonSafe(settingsFile) ?? {};
   const existing = current.permissions?.allow ?? [];
   const wanted = permissionAllowlist(detectStack().pm);
   const added = wanted.filter((rule) => !existing.includes(rule));
@@ -314,16 +347,16 @@ function writePermissions(theScope) {
   }
   const next = {
     ...current,
-    permissions: { ...(current.permissions ?? {}), allow: [...existing, ...added] },
+    permissions: { ...current.permissions, allow: [...existing, ...added] },
   };
   if (dryRun) {
-    info(`(dry-run) would add ${added.length} allow rules to ${target.replace(process.env.HOME ?? "~", "~")}`);
+    info(`(dry-run) would add ${added.length} allow rules to ${settingsFile.replace(homedir(), "~")}`);
     return;
   }
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  mkdirSync(dirname(settingsFile), { recursive: true });
+  writeFileSync(settingsFile, `${JSON.stringify(next, null, 2)}\n`, "utf8");
   ok(`${added.length} permission rules added (${existing.length} already there, none removed)`);
-  info(target.replace(process.env.HOME ?? "~", "~"));
+  info(settingsFile.replace(homedir(), "~"));
 }
 
 // ── stack detection, for --config ────────────────────────────────────────────
@@ -337,7 +370,7 @@ function readJson(p) {
 
 function detectStack() {
   const pkg = readJson(join(cwd, "package.json")) ?? {};
-  const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   const hasFile = (...names) => names.some((n) => existsSync(join(cwd, n)));
   const parts = [];
 
@@ -406,21 +439,22 @@ function currentBranch() {
 }
 
 function writeConfig() {
-  const target = join(cwd, ".graph-powers", "config.json");
-  if (existsSync(target) || existsSync(join(cwd, ".claude", "config.json"))) {
+  const configFile = join(cwd, ".graph-powers", "config.json");
+  if (existsSync(configFile) || existsSync(join(cwd, ".claude", "config.json"))) {
     warn("a config already exists — it was not overwritten.");
     info("Compare it against examples/ and adjust by hand, or delete it and re-run with --config.");
     return;
   }
   const d = detectStack();
-  const prefix = valueOf("--prefix", cwd.split(/[\\/]/).filter(Boolean).pop() ?? "GRAPHPOWERS")
+  const dirName = cwd.split(/[\\/]/).findLast(Boolean);
+  const prefix = flagValue("--prefix", dirName ?? "GRAPHPOWERS")
     .toUpperCase()
     .replace(/[^A-Z0-9_]/g, "_");
   const branch = currentBranch();
 
   const cfg = {
     $schema: `https://raw.githubusercontent.com/${DEFAULT_REPO}/main/schema/config.schema.json`,
-    project: { name: cwd.split(/[\\/]/).filter(Boolean).pop(), stack: d.stack },
+    project: { name: dirName, stack: d.stack },
     git: {
       workBranch: branch && branch !== "main" && branch !== "master" ? branch : "dev-test",
       protectedBranches: ["main", "master"],
@@ -446,7 +480,7 @@ function writeConfig() {
     return;
   }
   mkdirSync(join(cwd, ".graph-powers"), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
+  writeFileSync(configFile, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
   ok(`.graph-powers/config.json created (stack: ${d.stack}, prefix: ${prefix})`);
   warn("Review it before trusting it: detection is a starting point, not a verdict.");
   info(`In particular: workBranch=${cfg.git.workBranch}, testRunner=${JSON.stringify(cfg.tooling.testRunner)}`);
@@ -501,9 +535,9 @@ step(++n, TOTAL, "Checking the environment");
 
   // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
   // `engines` cannot express a Python requirement, so this is the only place it gets checked.
-  const py = spawnSync("python3", ["--version"], { encoding: "utf8" });
-  if (py.status === 0) {
-    const version = (py.stdout || py.stderr).trim();
+  const py = pythonProbe();
+  if (py) {
+    const version = py.text;
     const [, major, minor] = /(\d+)\.(\d+)/.exec(version) ?? [];
     if (Number(major) > 3 || (Number(major) === 3 && Number(minor) >= 10)) {
       ok(version);
@@ -589,7 +623,7 @@ if (wantCodex) {
         dryRun,
         force: has("--force"),
         codex: codexSettings(),
-        log: (p) => info(String(p).replace(process.env.HOME ?? "~", "~")),
+        log: (p) => info(String(p).replace(homedir(), "~")),
       });
       if (g.skipped) ok(`global harness already at ${g.version} — skipped`);
       else ok(`${g.written.length} global path(s) written · hooks merged, never overwritten`);
@@ -629,32 +663,30 @@ if (wantConfig) {
 }
 
 step(++n, TOTAL, "Verifying");
-{
-  if (wantClaude) {
-    const r = claude(["plugin", "list"], { capture: true });
-    if (!dryRun && !`${r.stdout}${r.stderr}`.includes(PLUGIN)) {
-      warn("the plugin did not show up in `claude plugin list` — check manually.");
-    } else {
-      ok("plugin registered");
-    }
+if (wantClaude) {
+  const r = claude(["plugin", "list"], { capture: true });
+  if (!dryRun && !`${r.stdout}${r.stderr}`.includes(PLUGIN)) {
+    warn("the plugin did not show up in `claude plugin list` — check manually.");
+  } else {
+    ok("plugin registered");
   }
-  if (wantCodex && !dryRun) {
-    // Which manifest to read depends on the scope, and reading the wrong one is not a cosmetic
-    // slip: the global install records its hooks in the Codex home, so looking in the project
-    // always found nothing and always warned — on a run that had just succeeded.
-    const manifest = scope === "user"
-      ? readJson(join(process.env.HOME ?? cwd, ".codex", "graph-powers-installed.json"))
-      : readJson(join(cwd, ".graph-powers", "installed.json"));
-    if (manifest?.hookCommands?.length) {
-      ok(`${manifest.hookCommands.length} Codex hook entries recorded`);
-      if (manifest.complete === false) warn("the manifest says the install did not finish — re-run it.");
-    } else if (manifest) {
-      ok("Codex manifest written");
-    } else {
-      warn("no Codex manifest was written — check the output above.");
-    }
-    info("Codex asks you to approve hooks once: open a session and run /hooks, or they stay inert.");
+}
+if (wantCodex && !dryRun) {
+  // Which manifest to read depends on the scope, and reading the wrong one is not a cosmetic
+  // slip: the global install records its hooks in the Codex home, so looking in the project
+  // always found nothing and always warned — on a run that had just succeeded.
+  const manifest = scope === "user"
+    ? readJson(join(homedir(), ".codex", "graph-powers-installed.json"))
+    : readJson(join(cwd, ".graph-powers", "installed.json"));
+  if (manifest?.hookCommands?.length) {
+    ok(`${manifest.hookCommands.length} Codex hook entries recorded`);
+    if (manifest.complete === false) warn("the manifest says the install did not finish — re-run it.");
+  } else if (manifest) {
+    ok("Codex manifest written");
+  } else {
+    warn("no Codex manifest was written — check the output above.");
   }
+  info("Codex asks you to approve hooks once: open a session and run /hooks, or they stay inert.");
 }
 
 console.log(`

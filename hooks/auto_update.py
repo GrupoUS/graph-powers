@@ -42,14 +42,27 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import typing
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 PLUGIN = "graph-powers"
 MARKETPLACE = "graph-powers"
@@ -108,16 +121,21 @@ def settings(cfg: dict[str, typing.Any]) -> dict[str, typing.Any]:
 # ── the hook half: fast, and never on the network ────────────────────────────
 
 def read_payload() -> dict[str, typing.Any]:
+    """Read the hook payload, without assuming stdin is a POSIX pipe.
+
+    `select.select` was the previous approach and it only accepts sockets on Windows — with a pipe
+    it raises, the payload silently becomes `{}`, and the `cwd` the Codex CLI passes is lost. A
+    thread with a join timeout is the same non-blocking read on every platform.
+    """
+    box: list[str] = []
+    reader = threading.Thread(target=lambda: box.append(sys.stdin.read()), daemon=True)
+    reader.start()
+    reader.join(0.2)
     try:
-        import select
-
-        if select.select([sys.stdin], [], [], 0.2)[0]:
-            raw = sys.stdin.read()
-            return json.loads(raw) if raw.strip() else {}
+        raw = box[0] if box else ""
+        return json.loads(raw) if raw.strip() else {}
     except Exception:
-        pass
-    return {}
-
+        return {}
 
 def announce(state: dict[str, typing.Any]) -> str:
     """The one line a finished update earns — printed once, then cleared.
@@ -167,13 +185,22 @@ def spawn_worker(opts: dict[str, typing.Any]) -> None:
         env = dict(os.environ)
         env["GRAPH_POWERS_UPDATE_CLAUDE"] = "1" if opts["claude"] else "0"
         env["GRAPH_POWERS_UPDATE_CODEX"] = "1" if opts["codex"] else "0"
+        # Detach, so the update outlives this hook and never holds the session open.
+        # `start_new_session` is `setsid`, and CPython silently ignores it on Windows — the worker
+        # then stays in the console's process group and dies with it, or holds it open. The two
+        # creation flags are the Windows equivalent, and asking for them by `getattr` keeps this
+        # importable on platforms where `subprocess` does not define them.
+        detach: dict[str, typing.Any] = {"start_new_session": True}
+        if os.name == "nt":
+            detach = {"creationflags": getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                                     | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)}
         subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "--worker"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=env,
-            start_new_session=True,
+            **detach,
         )
     except Exception:
         pass
@@ -183,16 +210,15 @@ def spawn_worker(opts: dict[str, typing.Any]) -> None:
 
 def run(cmd: list[str], timeout: int = 180) -> tuple[int, str]:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                              timeout=timeout, check=False)
         return proc.returncode, f"{proc.stdout}{proc.stderr}"
     except Exception as exc:
         return 1, str(exc)
 
 
 def which(binary: str) -> bool:
-    from shutil import which as _which
-
-    return _which(binary) is not None
+    return shutil.which(binary) is not None
 
 
 def registered_version() -> str:
@@ -203,7 +229,7 @@ def registered_version() -> str:
     which is why it says "restart to apply". Reading the running copy would therefore report
     "no change" after every successful update.
     """
-    home = os.environ.get("HOME")
+    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
     if not home:
         return ""
     try:
@@ -223,7 +249,7 @@ def registered_version() -> str:
 
 def codex_manifest() -> dict[str, typing.Any]:
     """What the Codex install recorded about itself, including where it was installed from."""
-    home = os.environ.get("HOME")
+    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
     if not home:
         return {}
     try:

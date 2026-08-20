@@ -3,14 +3,25 @@
 
 Trigger: PreToolUse (Bash). Reads a JSON payload on stdin, writes a decision.
 
-Three tiers, and the middle one is configurable:
+One question sorts every command: **does git undo it?**
 
-  DESTRUCTIVE FLOOR   always denied while `autonomy.destructiveFloor` holds — the operations git
-                      cannot undo. Deleting a file inside a committed repository is NOT here: git
-                      restores that, so autonomous mode does it without asking.
-  KNOWN SAFE          always allowed: reads, inspections, the project's own tooling.
-  EVERYTHING ELSE     `autonomy.bashDefault`. Under `guarded` it asks, which is where almost every
-                      approval prompt comes from. Under `autonomous` it runs.
+  DESTRUCTIVE FLOOR   always denied while `autonomy.destructiveFloor` holds — what git cannot undo.
+                      That includes the git subcommands that destroy uncommitted or unreachable
+                      work: `clean -f`, `reset --hard`, `stash drop`, `reflog expire`, `gc
+                      --prune=now`, `filter-branch`. Deleting a tracked file is NOT here: git
+                      restores it.
+  KNOWN SAFE          always allowed: reads, inspections, build artefacts, the project's tooling,
+                      and the git subcommands the reflog undoes.
+  EVERYTHING ELSE     `autonomy.bashDefault`. Under `guarded` it asks; under `autonomous` it runs.
+
+Two rules keep the lists honest, and both were violated before this was rewritten:
+
+  - **Reversible does not ask.** Asking before `git add` or before deleting `__pycache__` spends the
+    user's attention on something `git reset` and a rebuild undo for free. Prompts that buy nothing
+    are what teach people to stop reading them.
+  - **One owner per decision.** A command another hook of this plugin gates is not this hook's to
+    judge. `git commit` is `git_commit_gate`; `git push` is `git_push_gate`; landing on a protected
+    branch is `git_branch_gate`. Asking here as well produced two prompts for one decision.
 
 Fail-open, like every hook here: an unreadable config resolves to the guarded defaults rather than
 taking the session down.
@@ -23,7 +34,18 @@ import typing
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 LEADING_CD_PATTERN = re.compile(r"^cd\s+[^&;]+\s+&&\s+")
 
@@ -61,20 +83,75 @@ DANGEROUS_PATTERNS = [
     re.compile(r"^TRUNCATE", re.IGNORECASE),
     # A force-push rewrites history for everyone who already pulled it.
     re.compile(r"^git\s+push\b.*(--force|-f)\b"),
+    # Git subcommands git itself cannot undo: they destroy uncommitted or unreachable work. These
+    # were reaching `ask` under `guarded` and running unannounced under `autonomous` — the widest
+    # hole this floor had, because the floor was written as if every `git` verb were recoverable.
+    re.compile(r"^git\s+clean\b[^|;&]*(\s-\w*f|\s--force)"),
+    re.compile(r"^git\s+reset\b[^|;&]*\s--hard\b"),
+    re.compile(r"^git\s+stash\s+(drop|clear)\b"),
+    re.compile(r"^git\s+reflog\s+(expire|delete)\b"),
+    re.compile(r"^git\s+gc\b[^|;&]*--prune=now"),
+    re.compile(r"^git\s+(filter-branch|filter-repo)\b"),
+    re.compile(r"^git\s+update-ref\s+-d\b"),
+    re.compile(r"^git\s+branch\b[^|;&]*\s-D\b"),
 ]
 
-# ── Cleanup patterns (require user approval) ──
+# ── The same categories, in the grammar Windows shells speak ─────────────────
+# Everything above describes POSIX. On a machine whose Bash tool maps to PowerShell or cmd, none
+# of it matches, so `Remove-Item -Recurse -Force C:\` fell through every list to `bashDefault` —
+# which under `autonomous` is **allow**. The floor this file promises is "always denied" did not
+# exist on that platform, and the mirror image was just as bad: `Get-ChildItem`, a pure read, fell
+# through to `ask`. Windows got prompted for the harmless and waved through the catastrophic.
+#
+# These are appended rather than merged so the POSIX lists stay readable as POSIX, and so the
+# split between "floor" and "cleanup" is the same on both sides: deleting a whole drive is the
+# floor, `Remove-Item -Recurse .\dist` is cleanup.
+_WIN_ROOT = r"(?:[A-Za-z]:\\?|\$env:SystemDrive|\$env:USERPROFILE|\$HOME|%USERPROFILE%|%SystemRoot%)"
+DANGEROUS_PATTERNS += [
+    # Deleting a drive root or the whole user profile.
+    re.compile(rf"(?i)^\s*(remove-item|ri|rm|del|erase|rd|rmdir)\b[^|;&]*\s{_WIN_ROOT}\s*$"),
+    # Formatting, repartitioning, wiping free space, or destroying shadow copies.
+    re.compile(r"(?i)^\s*format\s+[A-Za-z]:"),
+    re.compile(r"(?i)^\s*(diskpart|clear-disk|format-volume|initialize-disk|remove-partition)\b"),
+    re.compile(r"(?i)^\s*vssadmin\s+delete\s+shadows\b"),
+    re.compile(r"(?i)^\s*cipher\s+/w"),
+    # Boot configuration, and handing everyone write access.
+    re.compile(r"(?i)^\s*bcdedit\b"),
+    re.compile(r"(?i)\bicacls\b[^|;&]*\s/grant\b[^|;&]*\beveryone\b"),
+    # Turning off the execution policy is not a build step.
+    re.compile(r"(?i)^\s*set-executionpolicy\b[^|;&]*\bbypass\b"),
+]
+
+# ── Build artefacts: never versioned, always regenerated by the build that needs them ──
+# Checked before CLEANUP, so the generic `rm -r` below does not swallow them. Asking before a
+# `__pycache__` delete costs a prompt and protects nothing — the directory is reproduced by the
+# next run, and no repository tracks it.
+BUILD_ARTIFACT_PATTERNS = [
+    re.compile(r"\.turbo(/|$)"),
+    re.compile(r"\.old_modules"),
+    re.compile(r"\.sisyphus/.*\.log"),
+    re.compile(r"node_modules[\\/]\.cache"),
+    re.compile(r"__pycache__"),
+    re.compile(r"\.pytest_cache"),
+    re.compile(r"\.ruff_cache"),
+    re.compile(r"\.mypy_cache"),
+    re.compile(r"\.next[\\/]cache"),
+    re.compile(r"\.nuxt(/|$)"),
+    re.compile(r"\.svelte-kit(/|$)"),
+    re.compile(r"\.astro(/|$)"),
+    re.compile(r"\.vite(/|$)"),
+    re.compile(r"dist[\\/].*\.log"),
+    re.compile(r"coverage(/|$)"),
+]
+
+# ── Cleanup: a recursive delete this hook cannot vouch for. The net, not the catalogue. ──
 CLEANUP_PATTERNS = [
     re.compile(r"(^|\s)rm\s+-rf\s+"),
     re.compile(r"(^|\s)rm\s+-r\s+"),
-    re.compile(r"\.turbo/.*\.log"),
-    re.compile(r"\.old_modules"),
-    re.compile(r"\.sisyphus/.*\.log"),
-    re.compile(r"node_modules/\.cache"),
-    re.compile(r"\.turbo$"),
-    re.compile(r"__pycache__"),
-    re.compile(r"\.next/cache"),
-    re.compile(r"dist/.*\.log"),
+    # The Windows spellings of the same thing: a recursive delete this hook cannot vouch for.
+    re.compile(r"(?i)(^|[\s;&|])(remove-item|ri)\b[^|;&]*\s-(recurse|r)\b"),
+    re.compile(r"(?i)(^|[\s;&|])(rd|rmdir)\b[^|;&]*\s/s\b"),
+    re.compile(r"(?i)(^|[\s;&|])del\b[^|;&]*\s/s\b"),
 ]
 
 # ── Safe patterns (auto-approve) ──
@@ -92,7 +169,24 @@ SAFE_PATTERNS = [
     re.compile(r"^git( --no-pager)? rev-parse(\s|$)"),
     re.compile(r"^git( --no-pager)? blame(\s|$)"),
     re.compile(r"^git( --no-pager)? grep(\s|$)"),
+    # Reversible git. The reflog or a plain `git reset` undoes every one of these, so a prompt
+    # here buys nothing. The three that git does NOT undo — commit, push, landing on a protected
+    # branch — are refused by their own dedicated hooks, which is the owner of that decision.
+    re.compile(r"^git( --no-pager)? add(\s|$)"),
+    re.compile(r"^git( --no-pager)? (merge|rebase|cherry-pick|revert)(\s|$)"),
+    re.compile(r"^git( --no-pager)? pull(\s|$)"),
+    re.compile(r"^git( --no-pager)? reset(\s|$)"),      # `--hard` is caught by the floor above
+    re.compile(r"^git( --no-pager)? stash(\s|$)"),      # `drop`/`clear` caught by the floor above
+    re.compile(r"^git( --no-pager)? restore\s+--staged(\s|$)"),
+    re.compile(r"^git( --no-pager)? (tag|worktree|describe|shortlog|bisect|notes)(\s|$)"),
+    # Owned by a dedicated hook, so this one does not get a second vote. Claude Code merges
+    # PreToolUse decisions by "most restrictive wins" — `deny` > `defer` > `ask` > `allow`, with
+    # every matching hook run to completion in parallel — so `git_commit_gate`, `git_push_gate`
+    # and `git_branch_gate` still refuse exactly what they refused before. What disappears is the
+    # second prompt for the same decision, which is the one nobody was reading.
+    re.compile(r"^git( --no-pager)? (commit|push|checkout|switch)(\s|$)"),
     re.compile(r"^gh pr (view|list|status)(\s|$)"),
+    re.compile(r"^gh (pr|issue) create(\s|$)"),
     re.compile(r"^gh run (view|list)(\s|$)"),
     re.compile(r"^gh issue (view|list)(\s|$)"),
     re.compile(r"^gh repo view(\s|$)"),
@@ -116,18 +210,15 @@ SAFE_PATTERNS = [
     re.compile(r"^column -t"),
     re.compile(r"^less "),
     re.compile(r"^more "),
-    # Bun-only package manager development commands
-    re.compile(r"^bun run (lint|build|predeploy|format|lint:fix)(\s|$)"),
-    re.compile(r"^bun install(\s|$)"),
-    re.compile(r"^bun -"),
-    re.compile(r"^bun x "),
-    re.compile(r"^bunx "),
+    # Toolchain binaries that are not package managers (those are handled by PACKAGE_MANAGER_RE
+    # below, which covers every manager instead of naming one — a plugin that hardcodes `bun`
+    # asks a pnpm project for permission it never asks a bun project for).
     re.compile(r"^tsgo(\s|$)"),
     re.compile(r"^tsc(\s|$)"),
-    re.compile(r'^python(3)?( -X [^ ]+)? "?\.claude/'),
-    re.compile(r'^python(3)?( -X [^ ]+)? "?scripts/'),
-    re.compile(r'^py -3 "?\.claude/'),
-    re.compile(r'^py -3 "?scripts/'),
+    re.compile(r'^python(3)?( -X [^ ]+)? "?\.claude[\\/]'),
+    re.compile(r'^python(3)?( -X [^ ]+)? "?scripts[\\/]'),
+    re.compile(r'^py -3 "?\.claude[\\/]'),
+    re.compile(r'^py -3 "?scripts[\\/]'),
     # Optional local CLIs (read-only introspection)
     re.compile(r"^(psql|mysql|sqlite3) "),
     # Version checks (Bun-only for package managers)
@@ -136,6 +227,10 @@ SAFE_PATTERNS = [
     re.compile(r"^mkdir -p"),
     re.compile(r"^touch "),
     re.compile(r"^cp (-r )?"),
+    re.compile(r"^mv "),          # tracked file: git restores it. Untracked: it still exists
+    re.compile(r"^chown "),
+    re.compile(r"^ln -s"),
+    re.compile(r"^rsync\b(?![^|;&]*--delete)"),   # additive; `--delete` falls through to the default
     re.compile(r"^chmod \+x"),
     re.compile(r"^chmod (755|644)"),
     # Process / system read
@@ -149,23 +244,28 @@ SAFE_PATTERNS = [
     re.compile(r"^(ssh -V|nc -zv|telnet)"),
     # Build / lint tools
     re.compile(r"^biome(\s|$)"),
-    re.compile(r"^tsgo --"),
     re.compile(r"^vite --version"),
-    # Optional visual/E2E commands should stay explicit in project scripts.
-    re.compile(r"^bun run lighthouse:audit(\s|$)"),
+    # PowerShell and cmd reads. Without these every inspection on Windows fell through to the
+    # default and asked — the prompt-fatigue this file's docstring exists to avoid.
+    re.compile(r"(?i)^(get-childitem|gci|dir)(\s|$)"),
+    re.compile(r"(?i)^(get-content|gc|type)(\s|$)"),
+    re.compile(r"(?i)^(select-string|findstr)(\s|$)"),
+    re.compile(r"(?i)^(test-path|get-location|get-item|get-command|measure-object|write-output)(\s|$)"),
+    re.compile(r"(?i)^(where\.exe|resolve-path|split-path|join-path)(\s|$)"),
+    re.compile(r"(?i)^new-item\b[^|;&]*-itemtype\s+directory"),
+    re.compile(r"(?i)^(copy-item|move-item|set-location|push-location|pop-location)(\s|$)"),
+    re.compile(r"(?i)^py\s+-3(\s|$)"),
 ]
 
-# Commands that are often legitimate but must remain user-mediated.
+# What is left after the two rules in the docstring: state-changing, owned by nobody else, and not
+# undone by git. Everything that used to be here for being merely *unfamiliar* was moved out — an
+# `ask` that the user always answers the same way is a prompt that trains them not to read prompts.
 ASK_PATTERNS = [
-    re.compile(
-        r"^git\s+(add|commit|checkout|switch|restore|clean|rebase|merge|pull|push|reset)\b"
-    ),
-    re.compile(r"^gh\s+pr\s+create\b"),
-    re.compile(r"^gh\s+issue\s+create\b"),
-    re.compile(r"^mv\s+"),
-    re.compile(r"^rsync\b"),
-    re.compile(r"^chown\b"),
-    re.compile(r"^bun\s+run\s+(dev|start|preview)\b"),
+    # Discards uncommitted work in the working tree, and has no dedicated gate.
+    # `restore --staged` is only an unstage, and is allowed above.
+    re.compile(r"^git\s+restore\b"),
+    # `clean -f` is on the floor; what remains here is the dry run and the ambiguous form.
+    re.compile(r"^git\s+clean\b"),
 ]
 
 # Any package manager. Which ones a project accepts is `autonomy.allowPackageManagers`; by default
@@ -228,13 +328,21 @@ def _matches(patterns: list[re.Pattern[str]], command: str) -> bool:
     return any(pattern.search(command) for pattern in patterns)
 
 
-def _classify(command: str, policy: dict[str, object]) -> tuple[str, str | None]:
-    """Return (allow|ask|deny, optional reason) for one shell segment."""
+def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | None]:
+    """Return (allow|ask|deny, optional reason) for one shell segment.
+
+    `policy` is whatever `_config.autonomy()` resolved: strings for the decisions, a bool for
+    the destructive floor, a list for the package managers. Typing it as `object` made every
+    `return policy[...]` a type error against the declared `tuple[str, str | None]`.
+    """
     if policy["destructiveFloor"] and _matches(DANGEROUS_PATTERNS, command):
         return (
             "deny",
             "BLOCKED: Dangerous, non-Bun, or branch-protected command detected",
         )
+
+    if _matches(BUILD_ARTIFACT_PATTERNS, command):
+        return "allow", None
 
     if _matches(CLEANUP_PATTERNS, command):
         return policy["cleanup"], (

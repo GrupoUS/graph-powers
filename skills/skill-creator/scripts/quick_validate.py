@@ -3,9 +3,8 @@
 Quick validation script for skills - minimal version
 """
 
-import sys
-import os
 import re
+import sys
 from pathlib import Path
 
 
@@ -149,7 +148,7 @@ def batch_validate(parent_dir):
     print(f"\nSummary: {passed} passed, {failed} failed")
 
     if failed > 0:
-        print(f"Exit code: 1 (if any failures)")
+        print("Exit code: 1 (if any failures)")
         return 1
 
     return 0

@@ -27,7 +27,9 @@ G3  round ceiling    - spawns of the SAME `subagent_type` per session. This is
 G4  write lease      - when `.graph-powers/logs/write-lease.json` exists, `Write`/`Edit`
                        outside the declared paths is denied. That file is how the
                        orchestrator declares file ownership before a parallel
-                       wave; without it this check stands down entirely.
+                       wave; without it this check stands down entirely. The
+                       producer is `/plan` Step 4.2, from the `writeLease` array
+                       `workflows/ultra-build.js` returns.
 
 What it deliberately does NOT enforce, and why
 ----------------------------------------------
@@ -36,7 +38,7 @@ here: a hook cannot tell a subagent from the main thread — they run in-process
 with the same `CLAUDE_CODE_SESSION_ID` and the same PID (verified empirically,
 see the same note in `git_commit_gate.py`). G4 enforces the actionable half —
 "touch only the files you own" — and the structural half lives where the
-violation is actually born, in `.claude/workflows/ultra-build.js`
+violation is actually born, in `workflows/ultra-build.js`
 (`splitByFileOwnership`), which re-slices a wave so two tasks claiming the same
 path never run in parallel.
 
@@ -60,14 +62,23 @@ from __future__ import annotations
 import json
 import os
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 # Project parameters (branch, protected branches, opt-in prefix, ceilings) come from
 # _config, never hardcoded — this file is byte-for-byte the same in every repository
 # that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A branch name or path outside that page then
+# raises `UnicodeDecodeError`, the hook falls open, and a gate that should have denied releases.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 
 STOP_FILE = "AGENT_STOP"
@@ -207,11 +218,15 @@ def main() -> int:
             target = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
         if not target:
             return 0
+        # Compare in POSIX form on both sides. `str(WindowsPath)` yields `src\\owned.ts` while the
+        # lease on disk says `src/owned.ts`, so a raw comparison denies every write during exactly
+        # the wave this exists to protect. `protect_files.py` already normalises this way.
         try:
-            rel = str(Path(target).resolve().relative_to(root.resolve()))
+            rel = Path(target).resolve().relative_to(root.resolve()).as_posix()
         except Exception:
-            rel = target
-        if any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in declared):
+            rel = PurePath(target).as_posix()
+        declared = [str(p).replace("\\", "/").removeprefix("./") for p in declared]
+        if any(rel == p.rstrip("/") or rel.startswith(p.rstrip("/") + "/") for p in declared):
             return 0
         if opted_in(OPT_IN_LEASE, payload):
             return 0

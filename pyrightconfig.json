@@ -1,0 +1,9 @@
+{
+  "include": ["hooks", ".github", "skills"],
+  "exclude": ["**/__pycache__", "**/node_modules"],
+  "ignore": ["skills/webapp-testing/examples"],
+  "typeCheckingMode": "standard",
+  "pythonVersion": "3.12",
+  "reportImplicitRelativeImport": false,
+  "reportMissingModuleSource": "none"
+}

@@ -7,9 +7,8 @@ workflow_type: augmented-llm
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`
 
 Modes: `/verify` (full) · `/verify quick` (gates only, no review checklist).
 
@@ -20,7 +19,7 @@ and exited zero.** A remembered pass is not a pass.
 
 ## 0. Resolve what this project actually runs
 
-Read the config (`shared-context.md § 0`). The gates are whatever `tooling.commands` declares —
+Read the config (`${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`). The gates are whatever `tooling.commands` declares —
 nothing is assumed:
 
 | Gate | Command | When it is skipped |
@@ -74,6 +73,22 @@ From `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md`:
   the project's own scar tissue; skipping it makes this gate generic.
 - Project-specific invariants from `${rulesDir}/` that match the touched paths were honoured. When
   the project declares none, say that — it is a finding about the project, not a pass.
+
+When the work came from a plan file, three of its sections are checked here — they exist for this
+moment, and a plan that produces them for nobody to read is wasted work:
+
+- **`## Regression watchlist`** — walk every row. Each one names existing behaviour this change was
+  not supposed to touch, and how to prove it still works. Run the proof. A row with no proof
+  command is itself the finding.
+- **`## Reuse ledger`** — for every `REUSE` and `EXTEND` row, confirm the diff calls the asset the
+  ledger named instead of a second implementation of it. A rediscovered "new service" beside a
+  ledger row saying to reuse one is the most expensive drift this chain has, and it is invisible in
+  a diff read on its own.
+- **`## Rollback`** — present and specific enough to execute. This is checked whatever the verdict:
+  it matters most exactly when everything else failed.
+
+No plan file, or the plan has none of these: say so in one line and continue. Their absence is a
+fact about the plan, not a gate failure.
 
 ---
 

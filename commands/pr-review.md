@@ -7,9 +7,8 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 
 ```
 gh pr checkout <PR#>
@@ -57,7 +56,7 @@ Skill("superpowers:using-superpowers");
 Skill("superpowers:requesting-code-review");
 ```
 
-Resolve the config (`shared-context.md` § 0). Confirm the working tree state, the branch, the diff
+Resolve the config (`${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`). Confirm the working tree state, the branch, the diff
 base, and — for a PR — `gh` auth and PR metadata.
 
 **`full` mode** additionally loads, in full: `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md`,

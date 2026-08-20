@@ -188,7 +188,10 @@ make it fire?" (→ `skill-creator`; the narrowest border) · "improve the debug
 - `../../references/rubrics/skill-improver-rubric.md` — the D/W/L/E/S/C rubric, the default-FAIL
   contract, and the auditor's own known failure patterns
 - `../../agents/skill-improver.md` — the judge; primitives verified against primary sources
-- `../../references/shared-context.md` — quality gates, verdict matrix, parallel spawn rules
+- `../../references/shared/010-quality-gates.md`, `../../references/shared/090-verdict-matrix.md`,
+  `../../references/shared/070-parallel-agent-spawn.md` — the three the audit scores against
+- `../../references/shared/110-guardrails-index.md` — which guardrails deny in code and which are
+  convention. An audit that treats a rule file as enforcement reports coverage that does not exist
 - `learning.md` — this skill's round history
 
 ## Configuration

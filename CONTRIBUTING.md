@@ -21,9 +21,16 @@ python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',
 node bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
+python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
+python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
+node .github/check_workflows.mjs            # workflow scripts parse, run dry, and name real agents
 grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
-  --include='*.mjs' . | grep -v node_modules | grep -v 'grep -rnE'
+  --include='*.mjs' --include='*.js' . | grep -v node_modules | grep -v 'grep -rnE'
 ```
+
+On Windows the interpreter is `python` or `py -3`, not `python3` — the Microsoft Store ships a
+stub by that name which opens the Store and exits non-zero, so a gate looks like it ran and
+did not.
 
 The last one must come back empty: a machine path in the plugin breaks on everyone's machine except
 the one it was written on.
@@ -116,7 +123,7 @@ and paths in prose.
 ```bash
 python3 - <<'PY'
 import os, re, glob
-pat = re.compile(r'(?<![\w${/-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills)/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|txt)')
+pat = re.compile(r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|workflows)/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)')
 missing = {}
 for f in glob.glob("**/*.md", recursive=True):
     base = os.path.dirname(f)

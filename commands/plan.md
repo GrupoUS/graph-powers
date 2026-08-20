@@ -13,9 +13,10 @@ Deterministic entry point for the planning chain.
 > product deliberately does not do. It is what makes "out of scope" a citable answer instead of
 > an opinion. Read it before scoping anything; if the project has none, say so in the plan.
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/110-guardrails-index.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`
 
 Bootstrap `Skill("superpowers:using-superpowers")`, then invoke the project planning skill:
 
@@ -70,17 +71,22 @@ line under `## Not yet specified`, never a row carrying `TBD`. Do not pre-slice 
 ### 0.2 Search order (stop at the first hit — do not sweep everything)
 
 **Preferred instrument: the code graph** — contract, install state, cookbook and `[HARD]` limits in
-`shared-context.md § 11.5`. It answers "does this already exist?" structurally in one command instead of a
+`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`. It answers "does this already exist?" structurally in one command instead of a
 grep sweep over every string match. Unavailable → SKIPPED, never blocking; the grep order below is the
 fallback (not wrong, only slower and noisier).
 
 ```bash
-CRG="python -m code_review_graph"; export PYTHONIOENCODING=utf-8
-$CRG update -q                              # never plan on a stale graph
-$CRG search "<capability in code terms>" --kind Function --limit 15
-$CRG search "<capability in code terms>" --kind File --limit 15
-$CRG architecture --detail-level minimal    # L4+ only: where the layers already sit
+# Written out in full, once per line. A shell variable plus `export` is POSIX syntax: in
+# PowerShell `$CRG` is simply undefined and every line below silently loses its command.
+# `-X utf8` is the interpreter flag, and it replaces PYTHONIOENCODING on every platform.
+python -X utf8 -m code_review_graph update -q                        # never plan on a stale graph
+python -X utf8 -m code_review_graph search "<capability>" --kind Function --limit 15
+python -X utf8 -m code_review_graph search "<capability>" --kind File --limit 15
+python -X utf8 -m code_review_graph architecture --detail-level minimal   # L4+ only
 ```
+
+If `python` is not the interpreter on this machine, it is `python3` or `py -3` — try in that order
+rather than assuming.
 
 Then confirm each candidate by reading it — the graph tells you *where*, never *whether it fits*.
 
@@ -123,15 +129,18 @@ $CRG query importers_of "<file>"                   # who imports the module
 $CRG query tests_for    "<exported-symbol>"        # candidate watchlist proofs — NOT authoritative
 ```
 
-Then grep — **always**, not only as a fallback. Per `shared-context.md § 11.5 Limits`, the graph misses tRPC
+Then grep — **always**, not only as a fallback. Per `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md` § Limits, the graph misses tRPC
 client paths, route ids, Drizzle columns, dynamic imports, and under-reports `tests_for`. The graph
 widens the consumer set; grep is what closes it:
 
-```bash
-# scope the search to the roots the project declared, not to a guessed layout
-grep -rn "<exported-symbol>" ${paths.backendRoot} ${paths.frontendRoot} | grep -v "<the definition file>"
-grep -rln "<exported-symbol>" --include='*test*' --include='*spec*' .
-```
+Use the **Grep tool**, not a shell `grep`: the binary does not exist on Windows, and cmd.exe does
+not treat `'` as a quote, so `--include='*test*'` is passed through literally and matches nothing —
+an empty consumer list that reads as "no consumers", which is the exact false negative this step
+exists to prevent.
+
+- `Grep` for `<exported-symbol>` scoped to `${paths.backendRoot}` and `${paths.frontendRoot}`,
+  then drop the definition file from the results yourself.
+- `Grep` for `<exported-symbol>` with `glob: "*test*"` and again with `glob: "*spec*"`.
 
 Union of both = the consumer list. A consumer that only the graph found is real; a consumer that only
 grep found is also real. Neither tool alone is the answer.
@@ -191,7 +200,7 @@ mode`. Below all three thresholds, resolve the decisions and keep going.
 
 ### 0.7 Baseline + rollback
 
-- Record the green baseline in the plan: gates status, API/web test counts, and — when the change reaches a deployed surface — `curl -s ${project.stagingUrl}/<health-endpoint>` (and production, GET only).
+- Record the green baseline in the plan: gates status, API/web test counts, and — when the change reaches a deployed surface — `python -X utf8 -c "import urllib.request,sys;print(urllib.request.urlopen(sys.argv[1],timeout=10).status)" ${project.stagingUrl}/<health-endpoint>` (not `curl`: in PowerShell it is an alias of `Invoke-WebRequest`, which rejects `-s`) (and production, GET only).
 - Every plan carries a `## Rollback` section: how to undo each phase (revert commit / feature flag off / column left in place). Schema work is forward-only unless the rollback is written down.
 
 ### 0.8 Plan-file contract
@@ -200,16 +209,16 @@ At L3+ the emitted spec/plan MUST contain, in addition to the superpowers sectio
 
 | Heading | From | Consumed by |
 |---|---|---|
-| `## Reuse ledger` | 0.3 | `/verify` Phase 1.6 reuse lens + Phase 4 |
-| `## Regression watchlist` | 0.5 | `/verify` Phase 1.5 contract regression + Phase 4b |
-| `## Rollback` | 0.7 | `/verify` report + the user, on failure |
+| `## Reuse ledger` | 0.3 | `/verify` § 3 — confirms the diff called the named asset instead of building a second one |
+| `## Regression watchlist` | 0.5 | `/verify` § 3 — walks every row and runs its proof |
+| `## Rollback` | 0.7 | `/verify` § 3 and its report; the user, on failure |
 | `## Destination` | 0.0 | this chain — the plan's own exit condition; every task orients to it |
 | `## Not yet specified` | 0.0 / 0.1 | this chain — the plan's declared edge |
 | `## Out of scope` | 0.0 (+ issue mode `CUT`/`DEFER`) | the L4+ handoff string's `OUT OF SCOPE` block (FF-6) |
-| `## Execution graph` | 2.5 | `/implement` wave grouping; `ultra-build` disjoint-file waves |
+| `## Execution graph` | 2.5 | `/implement` wave grouping; `graph-powers:ultra-build` disjoint-file waves |
 
-The first three are read **verbatim** by `/verify` Phase 1.5/1.6/4 — a plan without them degrades `/verify` to
-a generic gate run. The last three are planning-side: `/verify` does not read them today, and the plan is what
+The first three are read **verbatim** by `/verify` § 3 — a plan without them degrades `/verify` to a
+generic gate run. The last three are planning-side: `/verify` does not read them, and the plan is what
 carries them forward.
 
 Two contract rules from `wayfinding.md`, both about keeping the plan loadable:
@@ -247,7 +256,7 @@ Print the ledger, then **halt** for user approval. Nothing is written and no eng
 | **Fog-dominated** (0.6 fog check tripped, any tier) | **Map mode** — `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md § Map mode`. Chart `${paths.planDir}/maps/YYYY-MM-DD-<slug>-map.md`, create the decisions you can state, wire blocking in a second pass, fire the AFK research in background, **stop**. No plan file: a task list written over ≥3 unmade decisions is invented detail. Routing resumes here once the map's frontier and fog are both empty. |
 | **L1-L2** | Direct edit. No chain, no workflow — ultra-plan's trivial-tier exit returns `{skipped:true}` and writes **no** plan file. (It makes an exception for a named risk surface, which forces the full chain anyway.) Step 0 still ran: state the ledger verdict + consumer count in one line. |
 | **L3** | `Skill("planning")` Phase A light — inline 3-section spec, no file (`SKILL.md § Step 0`). The inline spec carries the Destination line + Reuse ledger + Regression watchlist rows, and states the fog explicitly (Step 0.8). |
-| **L4+** | `Workflow({ name: 'ultra-plan', args: <scope-locked string> })` — template and filled example in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md § FF-6`. |
+| **L4+** | `Workflow({ name: 'graph-powers:ultra-plan', args: { task: <scope-locked string>, config } })` **when that name resolves** — template and filled example in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md § FF-6`. It does not always resolve, and that is a route, not a defect: see Fallbacks below. |
 
 The `args` string for L4+ must embed the Step 0 output — ultra-plan's research fan-out cannot rediscover it and
 will happily design a second implementation of code you already have. Append verbatim:
@@ -273,7 +282,20 @@ issue mode the two lists are the same list (`CUT`/`DEFER` rows are the out-of-sc
 
 Any risk surface other than `none` (`auth|payment|PII|schema|env|ci`) floors the level at **L4**: `ultra-plan` derives `isL6` from the surfaces, not from the level, and that is what switches on the pre-mortem, the ADR and the `evaluator` Mode 3 pass.
 
-Fallbacks: `Workflow` unavailable in-harness, or `{skipped:true}` returned on a pre-classified L4+ → run Phase A + B by hand through the skill.
+**Fallbacks — three different failures, one way out.** The L4+ row above is an attempt, never an
+assumption, because a plugin cannot guarantee the workflow is registered in the session that is
+running:
+
+| What happened | How it looks |
+|---|---|
+| `Workflow` is not a tool in this harness at all | no such tool |
+| The name does not resolve | `Workflow "graph-powers:ultra-plan" not found. Available: <list>` — the workflow is not installed, or this session's registry was built before it was |
+| The workflow ran and declined | `{skipped:true}` on a pre-classified L4+ |
+
+In all three: run Phase A + B by hand through `Skill("planning")` and state in one line which one
+happened. **Do not report a name that does not resolve as an error, and do not retry it** — the plan
+is produced either way; only the engine differs. The same rule governs `ultra-build` and
+`ultra-verify` downstream: unresolved means `/implement` and `/verify` run as commands instead.
 
 ---
 
@@ -319,7 +341,7 @@ owner:**
 Three rules that keep the graph honest:
 
 - **One writer per file, per wave.** Two tasks in the same `‖` group must own disjoint file sets. This is
-  also enforced downstream — `ultra-build.js::splitByFileOwnership` re-slices a wave that violates it —
+  also enforced downstream — `workflows/ultra-build.js` re-slices a wave that violates it —
   but a plan that needs the re-slice was drawn wrong.
 - **⟨GATE⟩ only on the irreversible edges**: SQL migration, `git push`, deploy, and writes that leave the
   system — payments, messages to users, any third-party mutation. A gate on a reversible edit buys nothing and spends the one thing the human
@@ -328,24 +350,110 @@ Three rules that keep the graph honest:
   the frontmatter closure — `evaluator`, `explorer`, `librarian` and `ui-ux-designer` resolve without
   `Write`/`Edit` — but the plan still says which node owns the merge.
 
-At **L4+** this section is what `Workflow({name:'ultra-plan'})` turns into `[SEQUENTIAL]`/`[PARALLEL-SAFE]`
+At **L4+** this section is what `graph-powers:ultra-plan` turns into `[SEQUENTIAL]`/`[PARALLEL-SAFE]`
 wave grouping; emit it in the `args` string alongside the Step 0 blocks. At **L3** it is three lines inline.
 At **L1-L2** there is no graph: one node, one edge to itself — say that and edit.
 
 ## Step 3 — Post-return verification (L4+ — checks 1-6 are issue mode, FF-8a-d are every return)
 
-Run the six checks in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md § FF-8` before recommending any next step. ultra-plan now enforces its anchor floors in code and returns an `approved` flag, but the checks that remain yours are not covered by it: `skipped:true` writes no plan file, `planPath` is only a string, and nothing downstream knows whether a `CUT` row came back or whether the tier was silently lowered. Never run `/ultra-build` on `approved !== true`.
+Run the six checks in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md § FF-8` before recommending any next step. ultra-plan now enforces its anchor floors in code and returns an `approved` flag, but the checks that remain yours are not covered by it: `skipped:true` writes no plan file, `planPath` is only a string, and nothing downstream knows whether a `CUT` row came back or whether the tier was silently lowered. Never proceed to `graph-powers:ultra-build` on `approved !== true` (Step 4.1).
 
 Four extra checks on the written plan file — `a`/`b` are what make `/verify` able to prove nothing broke, `c`/`d`
 are what keep the returned plan inside the destination. All four apply in task mode too, not only issue mode:
 
 | # | Check | Fail action |
 |---|---|---|
-| FF-8a | The plan contains `## Reuse ledger`, `## Regression watchlist`, `## Rollback` (Step 0.8) and the ledger's REUSE/EXTEND rows survived synthesis — i.e. no plan task creates a unit the ledger said to reuse | Patch the plan yourself before handing it to `/ultra-build`; a rediscovered "new service" is the single most expensive drift this chain has |
+| FF-8a | The plan contains `## Reuse ledger`, `## Regression watchlist`, `## Rollback` (Step 0.8) and the ledger's REUSE/EXTEND rows survived synthesis — i.e. no plan task creates a unit the ledger said to reuse | Patch the plan yourself before the gate in Step 4.1; a rediscovered "new service" is the single most expensive drift this chain has |
 | FF-8b | Every watchlist row has a proof command, and every plan phase names which watchlist rows it puts at risk | Add the missing characterization test as phase 1 of the plan |
 | FF-8c | No task serves a `## Out of scope` row (grep each row's subject against the task list). The `robustness-first` approach agent re-expands scope by construction, and synthesize is told to graft from the runner-up | Delete the task and name it in the report. A returned plan that quietly re-adopts a ruled-out row is the same failure as an ignored `CUT` |
 | FF-8e | The plan carries `## Execution graph` (Step 2.5) and every edge in it has a named payload — what the destination reads from the source. An arrow with an empty payload column is a false edge that survived synthesis | Delete the edge and run those tasks in parallel, or name what is read. A plan that cannot say why an arrow exists is a list wearing a diagram |
 | FF-8d | Every `## Not yet specified` row is still fog **or** is now a task backed by evidence — never a task backed by an assumption the fan-out invented to close the gap | Move it back to fog and mark the plan as blocked on that decision (0.6), rather than shipping a task nobody can defend |
+
+## Step 4 — Run the chain (L4+; one human gate, then it goes)
+
+The plan is not the deliverable — working, verified code is. So `/plan` does not hand you three
+commands to run in order; it runs them, and stops exactly once, at the only edge `git revert` cannot
+undo cheaply: **committing to a plan before any code is written.**
+
+```
+ultra-plan ──→ ⟨THE GATE⟩ ──→ ultra-build ──→ ultra-verify ──→ [commit, if the project asked]
+```
+
+### 4.1 The gate, and why it lives here
+
+A workflow script cannot ask you anything. Its scope holds six names — `agent`, `parallel`, `phase`,
+`log`, `args`, `budget` — and none of them interact with a person. That is not a limitation to work
+around; it is what puts the gate in *this* command, where a human is already present.
+
+Two conditions, both required, before anything is built:
+
+1. **`approved === true`** from ultra-plan. It is code-enforced (the anchor floors are re-checked
+   against the scores the evaluator returned, and a risky task with no architecture pass blocks), so
+   it is the one claim in the chain you may rely on without re-deriving.
+2. **The person says go.** Print the destination, the task count, the chosen approach and the open
+   issues, then stop. Silence is not approval. If `approved !== true`, do not offer to continue:
+   report `belowFloor` and `openIssues`, and let them decide.
+
+### 4.2 Build
+
+```typescript
+Workflow({ name: 'graph-powers:ultra-build', args: { planPath, config } })
+```
+
+Before it starts, write the write-lease so the guardrail has something to check:
+`.graph-powers/logs/write-lease.json` ← the `writeLease` array the plan return carries, or the union
+of the plan's per-task file lists. `hooks/graph_guardrails.py` refuses a write outside that list, and
+without the file it stands down entirely — which is how "one writer per file" spent this long armed
+and disarmed at the same time. Delete the lease when the chain ends.
+
+### 4.3 Verify
+
+```typescript
+Workflow({ name: 'graph-powers:ultra-verify', args: { planPath, config } })
+```
+
+It loops until clean or capped, and it never commits. Three outcomes, three different next steps:
+
+| Verdict | What it means | What happens |
+|---|---|---|
+| `VERIFIED` | every gate green, every requirement met, no open P0/P1 | 4.4 |
+| `VERIFIED-WITH-NOTES` | gates green, non-blocking follow-ups listed | report them; **no commit** |
+| `NEEDS-WORK` | a gate failed, or something could not be checked | report `blocked` + `missing`; **no commit** |
+
+`capped: true` means the round ceiling stopped the loop, not that the work is done. Say so.
+
+### 4.4 Commit — only when the project asked for it
+
+Off unless `chain.commitOnGreen` is `true`, and even then only on `VERIFIED`. Never `push`.
+
+The commit needs the opt-in key `git_commit_gate.py` requires, inline:
+`<PREFIX>_ALLOW_COMMIT=1 git commit -m "..."` in a POSIX shell, with `PREFIX` from
+`git.optInPrefix`. **Write the form the shell you are in accepts** — the hook matches the key as
+text, not as syntax, so `$env:<PREFIX>_ALLOW_COMMIT=1; git commit …` and
+`set <PREFIX>_ALLOW_COMMIT=1 && git commit …` release it just as well. All three are in
+`110-guardrails-index.md § Releasing a gate`, loaded above. Getting this wrong on Windows releases
+the gate and then fails to run the commit, which reads as the guardrail misbehaving. That is
+deliberate rather than a workaround: the key is per project, so the gate still records that this
+commit passed through it, and a project that never sets `commitOnGreen` never sees the chain commit.
+
+**In this repository the field stays off.** `AGENTS.md` requires an explicit request per commit, and
+the plugin cannot be the one place that exempts itself from the rule it distributes.
+
+### 4.5 Config, once
+
+Read `.graph-powers/config.json` in Step 0 and pass the same object to all three workflows as
+`args.config`. They can each read it themselves — a haiku agent, one spawn — but that spawn is pure
+waste when the caller already has the file open. Include `pluginRoot`: the workflows need it to point
+their agents at the planning and debugging guides, and `${CLAUDE_PLUGIN_ROOT}` inside a workflow's
+template literal is a `ReferenceError`, not a path.
+
+### 4.6 When the chain does not apply
+
+- **L1-L2** → direct edit, no chain, no workflow.
+- **L3** → inline spec, then `/implement` and `/verify` as commands.
+- **`--plan-only`** → stop at 4.1 with the plan file. The gate is the deliverable.
+- **The name does not resolve** → the fallback in Step 2. `/implement` and `/verify` do the same job
+  as commands; the chain is faster and more deterministic, not load-bearing.
 
 ## The chain the skill loads
 
@@ -354,14 +462,15 @@ are what keep the returned plan inside the destination. All four apply in task m
 - **Phase C — Executing-plans** → `Skill("superpowers:subagent-driven-development")` via `/implement` + two-stage review gate, branch policy, `/verify quick`, `/evolve auto`.
 - **Map mode (out of band)** → `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md`. Not a phase: it runs *instead of* Phase A+B when the fog check trips, and feeds the map back into this routing once its frontier is empty.
 
-> Why this command exists: Claude Code skill precedence is enterprise > personal > project (hardcoded), so a project skill cannot share the name `planning` with the global one — it would always be shadowed. The project skill is named `planning`; this `/plan` command is its deterministic trigger. Bare `Skill("planning")` resolves to the generic global D.R.P.I.V skill, not this chain.
+> Why this command exists: Claude Code skill precedence is enterprise > personal > project (hardcoded), so a project skill cannot share the name `planning` with the global one — it would always be shadowed. The project skill is named `planning`; this `/plan` command is its deterministic trigger. Bare `Skill("planning")` resolves to whatever generic planning skill sits at a higher
+precedence level on that machine, not to this chain.
 
 Tier gate decides depth: L1-L2 → direct edit (no chain); L3 → Phase A light (inline spec); L4+ → A + B (+ C at L5+). See `Skill("planning") § Step 0 — Classify & tier-gate`.
 
 **The tier gate does not gate Step 0.** Destination, reuse inventory and blast radius run at every tier,
-including direct edit — they are what `/verify` later checks the diff against (`verify.md` Phase 1.5 contract
-regression, Phase 1.6 reuse lens, Phase 4 watchlist walk). Skipping Step 0 does not save time; it moves the cost
-to the phase where a working feature is already broken.
+including direct edit — they are what `/verify` later checks the diff against (`verify.md` § 3 walks the
+watchlist, the reuse ledger and the rollback). Skipping Step 0 does not save time; it moves the cost to the
+phase where a working feature is already broken.
 
 The two failure modes this command exists to prevent are symmetric, and Step 0 covers both: **build new → break
 working** (0.2-0.5, the reuse ledger and the watchlist) and **plan detail nobody can defend** (0.0/0.1/0.6, the

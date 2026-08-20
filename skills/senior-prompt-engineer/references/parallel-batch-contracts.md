@@ -1,13 +1,14 @@
 # Parallel Batch Contracts
 
 > Shared return contract for parallel-spawn agents (≥2 agents in one message).
-> Loaded by `senior-prompt-engineer` skill. Cited by `references/shared-context.md § 7` and `§ 7.5`.
+> Loaded by the `senior-prompt-engineer` skill and by `references/rubrics/explorer-rubric.md`.
+> The spawn pattern it implements is `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`.
 
 ---
 
 ## 1. When this applies
 
-Whenever a command spawns ≥2 agents in a single message via the parallel pattern in `shared-context.md § 7`. Examples:
+Whenever a command spawns ≥2 agents in a single message via the parallel pattern in `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`. Examples:
 
 | Command | Parallel batch members |
 |---|---|
@@ -112,7 +113,7 @@ Commands that spawn `librarian` (currently `/research`, `/debug auto`) MUST inje
 
 ## 7. Non-overlapping scope
 
-Per `shared-context.md § 7 #4` ("Distinct scope"): each agent in a parallel batch must investigate a non-overlapping area. If two agents would cover the same files / questions / docs, merge into one agent.
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` rule 4 ("Distinct scope"): each agent in a parallel batch must investigate a non-overlapping area. If two agents would cover the same files / questions / docs, merge into one agent.
 
 When in doubt, ask: "Could one agent answer both prompts in one pass?" If yes → one agent.
 
@@ -120,7 +121,8 @@ When in doubt, ask: "Could one agent answer both prompts in one pass?" If yes �
 
 ## 8. Maximum batch size
 
-Per `CLAUDE.md § Stopping conditions`: max 5 agent spawns per user request. A parallel batch counts each agent toward the 5. Plan accordingly:
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`: at most `graphGuardrails.maxParallelWave` agents in one
+fan-out (default 5). A parallel batch counts each agent toward that width. Plan accordingly:
 
 | Batch size | Remaining spawn budget |
 |---|---|

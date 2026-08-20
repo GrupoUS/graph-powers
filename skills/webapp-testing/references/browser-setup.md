@@ -147,15 +147,11 @@ person signs in once and the session lives in the profile.
 
 ```bash
 # Find the binary first — it differs per machine:
-#   for b in google-chrome google-chrome-stable chromium chromium-browser \
-#     brave-browser microsoft-edge; do command -v $b; done
-mkdir -p ~/.cache/<project>-staging-chrome
-nohup <browser-binary> \
-  --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.cache/<project>-staging-chrome" \
-  --no-first-run --no-default-browser-check \
-  "${project.stagingUrl}/<the route you are verifying>" \
-  >/tmp/browser-cdp.log 2>&1 &
+#   for b in google-chrome google-chrome-stable chromium chromium-browser #     brave-browser microsoft-edge; do command -v $b; done
+# `mkdir -p` and `~` are POSIX. Let the tool create its own profile directory, or pass one
+# the platform actually has — on Windows that is under %LOCALAPPDATA%, not ~/.cache.
+nohup <browser-binary> --remote-debugging-port=9222 --user-data-dir="$HOME/.cache/<project>-staging-chrome" --no-first-run --no-default-browser-check "${project.stagingUrl}/<the route you are verifying>" # (redirect + background: POSIX-only. On Windows use Start-Process -RedirectStandardOutput,
+# and put the log somewhere the platform has — tempfile.gettempdir(), not /tmp.)
 ```
 
 Three details that are not optional:
@@ -247,11 +243,7 @@ Every `bunx agent-browser <cmd>` pays both the bunx and the CLI startup cost. A 
 
 ```bash
 # Instead of 4 separate Bash calls:
-bunx agent-browser --cdp 9222 batch \
-  "get url" \
-  "snapshot -i -c" \
-  "screenshot .graph-powers/logs/flow.png" \
-  "console"
+bunx agent-browser --cdp 9222 batch "get url" "snapshot -i -c" "screenshot .graph-powers/logs/flow.png" "console"
 
 # --bail stops at the first failure (default: runs them all and reports each)
 # --json returns a JSON array, convenient for parsing result by result

@@ -122,7 +122,12 @@ Detailed execution flows, key rules, and common patterns for each debug pack, pl
 
 Dispatched after Step 1 produces a runnable reproducer + ≥3 falsifiable hypotheses. Invoke `Skill("superpowers:dispatching-parallel-agents")` first to enforce distinct scope + a shared return contract, then launch.
 
-**Shared dispatch contract (applies to every template below):** `run_in_background: true`; read-only (Code Archaeologist + Regression Hunter use `subagent_type: "explorer"`; Evidence Collector + DB State Inspector use `subagent_type: "debugger"` but capture-only — **fix nothing**); return < 2000 tokens; findings as a `| # | Finding | Confidence (1-5) | Source | Impact |` table where applicable; pass the bug symptom + failing URL/procedure + affected files in the prompt.
+**Shared dispatch contract (applies to every template below):** `run_in_background: true`; read-only
+**by frontmatter, never by instruction** — Code Archaeologist, Regression Hunter and DB State
+Inspector use `subagent_type: "explorer"` (Read/Glob/Grep/Bash, `disallowedTools: Write, Edit`),
+and Evidence Collector uses `subagent_type: "verification"`, which is the browser specialist and
+carries `Skill` so it can load `webapp-testing`. These were all `debugger` once, told in prose to
+"fix nothing" while holding `Write` and `Edit`; return < 2000 tokens; findings as a `| # | Finding | Confidence (1-5) | Source | Impact |` table where applicable; pass the bug symptom + failing URL/procedure + affected files in the prompt.
 
 **Which agents per pack:** all packs → B + C. `frontend-debug` / `systematic-audit` → add A. `backend-debug` / `auth-db-debug` → add D.
 

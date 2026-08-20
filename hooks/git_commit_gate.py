@@ -47,7 +47,16 @@ from typing import cast
 # the project config via `_config`, never hardcoded — this
 # file is byte-for-byte the same in every repository that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A branch name or path outside that page then
+# raises `UnicodeDecodeError`, the hook falls open, and a gate that should have denied releases.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 
 OPT_IN = f"{gp.opt_in('COMMIT')}=1"
@@ -76,6 +85,9 @@ REASON = (
     "If — and only if — the user approved the commit IN THIS TURN, repeat the command\n"
     "with the explicit opt-in:\n"
     f"    {OPT_IN} git commit -m \"...\"\n"
+    "  Not in a POSIX shell? The hook matches the key as TEXT, not as syntax, so\n"
+    "  `$env:<KEY>=1; <command>` (PowerShell) and `set <KEY>=1 && <command>` (cmd)\n"
+    "  release it just as well.\n"
     "\n"
     "If you are a subagent: do NOT use the opt-in. Stop, leave the changes in the working\n"
     "tree, and report the changed paths to the orchestrator."

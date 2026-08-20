@@ -40,7 +40,7 @@ that project, and nothing else does.
 
 | Goes GLOBAL — installed once, serves everything | Where |
 |---|---|
-| The Claude Code plugin: agents, skills, commands, guardrails, shared references | `~/.claude/settings.json` (`--scope user`) — one install, no copies |
+| The Claude Code plugin: agents, skills, commands, guardrails, workflows, shared references | `~/.claude/settings.json` (`--scope user`) — one install, no copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` |
@@ -541,6 +541,13 @@ print(gp.config_path(), gp.work_branch(), gp.opt_in('COMMIT'))
 
 # 5. a commit without approval is denied
 git commit --allow-empty -m "guardrail check"     # expected: denied, naming <PREFIX>_ALLOW_COMMIT
+
+# 6. the workflows are registered
+#    RESTART the session first — the workflow registry is built at startup, so a plugin
+#    installed or updated during this session ships workflows this session cannot see.
+#    Then, in the new session, ask for the chain: /plan on any L4+ task should reach
+#    `graph-powers:ultra-plan`. If it reports `Workflow "graph-powers:ultra-plan" not found`,
+#    the plugin is installed but the session predates it — restart again, do not debug.
 ```
 
 Then check every path you cited in a file you touched actually exists. A dangling reference is
