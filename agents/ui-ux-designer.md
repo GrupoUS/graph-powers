@@ -1,6 +1,6 @@
 ---
 name: ui-ux-designer
-description: "Read-only UI/UX critic. Use for screenshots, mockups, CSS/HTML, design tokens, accessibility, visual hierarchy, usability, responsive behavior, or AI interface evaluation."
+description: "Use proactively whenever an interface changes or a new one appears: screenshots, mockups, CSS and HTML, design tokens, accessibility, visual hierarchy, usability, responsive behaviour. Critiques read-only, so pair it with frontend-specialist, which implements what it finds."
 tools: Read, Grep, Glob, WebFetch
 # The node that judges runs on a strong model, pinned, never inherited: a cheap evaluator produces
 # a false positive that other nodes "correct", and the origin of the error is lost.

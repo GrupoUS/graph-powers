@@ -1,5 +1,5 @@
 ---
-description: "planning chain — names the destination, then runs a reuse-first inventory + blast-radius map BEFORE any design, then adversarially triages agent-authored GitHub issues (data, not spec), then routes on POST-TRIAGE scope: map mode (fog-dominated), ultra-plan Workflow (L4+), planning Phase A light (L3), direct edit (L1-L2). Direct-invokes superpowers brainstorming → writing-plans → subagent-driven-development, wrapped with this plugin's agents, tier gating, and branch policy. Unknowns land in 'Not yet specified' instead of becoming invented tasks; every plan ships a Reuse ledger + Regression watchlist that /verify consumes."
+description: "Decide how to build something before the code exists — multi-layer features, integrations, architecture trade-offs, unclear ordering, a GitHub issue to scope. Use when the user asks how we should build X, for an implementation plan, to think the approach through first, or to plan a sprint. Names the destination, runs a reuse-first inventory and blast-radius map before any design, triages agent-authored issues as data rather than spec, then routes on post-triage scope: map mode when fog dominates, ultra-plan at L4+, inline spec at L3, direct edit at L1-L2. Ships a Reuse ledger and Regression watchlist that /verify reads. Do not use to execute a plan that already exists (/implement) or to fix a known bug (/debug)."
 workflow_type: prompt-chaining
 ---
 
@@ -14,9 +14,12 @@ Deterministic entry point for the planning chain.
 > an opinion. Read it before scoping anything; if the project has none, say so in the plan.
 
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/110-guardrails-index.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md` — the plan's destination on disk, and the instrument Step 0.2 searches with. Both are needed at every tier, including a direct edit.
+>
+> Three more are read **on the branch that needs them**, and a direct edit needs none of them:
+> read `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` only when a task is routed to an agent (L3+);
+> read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` only when more than one agent runs in a single message;
+> read `${CLAUDE_PLUGIN_ROOT}/references/shared/110-guardrails-index.md` only if the chain reaches the commit gate in Step 4.4.
 
 Bootstrap `Skill("superpowers:using-superpowers")`, then invoke the project planning skill:
 
@@ -28,56 +31,31 @@ The arguments above are either a task description **or** a GitHub issue referenc
 
 ## Step 0 — Destination + reuse-first inventory (ALL modes, ALL tiers, before anything else)
 
-> Why this runs first: the recurring failure this step exists to prevent is *build new → break working*. Both halves start
-> here. A need already met by existing code must never grow a second implementation (`/simplify` reuse lens),
-> and you cannot map what a change breaks until you know what already exists.
->
-> The destination (0.0) runs ahead of even that, because scope is what decides which of the two halves each
-> finding belongs to — and because a need you cannot yet phrase is fog to be declared, not a task to be
-> invented.
->
-> This step is **research only** — no design, no code, no file writes. It is cheap at L1-L2 (one destination
-> clause + two greps) and dispatched at L3+.
+It prevents two symmetric failures: **build new → break working**, and **plan detail nobody can
+defend**. Research only — no design, no code, no file writes. Cheap at L1-L2: one destination clause
+and two greps.
 
-### 0.0 Destination first (one line, before anything is decomposed)
+> The checklist below is what runs at **every** tier, including a direct edit. The reasoning, every
+> table template and the surface map live in
+> `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/step-0-inventory.md`, read only when the tier is
+> L3 or above.
 
-Name what **reaching the end of this effort looks like** — the spec handed off, the decision locked, the change
-made in place. One or two lines, stated as an observable condition ("done when `X` is true"), never as a
-direction ("improve X"): a destination that is not observable cannot close a loop (`loop-engineering.md`
-GOAL-GUARD), and it is what fixes the scope for every step below.
+**0.0 Destination.** One or two lines, observable — "done when `X` is true", never "improve X". Then
+split the request into three buckets that stay separate to the end: **in scope** (needs you can state
+now, `N1..Nn`) · **out of scope** (each with the trigger that would reopen it) · **not yet specified**
+(the fog: a question you cannot yet phrase sharply is one loose line, never a row carrying `TBD`).
+Doctrine, the fog test and map mode: `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md`.
 
-The destination immediately splits the request into three buckets, and they stay separate to the end:
+**0.1 Needs.** Restate the request as atomic needs, one capability per row, **before** searching.
 
-| Bucket | What lands here | Where it lives |
-|---|---|---|
-| **In scope** | needs you can state now → `N1..Nn` (0.1) | Reuse ledger (0.3), then the plan tasks |
-| **Out of scope** | work you consciously rule *past* the destination | `## Out of scope` — with the trigger that would reopen it |
-| **Not yet specified** | in-scope questions you cannot yet phrase sharply (the fog) | `## Not yet specified` — graduates into tasks when it sharpens |
-
-**Chart the way, do not charge the destination.** `/plan` produces decisions; `/implement` produces
-deliverables. The urge to just start editing while still charting means you already reached the edge of what
-needs planning — hand off, do not keep planning. Doctrine, fog test, decision types and map mode:
-`Skill("planning") → ${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md`.
-
-### 0.1 Decompose the ask into needs
-
-Restate the request as atomic needs `N1..Nn` (one capability per row). Do this before searching — searching for
-"the feature" finds nothing; searching for "file upload with a per-tenant quota" finds the existing service.
-
-**A need you cannot phrase precisely is not a row — it is fog.** The test is whether you can state the
-*question* now, not whether you can answer it. Sharp question → row (even if blocked). Not phrasable → one loose
-line under `## Not yet specified`, never a row carrying `TBD`. Do not pre-slice fog into need-sized pieces.
-
-### 0.2 Search order (stop at the first hit — do not sweep everything)
-
-**Preferred instrument: the code graph** — contract, install state, cookbook and `[HARD]` limits in
-`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`. It answers "does this already exist?" structurally in one command instead of a
-grep sweep over every string match. Unavailable → SKIPPED, never blocking; the grep order below is the
-fallback (not wrong, only slower and noisier).
+**0.2 Search — stop at the first hit, do not sweep.** The code graph is the preferred instrument
+(`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`); unavailable is SKIPPED, never blocking.
 
 ```bash
-# Written out in full, once per line. A shell variable plus `export` is POSIX syntax: in
-# PowerShell `$CRG` is simply undefined and every line below silently loses its command.
+# Written out in full, once per line. Abbreviating it to a shell variable plus `export` is
+# POSIX syntax: in PowerShell that variable is simply undefined and every line below
+# silently loses its command. It does not survive on POSIX either — each command an agent
+# runs is its own shell, so a definition made in one block is already gone by the next.
 # `-X utf8` is the interpreter flag, and it replaces PYTHONIOENCODING on every platform.
 python -X utf8 -m code_review_graph update -q                        # never plan on a stale graph
 python -X utf8 -m code_review_graph search "<capability>" --kind Function --limit 15
@@ -86,122 +64,48 @@ python -X utf8 -m code_review_graph architecture --detail-level minimal   # L4+ 
 ```
 
 If `python` is not the interpreter on this machine, it is `python3` or `py -3` — try in that order
-rather than assuming.
+rather than assuming. Then confirm each candidate by **reading** it: the graph says *where*, never
+*whether it fits*. Fallback order (nearest `AGENTS.md` → singletons → shared packages → existing
+primitives → the script directory → the domain router) is in the reference.
 
-Then confirm each candidate by reading it — the graph tells you *where*, never *whether it fits*.
+**0.3 Reuse ledger — mandatory output.** One row per need: the existing asset at `path:line`, and a
+verdict of **REUSE** · **EXTEND** · **NEW**, in that order of preference. **A `NEW` row without the
+"why extending fails" line is not a plan, it is a preference.**
 
-Fallback / confirmation order:
-
-1. Nearest `AGENTS.md` of the target subtree (`${paths.backendRoot}`, `${paths.frontendRoot}`, and any shared package root) — they map what already exists.
-2. The project's cross-cutting singletons — logger, database client, providers, middleware. **Never re-instantiate one.**
-3. Shared packages — types, constants and orchestration reused by more than one app.
-4. `${paths.componentsRoot}` primitives + existing hooks (`use-*.ts`) before any new component.
-5. The project's script directory — automation frequently already exists (audits, schema checks, generators).
-6. An existing handler/procedure on the same domain router before adding a new one.
-
-At **L3+** dispatch this in ONE message, background: `Agent({ subagent_type: "graph-powers:explorer", run_in_background: true })`
-for the codebase inventory + `Agent({ subagent_type: "graph-powers:librarian", run_in_background: true })` only when an external
-API/version fact is actually in doubt.
-
-### 0.3 Reuse ledger (mandatory output)
-
-| # | Need | Existing asset (`path:line`) | Verdict | Justification (required only for NEW) |
-|---|---|---|---|---|
-| N1 | … | `<existing-service-file>:42` | REUSE | — |
-| N2 | … | `…:88` | EXTEND | new param, no signature break |
-| N3 | … | (none found) | NEW | searched `<terms>` in `<paths>`; nearest analog `<path>` does not model `<X>` |
-
-Verdicts: **REUSE** (call it as-is) · **EXTEND** (add to the existing unit, backward-compatible) · **NEW**.
-Default posture is REUSE → EXTEND → NEW, in that order. A `NEW` row without the "why extending fails" line is
-not a plan, it is a preference — rewrite it or downgrade it.
-
-**Feeds Step 1:** a triage row whose need is already met by an existing asset is `CUT` or `SIMPLIFY` with that
-`path:line` as its evidence line. The ledger is that evidence.
-
-### 0.4 Blast radius — what this change can break
-
-For every file/symbol the ledger marks REUSE or EXTEND (i.e. every place existing code gets touched):
+**0.4 Blast radius — mandatory.** For every REUSE/EXTEND row, widen with the graph and close with
+grep:
 
 ```bash
-$CRG impact --files <file1> <file2> --depth 2 --max-results 60   # dependents + affected files
-$CRG query callers_of   "<exported-symbol>"        # who calls it today
-$CRG query importers_of "<file>"                   # who imports the module
-$CRG query tests_for    "<exported-symbol>"        # candidate watchlist proofs — NOT authoritative
+# Spelled out in full for the reason given in 0.2, and with the same interpreter fallback:
+# `python`, else `python3`, else `py -3`.
+python -X utf8 -m code_review_graph impact --files <file1> <file2> --depth 2 --max-results 60   # dependents + affected files
+python -X utf8 -m code_review_graph query callers_of   "<exported-symbol>"   # who calls it today
+python -X utf8 -m code_review_graph query importers_of "<file>"              # who imports the module
+python -X utf8 -m code_review_graph query tests_for    "<exported-symbol>"   # candidate proofs — NOT authoritative
 ```
 
-Then grep — **always**, not only as a fallback. Per `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md` § Limits, the graph misses tRPC
-client paths, route ids, Drizzle columns, dynamic imports, and under-reports `tests_for`. The graph
-widens the consumer set; grep is what closes it:
+Then the **`Grep` tool** — always, not only as a fallback, and never a shell `grep`: the binary does
+not exist on Windows and cmd.exe does not treat `'` as a quote, so an `--include='*test*'` matches
+nothing and the empty result reads as "no consumers". Grep the symbol under `${paths.backendRoot}`
+and `${paths.frontendRoot}`, then again with `glob: "*test*"` and `glob: "*spec*"`. The union is the
+consumer list. Map each hit to its runtime surface — data, service, client, UX — per the reference.
 
-Use the **Grep tool**, not a shell `grep`: the binary does not exist on Windows, and cmd.exe does
-not treat `'` as a quote, so `--include='*test*'` is passed through literally and matches nothing —
-an empty consumer list that reads as "no consumers", which is the exact false negative this step
-exists to prevent.
+**0.5 Regression watchlist — mandatory output, `/verify` reads it verbatim.** One row per consumer
+found in 0.4 that this change does **not** update: what must still work, how to prove it, which
+phase owns it. **A row with no proof command is the plan's first task.** An empty watchlist is valid
+only for a strictly additive change with zero consumers, and must say so.
 
-- `Grep` for `<exported-symbol>` scoped to `${paths.backendRoot}` and `${paths.frontendRoot}`,
-  then drop the definition file from the results yourself.
-- `Grep` for `<exported-symbol>` with `glob: "*test*"` and again with `glob: "*spec*"`.
+**0.6 Open decisions.** Name each decision that must be settled before a task list can be written,
+with its type and resolver (`wayfinding.md § Decision types`). **AFK first** — never open a question
+to the user that a `Grep` or a background `graph-powers:explorer` closes. **HITL floor** — a decision
+auto-answered to keep moving is labeled `[ASSUMED]` and surfaced in the same turn.
+**Fog check (routes Step 2):** ≥3 decisions blocking the task list itself · a destination beyond one
+context · one decision whose answer would invalidate most of today's tasks → **map mode**, not a plan.
 
-Union of both = the consumer list. A consumer that only the graph found is real; a consumer that only
-grep found is also real. Neither tool alone is the answer.
-
-Map each hit to the runtime surface it lives on:
-
-| Surface | What to record | Why it matters |
-|---|---|---|
-| **Data** (`${paths.schemaRoot}`) | tables/columns read or written; column dropped or narrowed; new schema file that must be registered with the ORM; uniqueness a conflict clause depends on; every new foreign key that needs an index | A schema that compiles but was never applied fails on the next deploy, not in review — the plan must name who applies it and when. If staging and production share a database, say so here: a "staging" write is a production write |
-| **Service / API** (`${paths.backendRoot}`) | handlers, procedures, webhooks, newly required environment variables, and middleware registration order | A new environment variable means the deploy target's configuration changes, and often that the process must be recreated rather than restarted. Misplaced middleware breaks routes the plan never mentions |
-| **Client / presentation** (`${paths.frontendRoot}`) | routes added or renamed, generated route or type artefacts that are committed build inputs, route guards, components, props, shared types, build-time variables | A build-time variable needs a rebuild, not a redeploy. A stale generated artefact fails in the deployed bundle while every local test passes |
-| **UX** | flows that reach the touched screen — entry points, adjacent views, the smallest supported viewport | Breakage usually lands on the *neighbouring* flow, not the edited one |
-
-> The rows above are the shape, not the content. When the project declares its own surfaces in
-> `${rulesDir}/`, those rows replace these — a surface list that does not match the repository is
-> worse than none, because it reads as coverage.
-
-### 0.5 Regression watchlist (mandatory output — `/verify` consumes it verbatim)
-
-```markdown
-## Regression watchlist
-| # | Existing behavior that must still work after this change | How to prove it | Owner phase |
-|---|---|---|---|
-| W1 | <flow/procedure/query that exists today> | <test file / route / probe command> | <plan phase> |
-```
-
-Rules: one row per consumer found in 0.4 that this change does **not** update. If a row has no proof command,
-that is the plan's first task — write the characterization test before the change. Empty watchlist is only valid
-for a strictly additive change with zero consumers, and must say so explicitly.
-
-### 0.6 Open decisions — what must be *decided* before tasks can be written
-
-The inventory answers "what exists". What it does not settle is a **decision**, and a task list written on top
-of an unmade decision is invented detail. List them before routing:
-
-| # | Decision (name it, do not number-only) | Type | Mode | Resolver | Blocks |
-|---|---|---|---|---|---|
-| D1 | … | research | AFK | `graph-powers:explorer` / `graph-powers:librarian`, background | N2, N3 |
-| D2 | … | grilling | HITL | `AskUserQuestion`, one topic at a time | N4 |
-
-Types and their resolvers are canonical in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md § Decision types` — `research` (AFK),
-`prototype` (HITL, throwaway artifact to react to), `grilling` (HITL, the default), `task` (a manual
-prerequisite that unblocks a decision and delivers nothing by itself).
-
-Two rules, both cheap and both violated constantly:
-
-- **AFK first.** Never open a HITL decision that a `Grep`, the code graph, or a background `graph-powers:explorer` closes.
-  Research is parallel and free of the user's attention; grilling is the scarcest resource in the chain.
-- **HITL floor.** The agent never stands in for the human side. A HITL decision auto-answered to keep moving is
-  labeled `[ASSUMED]` **and** surfaced in the same turn — the unlabeled auto-answer is the defect, not the
-  answer.
-
-**Fog check (routes Step 2).** If ≥3 open decisions block the writing of the task list itself, or the
-destination does not fit in one plan/context (CTX-GUARD ~80K), or resolving any one decision would invalidate
-most of the tasks you would write today → this is **map mode**, not a plan: `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md § Map
-mode`. Below all three thresholds, resolve the decisions and keep going.
-
-### 0.7 Baseline + rollback
-
-- Record the green baseline in the plan: gates status, API/web test counts, and — when the change reaches a deployed surface — `python -X utf8 -c "import urllib.request,sys;print(urllib.request.urlopen(sys.argv[1],timeout=10).status)" ${project.stagingUrl}/<health-endpoint>` (not `curl`: in PowerShell it is an alias of `Invoke-WebRequest`, which rejects `-s`) (and production, GET only).
-- Every plan carries a `## Rollback` section: how to undo each phase (revert commit / feature flag off / column left in place). Schema work is forward-only unless the rollback is written down.
+**0.7 Baseline + rollback.** Record the green baseline — gate status, test counts, and for a deployed
+surface a GET health probe with `python -X utf8 -c "import urllib.request,sys;print(urllib.request.urlopen(sys.argv[1],timeout=10).status)" <url>`
+(not `curl`: in PowerShell it is an alias of `Invoke-WebRequest`, which rejects `-s`). Every plan
+carries `## Rollback`. Schema work is forward-only unless the rollback is written down.
 
 ### 0.8 Plan-file contract
 
@@ -215,23 +119,18 @@ At L3+ the emitted spec/plan MUST contain, in addition to the superpowers sectio
 | `## Destination` | 0.0 | this chain — the plan's own exit condition; every task orients to it |
 | `## Not yet specified` | 0.0 / 0.1 | this chain — the plan's declared edge |
 | `## Out of scope` | 0.0 (+ issue mode `CUT`/`DEFER`) | the L4+ handoff string's `OUT OF SCOPE` block (FF-6) |
-| `## Execution graph` | 2.5 | `/implement` wave grouping; `graph-powers:ultra-build` disjoint-file waves |
+| `## Execution graph` | 2.5 | `/implement` dispatch order; `graph-powers:ultra-build` ownership waves |
 
 The first three are read **verbatim** by `/verify` § 3 — a plan without them degrades `/verify` to a
-generic gate run. The last three are planning-side: `/verify` does not read them, and the plan is what
-carries them forward.
+generic gate run. **One plan is one directory**
+(`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`): `${paths.planDir}/<date>-<slug>/`
+holding `PLAN.md`, `spec.md`, and the phase gates inside the plan. The task grammar those phases use
+— `Owns` / `Needs` / `CHECK` / `EXPECT` / `EVIDENCE` — is
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-b-writing-plans.md § Step 1`.
 
-Two contract rules from `wayfinding.md`, both about keeping the plan loadable:
-
-- **`## Not yet specified` may be empty, but then say so** — "no fog: the path to the destination is
-  closed". An absent section and a closed path are different claims. A `TBD` inside a task is still a defect;
-  the fog section is where an honest unknown goes instead.
-- **Index, not store.** A decision lives in exactly one artifact (spec, ADR, or the task itself). Everywhere
-  else gists it in one line and links, referring to it **by name** — `#4 / T2.3` alone is illegible.
-
-**L1-L2 exception:** direct edit skips the plan file, **not** this step. Do 0.0 (destination in one clause),
-0.2 (two greps) + 0.4 (consumer grep) inline and state the ledger verdict in one line before editing. Most "it worked before" incidents
-come from edits that felt too small to check.
+**L1-L2 exception:** a direct edit skips the plan file, **not** this step. Do 0.0 (destination in one
+clause), 0.2 (two greps) and 0.4 (consumer grep) inline, and state the ledger verdict in one line
+before editing. Most "it worked before" incidents come from edits that felt too small to check.
 
 ---
 
@@ -302,11 +201,11 @@ is produced either way; only the engine differs. The same rule governs `ultra-bu
 ## Step 2.5 — Emit the execution graph (L3+; the plan is a DAG, not a list)
 
 A numbered task list hides its own parallelism. Two tasks printed one after the other look sequential
-whether or not the second one ever reads the first one's output, and that appearance is what turns free
-parallelism into wasted wall-clock — and, worse, what hides a dependency pointing the wrong way. So the
-plan states the graph explicitly, and states it as a claim that can be checked.
+whether or not the second ever reads the first one's output — and that appearance is what turns free
+parallelism into wasted wall-clock, and what hides a dependency pointing the wrong way. So the plan
+states the graph, and states it as a claim that can be checked.
 
-Emit a `## Execution graph` section with three parts.
+`## Execution graph` has three parts.
 
 **1. The DAG.** Nodes are tasks, edges are dependencies, and the drawing shows what runs together:
 
@@ -314,45 +213,44 @@ Emit a `## Execution graph` section with three parts.
 [A ‖ B ‖ C] ──→ D ──→ [E ‖ F] ──→ ⟨GATE⟩ ──→ G
 ```
 
-**2. The edge test — one row per edge, no exceptions.** An arrow is real only when the destination task
-**reads the source task's output**. Name what it reads; "it feels like it comes after" is not a dependency:
+**2. The edge test — one row per edge, no exceptions.** An arrow is real only when the destination
+**reads the source's output**, and the row names what it reads. "It feels like it comes after" is not
+a dependency:
 
-| Edge | What B reads from A | Verdict |
+| Edge | What the destination reads | Verdict |
 |---|---|---|
 | A → D | the schema A creates; D imports the type | REAL |
 | A → B | nothing | **FALSE — deleted, A ‖ B** |
 
-Every arrow deleted here is parallelism the plan just gained. Every arrow kept is a barrier the plan can
-now defend. If you cannot name what the destination reads, the edge is false — delete it and say so.
+Every arrow deleted here is parallelism the plan just gained; every arrow kept is a barrier it can
+defend. This is the same payload rule the task grammar applies to `Needs:`
+(`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-b-writing-plans.md § Step 1`), and it is
+what `/implement` and `graph-powers:ultra-build` schedule on: a task starts when its `Needs` are
+verified, not when its wave ends.
 
-**3. The stop rule, applied per fan-out.** Splitting work that is genuinely sequential does not merely
-fail to help; it costs, because each node re-derives context the previous one already had and no node
-sees the whole chain. So each `‖` in the drawing carries one line of justification:
+**3. The stop rule, one line per `‖`.** Splitting genuinely sequential work does not merely fail to
+help — each node re-derives context the previous one had, and none sees the whole chain. So each
+fan-out justifies itself, and **the refusal is a valid, expected output**:
 
-> `[A ‖ B ‖ C]` — none reads a sibling's output: A inventories the codebase, B checks the external docs, C maps
-> consumers. Real fan-out.
+> `[A ‖ B ‖ C]` — none reads a sibling's output: A inventories the codebase, B checks the external
+> docs, C maps consumers. Real fan-out.
+>
+> No fan-out: `data → service → router → client` is a chain — each layer reads the previous one's
+> contract. One owner, four steps.
 
-And the refusal is a valid, expected output. **A plan whose tasks form one chain says so and keeps one
-owner:**
+Three rules keep the graph honest:
 
-> No fan-out: `data → service → router → client` is a chain — each layer reads the previous one's contract.
-> Splitting here loses more in rebuilt context than it gains in parallelism. One agent, four steps.
+- **One writer per file** (`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`):
+  tasks in one `‖` group own disjoint paths, declared per task as `Owns:`.
+- **⟨GATE⟩ only on irreversible edges** — a migration, `git push`, a deploy, and any write that
+  leaves the system (a payment, a message to a user, a third-party mutation). A gate on a reversible
+  edit buys nothing and spends the one thing the human chain is short of; `git revert` is the undo
+  everywhere else.
+- **Verification nodes never write.** They report, and the plan names which node owns the merge.
 
-Three rules that keep the graph honest:
-
-- **One writer per file, per wave.** Two tasks in the same `‖` group must own disjoint file sets. This is
-  also enforced downstream — `workflows/ultra-build.js` re-slices a wave that violates it —
-  but a plan that needs the re-slice was drawn wrong.
-- **⟨GATE⟩ only on the irreversible edges**: SQL migration, `git push`, deploy, and writes that leave the
-  system — payments, messages to users, any third-party mutation. A gate on a reversible edit buys nothing and spends the one thing the human
-  chain is short on. `git revert` is the undo everywhere else.
-- **Verification nodes never write.** They report; the merge has a single owner. That is structural after
-  the frontmatter closure — `graph-powers:evaluator`, `graph-powers:explorer`, `graph-powers:librarian` and `graph-powers:ui-ux-designer` resolve without
-  `Write`/`Edit` — but the plan still says which node owns the merge.
-
-At **L4+** this section is what `graph-powers:ultra-plan` turns into `[SEQUENTIAL]`/`[PARALLEL-SAFE]`
-wave grouping; emit it in the `args` string alongside the Step 0 blocks. At **L3** it is three lines inline.
-At **L1-L2** there is no graph: one node, one edge to itself — say that and edit.
+At **L4+** this section is what `graph-powers:ultra-plan` turns into phases and `Needs` edges; emit
+it in the `args` string alongside the Step 0 blocks. At **L3** it is three lines inline. At
+**L1-L2** there is no graph: one node, one edge to itself — say so and edit.
 
 ## Step 3 — Post-return verification (L4+ — checks 1-6 are issue mode, FF-8a-d are every return)
 

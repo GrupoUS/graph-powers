@@ -1,6 +1,7 @@
 ---
 name: uxmaster
-description: Use when designing, reviewing, or improving any product UI/UX or growth surface — landing pages, hero, CTA, copy, onboarding and activation, forms, empty states, navigation, pricing tables, trials, retention and churn, positioning/ICP, or conversion-rate optimization. Trigger on phrases like improve conversion, landing page, onboarding flow, pricing, reduce churn, UX review, design this screen, why aren't users converting, activation, aha moment, increase retention, a/b test, dark pattern check, information hierarchy, cognitive load, accessibility, empty state, microcopy. Also trigger for named behavioral levers (smart defaults, anchoring, decoy effect, loss aversion, goal gradient, social proof, Zeigarnik, peak-end) even when the user names the tactic rather than the goal. Not for gambling, betting, or casino products.
+description: "UX direction and conversion: information hierarchy, cognitive load, onboarding and activation, pricing, retention, microcopy, and the named behavioural levers (anchoring, loss aversion, social proof, goal gradient). Loaded by /design for the direction pass. Not for gambling or betting products."
+
 ---
 
 # UX Master

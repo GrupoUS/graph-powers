@@ -5,9 +5,9 @@ byte with their headings, so a citation of `§ 7` still lands on the same words 
 `070-parallel-agent-spawn.md`.
 
 The split happened because of a number. Every command opened by loading this file whole, all 22 KB
-of it, before doing anything; `/plan` used one section, and `/delegate` and `/recover` used
-essentially none. Each command now names only the fragments it reads, and the twelve of them
-together load 45 % less on every invocation — `python3 .github/check_context_budget.py --compare`,
+of it, before doing anything; `/plan` used one section, and the delegation command of the day used
+essentially none. Each
+command now names only the fragments it reads, and together they load 45 % less on every invocation — `python3 .github/check_context_budget.py --compare`,
 measured against a worktree of the pre-split tree with the same script.
 
 | § | under `${CLAUDE_PLUGIN_ROOT}/references/shared/` | Carries |
@@ -20,6 +20,7 @@ measured against a worktree of the pre-split tree with the same script.
 | 2 | `020-complexity-routing.md` | L1-L6, and the execution mode each one implies |
 | 3 | `030-agent-assignment-matrix.md` | task to agent, and which ones run in the background |
 | 4 | `040-wisc-context-load.md` | how much context `/prime` loads at each tier |
+| 4.5 | `045-context-staging.md` | how far into that tier to go, per domain, and when to stop |
 | 5 | `050-tool-usage.md` | which tool for which job, and when not to reach for one |
 | 6 | `060-skill-domain-matrix.md` | domain signal to the skill that owns it |
 | 7 | `070-parallel-agent-spawn.md` | one message, background by default, and the wave width |
@@ -29,6 +30,7 @@ measured against a worktree of the pre-split tree with the same script.
 | 11 | `110-guardrails-index.md` | each guardrail and the rule file that states it |
 | 11.5 | `115-code-graph.md` | the code-graph contract, its cookbook and its `[HARD]` limits |
 | 12 | `120-skill-invocation-order.md` | meta, then method, then harness, then domain |
+| 13 | `130-workflow-authoring.md` | writing a workflow script by hand, and checking it before it runs |
 
 ## Two rules that survive the split
 
@@ -44,5 +46,5 @@ to a header is a claim that the command acts on it; if it does not, the line is 
 
 Nothing inside the plugin cites `shared-context.md § N` any more. The path stays live because
 things outside it do: `codex/install.mjs` writes it into the generated `AGENTS.md`, the
-harness-audit skill reads it, and installed copies of older versions point here. An index is what
+installed copies of older versions point here. An index is what
 they should find — not a 22 KB file, and not a 404.

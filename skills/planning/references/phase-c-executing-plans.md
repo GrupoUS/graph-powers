@@ -1,177 +1,166 @@
 # Phase C — Executing-plans
 
 > Sequential guide for the third phase of the planning chain.
-> **Direct-invokes `superpowers:subagent-driven-development` as the engine** (doctrine: fresh subagent per task + two-stage review + continuous execution), executed through this plugin's `/implement` orchestrator. For inline/batch execution, the engine is `superpowers:executing-plans` instead.
-> The subagent prompt templates (implementer / spec-reviewer / code-quality) are inlined in the § Subagent prompt templates appendix below.
+> **Direct-invokes `superpowers:subagent-driven-development` as the engine** — fresh subagent per
+> task, two-stage review, continuous execution — executed through this plugin's `/implement`.
+> For inline execution the engine is `superpowers:executing-plans` instead.
 
 ---
 
 ## Entry contract
 
-- Phase B complete. Plan at `${paths.planDir}/<file>`, GATE-2-approved + user-approved.
-- Task tier is **L5+** (L4 stops at Phase B with plan ready; user invokes `/implement` manually).
-- Branch is `${git.workBranch}`. **NEVER work on a protected branch.**
+- Phase B complete. `<plan dir>/PLAN.md` GATE-2-approved and user-approved.
+- Tier **L5+** (at L4 the plan is the deliverable; the user invokes `/implement` when ready).
+- Branch is `${git.workBranch}`. **Never a protected branch.**
 
 ## Exit contract
 
-- All plan tasks verified in the working tree with PASS from both reviewers.
-- `/verify quick` PASS. `/evolve auto` ran. `.graph-powers/logs/progress.md` has a new row.
-- Stop at "reviewed working tree ready". Git actions remain separate and require explicit authorization in the current turn. **NEVER auto-merge.**
-
----
+- Every task verified with evidence, every phase gate met, `/verify quick` PASS, `/evolve auto` run.
+- Stop at "reviewed working tree ready". Git actions stay separate and need current-turn
+  authorization. **Never auto-merge.**
 
 ## Loop contract
 
-> Phase C is a goal-gated loop, run per task. Model: `references/loop-engineering.md`.
+> Model and guards: `references/loop-engineering.md`.
 
-- **trigger:** Phase B complete (plan GATE-2-approved + user-approved), tier L5+, branch `${git.workBranch}`.
-- **goal (binary):** *per task* — implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** working-tree checkpoint recorded; *overall* — all tasks done **AND** `/verify quick` PASS **AND** `/evolve auto` done.
-- **body:** implementer (2a) → GATE A spec review (2b) → GATE B quality review (2c) → working-tree checkpoint (2d). `/verify quick` (Step 5) is the closing verifiable check across the whole plan.
-- **guards:** HARD-STOP 3 retries per task → escalate · COST-GUARD spawn cap 5 per `/implement` batch · CTX-GUARD reset > ~80K (`loop-engineering.md § Context Reset Protocol`) · seq-think gate before the 3rd retry (Step 4.5).
-- **terminal:** overall goal PASS → "reviewed working tree ready", stop. Any guard trips → escalate. Stage, commit, push, PR, and merge require separate user authorization. **Never auto-merge.**
+- **trigger:** plan approved, tier L5+, branch `${git.workBranch}`.
+- **goal (binary):** *per task* — implementer PASS **AND** GATE A PASS **AND** GATE B PASS **AND**
+  its `EVIDENCE` line carries real output; *per phase* — every gate box checked with evidence;
+  *overall* — `/verify quick` PASS and `/evolve auto` done.
+- **terminal:** overall goal PASS → "reviewed working tree ready", stop. Any guard trips → escalate.
 
 ---
 
-## Step 1 — Invoke engine + /implement
+## Step 1 — Invoke the engine, then `/implement`
 
-**Invoke `Skill("superpowers:subagent-driven-development")`** first (loads the doctrine: read plan once, per-task implementer → spec review → quality review, continuous execution). Then drive it through `/implement`:
+**`Skill("superpowers:subagent-driven-development")`** first — it loads the doctrine (read the plan
+once, per-task implementer → spec review → quality review, no inter-task pause). Then:
 
 ```
-/implement ${paths.planDir}/<file>
+/implement <plan dir>
 ```
 
-`/implement` already parses `[SEQUENTIAL]` / `[PARALLEL-SAFE]` markers and the per-task `Agent:` + `Skill load:` fields written in Phase B. The plan format from `phase-b-writing-plans.md` is exactly its expected input. The engine supplies the *why* (two-stage review order, no inter-task pause); `/implement` + the steps below supply the *how* (which agents, branch policy, `/verify`, `/evolve`). Phase C's role from here is **enforcement**.
+`/implement` parses the checkbox tasks and their `Owns` / `Needs` / `CHECK` fields, and the
+`[SEQUENTIAL]` / `[PARALLEL-SAFE]` phase markers. The Phase B format is exactly its expected input.
+The engine supplies the *why*; `/implement` and the steps below supply the *how*.
 
-## Step 2 — Per-task subagent driver
+## Step 2 — Rolling dispatch
 
-For every task in plan order (respecting `[SEQUENTIAL]` / `[PARALLEL-SAFE]` markers):
+One rule replaces the old three-barrier protocol, and it is what makes a plan of disjoint tasks run
+in the time of its longest chain rather than the sum of its waves:
 
-### 2a — Implementer dispatch (fresh subagent, foreground, write-capable)
+> **Dispatch every task whose `Needs` are verified and whose `Owns` collide with nothing in flight**,
+> up to `graphGuardrails.maxParallelWave`. **When a task returns, review it immediately** — GATE A,
+> then GATE B — and **its verification releases whatever it unblocked.** Never wait for a sibling
+> that this task does not read.
+
+Waiting for a whole wave before reviewing anything is the failure this replaces: the slowest task in
+a wave delayed every review in it, though the reviews were independent.
+
+### 2a — Implementer (fresh subagent, foreground, write-capable)
 
 ```ts
 Agent({
-  subagent_type: <Agent: field from task>,
-  prompt: <filled § Subagent prompt templates → Implementer — paste task block + scene context>,
+  subagent_type: <the task's Agent lane, prefixed graph-powers:>,
+  prompt: <§ Subagent prompt templates → Implementer, with the task block pasted verbatim>,
 })
 ```
 
-- Subagent does NOT read the plan file — only its task block.
-- Subagent returns PASS / FAIL / BLOCKED per the Implementer return contract.
+The subagent reads its own task block and nothing else — not the plan, not a sibling's output.
 
-### 2b — GATE A — spec-compliance reviewer (fresh subagent, foreground). Run ONLY if 2a returned PASS.
+### 2b — GATE A — spec compliance (fresh, read-only). Only if 2a returned PASS.
 
-```ts
-Agent({
-  subagent_type: "graph-powers:evaluator",
-  prompt: <filled § Subagent prompt templates → Spec reviewer — paste spec excerpt + implementer's diff>,
-})
-```
+PASS → 2c. FAIL → append the gaps to the task block under `## Reviewer feedback` and re-dispatch 2a
+(max 3 retries per task across both gates). BLOCKED → halt that task, escalate; siblings continue.
 
-- PASS → 2c. FAIL → append "Missing items" to the task block under `## Reviewer feedback`, re-dispatch 2a (max 3 retries per task across both gates). BLOCKED → halt, escalate.
+### 2c — GATE B — code quality (fresh, read-only). Only if 2b returned PASS.
 
-### 2c — GATE B — code-quality reviewer (fresh subagent, foreground). Run ONLY if 2b returned PASS.
+Nits are FYI and never trigger a re-dispatch; only a cited rule or anti-pattern does. PASS → 2d.
 
-```ts
-Agent({
-  subagent_type: "graph-powers:evaluator",
-  prompt: <filled § Subagent prompt templates → Code-quality reviewer — paste implementer's diff>,
-})
-```
+### 2d — Close the task
 
-- Nits are FYI only, do NOT re-dispatch. Only rule/anti-pattern citations trigger re-dispatch.
-- PASS → 2d. FAIL → append violations, re-dispatch 2a (counter shared with 2b). 3rd FAIL → escalate, do not auto-retry.
+Run the task's own `CHECK`, paste the deciding output into its `EVIDENCE:` line, and check the box.
+**A checked box with `EVIDENCE: pending` is unmet** — the box is a claim and the evidence is the
+proof. Record changed paths, the base `HEAD` and the suggested conventional-commit subject; confirm
+nothing outside `Owns` changed; leave everything unstaged. Then dispatch what this task unblocked.
 
-### 2d — Working-tree checkpoint
+If a check turns out to be impossible, do not delete it: add `ABANDON: <task id> <reason>` and
+surface it in the report. Visible surrender is honest; silent scope-narrowing is not.
 
-Both reviewers PASS → record changed paths, validation evidence, the current base `HEAD`, and the suggested conventional-commit subject. Confirm no files outside the task scope changed, leave all changes unstaged, and proceed to the next task. Never stage or commit without explicit authorization in the current turn.
+## Step 3 — Continuous execution
 
-## Step 3 — Continuous execution (no inter-task pause)
+Per the engine: *"Do not pause to check in between tasks. Execute all tasks without stopping. Only
+stop on: BLOCKED you cannot resolve, ambiguity that prevents progress, or all tasks complete."*
+Surface progress as status, not as an approval request.
 
-Per superpowers' subagent-driven rule: *"Do not pause to check in between tasks. Execute all tasks without stopping. Only stop on: BLOCKED you cannot resolve, ambiguity that prevents progress, or all tasks complete."* Surface progress in status updates, not approval requests.
+## Step 4 — The phase gate, once per phase
 
-## Step 4 — Parallel batch dispatch (inside `[PARALLEL-SAFE]` phases)
+When every task in a phase is verified, work that phase's gate block. It holds the checks that are
+about the tree rather than one task — the repository-wide type-check and lint, "nothing outside the
+phase's `Owns` sets changed", and "the interfaces the next phase `Needs` exist and match".
 
-1. **Count tasks.** > 5 → split into two batches.
-2. **Single message, multiple Agent calls.** All implementer dispatches fire in one assistant turn.
-3. **Wait for all returns** before starting any GATE A/B.
-4. **Integration check on merged diffs:** the project's `tooling.commands.typeCheck` then `tooling.commands.lint`, run from the repository root. Cross-task failures → resolve sequentially in a new SEQUENTIAL task, do NOT re-dispatch the batch.
-5. **Run GATE A + B per task** (not per batch).
-6. **On any task FAIL → re-dispatch only that one task.**
+**These commands run here and nowhere else.** A task that runs the whole project's type-check to
+prove one local claim pays for the whole project, once per task. Cross-task failures are resolved in
+a new sequential task; never by re-dispatching the batch.
 
 ## Step 4.5 — Reasoning gate before escalation (L5+)
 
-When a task fails its **2nd** retry, invoke `mcp__sequential-thinking__sequentialthinking` to decompose the error surface (root cause, why prior fixes missed, candidate paths) **before** the 3rd attempt or `/debug recover`. Prevents a blind 3rd retry burning the spawn cap.
+When a task fails its **2nd** retry, invoke `mcp__sequential-thinking__sequentialthinking` to
+decompose the error surface — root cause, why the earlier fixes missed, candidate paths — **before**
+the 3rd attempt or `/debug recover`. It prevents a blind third retry burning the spawn cap.
 
 ## Step 5 — Post-execution gate
 
-After every plan task PASS, run `/verify quick`. The gate commands are the ones the project
-declared in `tooling.commands` — type check, lint, format on the touched files, then tests. A gate
-the project did not declare is reported as `NOT DECLARED`, never as passing.
+Every phase gate met → `/verify quick`. The gate commands are the ones the project declared in
+`tooling.commands`; one it did not declare is reported `NOT DECLARED`, never as passing. Plus the
+negative checks in `${rulesDir}/`, and a browser flow per `Skill("webapp-testing")` if UI changed and
+the project has a staging URL.
 
-Plus the negative checks the project's rules define (`${rulesDir}/`) — things like "no hardcoded
-colour outside tokens", "no stray debug logging", "no CRLF", "no foreign key without an index". If
-UI changed and the project has a staging URL → browser E2E per `Skill("webapp-testing")`.
+## Step 6 — `/evolve auto`
 
-## Step 6 — Auto /evolve
+On `/verify quick` PASS: captures learnings, may append a row to `.graph-powers/logs/progress.md`
+with the base `HEAD` and working-tree status. It stages and commits nothing.
 
-On `/verify quick` PASS, run `/evolve auto`: captures learnings · updates `${CLAUDE_PLUGIN_ROOT}/skills/<relevant>` if patterns crystallized · may append a row to `.graph-powers/logs/progress.md` with the base `HEAD` plus working-tree status. `/evolve auto` must not stage or commit changes without explicit authorization in the current turn.
-
-## Step 7 — Branch finalization message
+## Step 7 — Closing message
 
 ```
 Phase C complete.
-- All plan tasks reviewed in the working tree
-- /verify quick PASS
-- /evolve auto done; progress.md updated
-- Base HEAD: <SHA>
-- Suggested commit subject: <subject>
-- Working tree ready for user review. Stage/commit/push/PR/merge require separate authorization.
+- Every task verified with evidence; every phase gate met
+- /verify quick PASS · /evolve auto done
+- Base HEAD: <SHA> · Suggested commit subject: <subject>
+- Working tree ready for review. Stage/commit/push/PR/merge need separate authorization.
 ```
 
-**STOP.** Do not push, do not open PR, do not merge.
+**STOP.** Do not push, do not open a PR, do not merge.
 
 ---
 
-## Stopping conditions
+## Stopping conditions — phase-unique rows
+
+The shared table is `../SKILL.md § Stopping & red flags`; these are the rows that only apply here.
 
 | Condition | Action |
 |---|---|
-| 3 reviewer rejections on same task | Escalate to user, halt plan |
-| 5 spawn cap hit mid-phase | Checkpoint with user before 6th |
-| BLOCKED from implementer or reviewer | Halt task, escalate, do not retry |
-| `/verify quick` FAIL after task PASS | Halt, investigate (likely cross-task interaction); do NOT auto-fix in `/implement` loop |
-| Parallel batch returns mixed PASS/FAIL | Integrate PASS diffs, re-dispatch FAIL only |
-| Same hypothesis fails 3× | Escalate to `graph-powers:evaluator` Mode 3 |
-| User typed "stop" or "wait" | Halt immediately, do not finish current task |
-
-## Parallel dispatch contract (single-message rule)
-
-ALL implementer Agent calls in ONE message → then ALL GATE A reviewers in ONE message (after all implementers return) → then ALL GATE B reviewers in ONE message (after all GATE A PASS). Never interleave dispatch + collection.
-
-## Anti-patterns
-
-| Bad | Good |
-|---|---|
-| Pause between tasks for user approval | Continuous execution; only stop on BLOCKED |
-| Run GATE B before GATE A | Spec compliance FIRST. Code quality on a spec-failing diff wastes tokens. |
-| Re-dispatch entire parallel batch on one task FAIL | Re-dispatch only the failed task |
-| Any stage/commit/push without current-turn approval | STOP at reviewed working-tree changes. User decides Git actions. |
-| `gh pr merge --auto` | NEVER. Branch policy. |
-| Skip `/evolve` after success | Mandatory — Cardinal Rule #4 |
-| Use `--no-verify` to bypass hooks | NEVER. Fix root cause, restart from gate 1. |
+| `/verify quick` FAILs after every task passed | Halt — this is a cross-task interaction. Do not auto-fix inside the `/implement` loop |
+| A task's `Owns` set turns out to be wrong mid-flight | Halt that task, fix the plan, re-dispatch. Never let a subagent widen its own ownership |
+| A task returns PASS but its `CHECK` fails when re-run | Treat as FAIL and re-dispatch. Self-report never outranks the command |
 
 ---
 
 ## Subagent prompt templates
 
-> Fill `{{...}}` placeholders per dispatch. Shared contract first, then one block per gate. All three return < 2000 tokens; detail to `.claude/agent-memory/<agent>/` if large.
+> Fill `{{...}}` per dispatch. Shared contract first, then one block per gate. All three return
+> < 2000 tokens; longer detail goes to `.claude/agent-memory/<agent>/`.
 
 ### Shared dispatch contract
 
 - **One task = one fresh subagent.** No context carry-over between tasks.
-- **Subagents receive pasted content, not file paths** — paste the task block / spec excerpt / diff inline; do not assume the subagent reads files (except the implementer, which reads its own `Files touched`).
-- **Gate order:** implementer (write-capable, foreground) → spec reviewer (read-only) → code-quality reviewer (read-only). Code-quality runs ONLY after spec PASS.
-- **Re-dispatch:** FAIL with feedback → append to the task block under `## Reviewer feedback`, re-dispatch implementer. **Max 3 retries per task across both gates.** BLOCKED → halt, escalate.
+- **Subagents receive pasted content, not file paths** — the task block, the spec excerpt, the diff.
+  The implementer is the exception: it reads the files in its own `Owns`.
+- **Gate order:** implementer (write-capable) → spec reviewer (read-only) → quality reviewer
+  (read-only). Quality runs only after spec PASS.
+- **Re-dispatch:** FAIL with feedback appended under `## Reviewer feedback`. Max 3 retries per task
+  across both gates. BLOCKED → halt that task and escalate.
 
 ### Implementer (write-capable)
 
@@ -180,90 +169,93 @@ You are an implementer subagent for `${project.name}`.
 
 ## Scene context (read once, do not re-derive)
 
-Fill these from the project config before dispatching — a subagent inherits nothing, so anything
-left as a placeholder here is a fact the implementer will invent.
+Fill these from the project config before dispatching — a subagent inherits nothing, so a
+placeholder left here is a fact the implementer will invent.
 
-- Repo: `${project.name}`. Working branch: `${git.workBranch}` (never a protected branch; never push; never auto-merge).
-- Stack: `${project.stack}`. Package manager: `${tooling.packageManager}` — and no other.
+- Repo: `${project.name}`. Branch: `${git.workBranch}` — never a protected branch, never push, never merge.
+- Stack: `${project.stack}`. Package manager: `${tooling.packageManager}`, and no other.
 - Tests: `${tooling.commands.test}`. Type check: `${tooling.commands.typeCheck}`. Never substitute a different tool.
-- Line endings: LF only. Before handoff: `${tooling.commands.format}` on every edited file.
-- The project's own invariants from `${rulesDir}/` that match the touched paths.
+- Line endings: LF only. Before handoff: `${tooling.commands.format}` on every file you edited.
+- The project's non-negotiables: `${chain.hardRules}` and `${chain.invariants}`, plus whatever in
+  `${rulesDir}/` matches the paths you own. These are the project's, declared in its config — this
+  prompt does not carry a list of its own.
 
 ## Your task
-{{task block from plan — verbatim: title, acceptance, Files touched (full paths), numbered Steps, Skill loads, Estimated time}}
+{{the task block from the plan, verbatim: title, Owns, Needs, CHECK, EXPECT, Steps}}
 
 ## What you MUST do
-1. Read each file in "Files touched" before editing.
-2. Follow the steps in order; do not skip TDD steps (failing test → RED → implement → GREEN).
-3. Run `${tooling.commands.format}` on every file you edit before declaring done.
-4. Record the suggested conventional-commit subject from your task block; leave all files unstaged.
+1. Read every file in `Owns` before editing it.
+2. Follow the Steps in order; do not skip the TDD ones (failing test → RED → implement → GREEN).
+3. Run your task's `CHECK` and report its output verbatim — that output becomes the plan's EVIDENCE.
+4. Run `${tooling.commands.format}` on every file you edited. Leave everything unstaged.
 5. Return the structured report below.
 
 ## What you MUST NOT do
-- Read the plan file or other task blocks (your work is self-contained).
-- Edit files outside "Files touched" (need to → STOP, return BLOCKED).
-- Skip the format/type-check/lint gates. Stage, commit, push, open PRs, or merge.
-- Use `--no-verify` or `git commit --amend`. Introduce hardcoded hex, console.log, or `as any`.
+- Read the plan file or another task's block. Your work is self-contained.
+- Write any path outside `Owns` — if you need one, STOP and return BLOCKED.
+- Run the whole project's type-check or lint. That is the phase gate's job, not yours.
+- Stage, commit, push, open a PR, merge, use `--no-verify`, or `git commit --amend`.
 
 ## Return contract (< 2000 tokens)
 ### Status        PASS | FAIL | BLOCKED
-### Changed paths  - path/to/file …
-### Validation evidence  - type-check: <result> · lint: <result> · test (scoped): <result> · format: <result>
-### Git state      base HEAD <short SHA> · suggested subject <conventional-commit subject> · unstaged YES/NO
-### Summary        2-5 sentences: what you did + why the acceptance criterion is met.
-### Next           (empty if complete; populate only if BLOCKED — what's blocking)
+### Changed paths - <path> …            (must be a subset of Owns)
+### CHECK output  <the deciding lines, verbatim — this is the evidence>
+### Git state     base HEAD <short SHA> · suggested subject <conventional-commit subject> · unstaged YES/NO
+### Summary       2-5 sentences: what you did, and why EXPECT now matches.
+### Next          (empty unless BLOCKED — then what is blocking)
 ```
 
 ### Spec reviewer (read-only — GATE A)
 
 ```
-You are a spec-compliance reviewer for `${project.name}`. Verify the diff fulfills the spec excerpt — nothing else.
-You are NOT reviewing code quality, style, naming, comments, or test design.
+You are a spec-compliance reviewer for `${project.name}`. Verify the diff fulfills the task block —
+nothing else. You are NOT reviewing code quality, style, naming, comments or test design.
 
-## Spec excerpt            {{paste exact spec section + acceptance criterion}}
-## Implementer's diff      {{paste full diff}}
-## Claimed validation      {{paste implementer's Validation evidence + Git state + Summary}}
+## Task block           {{paste the task block, including CHECK and EXPECT}}
+## Implementer's diff   {{paste the full diff}}
+## Claimed evidence     {{paste the implementer's CHECK output + Git state + Summary}}
 
 ## What to check
-1. Acceptance criterion met — exactly what it specifies, no more, no less.
-2. Files touched match the spec (no surprise files).
-3. No scope creep (no "while I was here" refactors / extra features / unscoped fixes).
-4. No silent omissions — every sub-item of the criterion appears in the diff.
-5. Validation actually proves the criterion (type-check passing alone is not enough — need test/probe/schema evidence).
+1. `EXPECT` genuinely matches the reported `CHECK` output — and that output could not appear on failure.
+2. Changed paths are a subset of `Owns`. A surprise file is a FAIL, not a nit.
+3. No scope creep: no "while I was here" refactor, no extra feature, no unscoped fix.
+4. No silent omission — every sub-item of the task appears in the diff.
+5. The evidence proves the criterion. A passing type-check alone proves nothing about behaviour.
 
 ## Return contract (< 1000 tokens)
-### Verdict                 PASS | FAIL | BLOCKED
-### Acceptance criterion    Criterion: <restate> · Met? YES/NO/PARTIAL · Evidence: <diff lines / test result>
-### Scope-creep check       PASS / FAIL — <name out-of-scope changes if FAIL>
-### Missing items (if FAIL) - <gap the spec asked for that the diff doesn't deliver>
-### Recommendation          PASS → "Proceed to code-quality reviewer." · FAIL → "Re-dispatch implementer with gaps as `## Reviewer feedback`." · BLOCKED → describe blocker.
+### Verdict            PASS | FAIL | BLOCKED
+### Criterion          <restate EXPECT> · Met? YES/NO/PARTIAL · Evidence: <diff lines / output>
+### Ownership check    PASS / FAIL — <name any path outside Owns>
+### Missing items      - <what the task asked for that the diff does not deliver>
+### Recommendation     PASS → "Proceed to the quality reviewer." · FAIL → "Re-dispatch with these gaps." · BLOCKED → describe it.
 ```
 
 ### Code-quality reviewer (read-only — GATE B)
 
 ```
-You are a code-quality reviewer for `${project.name}`. The diff already passed spec compliance — do NOT re-check the spec.
-Catch maintainability, project conventions, security, testability, anti-patterns.
+You are a code-quality reviewer for `${project.name}`. The diff already passed spec compliance — do
+NOT re-check the task. Catch maintainability, project conventions, security and testability.
 
-## Project rules to enforce (each violation = FAIL)
-1. No hardcoded hex in UI (semantic tokens only).   2. No `console.log` in production paths.
-3. No `as any` in new code (use `unknown` + narrow). 4. No CRLF (LF only).
-5. FK index for every new FK column (same migration). 6. Shared logger only (no bare `console.*` in services).
-7. Validation schemas at module level, not inside handlers. 8. New routers registered in the entry index.
-9. Webhooks idempotent (upsert / idempotency-key).    10. Webhook handlers fire-and-forget external calls (`void dispatchX(...)` after DB writes, never await inline).
-11. No `--no-verify`, stage, commit, or push.           12. Suggested conventional-commit scope matches changed paths.
+## The project's non-negotiables (each violation = FAIL)
+{{paste ${chain.hardRules} and ${chain.invariants} from the project config, plus the rules in
+${rulesDir}/ that match the touched paths. If the project declared none, say so and review on the
+general criteria below only — do not invent conventions it never adopted.}}
 
-## Implementer's diff      {{paste full diff}}
+## Implementer's diff   {{paste the full diff}}
 
 ## Also check
-- Anti-patterns from `Skill("debugger") → ../../debugger/references/anti-patterns.md` if relevant to touched files.
-- Test design (tests exist + exercise the criterion, not mocked away). Error handling at boundaries. Self-descriptive naming, reasonable function size, no premature abstraction. Comments only for non-obvious WHY. No backwards-compat shims. Security boundaries (no SQLi/XSS/command injection; auth scope correct).
+- Anti-patterns from `Skill("debugger")` → `../../debugger/references/anti-patterns.md`, where they
+  match the touched files.
+- Test design: tests exist and exercise the criterion rather than mocking it away.
+- Error handling at boundaries · self-descriptive naming · no premature abstraction · comments only
+  for a non-obvious WHY · no backwards-compatibility shim nobody asked for.
+- Security boundaries: injection, auth scope, secrets, data that crosses a tenant.
 
 ## Return contract (< 1500 tokens)
 ### Verdict             PASS | FAIL | BLOCKED
-### Rule check          - Rule N (<name>): PASS/FAIL — <evidence>   (list only rules the diff touches)
-### Anti-pattern check  PASS / FAIL — <name the anti-pattern if FAIL>
+### Rule check          - <rule>: PASS/FAIL — <evidence>   (only rules the diff touches)
+### Anti-pattern check  PASS / FAIL — <name it>
 ### Test design check   PASS / FAIL — <name the gap>
-### Nits (FYI only)     - <nit>   (never triggers re-dispatch alone)
-### Recommendation      PASS → "Working-tree checkpoint complete." · FAIL → "Re-dispatch implementer with violations as `## Reviewer feedback`." · BLOCKED → describe blocker.
+### Nits (FYI only)     - <nit>    (never triggers a re-dispatch on its own)
+### Recommendation      PASS → "Close the task." · FAIL → "Re-dispatch with these violations." · BLOCKED → describe it.
 ```

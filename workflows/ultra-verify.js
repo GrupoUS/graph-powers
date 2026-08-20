@@ -31,9 +31,7 @@ export const meta = {
 //     gate `maxRepatch` times (reported `blocked`, not looped to the round ceiling).
 //
 // Why the Simplify phase REPLICATES a simplify pass instead of calling a skill (do not "fix"):
-//   1. The `debugger` agent has no Skill tool (`agents/debugger.md` → tools: Read, Write, Edit,
-//      Bash, Glob, Grep), so `Skill()` is uncallable from inside it.
-//   2. A bundled `/simplify` fans out its own parallel agents — an inner call is exactly the
+//   1. A bundled `/simplify` fans out its own parallel agents — an inner call is exactly the
 //      re-fan-out the note above forbids. The prompt below mirrors its four angles.
 //
 // Model tiering: mechanical work (gates, regate, extract-reqs, scope) → 'haiku'. Judgment
@@ -174,9 +172,18 @@ const AGENT_ENUM = [
 
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boolean)
+// `build` is deliberately NOT in `gateList`: that list also drives REGATE, which runs after every
+// fix batch, and rebuilding per round is the most expensive thing this workflow could do. It runs
+// ONCE, in the opening gate pass, because a tree that type-checks can still fail to build — a
+// bundler resolution error, a missing asset, a plugin that only runs at build time. Before this it
+// was requested in CONFIG_SHAPE, named in the config prompt, and then consumed nowhere: a declared
+// gate that silently never ran, which is the exact failure the gate table exists to prevent.
+// A project wanting the build re-run per round declares it as a `chain.contractGates` entry instead.
+const openingGateList = [...gateList, commands.build].filter(Boolean)
 // Presented one per line, never chained: `;` is not a separator in cmd.exe, and a chained
 // line makes "capture each exit code" unanswerable even where the chain does work.
 const gateBlock = gateList.map((c) => `  - \`${c}\``).join('\n')
+const openingGateBlock = openingGateList.map((c) => `  - \`${c}\``).join('\n')
 const GIT_RAILS =
   'HARD RULES (no inherited config): never git commit/push/checkout/reset/stash. Leave changes in ' +
   'the working tree.' + projectRules +
@@ -198,10 +205,9 @@ const REQS = { type: 'object', required: ['requirements'], properties: {
   requirements: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, text: { type: 'string' }, agent: { type: 'string', enum: AGENT_ENUM } } } },
   verificationSteps: { type: 'array', items: { type: 'string' } },
 } }
-const SKEPTIC = { type: 'object', required: ['lens', 'satisfied'], properties: {
-  lens: { type: 'string' }, satisfied: { type: 'boolean' },
-  findings: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, agent: { type: 'string', enum: AGENT_ENUM } } } },
-} }
+// SKEPTIC is declared with the lens list in § "Adversarial verify", not here: its `lens` field is an
+// enum over the lenses this run actually dispatches, and that set is not known until the scope agent
+// has reported which surfaces the diff touched.
 const COMPLETENESS = { type: 'object', required: ['items'], properties: {
   items: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string' }, agent: { type: 'string', enum: AGENT_ENUM } } } },
   drift: { type: 'array', items: { type: 'string' } },
@@ -231,8 +237,8 @@ const deadCodeProbe = commands.deadCode
   : ''
 const [g0, scope] = await parallel([
   () => agent(
-    gateList.length
-      ? `Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${gateBlock}\nReport pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
+    openingGateList.length
+      ? `Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\nReport pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
       : `This project declares no gate commands in its config. Return allGreen:true with an empty gates list, and note in \`failing\` that no gate was declared. Read-only.`,
     { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: 'haiku' }
   ),
@@ -268,7 +274,7 @@ if (scope && (sc.changedFiles?.length ?? 0) === 0) {
     reason: 'The working tree is unchanged, so nothing in the plan was implemented. Verifying it would report every requirement missing, one expensive agent at a time.',
     gates: g?.allGreen ? 'green' : 'RED',
     gateDetail: g?.gates ?? [],
-    missing: [], openFindings: [], blocked: [], drift: [], scope: scopeOut(),
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
     next: 'Run the build for this plan first, or check whether the environment committed the changes out from under the diff.',
   }
 }
@@ -330,11 +336,38 @@ const reqs = await agent(
 const BUILTIN_LENSES = [
   { name: 'correctness', agent: 'evaluator', when: [] },
   { name: 'security-tenant-PII', agent: 'security-reviewer', when: [] },
-  { name: 'performance-regression', agent: 'performance-optimizer', when: [] },
+  // `explorer`, not `performance-optimizer`: a lens is a SKEPTIC and skeptics only report, while
+  // that specialist resolves with `Write` and `Edit` and no `disallowedTools`. Handing review work
+  // to a write-capable agent is the incident recorded in the debugging anti-pattern catalogue, and
+  // a prose "report only" is a request rather than a permission. The fixers below are a separate
+  // dispatch and stay write-capable, which is where that specialist belongs.
+  { name: 'performance-regression', agent: 'explorer', when: [] },
   paths.frontendRoot && { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
 ].filter(Boolean)
+// `chain.lenses[].agent` stays a free string on purpose — a project must be able to name its own
+// agent — but a free string that becomes a `subagent_type` and resolves to nothing spawns nothing,
+// and the lens then drops out of the panel with no trace. The pass-through is kept and the silence
+// is not: every lens reaching for an agent this plugin does not ship is named before the wave runs,
+// so a hallucinated or misspelt value in a config an agent transcribed is visible in the log rather
+// than in a verification that quietly checked one thing fewer than it reported.
 const ALL_LENSES = [...BUILTIN_LENSES, ...(cfg.lenses ?? [])]
+const foreignLenses = ALL_LENSES.filter((l) => l.agent && !PLUGIN_AGENTS.has(l.agent))
+if (foreignLenses.length) {
+  log(`lenses naming a non-plugin agent (must exist in this project, or the lens will not run): ${foreignLenses.map((l) => `${l.name}->${l.agent}`).join(', ')}`)
+}
 const lenses = ALL_LENSES.filter((l) => !l.when?.length || l.when.some((w) => touched[w]))
+
+// `lens` is the key the final confirm at the bottom of this file matches findings on, and a match
+// key an agent fills as free text is the same defect the comment above records for `agent`: whatever
+// the model writes becomes the key. A panel member that answered `lens: "correctness lens"` matched
+// no lens, the confirm re-ran nothing, and three open P0s were reported as VERIFIED. So the field is
+// an enum over exactly the lenses this run dispatches — the model cannot name one nothing knows.
+const LENS_ENUM = lenses.map((l) => l.name)
+const KNOWN_LENS = new Set(LENS_ENUM)
+const SKEPTIC = { type: 'object', required: ['lens', 'satisfied'], properties: {
+  lens: { type: 'string', enum: LENS_ENUM }, satisfied: { type: 'boolean' },
+  findings: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: AGENT_ENUM } } } },
+} }
 
 // Folded perf pass — only the performance-regression lens runs these, only for touched surfaces.
 const perfParts = []
@@ -353,14 +386,45 @@ const clauseFor = (l) => {
   return ''
 }
 
+// A skeptic that is free to widen the question is a loop with no floor: every fix it demands is a
+// new diff, and a new diff is a new panel. So the panel's mandate is bounded to the plan, and the
+// boundary is a field the fixer reads — `inScope: false` is reported and never spawns a fixer.
+const SCOPE_LOCK = `
+SCOPE — this decides whether a finding can start a fix round, so apply it literally.
+Set inScope: true ONLY when the finding is one of: (a) a defect this diff introduces, (b) a
+regression of a row in the plan's "## Regression watchlist", or (c) something that makes the plan's
+"## Destination" false. Everything else is inScope: false — a pre-existing issue the diff did not
+touch, a refactor you would prefer, a hardening idea, anything matching a row under the plan's
+"## Out of scope". Report those; they are useful. They do NOT become work.
+Do not propose new features, new files, new abstractions, or a redesign. Do not widen the plan. The
+question is "does what was built hold?", never "what else could be built".`
+
+// P0/P1 AND in scope. `inScope` absent counts as in scope: an older lens that never learned the
+// field must not go silent. Out-of-scope findings are kept for the report and logged, never
+// truncated in silence — they are the panel's most useful output and its least actionable.
+const actionable = (f) => (f.severity === 'P0' || f.severity === 'P1') && f.inScope !== false
+const outOfScopeFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter((f) => f.inScope === false))
+// Findings are lifted out of the panel member that raised them, so each one has to carry that lens
+// with it: the confirm pass can only clear a finding through the lens able to see it. `lensResolved`
+// is the same question asked defensively — a lens name that resolves to nothing is a finding nothing
+// can re-check, and one nothing can re-check stays OPEN. Unparseable never means clean.
+const refutedFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter(actionable).map((f) => Object.assign({}, f, {
+  lens: s?.lens, lensResolved: KNOWN_LENS.has(s?.lens),
+})))
+// A finding has no id, and the confirm pass has to recognise the SAME finding coming back from a
+// freshly spawned agent. Lens + file + title is that identity.
+const findingKey = (f) => JSON.stringify([f?.lens ?? '', f?.file ?? '', f?.title ?? ''])
+
 const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => agent(
   `Adversarially verify the working tree against the plan through the "${l.name}" lens. DEFAULT to "not satisfied" when uncertain — your job is to REFUTE, not to confirm. Apply the checklist in ${DBG_GUIDE} (read it); do NOT invoke a skill — this workflow is the orchestration, report only.${clauseFor(l)}
 PLAN: ${PLAN_PATH}
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
-Surface concrete failures with file:line + severity P0-P3 + which agent should fix it. Read-only.`,
+Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it. Read-only.${SCOPE_LOCK}`,
   { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}` }
 ))
 let sk = (await parallel(skMaker('init'))).filter(Boolean)
+const outOfScope = outOfScopeFrom(sk)
+if (outOfScope.length) log(`${outOfScope.length} finding(s) outside this plan's scope — reported, not fixed: ${outOfScope.slice(0, 4).map((f) => f.title).join(' · ')}${outOfScope.length > 4 ? ` (+${outOfScope.length - 4})` : ''}`)
 
 // 4. Completeness — every requirement vs the diff, plus drift
 phase('Completeness')
@@ -375,9 +439,11 @@ let c = await completeMaker(0)
 // Intermediate rounds drive on the cheap objective pair (gates + completeness); the expensive
 // skeptic panel is NOT re-fanned-out per round — it brackets the loop.
 phase('Fix loop')
-const refutedFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter((f) => f.severity === 'P0' || f.severity === 'P1'))
+// Which lenses have something to re-check. A panel member whose `lens` resolves to nothing yields no
+// entry here — deliberately: it is not re-run, so its findings are never cleared by the confirm
+// below, they are carried out open and named.
 const lensesThatFlagged = (arr) => {
-  const names = new Set((arr ?? []).filter((s) => (s?.findings ?? []).some((f) => f.severity === 'P0' || f.severity === 'P1')).map((s) => s.lens))
+  const names = new Set((arr ?? []).filter((s) => (s?.findings ?? []).some(actionable)).map((s) => s.lens))
   return lenses.filter((l) => names.has(l.name))
 }
 const openItems = (completeness, refuted, gates) => {
@@ -441,6 +507,7 @@ while (state.total > 0 && round < MAX_ROUNDS) {
 
 // 6. Final adversarial pass — catch regressions the fixes introduced (skeptics bracket the loop).
 let openFindings = []
+let unconfirmed = [] // open findings no lens re-checked — carried to the caller, never quietly dropped
 if (round > 0) {
   const finalSk = (await parallel(skMaker('final'))).filter(Boolean)
   openFindings = refutedFrom(finalSk)
@@ -451,7 +518,28 @@ if (round > 0) {
     await reverify(round)
     // Token-lean confirm: re-run ONLY the lenses that flagged. The cleanup touched exactly those
     // findings; clean lenses were just verified, and re-running them is duplicate work.
-    openFindings = refutedFrom((await parallel(skMaker('final', lensesThatFlagged(finalSk)))).filter(Boolean))
+    //
+    // What the confirm is allowed to DO with the answer is the part that has to be exact. It used to
+    // OVERWRITE `openFindings` with whatever came back, which makes every kind of silence read as
+    // "all clear": a lens name that matched nothing, an empty re-run list, an agent that died. That
+    // is how three open P0s left this workflow as `VERDICT: VERIFIED`. It now INTERSECTS — a finding
+    // stays open unless the lens that raised it ran again and did not raise it again. Clearing is a
+    // positive act; the absence of a match is not evidence of a fix.
+    const confirmLenses = lensesThatFlagged(finalSk)
+    const confirmRuns = await parallel(skMaker('final', confirmLenses))
+    // A lens counts as re-run only when its agent came back AND identified itself as that lens. A
+    // dead agent and a mis-identified panel member both mean "not checked", never "fixed".
+    const reran = new Set(confirmLenses.filter((l, i) => confirmRuns[i]?.lens === l.name).map((l) => l.name))
+    const confirmed = refutedFrom(confirmRuns.filter(Boolean))
+    const stillFlagged = new Set(confirmed.map(findingKey))
+    const carried = openFindings.filter((f) => !reran.has(f.lens) || stillFlagged.has(findingKey(f)))
+    const carriedKeys = new Set(carried.map(findingKey))
+    // Union, not replacement: what the cleanup failed to fix, plus anything the cleanup introduced.
+    openFindings = [...carried, ...confirmed.filter((f) => !carriedKeys.has(findingKey(f)))]
+    unconfirmed = openFindings.filter((f) => !f.lensResolved || !reran.has(f.lens))
+    if (unconfirmed.length) {
+      log(`${unconfirmed.length} finding(s) no lens could re-check after the cleanup round — kept OPEN: ${unconfirmed.map((f) => `${f.title} (lens ${JSON.stringify(f.lens)}${f.lensResolved ? ', not re-run' : ', unknown to this run'})`).join(' · ')}`)
+    }
   }
 } else {
   openFindings = refutedFrom(sk) // no fix rounds ran → the init panel already reflects the final tree
@@ -459,7 +547,13 @@ if (round > 0) {
 
 const missing = (c?.items ?? []).filter((i) => i.status !== 'done')
 const totalOpen = missing.length + openFindings.length + (g?.allGreen ? 0 : 1)
-const verdict = totalOpen === 0 ? 'VERIFIED' : (g?.allGreen ? 'VERIFIED-WITH-NOTES' : 'NEEDS-WORK')
+// `VERIFIED` requires `totalOpen === 0`, so a non-empty `openFindings` can never reach it — that is
+// the invariant, and it is why the confirm above may not overwrite that list.
+// The second half is the softer leak: `VERIFIED-WITH-NOTES` is for a green tree carrying residual
+// P1 observations, and a still-open P0 is not a note. Neither is a finding nothing re-checked. The
+// caller reads this one field to decide whether to commit, so both route to NEEDS-WORK.
+const hardOpen = openFindings.some((f) => f.severity === 'P0') || unconfirmed.length > 0
+const verdict = totalOpen === 0 ? 'VERIFIED' : (g?.allGreen && !hardOpen ? 'VERIFIED-WITH-NOTES' : 'NEEDS-WORK')
 return {
   verdict,
   rounds: round,
@@ -468,7 +562,9 @@ return {
   gateDetail: g?.gates ?? [],
   missing,
   openFindings,
+  unconfirmed, // a subset of openFindings: raised, never re-checked. Not a pass — an unanswered question
   blocked, // items dropped after hitting the re-patch cap — these need a human, not another round
+  outOfScope, // real findings the panel raised past this plan's edge: reported, never fixed here
   drift: c?.drift ?? [],
   scope: scopeOut(),
   next: verdict === 'VERIFIED'

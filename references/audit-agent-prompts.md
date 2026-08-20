@@ -10,9 +10,21 @@ de-duplicate by hand.
 | Agent | subagent_type | Dimensions |
 |---|---|---|
 | 1 | `graph-powers:evaluator` | D1 architecture · D2 structure |
-| 2 | `graph-powers:debugger` | D3 code quality · D8 dependencies · D9 technical debt |
-| 3 | `graph-powers:debugger` | D4 documentation · D5 missing flows |
-| 4 | `graph-powers:frontend-specialist` | D6 UX · D7 tests and CI |
+| 2 | `graph-powers:explorer` | D3 code quality · D8 dependencies · D9 technical debt · D7 tests and CI |
+| 3 | `graph-powers:explorer` | D4 documentation · D5 missing flows |
+| 4 | `graph-powers:ui-ux-designer` | D6 UX |
+
+**Every one of the four is read-only by frontmatter**, and that is the whole point of the column.
+An audit is a review, and this repository has already paid for handing a review to a write-capable
+agent: one "partitioned ownership" of the diff it was reviewing and reverted about eighty lines of
+it to HEAD. The incident is recorded in
+`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`. Until 1.7.0 three of these four
+slots named `graph-powers:debugger` or `graph-powers:frontend-specialist`, both of which carry
+`Write` and `Edit`, and the only thing standing between them and the diff was the prose line in the
+preamble below — which is a request, not a permission.
+
+D7 sits with agent 2 rather than with UX because judging whether a gate would actually fail needs
+`Bash`, and `graph-powers:ui-ux-designer` deliberately has none.
 
 All four spawn with `run_in_background: true` in a single message. Resolve every `${…}` placeholder
 from the project config **before** dispatching — a subagent inherits nothing and will otherwise
@@ -83,10 +95,10 @@ A finding here must name the import or the path that proves it. "The architectur
 a finding.
 ```
 
-## Agent 2 — code quality, dependencies, technical debt (D3, D8, D9)
+## Agent 2 — code quality, dependencies, technical debt, tests and CI (D3, D8, D9, D7)
 
 ```
-TASK: Audit code quality, dependency health and technical debt.
+TASK: Audit code quality, dependency health, technical debt and the test/CI surface.
 
 D3 Code quality — error handling that swallows, unchecked nullability on a live path, duplicated
    logic that has already diverged, a function doing four things.
@@ -94,6 +106,10 @@ D8 Dependencies — advisories, abandoned packages, two libraries doing the same
    dependency that is only used once.
 D9 Technical debt — TODO/FIXME older than the last release, commented-out blocks, dead exports,
    a compatibility shim whose other side is gone.
+D7 Tests and CI — critical paths with no test, tests that assert nothing, a gate that cannot fail,
+   a CI job whose failure is ignored, a flaky test nobody has quarantined. Check that each declared
+   gate would actually fail on a real defect: a gate that always passes is worse than a missing one,
+   because the report line reads as covered.
 
 Read ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md first.
 
@@ -114,18 +130,17 @@ D5 Missing flows — an error state with no handler, a form with no failure path
 The most valuable finding in this slice is the flow everyone assumed existed.
 ```
 
-## Agent 4 — UX and tests/CI (D6-D7)
+## Agent 4 — UX (D6)
 
 ```
-TASK: Audit user experience and the test/CI surface.
+TASK: Audit the user experience surface, by reading it.
 
 D6 UX — loading, empty and error states; keyboard operability; focus handling; contrast; the
    smallest supported viewport; what happens on a slow connection.
-D7 Tests and CI — critical paths with no test, tests that assert nothing, a gate that cannot fail,
-   a CI job whose failure is ignored, a flaky test nobody has quarantined.
 
-For D7, check that each declared gate would actually fail on a real defect. A gate that always
-passes is worse than a missing gate, because the report line reads as covered.
+You have no Bash and no browser here: judge from the source, and say plainly which findings would
+need a running page to confirm. A UX claim you could not check is reported as unverified, never as
+a finding.
 ```
 
 ---

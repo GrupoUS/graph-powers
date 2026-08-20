@@ -6,13 +6,9 @@ stack. Extends the `seo-geo-baseline` pack in SKILL.md.
 ## 1. Indexability
 
 ```bash
-# robots.txt allows crawl
-curl -s ${project.stagingUrl}/robots.txt
-curl -s ${project.productionUrl}/robots.txt
-
-# sitemap exists + reachable
-curl -I ${project.stagingUrl}/sitemap.xml
-curl -I ${project.productionUrl}/sitemap.xml
+# robots.txt body, and the status of sitemap.xml, for each environment given.
+# One Python line, not curl: in PowerShell `curl` is an alias of Invoke-WebRequest and rejects `-s`.
+python -X utf8 -c "import sys,urllib.request as u;[ (print('==',b),print(u.urlopen(b+'/robots.txt',timeout=15).read().decode('utf-8','replace')),print('sitemap.xml ->',u.urlopen(b+'/sitemap.xml',timeout=15).status)) for b in sys.argv[1:] ]" ${project.stagingUrl} ${project.productionUrl}
 ```
 
 If the project generates its sitemap at build time (e.g. `vite-plugin-sitemap`), a missing route usually means the generator's dynamic-route list is incomplete — check the plugin config in `vite.config.ts` before hand-editing `dist/sitemap.xml`.
@@ -52,20 +48,18 @@ Source data: extract to pure data modules with no component imports, so the JSON
 ## 4. PSI SEO score
 
 ```bash
-curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.productionUrl}&strategy=mobile&category=seo&category=accessibility&locale=${project.locale}" | jq '{
-      seo: (.lighthouseResult.categories.seo.score * 100 | round),
-      a11y: (.lighthouseResult.categories.accessibility.score * 100 | round)
-    }'
+python -X utf8 -c "import json,sys,urllib.request;c=json.load(urllib.request.urlopen(sys.argv[1],timeout=120))['lighthouseResult']['categories'];print({k:round(v['score']*100) for k,v in c.items()})" "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.productionUrl}&strategy=mobile&category=seo&category=accessibility&locale=${project.locale}"
 ```
 
-Pass: the value configured at `.graph-powers/config.json::gates.lighthouse.seo`.
+Pass: the value configured at `.graph-powers/config.json::gates.lighthouse.seo`. Full invocation,
+including the 429 fallback: `psi-api.md`.
 
 ## 5. Crawl-readiness checks
 
 | Check | Command / Pattern |
 |---|---|
 | All public routes return 200 | `python -X utf8 -c "import urllib.request as u,sys;[print(u.urlopen(sys.argv[1]+r,timeout=10).status, r) for r in ('/','/pricing','/about')]" ${project.productionUrl}` |
-| `<title>` populated server-side | `curl -s ${project.productionUrl}/ \| grep -oP '<title>\K[^<]+'` (Vite SPA: empty until JS hydrates — relies on Vercel's bot rendering or pre-render plugin) |
+| `<title>` populated server-side | `python -X utf8 -c "import re,sys,urllib.request;h=urllib.request.urlopen(sys.argv[1],timeout=15).read().decode('utf-8','replace');print(re.findall(r'<title[^>]*>([^<]*)',h) or 'NO TITLE IN FIRST BYTE')" ${project.productionUrl}` (Vite SPA: empty until JS hydrates — relies on Vercel's bot rendering or a pre-render plugin) |
 | Open Graph absolute URLs | `grep -rn 'property="og:image"' ${paths.frontendRoot}` — confirm absolute URLs, not relative |
 | H1 per page | Every route has exactly one `<h1>` |
 | Internal links use real `<a>` not `onClick` divs | `grep -rn 'onClick.*history\.\|onClick.*navigate' ${paths.frontendRoot}` |

@@ -99,7 +99,7 @@ planning artifact. Never staged/committed without current-turn approval (`SKILL.
 
 ## Decisions taken
 <!-- an index, not a store: one line per closed decision plus a link to where it actually lives -->
-- [<decision name>](${paths.planDir}/specs/<file>.md#<anchor>) — <one-line gist> · <date>
+- [<decision name>](<plan dir>/spec.md#<anchor>) — <one-line gist> · <date>
 
 ## Open front
 | # | Decision (name) | Type | Mode | Blocked by | State |

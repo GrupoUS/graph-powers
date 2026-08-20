@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: "Security-only exploitability reviewer. Use for vulnerability scans and security audits: Finder mode traces high/medium risks; FP-Filter mode validates one finding. Report-only."
+description: "Use proactively before shipping anything touching authentication, authorisation, tenancy, secrets, user input or payments. Two modes: Finder traces exploitable high and medium risks; FP-Filter validates one finding. Report-only, so route the fix to debugger."
 model: opus
 color: orange
 role_type: evaluator

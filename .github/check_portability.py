@@ -49,8 +49,12 @@ SHELL_CONSTRUCTS = {
         re.compile(r"/dev/null"),
     "`/tmp` does not exist on Windows — use tempfile.gettempdir()":
         re.compile(r"(?<![\w`.\"<])/tmp\b"),
+    # `expanduser` and `os.homedir()` are the fix for this, so a line that calls one and then
+    # writes `~/` as its argument is the corrected form being reported as the defect. The gate
+    # said so four times against instructions that had just been rewritten to be portable, which
+    # is the fastest way to teach somebody to stop reading it.
     "`~` is not expanded by cmd.exe or PowerShell":
-        re.compile(r"(?<![\w`])~/"),
+        re.compile(r"(?<![\w`])~/(?<!expanduser\(\"~/)(?<!expanduser\('~/)"),
     "`export VAR=` is POSIX; PowerShell uses $env:, cmd uses set":
         re.compile(r"^\s*export\s+[A-Z]"),
     "inline `VAR=value command` is POSIX-only shell syntax":
@@ -64,28 +68,71 @@ EXEMPT_FILES = {
     ".github/check_portability.py",
     "references/shared/110-guardrails-index.md",   # documents all three shell forms, by design
     "skills/astro/references/troubleshooting.md",  # has an explicit PowerShell branch
-    "CHANGELOG.md",
+    "CHANGELOG.md",                                # a record of what happened, not an instruction
+    # Prose for a person, not a block an agent executes — which is the line this gate draws in its
+    # own docstring. Somebody reading the README on a Mac types `~/.claude`, and rewriting that as
+    # a Python one-liner would make the documentation worse to serve a rule about agent execution.
+    # `AGENT_SETUP.md` is deliberately NOT here: the agent follows it, it ships, and it carried
+    # twenty-six POSIX-only lines for as long as the root went unscanned.
+    "README.md",
+    "CONTRIBUTING.md",
 }
 
 FENCE_START = re.compile(r"^```(bash|sh|shell|console)?\s*$")
 
+# A POSIX binary is a defect wherever the shell would START it, not only where the line starts.
+# The pattern here was `^\s*(…)` read with `.match()`, so everything after the first word of a line
+# was invisible: `git ls-files | wc -l` sits in this repository's own list of gates, twenty-five
+# lines below the paragraph that bans `wc`, and this gate reported zero problems. Every other check
+# in the file already used `.search()`; the binary list was the one that did not.
+#
+# The shell's command separators. Split a line on them and the first word of each piece is a
+# command — which is the only position where one of these names means the binary rather than a word.
+COMMAND_SEPARATORS = re.compile(r"[|;&`]|\$\(")
 
-def executable_lines(path: str):
-    """Yield (line number, text) for lines an agent is told to run.
+# `xargs` runs what follows it, so what follows it is in command position too. Rewriting it as a
+# separator (while leaving `xargs` itself in place to be reported on its own account) is what makes
+# `find . -type f | xargs rm -f` report `find`, `xargs` AND `rm` instead of stopping at the pipe.
+XARGS_RUNS_NEXT = re.compile(r"\bxargs\b((?:\s+-\S+)*)\s+")
 
-    A fenced block with no language, or tagged `bash`/`sh`/`shell`/`console`, is treated as
-    executable. Anything else — `typescript`, `json`, `text`, a table, prose — is not, because the
-    cost of a false positive here is somebody switching the gate off.
+# The first word of a segment, if it has one. A segment starting with `-` or a quote has no command.
+FIRST_WORD = re.compile(r"^\s*([A-Za-z_][\w-]*)")
+
+# ...and what proves the first word is NOT a command, however much it looks like one. `;` is also
+# Python's statement separator, so `python -X utf8 -c "import time; time.sleep(1)"` would otherwise
+# report `time`. An attribute, a call, a subscript or an assignment is never a shell command.
+NOT_A_COMMAND = (".", "(", "[", "=")
+
+
+def posix_binaries_in(line: str) -> list[str]:
+    """Every POSIX-only binary this line puts in command position, in the order they appear."""
+    hits: list[str] = []
+    for segment in COMMAND_SEPARATORS.split(XARGS_RUNS_NEXT.sub(r"xargs\1 ; ", line)):
+        m = FIRST_WORD.match(segment)
+        if m and m.group(1) in POSIX_BINARIES and segment[m.end(1):m.end(1) + 1] not in NOT_A_COMMAND:
+            hits.append(m.group(1))
+    return hits
+
+
+def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
+    """The same lines, grouped by the fenced block they came from, with the block's raw text.
+
+    Some constructs are only a defect in isolation. A block that shows `export VAR=` under a
+    `# bash / zsh` heading and `$env:VAR =` under a `# PowerShell` heading is documenting both
+    platforms, which is the thing the gate wants — read one line at a time it looks like the
+    thing the gate refuses.
     """
-    open_fence = False       # inside any fenced block
-    executable = False       # ...and that block is one an agent runs
+    blocks: list[tuple[str, list[tuple[int, str]]]] = []
+    current: list[tuple[int, str]] = []
+    open_fence = False
+    executable = False
     with open(path, encoding="utf-8", errors="replace") as fh:
         for i, line in enumerate(fh, 1):
             if line.startswith("```"):
-                # Track "am I in a fence" separately from "is this fence executable". Conflating
-                # them meant a ```json block reset the state and its closing fence re-opened the
-                # scanner as if bash had begun — which reported prose as if it were a command.
                 if open_fence:
+                    if current:
+                        blocks.append(("\n".join(c for _, c in current), current))
+                        current = []
                     open_fence, executable = False, False
                 else:
                     open_fence, executable = True, bool(FENCE_START.match(line))
@@ -94,27 +141,94 @@ def executable_lines(path: str):
                 continue
             code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
             if code.strip():
-                yield i, code.rstrip("\n")
+                current.append((i, code.rstrip("\n")))
+    if current:
+        blocks.append(("\n".join(c for _, c in current), current))
+    return blocks
 
 
 def scan_markdown() -> list[str]:
     problems: list[str] = []
-    binaries = re.compile(r"^\s*(" + "|".join(POSIX_BINARIES) + r")\b")
     roots = ["commands", "skills", "references", "templates", "agents", "workflows"]
-    for root in roots:
-        for path in sorted(glob.glob(f"{root}/**/*.md", recursive=True)):
-            if path.replace(os.sep, "/") in EXEMPT_FILES:
-                continue
-            for lineno, line in executable_lines(path):
-                m = binaries.match(line)
-                if m:
+    # The repository root was missing, and it is where the file a new installer reads first lives.
+    # `AGENT_SETUP.md` ships (`check_version_bump.SHIPPED` lists it), it is the longest set of
+    # copy-paste commands the plugin publishes, and none of it was ever scanned — seven POSIX-only
+    # lines sat in it while this gate reported clean. `glob` with no recursion is deliberate: the
+    # roots above already cover every subdirectory that matters, and `**` from `.` would walk
+    # `node_modules` on a machine that has one.
+    paths = [p for root in roots for p in glob.glob(f"{root}/**/*.md", recursive=True)]
+    paths += glob.glob("*.md")
+    for path in sorted(set(paths)):
+        if path.replace(os.sep, "/") in EXEMPT_FILES:
+            continue
+        for raw, lines in executable_blocks(path):
+            # One exemption, and it is conditional on the block doing the work: a POSIX spelling
+            # beside its PowerShell counterpart is coverage, not a gap.
+            both_shells = "$env:" in raw
+            for lineno, line in lines:
+                # Every occurrence, not the first: `find . | wc -l` is two defects on one line, and
+                # reporting one of them makes the second survive the fix that answered the report.
+                for name in posix_binaries_in(line):
                     problems.append(
-                        f"SHELL {path}:{lineno}: `{m.group(1)}` is not on a Windows shell — "
+                        f"SHELL {path}:{lineno}: `{name}` is not on a Windows shell — "
                         f"use the agent's own tool, or one line of Python"
                     )
                 for why, pattern in SHELL_CONSTRUCTS.items():
+                    if both_shells and why.startswith("`export VAR=`"):
+                        continue
                     if pattern.search(line):
                         problems.append(f"SHELL {path}:{lineno}: {why}")
+    return problems
+
+
+# The same class of defect, in the language the installers are written in. Two of the five defects
+# this file's own docstring cites live in `codex/lib.mjs` and `codex/install.mjs`, and neither was
+# ever scanned — the gate named them as its motivation and could not have caught a regression of
+# either. Every pattern below is a defect this repository actually shipped, generalised one step.
+JS_CHECKS = (
+    (re.compile(r"\(\^\|/\)"),
+     r"`(^|/)` misses the Windows separator — use `(^|[\\/])`"),
+    (re.compile(r"""\.split\(\s*['"]/['"]\s*\)"""),
+     "split('/') on a path — use path.sep, or normalise to posix form first"),
+    (re.compile(r"process\.env\.HOME(?!\s*\|\|)"),
+     "HOME is not set on Windows — fall back to USERPROFILE, or use os.homedir()"),
+    (re.compile(r"""['"]/tmp/"""),
+     "`/tmp` does not exist on Windows — use os.tmpdir()"),
+)
+
+
+CRLF_NORMALISE = re.compile(r"""replace\(\s*/\\r\\n/g""")
+LF_ANCHOR = re.compile(r"""/\^---\\n""")
+
+
+def scan_js() -> list[str]:
+    """The installers. Same defect class as `scan_python`, different runtime."""
+    problems: list[str] = []
+    roots = ("bin/*.mjs", "bin/*.js", "codex/*.mjs", "codex/*.js",
+             ".github/*.mjs", ".github/*.js", "workflows/*.js", "workflows/*.mjs")
+    for path in sorted({p for root in roots for p in glob.glob(root)}):
+        if path.replace(os.sep, "/") in EXEMPT_FILES:
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            source = fh.read()
+        # Anchoring a match to `\n` is only a defect against text that may still carry `\r\n`.
+        # `codex/lib.mjs` normalises first and then anchors, which is correct and is what the
+        # repair looked like — so the condition is the absence of the normalisation, not the
+        # presence of the anchor. Checking it per file rather than per line is the whole point:
+        # the fix and the defect sit on different lines.
+        normalises_crlf = CRLF_NORMALISE.search(source) is not None
+        for i, line in enumerate(source.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            if not normalises_crlf and LF_ANCHOR.search(line):
+                problems.append(
+                    f"PATH  {path}:{i}: a match anchored to \\n never fires on a CRLF checkout, "
+                    f"and this file never normalises — allow \\r?\\n, or normalise first"
+                )
+            for pattern, why in JS_CHECKS:
+                if pattern.search(line):
+                    problems.append(f"PATH  {path}:{i}: {why}")
     return problems
 
 
@@ -212,7 +326,7 @@ def balanced(source: str, open_paren: int) -> str | None:
 
 
 def main() -> int:
-    problems = scan_markdown() + scan_python()
+    problems = scan_markdown() + scan_python() + scan_js()
     for p in problems:
         print(p)
     print(f"\n{len(problems)} portability problem(s)")

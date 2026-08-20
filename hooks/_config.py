@@ -2,8 +2,16 @@
 """_config.py — the one piece that knows projects are different.
 
 Every guardrail in this plugin runs in repositories with different branches,
-toolchains and paths. Instead of each hook guessing, they all read from here, and
-this module reads from one place: the project's Graph Powers config file.
+toolchains and paths. Instead of each hook guessing, they all read from here.
+
+Two scopes, resolved `DEFAULTS < user < project`:
+
+    ~/.graph-powers/config.json     the operator — how much runs without asking
+    <repo>/.graph-powers/config.json  the repository — branches, tooling, paths
+
+The user file answers only the blocks in `USER_SCOPED_KEYS`; everything else in the
+schema describes a repository and is meaningless from a home directory. The project
+file sits on top because rules a repository ships apply to everyone who clones it.
 
 Why this shape
 --------------
@@ -31,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -43,6 +52,31 @@ CONFIG_PATHS = (
     ".graph-powers/config.json",
     ".claude/config.json",
 )
+
+# Where a *person* declares themselves, once, for every repository they open. Same filename and
+# same shape as the project file — one config format, two scopes.
+#
+# Why this exists: until it did, `autonomy` was reachable only from inside a repository that
+# carried the block. A person who had already decided "I do not want to approve every read"
+# had to re-decide it per clone, and every repository without the block silently fell back to
+# `guarded` — so the setting looked like it had stopped working when in fact it had never been
+# asked. Autonomy is a property of the operator, not of the checkout.
+#
+# It sits UNDER the project file on purpose (`DEFAULTS < user < project`): a repository that
+# states a rule is stating it for everyone who clones it, including a person whose personal
+# posture is looser. The strictness a project ships is not the user's to relax by default.
+USER_CONFIG_PATHS = (".graph-powers/config.json",)
+
+# Only these blocks are read from the user file. The rest of the schema describes a repository —
+# which branch is the work branch, where the frontend lives, what the test command is — and a
+# value like that, applied from the home directory, is wrong in every repository except the one
+# it was written for.
+#
+# `git` is the sharp one, and it is excluded deliberately. `optInPrefix` is per project by
+# design: two repositories sharing a prefix would make an approval typed in one of them release
+# the same gate in the other, and `test_hooks.py` proves that isolation. A user-level prefix
+# would delete the guarantee for every project at once.
+USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate")
 
 DEFAULTS: dict[str, Any] = {
     # Git — branch names and the opt-in key that releases a risky action.
@@ -151,7 +185,7 @@ def _coerce_list(value: Any, default: list[Any]) -> list[Any]:
 
 
 def config_path(root: Path | None = None) -> Path | None:
-    """The config file in use, or None when the project declares nothing."""
+    """The project's config file, or None when the project declares nothing."""
     root = root or project_dir()
     for rel in CONFIG_PATHS:
         candidate = root / rel
@@ -163,18 +197,225 @@ def config_path(root: Path | None = None) -> Path | None:
     return None
 
 
-def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    root = root or project_dir(payload)
-    found = config_path(root)
-    if found is None:
-        return dict(DEFAULTS)
+def user_config_path() -> Path | None:
+    """The person's own config file, or None when they have never written one.
+
+    `Path.home()` is the portable resolution: POSIX reads `HOME`, Windows reads `USERPROFILE`,
+    and neither is spelled out anywhere in this repository — cardinal 2. It can raise on a
+    machine with no resolvable home, which is why the whole lookup is guarded.
+    """
     try:
-        raw = json.loads(found.read_text(encoding="utf-8"))
+        home = Path.home()
     except Exception:
-        return dict(DEFAULTS)
-    if not isinstance(raw, dict):
-        return dict(DEFAULTS)
-    return _deep_merge(DEFAULTS, raw)
+        return None
+    for rel in USER_CONFIG_PATHS:
+        candidate = home / rel
+        try:
+            if candidate.is_file():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+def _read_config(path: Path | None) -> dict[str, Any]:
+    """One config file as a dict. Missing, unreadable, or not an object all mean `no opinion`.
+
+    Returning `{}` rather than raising is what keeps cardinal 3 true through two layers: a typo
+    in the user's file must not take the session down, and it must not take the project's file
+    down with it either.
+    """
+    if path is None:
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The resolved config: `DEFAULTS < user < project`.
+
+    The user layer is what makes a personal decision survive `git clone`. The project layer stays
+    on top because a repository's own rules outrank the preferences of whoever opened it.
+    """
+    root = root or project_dir(payload)
+    project_file = config_path(root)
+    user_file = user_config_path()
+
+    # Running a session inside the home directory itself would otherwise read one file as both
+    # layers. Harmless — the merge is idempotent — but it makes `user_config_path()` look like it
+    # found something it did not.
+    if project_file is not None and user_file is not None:
+        try:
+            if project_file.resolve() == user_file.resolve():
+                user_file = None
+        except Exception:
+            pass
+
+    project = _read_config(project_file)
+    user = {k: v for k, v in _read_config(user_file).items() if k in USER_SCOPED_KEYS}
+
+    # `autonomy` is owned by whichever scope declares it, whole. Every other block deep-merges
+    # field by field, which is right for them and wrong for this one, because `level` is a preset:
+    # it decides `bashDefault`, `cleanup`, `commit` and `push` at once. Field-merging a user's
+    # `git.commit: ask` under a project's `level: autonomous` leaves a repository that asked to run
+    # unattended stopping at every commit — the project's own declaration silently half-applied.
+    #
+    # So a user's autonomy is what a repository gets when it has no opinion, and nothing more. The
+    # direction this errs in is the safe one: an unrecognised block falls back to the defaults,
+    # which ask.
+    if isinstance(project.get("autonomy"), dict):
+        user.pop("autonomy", None)
+
+    user = _sanitise_user_scope(user)
+
+    cfg = _deep_merge(DEFAULTS, user)
+    return _deep_merge(cfg, project)
+
+
+def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
+    """What a home directory is allowed to say, out of what it did say.
+
+    The layer above answers "which scope owns `autonomy`". This answers a different question the
+    same file raised: a user block reaches every repository on the machine, including ones the
+    person has never opened, so a value that *releases* a guarantee there is a decision taken on
+    behalf of code nobody has read yet. Two blocks needed narrowing, for two different reasons.
+
+    **`autonomy`.** The comment on `USER_SCOPED_KEYS` says git is excluded deliberately, and
+    that was true only of the top-level `git` block — branch names and the opt-in prefix. The three
+    *decisions* rode in under `autonomy` and were honoured: a home file setting them to `auto`
+    silenced `git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository with no
+    `autonomy` block of its own, while `level` went on reporting `guarded`. Tightening from home
+    stays legal — `ask` under a personal `autonomous` is someone holding themselves to a stricter
+    line, which costs nobody anything. Releasing does not: `auto` has to be written in the
+    repository it applies to, where a reviewer sees it.
+
+    That rule was written for `autonomy.git` and enforced only there, which left the same escalation
+    reachable by three shorter routes. `level` is the sharpest: it is a preset, so
+    `{"autonomy": {"level": "autonomous"}}` in a home file expanded to `commit: auto, push: auto,
+    bashDefault: allow, cleanup: allow` in every repository that declared no `autonomy` of its own
+    — the whole thing the paragraph above refuses, spelled in one word, and the suite certified it
+    because it only ever tested the `git: {commit: auto}` spelling. `destructiveFloor: false` turns
+    off the one list in this plugin that is unconditional, and a loose `bashDefault`/`cleanup` is
+    the same release written out longhand. All four are stripped; `level: "guarded"` is a
+    tightening and stays, as does `allowPackageManagers`, which only ever narrows.
+
+    **`protectedFiles`.** Lists replace on merge, so `{"segments": []}` at home deleted the
+    defaults everywhere, and — unlike `autonomy` — a project declaring its own `protectedFiles`
+    did not win the block back, it merely added to the emptied one. Here the user layer may only
+    add: the union, never the difference. A person who wants to write into `node_modules` in one
+    repository says so in that repository.
+
+    `graphGuardrails` is deliberately left alone. Its ceilings are spend on the operator's own
+    machine, not a guarantee about somebody's files, and "how much fan-out I am willing to pay
+    for" is the exact kind of thing a personal scope exists to carry.
+    """
+    if not user:
+        return user
+    out = dict(user)
+
+    autonomy = out.get("autonomy")
+    if isinstance(autonomy, dict):
+        autonomy = dict(autonomy)
+        # A preset that releases four decisions at once. `guarded` is a tightening and survives.
+        if autonomy.get("level") != "guarded":
+            autonomy.pop("level", None)
+        # The floor is unconditional or it is not a floor.
+        if autonomy.get("destructiveFloor") is not True:
+            autonomy.pop("destructiveFloor", None)
+        # `level: autonomous` written out one field at a time.
+        for key in ("bashDefault", "cleanup"):
+            if autonomy.get(key) != "ask":
+                autonomy.pop(key, None)
+        if isinstance(autonomy.get("git"), dict):
+            held = {k: v for k, v in autonomy["git"].items() if v == "ask"}
+            if held:
+                autonomy["git"] = held
+            else:
+                autonomy.pop("git")
+        out["autonomy"] = autonomy
+
+    protected = out.get("protectedFiles")
+    if isinstance(protected, dict):
+        base = DEFAULTS["protectedFiles"]
+        merged: dict[str, Any] = {}
+        for key, default in base.items():
+            extra = protected.get(key)
+            extra = extra if isinstance(extra, list) else []
+            merged[key] = list(default) + [v for v in extra if v not in default]
+        out["protectedFiles"] = merged
+
+    return out
+
+
+# ── The git command, in one spelling ─────────────────────────────────────────
+#
+# `git` accepts a prefix of global options between the executable and the verb, and none of the
+# rules any hook writes are about that prefix — they are about the verb. Written as regexes, each
+# list ends up carrying its own idea of which prefixes exist, and the lists drift: the bash
+# approver's destructive floor anchored on `^git\s+<verb>` while its safe list accepted an optional
+# ` --no-pager` of its own, so `git --no-pager reset --hard HEAD~3` missed the floor, matched the
+# safe list, and was allowed in a guarded project while the bare spelling was denied.
+#
+# So the prefix is removed once, here, and every list downstream judges the same canonical string.
+# One thing, one place: a new global flag is added to the two tuples below and every hook that
+# normalises gets it, instead of eleven patterns being edited and ten of them remembered.
+_GIT_HEAD_RE = re.compile(r"^git(?=\s|$)")
+_GIT_NEXT_TOKEN_RE = re.compile(r"\s+(\S+)")
+
+# Global options that stand alone.
+_GIT_GLOBAL_FLAGS = frozenset({
+    "--no-pager", "-P", "--paginate", "-p", "--bare", "--literal-pathspecs",
+    "--no-replace-objects", "--no-optional-locks", "--glob-pathspecs",
+    "--noglob-pathspecs", "--icase-pathspecs",
+})
+# Global options whose value is the next token: `git -C <path> …`, `git -c <key>=<value> …`.
+_GIT_GLOBAL_FLAGS_WITH_VALUE = frozenset({"-C", "-c"})
+# Global options that carry their value attached: `git --git-dir=<path> …`.
+_GIT_GLOBAL_FLAGS_ATTACHED = (
+    "--git-dir=", "--work-tree=", "--namespace=", "--exec-path=", "--config-env=",
+)
+
+
+def strip_git_global_flags(command: str) -> str:
+    """`git --no-pager -C . reset --hard` -> `git reset --hard`. Anything else is returned as is.
+
+    Only the prefix is rewritten; everything from the verb onwards is copied verbatim, so a rule
+    that inspects the rest of the line sees exactly what the user typed. Never raises — a shape
+    this does not recognise is simply not normalised, which leaves the caller with the string it
+    already had rather than with an exception.
+    """
+    try:
+        raw = command if isinstance(command, str) else ""
+        if not raw:
+            return command
+        lead = len(raw) - len(raw.lstrip())
+        body = raw[lead:]
+        if not _GIT_HEAD_RE.match(body):
+            return command
+        pos = 3  # past the literal "git"
+        while True:
+            token_match = _GIT_NEXT_TOKEN_RE.match(body, pos)
+            if token_match is None:
+                break
+            token = token_match.group(1)
+            if token in _GIT_GLOBAL_FLAGS or token.startswith(_GIT_GLOBAL_FLAGS_ATTACHED):
+                pos = token_match.end()
+                continue
+            if token in _GIT_GLOBAL_FLAGS_WITH_VALUE:
+                value_match = _GIT_NEXT_TOKEN_RE.match(body, token_match.end())
+                if value_match is None:
+                    break  # `git -C` with nothing after it: leave the line alone
+                pos = value_match.end()
+                continue
+            break
+        if pos == 3:
+            return command
+        return raw[:lead] + "git" + body[pos:]
+    except Exception:
+        return command
 
 
 # ── Shortcuts the hooks use ──────────────────────────────────────────────────
@@ -333,13 +574,42 @@ def opt_in(action: str, cfg: dict[str, Any] | None = None) -> str:
     return f"{_prefix(cfg)}_ALLOW_{action}"
 
 
+# Where an environment assignment can legally sit: the start of the line, or the start of a
+# command after a separator. Same idiom as `git_commit_gate._SEPARATOR`, and for the same reason —
+# a token's POSITION is what makes it syntax rather than text.
+_OPT_IN_POSITION = r"(?:^|[;&|(\n\r])\s*"
+# The other two shells do not write bare inline assignments, and the opt-in has to work in them or
+# it does not work on Windows at all. `set KEY=1 && …` is cmd.exe; `$env:KEY=1; …` is PowerShell.
+_OPT_IN_SHELL_PREFIX = r"(?:[Ss][Ee][Tt]\s+)?(?:\$env:)?"
+# `=1`, optionally quoted (PowerShell people write `$env:KEY="1"`), and then the token has to end:
+# `KEY=10` and `KEY=1x` are different variables.
+_OPT_IN_VALUE = r"=[\"']?1[\"']?(?=$|[\s;&|)])"
+
+
 def opted_in(action: str, command: str = "", cfg: dict[str, Any] | None = None) -> bool:
-    """True when the key appears inline in the command or in the environment.
+    """True when the key is assigned inline in the command, or set in the environment.
 
     The inline form (`GRAPHPOWERS_ALLOW_COMMIT=1 git commit -m "..."`) is the one that
     matters: it is written once, for one command, after a person approved that turn.
+
+    It is an ASSIGNMENT, and that word is the whole guarantee. This was `f"{key}=1" in command` —
+    the key as free text anywhere on the line — so the gates released on
+    `git commit -m "<KEY>=1 refactor"` and on `git push -o <KEY>=1 origin <branch>`: a model that
+    had read the refusal message could put the key in the payload of the very command being
+    refused, and the approval a person never gave was granted by the text of the thing they were
+    being asked about. Requiring the position an assignment occupies is what separates the two,
+    without requiring a shell that understands the syntax — which cmd.exe and PowerShell do not.
     """
     if auto(action, cfg):
         return True
     key = opt_in(action, cfg)
-    return os.environ.get(key) == "1" or f"{key}=1" in (command or "")
+    if os.environ.get(key) == "1":
+        return True
+    try:
+        pattern = _OPT_IN_POSITION + _OPT_IN_SHELL_PREFIX + re.escape(key) + _OPT_IN_VALUE
+        return re.search(pattern, command or "") is not None
+    except Exception:
+        # Cardinal 3, strict side: a key this cannot be compiled into is a key that releases
+        # nothing. The gate stays shut, which is the state the user can always override by
+        # exporting the variable.
+        return False

@@ -1,6 +1,6 @@
 ---
 name: evaluator
-description: "Adversarial evaluator with four modes: plan review, sprint QA, architecture analysis, and PR/branch code review. Use for acceptance gates, trade-offs, or independent review."
+description: "Use proactively before accepting a plan, a sprint, an architecture decision, or a branch. Adversarial reviewer in four modes: plan review, sprint QA, architecture analysis, PR review. Reports a verdict and never edits, so send it work to judge and send the fix elsewhere. For exploitability specifically, security-reviewer is the sharper tool."
 model: opus
 color: red
 role_type: evaluator

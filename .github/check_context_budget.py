@@ -159,6 +159,30 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
     return raw
 
 
+# Measured 326,356 B / 435,117 B on the day the gate was given teeth, and rounded up to the next
+# 5,000 rather than to the next byte. A ceiling set flush against the measurement fails on the
+# next paragraph somebody writes in a command, which teaches people to raise the constant reflexively
+# — the failure mode this gate exists to prevent. The margin is one edit wide, not one feature wide.
+#
+# Same contract as `check_listing_budget.py`: the number is the high-water mark, not a target, and
+# lowering it when you do better is the point — a ceiling nobody ever tightens becomes headroom for
+# the next person to spend without noticing.
+#
+# FLOOR is what the command set loads on every invocation. CEILING is the worst case, every
+# conditional branch taken. WORST_FLOOR bounds a single command, because a total can stay flat
+# while one command doubles, and a command is what a person actually pays for.
+FLOOR_CEILING = 330_000
+# Raised 440_000 -> 470_000 on 2026-08-20, and what bought the increase is two separate things.
+# 18_585 B of it was already over the old ceiling before this change and had no owner. The rest is
+# `commands/evolve.md` gaining `Skill("skill-improve")`, the first functional call site the
+# skill-authoring territory has ever had: the external skill it replaced there matched no local
+# path, so it was charged zero and the gate was measuring a load it could not see. A merged 8.6 KB
+# body is the honest price of that edge, and the merge itself cut the two bodies from 384 non-empty
+# lines to 107. Lower this again when the pre-existing overage is paid down.
+CEILING_CEILING = 470_000
+WORST_FLOOR = 70_000
+
+
 def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "--print"
     now = measure()
@@ -202,6 +226,32 @@ def main() -> int:
         names = ", ".join(os.path.basename(p) for p in conditional)
         print(f"{name:<14}{now[name]['floor']:>10,}{now[name]['ceiling']:>10,}   {names or '—'}")
     print(f"\n{'TOTAL':<14}{floor_total:>10,}{ceiling_total:>10,}")
+
+    problems: list[str] = []
+    if floor_total > FLOOR_CEILING:
+        problems.append(f"floor {floor_total:,} B exceeds {FLOOR_CEILING:,} B by "
+                        f"{floor_total - FLOOR_CEILING:,} — this is loaded on every invocation "
+                        f"of the command set, so it is paid whether or not the addition is used")
+    if ceiling_total > CEILING_CEILING:
+        problems.append(f"ceiling {ceiling_total:,} B exceeds {CEILING_CEILING:,} B by "
+                        f"{ceiling_total - CEILING_CEILING:,} — the worst case is what a session "
+                        f"that takes every conditional branch actually costs")
+    for name, sizes in sorted(now.items()):
+        if sizes["floor"] > WORST_FLOOR:
+            problems.append(f"command `{name}`: floor {sizes['floor']:,} B over the "
+                            f"{WORST_FLOOR:,} B per-command cap — move a reference behind a "
+                            f"condition, or split the command")
+
+    if problems:
+        for problem in problems:
+            print(f"::error::{problem}")
+        print("\nShorten what a command loads unconditionally rather than raising the ceiling. "
+              "If the growth is genuinely necessary, raise the constant in the same change and "
+              "say in the commit what bought the increase.")
+        return 1
+
+    print(f"\nwithin budget — floor {FLOOR_CEILING - floor_total:,} B and ceiling "
+          f"{CEILING_CEILING - ceiling_total:,} B of headroom")
     return 0
 
 

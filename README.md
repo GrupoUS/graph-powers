@@ -22,8 +22,7 @@ node ~/.graph-powers/src/bin/graph-powers.mjs
 Then one prompt, pasted into an agent session opened in your project:
 
 ```
-Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
-Stop for my approval before each write, as the playbook instructs.
+Read AGENT_SETUP.md from the graph-powers plugin (https://github.com/GrupoUS/graph-powers) and execute it for this project.
 ```
 
 That second step is not decoration. Installing wires the plugin in; the playbook is what makes
@@ -69,12 +68,12 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 ```
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
-  skills/       12 skills              .claude/rules/             <- only your domain
-  commands/     12 commands            .claude/agents/            <- only what is yours alone
+  skills/       10 skills              .claude/rules/             <- only your domain
+  commands/     10 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
   workflows/    3 orchestrations
-  references/   safety floor
-    shared/     17 shared patterns, loaded one at a time
+  references/   safety + execution floors
+    shared/     18 shared patterns, loaded one at a time
   schema/       the config contract
   DESIGN.md     specs for the three authorities
   PRODUCT.md      the plugin installs into
@@ -96,11 +95,11 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 10 skills, 10 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
-| Shared references — the safety floor, the shared context | `~/.codex/graph-powers/` |
+| Shared references — the safety floor, the execution floor, the shared context | `~/.codex/graph-powers/` |
 
 | Stays in the project | Why it cannot be global |
 |---|---|
@@ -113,7 +112,7 @@ differs per project stays in that project.
 **Why one global copy is correct rather than sloppy:** the guardrails read *the project's own*
 config at runtime. The same twelve files enforce `dev-test` and `ACME_ALLOW_COMMIT` in one
 repository and `develop` and `OTHER_ALLOW_COMMIT` in the next. Copying the harness into each project
-would buy nothing and reintroduce exactly the divergence this plugin exists to end — twelve skills
+would buy nothing and reintroduce exactly the divergence this plugin exists to end — eleven skills
 copied into five repositories is five copies that drift.
 
 **Installing in your second project costs almost nothing.** The installer checks whether the global
@@ -148,8 +147,8 @@ twice.
 | Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | Generated from the same source |
 | Instructions | `CLAUDE.md` | `AGENTS.md` | A delimited, idempotent block |
 
-The Codex hooks file is **merged, never overwritten**. Other tools write it too — `npx impeccable
-install` is one — and clobbering it would silently disable someone else's guardrails, which is this
+The Codex hooks file is **merged, never overwritten**. Other tools write it too — impeccable's
+installer is one — and clobbering it would silently disable someone else's guardrails, which is this
 project's own failure mode pointed the other way. Every entry added is recorded, so
 `node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
 standing.
@@ -164,7 +163,7 @@ The setup playbook installs both.
 
 | Plugin | What it brings | Why it stays external |
 |---|---|---|
-| [superpowers](https://github.com/obra/superpowers) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Ten of the twelve commands call it | Actively maintained upstream, ships for both harnesses |
+| [superpowers](https://github.com/obra/superpowers) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Nine of the ten commands call it | Actively maintained upstream, ships for both harnesses |
 | [impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) | The design layer: `/design` delegates every craft pass to it | Ships its own installer for Claude, Codex, Cursor and more |
 
 ```bash
@@ -173,10 +172,22 @@ The setup playbook installs both.
 /plugin install superpowers@superpowers-marketplace
 # superpowers — Codex CLI: /plugins -> search "superpowers" -> Install Plugin
 
-# impeccable — both
-npx impeccable install --providers=claude,codex --scope=project
-npx impeccable update      # keep it current
+# impeccable — both. Run it through the package runner THIS project uses:
+#   npm -> npx        pnpm -> pnpm dlx
+#   bun -> bunx       yarn -> yarn dlx
+<runner> impeccable install --providers=claude,codex --scope=project --yes
+<runner> impeccable update     # keep it current
 ```
+
+Neither detail there is cosmetic.
+
+`--yes` is what makes the command non-interactive. Without it the installer asks which harnesses and
+which scope, and an agent running it waits on a prompt nobody is going to answer.
+
+The runner has to match because a project that declares `autonomy.allowPackageManagers` refuses the
+ones it did not choose — that is the setting keeping its lockfile from forking. Reaching for `npx`
+inside a bun project is denied by this plugin's own guardrail, correctly, and the fix is to use the
+runner the project already standardised on rather than to widen the allowlist.
 
 Three more plugins are optional, and only the commands that call them notice their absence:
 `code-review` (bundled with Claude Code, invoked by `/pr-review`), and the Codex plugin's

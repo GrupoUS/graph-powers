@@ -1,6 +1,6 @@
 ---
 name: frontend-specialist
-description: "React/UI specialist for TSX, shadcn, Tailwind, pages, forms, tables, dashboards, responsive behavior, accessibility, dark mode, design systems, and frontend refactors."
+description: "Use proactively for anything the user sees: React and TSX, shadcn and Tailwind, pages, forms, tables, dashboards, responsive behaviour, dark mode, accessibility, design-system work and frontend refactors. Writes code. For the judgment of whether a design is good, ui-ux-designer reviews it read-only first."
 model: opus
 color: purple
 role_type: worker

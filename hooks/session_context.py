@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """session_context.py - Minimal SessionStart context tag.
 
-Outputs a short additionalContext tag (project + package manager + branch + gates).
+Outputs a short additionalContext tag (project + package manager + branch + gates), plus the
+one line that puts the execution floor in force for the session.
 
 AGENTS.md, CLAUDE.md, and overlay markdown are loaded by the runtime
 via the claudeMd mechanism. This hook intentionally does NOT duplicate them
 in additionalContext — that would double-load the same content into every
-turn's system prompt.
+turn's system prompt. The execution-floor line is a pointer and one sentence
+of posture, not the file: see `execution_floor()` for why that half is
+mirrored and the other half is not.
 
 Trigger: SessionStart (startup | resume | compact)
 """
@@ -51,6 +54,33 @@ def read_input() -> dict[str, object]:
         return typing.cast(dict[str, object], json.loads(raw)) if raw.strip() else {}
     except Exception:
         return {}
+
+
+def execution_floor() -> str:
+    """The line that makes the execution floor active rather than merely available.
+
+    A pointer plus the posture, never a copy: `references/execution-floor.md` is the source, and a
+    second copy of it here would be the divergence this plugin exists to end. The posture sentence
+    is mirrored on purpose — a pointer nobody follows routes nothing, and the one decision that has
+    to survive a session that never opens the file is whether to delegate at all.
+
+    The path is resolved from this file rather than written down, because the same bytes run from
+    the plugin root on Claude Code and from a clone on Codex. Fail-open: if anything about the
+    lookup fails, the relative name still names the file.
+    """
+    where = "references/execution-floor.md"
+    try:
+        floor = Path(__file__).resolve().parent.parent / "references" / "execution-floor.md"
+        if floor.is_file():
+            where = floor.as_posix()
+    except Exception:
+        pass
+    return (
+        # mirror of execution-floor.md §1 — the posture, not the ladder
+        "Execution floor in force: L1-L2 is a direct edit and delegating is refused; L3+ delegates, "
+        "read-only agents in the background, a whole batch in one message, one writer per file. "
+        f"Read it before spawning anything: {where}"
+    )
 
 
 def get_git_branch(project_dir: str) -> str:
@@ -133,6 +163,7 @@ def main() -> None:
         "resume": f"{base_tag} resumed | branch:{branch}",
     }
     additional_context = prefixes.get(source, f"{base_tag} | branch:{branch}")
+    additional_context = f"{additional_context}\n{execution_floor()}"
 
     output = {
         "hookSpecificOutput": {

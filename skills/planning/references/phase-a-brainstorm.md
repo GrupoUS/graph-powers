@@ -20,14 +20,14 @@ Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit);
 
 ## Entry contract
 
-- Main agent has classified the task as **L3+** (per `.claude/CLAUDE.md § Intent classification`).
+- Main agent has classified the task as **L3+** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`).
 - `Skill("planning")` is loaded.
 - Branch is `${git.workBranch}`. If not, return to it before any action.
 
 ## Exit contract
 
 - **L3:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L4+:** spec file at `${paths.planDir}/specs/YYYY-MM-DD-<topic>-design.md` in the working tree. GATE 1 (project-planner) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
+- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (project-planner) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
 
 ---
 
@@ -49,7 +49,7 @@ For every L4+ entry (and L3 in light form), **invoke `Skill("superpowers:brainst
 
 | The engine owns | the harness wraps (the deltas below) |
 |---|---|
-| explore project context · clarifying questions one-at-a-time · 2-3 approaches w/ recommendation · design sections w/ inline approval · write spec to `${paths.planDir}/specs/` · spec self-review · user review gate · terminal "invoke writing-plans" | Phase 0 framing + 5-10→3 divergence (below) · parallel `graph-powers:explorer`+`graph-powers:librarian` dispatch (Step 1) · `AskUserQuestion` UI (Step 2) · `layer-map.md` cross-check (Step 3) · GATE 1 `graph-powers:project-planner` after self-review (Step 8) · branch policy · tier-gated entry · intercept terminal → Phase B |
+| explore project context · clarifying questions one-at-a-time · 2-3 approaches w/ recommendation · design sections w/ inline approval · write the spec into the plan directory · spec self-review · user review gate · terminal "invoke writing-plans" | Phase 0 framing + 5-10→3 divergence (below) · parallel `graph-powers:explorer`+`graph-powers:librarian` dispatch (Step 1) · `AskUserQuestion` UI (Step 2) · `layer-map.md` cross-check (Step 3) · GATE 1 `graph-powers:project-planner` after self-review (Step 8) · branch policy · tier-gated entry · intercept terminal → Phase B |
 
 The engine's HARD-GATE ("every project gets a design") is overridden by the tier gating in this skill: L1-L2 skip the engine entirely; L3 runs the light path; L4+ runs the full engine + all deltas. The numbered steps below are the **harness deltas in execution order** — interleave them with the engine.
 
@@ -155,7 +155,7 @@ Sections (scaled to complexity): **Architecture** (modules, boundaries, data flo
 
 > Engine writes the working-tree artifact. Harness delta: the richer template below.
 
-**Path:** `${paths.planDir}/specs/YYYY-MM-DD-<kebab-case-topic>-design.md` (today's ISO date, UTC).
+**Path:** `${paths.planDir}/YYYY-MM-DD-<kebab-case-slug>/spec.md` (today's ISO date, UTC). The plan that Phase B writes lands beside it as `PLAN.md`, so the whole effort is one directory.
 
 ```markdown
 # <Title> — Design spec
@@ -195,7 +195,7 @@ Agent({
 
 ## Step 9 — User approval
 
-> "Spec written to `${paths.planDir}/specs/<file>` and project-planner returned PASS. Approve to proceed to Phase B (writing-plans)?"
+> "Spec written to `<plan dir>/spec.md` and project-planner returned PASS. Approve to proceed to Phase B (writing-plans)?"
 
 Wait for explicit "yes"/"approve"/"go". On change request → revise + re-loop self-review + Step 8.
 

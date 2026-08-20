@@ -53,8 +53,8 @@ Fixing it in one repository never reached the others. There was no copy — ther
 | | |
 |---|---|
 | **12 agents** | research, review, debugging, planning, verification, frontend, mobile, security, and an audit of the harness itself |
-| **12 skills** | process (planning, debugging, skill creation, harness audit) and craft (UX, performance, SEO, accessibility, Astro, browser testing) |
-| **12 commands** | from planning to verification, chained |
+| **10 skills** | process (planning, debugging, skill authoring and harness audit in one) and craft (UX, performance, SEO, accessibility, Astro, browser testing) |
+| **10 commands** | from planning to verification, chained |
 | **3 workflows** | the plan → build → verify chain as deterministic orchestration: research fans out, implementation runs in disjoint-file waves, verification refutes from several angles at once |
 | **12 guardrails** | git rails, execution ceilings, file protection, kill switch — running on both harnesses from the same files |
 | **1 contract** | `schema/config.schema.json` — the parameters that make all of the above work in any repository |

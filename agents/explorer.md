@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: "Internal codebase researcher. Use for repository discovery, pattern finding, dependency tracing, impact analysis, and pre-implementation investigation. Never searches the internet."
+description: "Use proactively before writing code in unfamiliar territory: what already exists here, which file owns this, who calls this symbol, what a change would touch. Searches this repository only and never the internet — for library or API behaviour, that is librarian. Read-only; run it in the background."
 model: haiku
 color: cyan
 role_type: researcher

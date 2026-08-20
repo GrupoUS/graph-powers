@@ -1,6 +1,7 @@
 ---
 name: second-opinion
-description: Use when the current thread has been arguing for one approach and you want a verdict that did not inherit the argument — a plan or diff to sanity-check, a fix that keeps not sticking, a decision that feels right mostly because you have been staring at it. Runs the review in a Claude session that never saw this conversation. Also the only place in this harness with a real spend ceiling, so use it when a review should be capped in dollars rather than in trust. Not for routine review inside a workflow (that is /verify and /pr-review, which are cheaper and already wired); not for anything needing the chat history as context, since withholding that history is the entire point.
+description: "A verdict from a Claude session that never saw this conversation, with a dollar ceiling. Use when a fix keeps not sticking, or a decision feels right mainly because you have been staring at it. Withholding the history is the point, so not for anything that needs it — and not for routine review, which is /verify and /pr-review."
+
 ---
 
 # Second opinion — review from a session that never saw this one

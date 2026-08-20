@@ -81,6 +81,22 @@ ROLE_LABELS = {
 
 SCAN = ["agents", "commands", "skills", "references", "templates", "hooks", "workflows"]
 
+# Cardinal 5, in the field the twelve agent files actually carry. `role_type` is theirs; inventing a
+# second field for the gate's convenience would be a copy of what `agents/` already says, which is
+# the thing this repository exists to stop. Four agents legitimately carry neither denial —
+# `debugger`, `frontend-specialist`, `mobile-developer`, `performance-optimizer` are `worker`, and a
+# worker that cannot write is a worker that cannot work.
+READ_ONLY_ROLES = {"evaluator", "researcher"}
+DENIED_TO_READ_ONLY = ("Write", "Edit")
+
+# Cardinal 6, and only for the role it names: **the node that judges**. A researcher is not judging,
+# which is why `explorer` and `librarian` run on `haiku` and stay correct. `inherit` is the spelling
+# the cardinal forbids outright ("Explicit `model:`, never inherited"); a cheap tier is the failure
+# it describes — "a cheap evaluator produces a false positive other nodes 'correct', and the origin
+# of the error is lost".
+JUDGING_ROLES = {"evaluator"}
+WEAK_MODELS = {"inherit", "haiku"}
+
 
 def external_problem(path: str, line: int, name: str, kind: str) -> str:
     return (f"{path}:{line}: routes to `{name}`, a {kind} of another plugin that is not declared "
@@ -159,20 +175,56 @@ def resolve(cited: str, base: str) -> str | None:
     return None
 
 
+def frontmatter_field(block: str, key: str) -> list[str] | None:
+    """The values of a frontmatter field, whichever of the two shapes it is written in.
+
+    `None` means the field is absent — a different answer from "present and empty", and the
+    difference is the whole point here: the presence check below has to be able to tell them apart.
+    Both shapes are read because both exist in `agents/`: `tools:` is a YAML block sequence in the
+    four evaluators and inline everywhere else. Anything that is not a `- item` line ends the
+    sequence, which is what keeps the `#` comments those files carry from being read as values.
+    """
+    m = re.search(rf"^{key}:[ \t]*(.*)$", block, re.MULTILINE)
+    if not m:
+        return None
+    inline = m.group(1).strip()
+    if inline:
+        return [v.strip().strip("\"'[]") for v in inline.split(",") if v.strip()]
+    values: list[str] = []
+    for line in block[m.end():].splitlines():
+        if not line.strip():
+            continue
+        if not line.lstrip().startswith("- "):
+            break
+        values.append(line.lstrip()[2:].strip().strip("\"'"))
+    return values
+
+
 def agent_frontmatter() -> list[str]:
     """The frontmatter contract from `.claude/rules/artifacts.md`, checked rather than trusted.
 
     The name that must match the filename, the `tools:` field without which an agent silently
-    inherits `Write` and `Edit` whatever its body promises, and `disallowedTools` in the inline
-    comma-separated shape the plugin reference documents.
+    inherits `Write` and `Edit` whatever its body promises, `disallowedTools` in the inline
+    comma-separated shape the plugin reference documents — and, since neither was ever tested,
+    that `disallowedTools` is THERE at all in whoever judges or researches (cardinal 5) and that
+    whoever judges names a strong model (cardinal 6).
 
-    On that last one, an honest note. It was introduced believing a YAML block sequence there kept
-    `security-reviewer` and `skill-improver` out of the registry for two releases. That was wrong:
-    the CLI listed both while they still carried the block form, and what did not list them was a
-    third-party `PreToolUse` hook whose allowlist predated them. The check stays because the
-    documented shape is the inline one and uniformity across twelve files is worth holding — but it
-    enforces a convention, not a known failure, and the difference matters if it ever has to be
-    argued with.
+    That gap is worth naming, because the shape of it recurs. The loop read
+    `for key in ("tools", "disallowedTools")` and its body ran only `if key == "disallowedTools"`,
+    so the `tools` half was dead and the other half validated the SHAPE of a field it never
+    required. Deleting the `disallowedTools:` line from `agents/evaluator.md` left the gate
+    reporting "12 agents checked, 0 that would not register" — a verifier with `Write` and `Edit`,
+    passing the gate `.claude/rules/artifacts.md` names as the enforcer of "no verifier writes".
+
+    On the inline-shape rule, an honest note. It was introduced believing a YAML block sequence
+    there kept `security-reviewer` and `skill-improver` out of the registry for two releases. That
+    was wrong: the CLI listed both while they still carried the block form, and what did not list
+    them was a third-party `PreToolUse` hook whose allowlist predated them. The check stays because
+    the documented shape is the inline one and uniformity across twelve files is worth holding —
+    but it enforces a convention, not a known failure, and the difference matters if it ever has to
+    be argued with. The presence check below does not depend on it: it reads either shape, so an
+    agent that denies `Write` and `Edit` as a block sequence is reported once, for its shape, and
+    not a second time as if the denial were missing.
     """
     problems: list[str] = []
     for path in sorted(glob.glob("agents/*.md")):
@@ -183,12 +235,40 @@ def agent_frontmatter() -> list[str]:
             problems.append(f"{path}: no frontmatter block")
             continue
         block = parts[1]
-        for key in ("tools", "disallowedTools"):
-            m = re.search(rf"^{key}:[ \t]*$", block, re.MULTILINE)
-            if m and key == "disallowedTools":
+        if re.search(r"^disallowedTools:[ \t]*$", block, re.MULTILINE):
+            problems.append(
+                f"{path}: `disallowedTools` is a YAML block sequence — write it inline "
+                f"(`disallowedTools: Write, Edit`) or the agent never registers"
+            )
+        role = re.search(r"^role_type:\s*(\S+)", block, re.MULTILINE)
+        role_type = role.group(1).strip("\"'").lower() if role else ""
+        if not role:
+            problems.append(
+                f"{path}: no `role_type:` field — cardinals 5 and 6 are conditional on the role, "
+                f"so an agent that does not declare one cannot be held to either"
+            )
+        if role_type in READ_ONLY_ROLES:
+            denied = frontmatter_field(block, "disallowedTools")
+            missing = [t for t in DENIED_TO_READ_ONLY if t not in (denied or [])]
+            if missing:
                 problems.append(
-                    f"{path}: `disallowedTools` is a YAML block sequence — write it inline "
-                    f"(`disallowedTools: Write, Edit`) or the agent never registers"
+                    f"{path}: role_type `{role_type}` does not deny {', '.join(missing)} — cardinal 5 "
+                    f"is `disallowedTools: Write, Edit` in every agent that judges or researches, and "
+                    f"`memory:` injects both on top of the `tools:` allowlist whatever the body promises"
+                )
+        if role_type in JUDGING_ROLES:
+            model = re.search(r"^model:\s*(\S+)", block, re.MULTILINE)
+            declared = model.group(1).strip("\"'").lower() if model else ""
+            if not model:
+                problems.append(
+                    f"{path}: role_type `{role_type}` with no `model:` — cardinal 6 is an explicit "
+                    f"strong model in whoever judges, never inherited"
+                )
+            elif declared in WEAK_MODELS:
+                problems.append(
+                    f"{path}: role_type `{role_type}` runs on `{declared}` — cardinal 6 wants a "
+                    f"strong model declared: a cheap evaluator produces a false positive other nodes "
+                    f"'correct', and the origin of the error is lost"
                 )
         name = re.search(r"^name:\s*(\S+)", block, re.MULTILINE)
         if not name or name.group(1).strip("\"'") != stem:

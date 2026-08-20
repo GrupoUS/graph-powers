@@ -1,0 +1,1 @@
+- [Hooks block their own probes](project_hooks-block-own-probes.md) — the session runs the guardrail it is editing; write probes to a file, never an inline heredoc.

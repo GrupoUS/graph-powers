@@ -103,24 +103,54 @@ def main() -> None:
         allow()
         return
 
+    # Every check below reads the path as a string. A symlink is a string that names one file and
+    # writes another, so `ln -s .env notes.md` followed by a write to `notes.md` walked past all
+    # three lists and landed in `.env` — the guardrail matched `notes.md`, which is protected by
+    # nothing, and the bytes went where the link pointed.
+    #
+    # Both spellings are then checked: the link's own path stays in play because a project may
+    # protect the link itself, and the target is added because that is where the write lands.
+    # `resolve()` touches the filesystem and can raise on a loop or a dead mount, so a failure
+    # falls back to the literal path — fewer names checked, never fewer than before.
+    candidates = [str(file_path)]
+    try:
+        resolved = Path(str(file_path)).resolve()
+        if str(resolved) != str(file_path):
+            candidates.append(str(resolved))
+    except Exception:
+        pass
+
+    for candidate in candidates:
+        if _judge(candidate, str(file_path)):
+            return
+
+    allow()
+
+
+def _judge(candidate: str, reported: str) -> bool:
+    """True when `candidate` hit a list and the refusal was printed.
+
+    It returns rather than exiting because there are two names to try and `allow()` exits — an
+    early exit here would check the link and never the target, which is the whole defect.
+    """
     # An entry without a separator is a filename — matched exactly, so ".env" never matches
     # "environment.ts". An entry WITH a separator is a repo-relative path, matched against the
     # tail of the target. Without this second form a project that declares "ops/secrets.yaml"
     # gets no protection and no warning, which is the worst of both.
-    posix = PurePath(str(file_path)).as_posix()
-    name = PurePath(str(file_path)).name
+    posix = PurePath(candidate).as_posix()
+    name = PurePath(candidate).name
     for entry in PROTECTED_EXACT:
         e = str(entry).replace("\\", "/").removeprefix("./")
         hit = (posix == e or posix.endswith("/" + e)) if "/" in e else (name == e)
         if hit:
-            deny(f"BLOCKED: '{file_path}' is a protected file")
-            return
+            deny(f"BLOCKED: '{reported}' is a protected file")
+            return True
 
-    path_parts = set(PurePath(str(file_path)).parts)
+    path_parts = set(PurePath(candidate).parts)
     for segment in PROTECTED_SEGMENTS:
         if segment in path_parts:
-            deny(f"BLOCKED: '{file_path}' contains protected path segment '{segment}'")
-            return
+            deny(f"BLOCKED: '{reported}' contains protected path segment '{segment}'")
+            return True
 
     # Directory containment check for patterns that include separators
     for pattern in PROTECTED_CONTAINS:
@@ -128,10 +158,10 @@ def main() -> None:
         # precisely because this comparison used to be raw; normalising here is what lets a
         # project declare `config/secrets/` once and have it hold on every platform.
         if str(pattern).replace("\\", "/") in posix:
-            deny(f"BLOCKED: '{file_path}' matches protected pattern '{pattern}'")
-            return
+            deny(f"BLOCKED: '{reported}' matches protected pattern '{pattern}'")
+            return True
 
-    allow()
+    return False
 
 
 if __name__ == "__main__":

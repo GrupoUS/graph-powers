@@ -66,16 +66,18 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 173 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 295 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
+python3 .github/check_listing_budget.py     # what the plugin costs before anything is invoked
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
-node bin/graph-powers.mjs --help > /dev/null
-git ls-files | wc -l                       # a clone is the artefact; nothing is packed
+python3 .github/check_placeholders.py       # every ${…} is a key the schema declares
+node bin/graph-powers.mjs --help          # the installer still starts under node
+python3 .github/check_clone.py              # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 ```
 
@@ -105,7 +107,7 @@ from inventing work.
 | `agents/` | subagents, one `.md` with frontmatter each | Claude Code by `subagent_type`; Codex via generated `.codex/agents/*.toml` |
 | `skills/` | skills, one folder with a `SKILL.md` each | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
 | `commands/` | commands, exposed as `/<name>` | the user; Codex gets them as generated skills |
-| `references/` | plugin-owned shared content: the safety floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read |
+| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
 | `hooks/` | guardrails in Python plus `_config.py` | declared in `.claude-plugin/plugin.json`; generated into `.codex/hooks.json` |
 | `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
 | `codex/` | the generators for the Codex side | `bin/graph-powers.mjs` |
@@ -150,7 +152,7 @@ This plugin's own equivalents live in `docs/ARCHITECTURE.md`, `docs/AUDIENCE.md`
 
 This machine runs the Graph Powers harness, installed once and shared by every project.
 
-Two files carry everything else:
+Three files carry everything else:
 
 - `~/.codex/graph-powers/shared-context.md` — an index of the shared patterns, one file each under
   `~/.codex/graph-powers/shared/`: config loader, quality gates, complexity routing, agent matrix,
@@ -158,6 +160,11 @@ Two files carry everything else:
 - `~/.codex/graph-powers/safety-floor.md` — the invariants that hold regardless of the task: git and
   outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,
   scope, completion claims, accessibility.
+- `~/.codex/graph-powers/execution-floor.md` — how the work is coordinated, in force from the first turn:
+  delegation is required above L3 and refused below it, read-only agents go to the background in
+  a single message, one writer per file, and the seven-section contract every spawned prompt
+  carries. On Codex nothing spawns on its own — the prompt has to say so. Read it before
+  spawning anything.
 
 **What is global and what is this project's.** The harness itself — skills, subagents,
 commands, guardrails — is installed once for the whole machine, because it is identical

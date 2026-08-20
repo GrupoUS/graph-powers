@@ -1,5 +1,5 @@
 ---
-description: Design workflow for new and existing interfaces. Locks a measurable UX direction with uxmaster, critiques read-only with ui-ux-designer, delegates the craft passes to the external impeccable plugin, implements with frontend-specialist, and closes on /verify. Use for a new surface, a redesign, or a production-readiness pass on UI that already ships.
+description: "Improve or create an interface — layout, spacing, typography, visual hierarchy, design tokens, empty states, responsive behaviour, dark mode. Use when the user says a screen looks cramped, ugly, dated or off, asks to improve the design or the UI, wants a redesign, or wants a new surface designed. Locks direction with uxmaster, critiques read-only with ui-ux-designer, delegates craft passes to the impeccable plugin, implements with frontend-specialist, closes on /verify. Do not use for a control that does not work (/debug) or a page that is slow (/perf)."
 workflow_type: prompt-chaining
 ---
 
@@ -28,10 +28,17 @@ The craft passes are **not** implemented here. They come from
 vendors — a copied snapshot of somebody else's design system is the exact failure this harness
 exists to prevent.
 
+Run it through the runner this project already uses — `npm` → `npx`, `bun` → `bunx`, `pnpm` →
+`pnpm dlx`, `yarn` → `yarn dlx`, read off `tooling.packageManager`. A project that declares
+`autonomy.allowPackageManagers` refuses the managers it did not choose, so a hardcoded `npx` here
+is denied by this plugin's own guardrail in every project standardised on something else.
+
 ```bash
-npx impeccable install --providers=claude,codex --scope=project   # first time
-npx impeccable update                                              # keep it current
+<runner> impeccable install --providers=claude,codex --scope=project --yes   # first time
+<runner> impeccable update                                                   # keep it current
 ```
+
+`--yes` keeps it non-interactive; without it the installer stops on a prompt this turn cannot answer.
 
 If `/impeccable` is not available in this session, **stop and say so.** Do not reimplement its
 passes inline; a half-remembered version of a design methodology is worse than none.

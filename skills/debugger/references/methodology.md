@@ -1,6 +1,17 @@
 # Steps 4–6 — Fix: Instrument → Fix + regression test → Verify & cleanup
 
-> Back half of the **diagnose-first** chain (mattpocock `diagnosing-bugs` §4–§6). Front half (build loop → reproduce & minimise → hypothesise, Steps 1–3) is `references/diagnose.md`. Steps 4–5 run **inside** the Superpowers chain — `Skill("superpowers:systematic-debugging")` opens it and mandates `Skill("superpowers:test-driven-development")`. Both Iron Laws apply: *NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST* and *NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.* The sections below are worked worked examples; the discipline lives in the Superpowers skills.
+> Back half of the **diagnose-first** chain (mattpocock `diagnosing-bugs` §4–§6). Front half is
+> `references/diagnose.md`. Which superpowers skill opens each Step, and the gates each one carries,
+> are in `Skill("debugger") § Engine` — not restated here. What follows are worked examples; the
+> discipline lives in those skills.
+
+## Contents
+
+- [Step 4 — Instrument](#step-4--instrument-p4)
+- [Step 5 — Fix + regression test](#step-5--fix--regression-test-p5) — RED on the real seam, backward trace, bisect, defense in depth, condition-based waiting
+- [Step 6 — Verify & cleanup](#step-6--verify--cleanup-p6) — verification criteria, regression prevention, postmortem
+- [Templates](#templates) — 5 Whys, commit message
+- [Security checklist](#security-checklist-audit--systematic-audit-support--owasp-2025--the-projects-privacy-regime)
 
 ---
 
@@ -33,9 +44,8 @@ Watch it fail RED. Confirm the failure mode matches the Step 1 reproducer.
 - `Read` before edit; re-run type-check after each edit — revert if new failures appear.
 
 ### 3. Verify gates
-```bash
-${tooling.commands.typeCheck} && ${tooling.commands.lint} && ${tooling.commands.test}
-```
+The declared gates, one command per line, each exit code read before the next
+(`shared/010-quality-gates.md`).
 
 ### Root cause tracing — 5-step backward trace
 Trace backward through the call chain to the original trigger, then fix at source.
@@ -138,16 +148,23 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 
 ## Step 6 — Verify & cleanup (P6)
 
-> Invoke `Skill("superpowers:verification-before-completion")` before any "fixed" claim. No completion claim before the gate command output (stdout + exit code) is read.
+> The evidence gate opens this Step: `shared/015-verification-gate.md`. No completion claim before
+> the gate command's stdout and exit code have been read.
 
 ### Fix Verification Criteria — a fix is verified when ALL are true
 1. **Reproducible:** bug reproduces on demand via the Step 1 feedback loop (failing test / `curl` / `agent-browser`) — manual steps do NOT count.
 2. **Test-proven on the real seam:** regression test fails without the fix, passes with it, and exercises the **real production code path** (not a happy-path stub, not a private helper with synthetic args).
 3. **Isolated:** the fix changes only what's necessary.
-4. **Gate-passing:** `${tooling.commands.typeCheck}`, `${tooling.commands.lint}`, `${tooling.commands.test}` all pass (release: `${tooling.commands.build}`).
-5. **Non-regressive:** no previously passing test now fails.
-6. **Instrumentation removed:** `grep -rn "DEBUG_BUG_<ID>" ${paths.backendRoot} ${paths.frontendRoot}` returns 0 — every Step 4 tagged log deleted before commit.
-7. **Hypothesis confirmed:** commit body names which of the ≥3 Step 3 hypotheses survived, and (briefly) why the rejected ones were disproved.
+4. **Gate-passing:** every declared gate passes, release adds `${tooling.commands.build}`.
+5. **Non-regressive:** no previously passing test now fails, and the Step 1 reproducer no longer
+   fires — re-run it 3×.
+6. **Instrumentation removed:** `DEBUG_BUG_<ID>` returns 0 hits under `${paths.backendRoot}` and
+   `${paths.frontendRoot}`. No `console.log`, no `as any`, no stub credentials, no test scaffolding
+   left in the touched paths. Take the changed files from `git diff --name-only HEAD~1 HEAD` and
+   search them with the **Grep tool** — `$(...)` and a `grep` binary are POSIX-only, and this check
+   passes silently when either is missing.
+7. **Hypothesis confirmed:** commit body names which of the ≥3 Step 3 hypotheses survived, and
+   briefly why the rejected ones were disproved.
 
 ### Regression prevention — scale to bug severity
 | Bug level | Required |
@@ -161,13 +178,6 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 | **High** | Same bug class likely elsewhere | Scan codebase, fix ALL instances |
 | **Medium** | Could recur if related code changes | Add guard, document |
 | **Low** | Isolated incident | Standard fix |
-
-### Cleanup checklist (mandatory exit gate — none optional)
-- [ ] Original Step 1 reproducer **no longer fires** (re-run 3×, all green)
-- [ ] Regression test passes in CI and exercises the **real production seam**
-- [ ] `grep -rn "DEBUG_BUG_<ID>" ${paths.backendRoot} ${paths.frontendRoot}` returns **0**
-- [ ] No `console.log` or `graph-powers:debugger` left in the touched production paths. Get the changed files from `git diff --name-only HEAD~1 HEAD`, then search them with the **Grep tool** — `$(...)` and a `grep` binary are POSIX-only, and this check silently passes when either is missing
-- [ ] No `as any`, no stub credentials, no test scaffolding left over
 
 ### Post-mortem (mandatory L6+, recommended for all)
 Write to `debug-reports/YYYY-MM-DD-<slug>.md`:

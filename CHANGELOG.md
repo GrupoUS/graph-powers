@@ -1,5 +1,736 @@
 # Changelog
 
+## 1.8.0 — the multi-agent /verify the reference layer had already specified
+
+Four shipped files described a `/verify` that consolidates signals from parallel agents: `090-verdict-matrix.md:3` said it consolidates "gates + agents + reviews", `parallel-batch-contracts.md:19` listed a "Phase 8 — parallel codex review + adversarial review", `agent-handoff-contracts.md:58` described its "consolidator" reading handoff JSON, and `015-verification-gate.md:13` cited a "Phase 0". The command had five sections, zero agent spawns, and loaded none of the four. This release builds the command those files were describing, and deletes the two claims that were never true.
+
+### Added — `references/shared/125-change-set.md`, and both commands now compute a scope
+
+`/verify` § 2 asserted that no file outside the task's scope had changed **without the command ever computing a scope**, and `/pr-review` § 1 derived its risk from a line count and path names. The new shared reference carries the three-tier base detection `ultra-verify` already had — `git diff HEAD`, then `merge-base origin/<workBranch> HEAD`, then `HEAD~1`, with a union rule and a confidence label — plus the surface map and the code-graph contract. It is charged to the ceiling, not to either command's floor.
+
+### Added — the code graph reaches the two commands that judge changes
+
+Neither mentioned it; only `/plan` did. `/pr-review` § 1 gains `detect-changes --brief` (a per-file risk score, which is what the cookbook built it for) and `impact --depth 2` (the "12 files changed, 80 affected" case a PR view structurally hides). `/verify` § 3 gains `callers_of` intersected with the change set for the reuse ledger — the same question `/plan` asked to produce the row, asked again after the fact — and `impact` for watchlist rows the plan's own author could not have known to write. Every one of them degrades: the probe is `status`, unavailable is recorded `SKIPPED (graph unavailable)`, and grep continues. `tests_for` is explicitly a candidate proof and never a coverage finding, because a measured case in `115-code-graph.md` returns zero tests for a symbol its test file references seven times.
+
+### Added — `/verify § 1.5`, a real parallel review batch
+
+Its three tree-reading blocks share no data: the safety floor runs `git status`/`git log`/`git diff --cached`, and the review checklist reads the plan, the rules directory, the host `REVIEW.md` and the branch. Neither consumes a gate exit code. Written `1 → 2 → 3` they looked sequential and were not. Four tracks now dispatch in one message — floor, correctness, security, design — every one read-only by frontmatter, surface-gated, and extensible through `chain.lenses`, the same config contract `ultra-verify` honours.
+
+### Added — `/verify loop`, the first way to reach `ultra-verify` without `/plan`
+
+`commands/plan.md:306` was the only line in the repository that invoked the 509-line workflow. The workflow's own header says the division out loud — verifying without a plan "already has a home: `/verify`" — but only one side of that contract was written down. `/verify loop` now hands the plan-measured half over when a plan exists, carrying the three-failure fallback doctrine `/plan` already proved, and keeps what the workflow does not do: the safety floor, `verify-supplements.md`, `NOT DECLARED` per gate, `## Rollback` and the `## Reuse ledger` walk.
+
+### Fixed — one need, two rival mechanisms for the project's extra gates
+
+`chain.contractGates` in the schema and `${rulesDir}/verify-supplements.md` answer the same question — where a repository keeps the checks it already had beyond type-check, lint and test — and neither knew the other existed. `ultra-verify` honoured the first and never read the second; `/verify` read the second and never knew about the first, so a project that put its checks in the config got them run by the chain and skipped by a direct `/verify`. `/verify § 0` now reads both, fires the contract gates whose `when` matches the surfaces from § 0.1, and reports which mechanism produced each row. The difference between them is real rather than historical: one is prose every run executes, the other is structured and conditional.
+
+### Fixed — a third verdict vocabulary, in the file nothing loaded
+
+`090-verdict-matrix.md` decided in Ship / Hold / Ship-with-follow-up while `/verify` and `ultra-verify` both return VERIFIED / VERIFIED-WITH-NOTES / NEEDS-WORK. Now that `/verify § 4` actually loads it, the third vocabulary would have been a contradiction shipped into the one place the verdict is written down. It adopts the three words, and states that a signal which did not run is its own row — `SKIPPED` and `NOT DECLARED` are different answers from `PASS`.
+
+### Fixed — `/pr-review § 3` was titled "parallel" and dispatched nothing
+
+Zero `subagent_type`, zero `Agent(`, four prose headings. It is a dispatch table now, and it gained the two lenses `ultra-verify` has always had and the review command never did: `performance-regression` and `design-tokens-a11y`. Projects extend it through `chain.lenses`; a lens naming an agent this plugin does not ship is named in the output **before** the batch, because a misspelt value otherwise spawns nothing and the review reports one check fewer than it claims.
+
+### Fixed — the demotion half of the consolidation rule was dead text
+
+§ 4 demoted a finding "only one path raised **and the others explicitly checked**", while the § 2 return contract said "Findings only. No praise, no summary" — so no track could ever report what it checked and found clean. Every track now returns a `COVERED` line, all on one P0-P3 scale, and the third case is spelled out: raised once with nothing else looking is a coverage gap, not agreement.
+
+### Fixed — three of four audit agents could write to the diff they were auditing
+
+`references/audit-agent-prompts.md` routed D3/D8/D9 and D4/D5 to `graph-powers:debugger` and D6/D7 to `graph-powers:frontend-specialist`, all carrying `Write` and `Edit`. The only thing between them and the tree was a prose "MUST NOT DO: edit any file" — a request, not a permission, and this repository has already paid for that: a review agent partitioned ownership of the diff it was reviewing and reverted about eighty lines of it. `/pr-review § 3F` reaches those agents through `/debug audit pr`, so the command was violating its own Iron Law transitively. All four slots are now read-only by frontmatter; D7 moved to the explorer slice because judging whether a gate can fail needs `Bash`, which the UX critic deliberately lacks.
+
+### Fixed — the performance lens was a write-capable agent, in both places
+
+`ultra-verify` has dispatched `performance-optimizer` as its `performance-regression` skeptic since the lens roster was written, and the first draft of `/pr-review § 3C` copied it. That agent resolves with `Write` and `Edit` and no `disallowedTools`, and a skeptic only reports — so both were handing review work to an agent that could edit the diff it was judging, which is the one rule this repository wrote down as an incident rather than a preference. Both now ask the performance question through `graph-powers:explorer`, which is read-only by frontmatter and has the `Bash` a pattern hunt needs. The fix loop is a separate dispatch and stays write-capable, which is where that specialist belongs. Every agent either command dispatches for review was re-checked against its own frontmatter, not against its description.
+
+### Fixed — `ultra-verify` requested a build gate and silently never ran it
+
+`commands.build` was declared in `CONFIG_SHAPE`, named in the config prompt, and consumed nowhere: `gateList` was `[typeCheck, lint, test]`. A project declaring `tooling.commands.build` got a gate that read as covered and never ran, while `/verify` ran it. It now runs **once**, in the opening gate pass, and deliberately not in `REGATE` — that list re-runs after every fix batch, and rebuilding per round is the most expensive thing this workflow could do. A project wanting it per round declares it as a `chain.contractGates` entry, which is what the file's own comment already recommended.
+
+### Fixed — three smaller things that had gone stale
+
+`/pr-review` hardcoded "three failed attempts" while the schema default for `graphGuardrails.maxRepatch` is 2 and `/verify` reads the key; it reads the key now. Its "read-only by default" claim did not survive § 3F writing `docs/AUDIT-REPORT-<date>.md` in the default mode — the claim is now accurate about what it means. And `ultra-verify.js` justified replicating a simplify pass partly because "the `debugger` agent has no Skill tool", which stopped being true in 1.7.0 when that agent was granted it; the remaining reason — an inner `/simplify` re-fans-out — stands on its own.
+
+### Changed — `/perf` and `performance-optimization` each keep one copy of a procedure
+
+The command and the skill were two implementations of the same seven procedures. The Vercel RUM run existed three times — `perf.md § 2.7` (4,097 B), the `vercel-rum` pack (4,243 B) and `vercel-data.md` — and the database scan, the PSI invocation, the CWV target table and the React-Doctor loop twice each. On top of that the skill carried three separate "bottleneck routing" tables and seven report templates, and both files are charged to `/perf`'s floor, so every duplicated byte was paid on every invocation. The split is now stated in both files and applied: **the command is the procedure** (which mode, what to run, what comes out), **the skill is the method and the catalogue** (rules, targets, pattern-to-fix), **a reference is one tool's exact invocation**. `/perf`'s floor drops from 49,326 B to 32,873 B — a third — with no mode and no pack removed.
+
+Two anchors were held deliberately fixed because code and prose cite them: `ultra-verify.js:358` reads `perf.md § 4.2-4.4` for the N+1, `select *` and foreign-key-index scan, and `parallel-batch-contracts.md:121` cites `/perf § 2.5` as the worked per-route fan-out.
+
+### Added — `/perf seo` and `/perf sec`
+
+The `seo-geo-baseline` and `security-baseline` packs had no route through the command that loads them: `/perf`'s dispatch table listed seven modes, none of which reached either pack, while `AGENT_SETUP.md:364` and `:448` told installers that `gitleaks` is needed by `/perf security-baseline` — a mode that did not exist. Both are now dispatch rows, and the two `AGENT_SETUP` references point at `/perf sec`.
+
+### Removed — the parts that were filler
+
+`references/unlighthouse.md` was a 13-line file whose body began "TODO: full reference deferred"; its four useful lines are now the Unlighthouse row of `psi-api.md`'s tool ladder. The memory pack's 11-step playbook lost steps 9 to 11 — container limits, alerting dashboards and "production memory management" — which were generic SRE advice with no call site in this harness; what remains is the baseline rule, a four-row browser/Node triage table and the four anti-patterns.
+
+### Fixed — POSIX-only commands the portability gate could not see
+
+`check_portability.py` anchors its binary check to the start of a line, so `curl -s … | jq` passed. The performance skill and its references carried five such blocks: the PSI and robots/sitemap fetches, the SEO score parse, a `<title>` check piped into `grep -oP`, and a CSV path hardcoded to `/tmp/vercel-cwv.csv`. All are `python -X utf8 -c` now. Two more in the same territory: `vercel-data.md § 3` built its dashboard URL from `$SCOPE`, a variable it never set — empty string in POSIX, literal text in cmd.exe, a plausible-looking wrong link either way — and the `security-baseline` pack opened with `bun audit` in a plugin that resolves `${tooling.packageManager}`. The gate's own blind spot is left as its own defect.
+
+### Fixed — the PSI quota note said the wrong thing
+
+`/perf § 2.1` promised "25k/day free, no key needed for ad-hoc use". The 25,000/day figure is the quota of a Google Cloud **project that has a key**; keyless requests are rate-limited per IP at a level Google does not publish. `psi-api.md` now says which is which, so a repeated run reaches for a key before it reaches a 429.
+
+## 1.7.0 — the browser reference that shipped with the binary, and nobody read it
+
+`skills/webapp-testing/references/browser-setup.md` was 465 lines of hand-written `agent-browser` command reference. The CLI ships its own usage skill — `bunx agent-browser skills get core --full`, 432 lines, versioned with the binary and therefore never stale. The file already knew: it recommended that command twice, at `:309-318` and `:382-392`, in two byte-identical blocks, and the second one stated the thesis out loud — *"This file covers what a project has to decide … everything else is upstream."* It then kept mirroring upstream for another 250 lines. This release makes the file obey the sentence it was already carrying.
+
+### Added — Step 1 now installs the binaries too, not just the plugins
+
+`AGENT_SETUP.md` documented two plugin dependencies and none of the tools the skills actually shell out to. Nothing said that `/pr-review` needs `gh`, that `/debug frontend` needs a browser CLI, that `/perf security-baseline` runs `gitleaks`, or that two agents declare MCP tools that resolve only when the server carries an exact name. A missing one of those does not fail at startup; it fails mid-task as `command not found`, after the agent has already promised evidence it can no longer produce. Step 1 is retitled and carries a second half: the three dependency classes, a table of every tool with its level and its install line, the MCP naming rule, and one preflight block that reads the whole list and installs nothing. Step numbers did not move — `PRODUCT.md`, `DESIGN.md`, `REVIEW.md` and `AGENTS.md:117` cite `AGENT_SETUP.md § 5` and `§ 6`, and `check_wiring.py` resolves those.
+
+### Fixed — the interpreter is named `python3`, and nothing said so
+
+All twelve hook registrations in `.claude-plugin/plugin.json` spell it `python3`, with no fallback to `python` or `py -3`. Where the interpreter does not answer to that name — the common case on Windows — every guardrail fails to start, and because cardinal 3 makes hooks fail open, nothing reports it: the session looks normal and has no commit gate, no push gate, no branch gate, no destructive floor and no write lease. Now stated in Step 1 as a prerequisite with that consequence attached, rather than left as an inference from a JSON file nobody reads.
+
+### Fixed — the librarian's MCP servers were graded as optional, and they are not
+
+The first draft of the section above called Tavily `RECOMMENDED` on the reasoning that the agent
+lists `WebFetch` and so degrades rather than breaks. Reading `agents/librarian.md:4` disproves it:
+the allowlist holds exactly one non-MCP tool, `WebFetch`, with no `WebSearch`, no `Grep` and no
+`Glob`. `WebFetch` retrieves a URL you already have and cannot discover one, so without the MCP
+servers that agent cannot do the job its own description promises. The sentence was true of
+`agents/evaluator.md`, which does carry `WebSearch` — two agents, two answers, and the frontmatter is
+what separates them. Tavily is now `REQUIRED` for the librarian in both the table and the preflight.
+
+### Changed — `agent-browser` is a global install, not a `bunx` call
+
+The skills spell it `bunx agent-browser` in twenty-five places. In a project that declares `autonomy.allowPackageManagers` without bun, this plugin's own guardrail refuses `bunx` — correctly, and it is the same trap Step 1 already documents for impeccable. A global `npm install -g agent-browser` makes every one of those twenty-five call sites work as a plain binary regardless of the project's package manager. Two more places hardcode bun the same way and are named in the section: `skills/debugger/scripts/find_polluter.py:92` runs `["bun", "run", "test", …]`, whose failure is worse than a missing command because the bisect then reports no polluter, and `skills/performance-optimization/SKILL.md:215` opens `security-baseline` with `bun audit`. The verification is `agent-browser doctor`, which checks the CLI, the state directory, disk, an available Chrome, the CDN and a real headless launch; `agent-browser install` is only needed when it reports a Chrome failure, since a machine that already has Chrome, Chromium, Brave or Edge passes without it.
+
+### Changed — `webapp-testing` delegates the command reference upstream
+
+`browser-setup.md` went 20,073 B to 8,024 B (-60%) and now documents only what the CLI cannot know: which environment to point at, the CDP path for authenticated routes with its three non-optional traps, the staging-write policy, the verdict rules, and when Playwright earns its place. `SKILL.md` went 83 to 77 lines. Its `description` also stopped advertising a call site that never existed: it claimed to be loaded by `/verify`, and `commands/verify.md` has never contained a line of browser content, never loaded this skill, and never spawned `graph-powers:verification`.
+
+### Added — named sessions, which were missing and mattered
+
+The default `agent-browser` session is a single browser shared by every agent on the machine, and it persists across conversations: working in it navigates over whatever page another agent left open. `export AGENT_BROWSER_SESSION="$(bunx agent-browser session id --scope worktree --prefix task)"` is now the second thing the skill tells you to do. This is upstream guidance the mirrored reference had never picked up — the cost of maintaining a copy, paid in a missing feature rather than in a wrong one.
+
+### Removed — `skills/webapp-testing/examples/` (3 files, 109 lines)
+
+No prose referenced them, `pyrightconfig.json` excluded them from type checking, and they hardcoded `localhost:5173`, `/tmp/page_discovery.png` and `/mnt/user-data/outputs/`. That last path exists only on claude.ai: it violates the portability cardinal and passed CI solely because `check_portability.py` does not scan `/tmp` and `~/` inside `.py`. The one capability that was theirs alone — `file://` automation of a local HTML file — is one line in `browser-setup.md` now. `NOTICE` § 4(b) records the removal, as Apache-2.0 requires.
+
+### Changed — `/debug` stopped carrying a second copy of two skills
+
+`commands/debug.md` went 530 to 436 lines and its context floor went 67,315 B to 54,679 B — from 2,685 B under the 70,000 B per-command cap to 15,321 B under it. What left: ~60 lines mirroring `browser-setup.md` in a file that already pointed at it; the Iron Law, in this repository's fourth copy of it; a "Hard STOP signs" list that repeated the stopping conditions printed 480 lines earlier in the same file; two parallel-research prompts weaker than the ones `pack-guides.md` already held, without the return cap or the read-only-by-frontmatter contract; and the agent/mode matrix, folded into the dispatch table it duplicated. Total command-set floor: 313,200 B to 298,442 B.
+
+### Fixed — a TDD exemption that contradicted the Iron Law it cited
+
+`commands/debug.md` granted L1-L2 fixes an exemption from the failing-test-first rule. `Skill("debugger")` Iron Law #3 grants none. One of them had to be wrong, and it was the command — this was the only place in the harness where "too small to test" was an argument. Removed; if the exemption is ever wanted, it belongs in the skill as an explicit exception, not hidden in a mode file.
+
+### Fixed — the debugger agent could not run the gates it was told to run
+
+`agents/debugger.md` declared `tools: Read, Write, Edit, Bash, Glob, Grep` — no `Skill`. The skill it preloads instructs it to invoke `superpowers:systematic-debugging`, `test-driven-development` and `verification-before-completion` at Steps 5 and 6. Inside that agent all three resolved to nothing, silently, and `workflows/ultra-verify.js:34` had recorded the defect without anyone acting on it. `Skill` is now in the toolset, with a comment saying why it cannot be removed.
+
+### Fixed — one process, three numbering schemes
+
+`SKILL.md` said Steps 0-6, `agents/debugger.md` said Phases 1-4, `commands/debug.md` said Phases 0-7. Three names for the same seven moves, which makes every cross-citation unverifiable. Steps 0-6 is now the only scheme, and the agent and the command cite it instead of restating it.
+
+### Removed — `commands/recover.md`
+
+A second entry point into `references/recovery-protocol.md`, which `/debug recover` already opened. The file documented that hazard about itself, at `:14-20`, and kept existing anyway. Its two genuinely unique blocks moved into the protocol where they belong: the stale-state pre-step is now Step 0 (a recovery run against a stale build reaches confident wrong conclusions), and the post-Step-5 gate checklist closes the file. The trigger phrases it owned — "we've tried three fixes", "we're going in circles", "back out and start over" — moved into the `/debug` description, so the intent still routes.
+
+### Removed — `skills/debugger/scripts/run_tests.py`
+
+Nineteen lines hardcoding `bun run check` and `bun run test`, in a plugin whose safety floor § 5 forbids substituting a different tool for the one the project declared. Its whole job is `references/shared/010-quality-gates.md`, which resolves the command from `config.json`.
+
+### Fixed — the debugger evals were unrunnable where they sat
+
+`skills/debugger/evals.json` moved to `skills/debugger/evals/evals.json`. Nothing executed it before: `run_evals.py` resolves `<skill-path>/evals/evals.json`, and the flat file matched no consumer. Same 14 assertions and 5 cases, now reachable by the runner that already ships.
+
+### Changed — the bug catalogue keeps the bugs, and stops re-indexing the rules
+
+`references/anti-patterns.md` went 12,699 B to 8,860 B. The 28-entry catalogue survives whole and was renumbered — it had two runs of duplicate numbers, 17-21 appearing in both the frontend and integrations sections. What left is the Negative Constraints index: git, secrets and tooling rules already stated verbatim in `safety-floor.md` §1/§5, plus entries naming a specific ORM, a specific storage API and a project-internal protocol, which cardinal 1 says are parameters and not content. One entry stayed uncompressed because it is an incident and not a policy: the review agent that held `Write` and reverted 80 lines of the diff it was reviewing.
+
+### Changed — `pack-guides.md` had one flow written four times
+
+`10,205 B` to `7,199 B`. The `frontend`, `backend` and `auth-db` execution flows were the same eight numbered steps differing by two lines each, and all three were already `SKILL.md`'s Steps 0-6. They are one flow and a delta table now. `systematic-audit` keeps its own flow, because inventory-before-any-fix is a real difference and not a formatting one. The four parallel-research templates were untouched — they are the strong copy, and `/debug` now dispatches them instead of its own.
+
+## 1.6.0 — the two skills that policed a border neither could hold
+
+`skill-creator` and `harness-audit` covered one territory between them: what a skill should say, and how skills resolve to each other. Keeping them apart cost 677 characters of the shared listing budget, two eval cases, five statements of prose and two routing-table rows — and the border still leaked. The repository had already measured that. The eval case `neg-skill-does-not-fire` carried a note recording that "my skill does not fire" was the exact prompt where the two collided and that no eval covered it; the response at the time was to add a case defending the border. The border was the defect. They are now one skill, `skill-improve`, paired with the `skill-improver` agent that already existed and whose self-audit clause had been pointing at `skills/skill-improve/` — a path that dangled until this change made it real.
+
+### Changed — two skills became one, and the body shrank by 72%
+
+`skills/skill-creator/` and `skills/harness-audit/` merged into `skills/skill-improve/`, a two-mode router: Mode A authors or iterates one skill, Mode B audits how a harness is wired. The detail moved into `references/authoring.md` and `references/harness-wiring-audit.md`, because a command that loads a skill is charged the SKILL.md bytes and not the references. SKILL.md bodies went 235 + 149 = 384 non-empty lines to 107. The listing budget went 9,331 to 8,898 against the same 10,752 ceiling, and headroom went 1,421 characters to 1,854. Neither skill had a functional call site; the merged one has its first.
+
+### Fixed — fifteen rules that were written twice and believed twice
+
+The merge surfaced fifteen pairs where the two skills, or a skill and its own reference, stated the same rule in incompatible terms. The description cap was 1024 in three files and 1,536 in three others, and only 1,536 is enforced by anything. The eval path was documented as nested in one section and flat in another of the same file, while that file's own evals used the form its own instructions forbade. The frontmatter contract said "`name` and `description` only" while the sibling skill shipped five fields. A naming rule demanded gerund form, which condemns every skill name this plugin ships, and the documented exit codes `2` and `3` for `quick_validate.py` do not exist — it emits `0` or `1`. None of these was a disagreement between authors: each was one author writing the same rule twice, months apart, and believing both. That is now recorded in `skills/skill-improve/learning.md` as the pattern to watch, because fixing a contradiction displaces it unless one home is made canonical.
+
+### Fixed — a validator that rejected the form it forces
+
+`quick_validate.py` captured the opening quote of a YAML scalar as part of the value, so a quoted `description` could never satisfy the "Use when" prefix rule and a quoted `name` failed the hyphen-case check. A folded block scalar is rejected by the angle-bracket test, so a quoted single-line scalar is the only form left — and the validator was warning about the one form it permits. An `unquote` helper now strips one matching pair before the checks. Verified in both directions: the warning fires on `planning`, whose description really does start with "Layer ordering", and no longer on `skill-improve`.
+
+### Fixed — an eval assertion that failed the correct answer
+
+`contains: precedence` is case-sensitive, and a real report capitalises the word at the start of a sentence. Four prose assertions became `regex: (?i)...`; literal filenames, flags and identifiers were left as substring checks. Measured before the fix: 8 of 9 cases exit 0. After: 9 of 9, with a deliberately wrong response exiting 1 and a positive response scored against a negative case exiting 1. The two cases that used to be negatives against `skill-creator` were repointed rather than deleted — "create a skill for X" and "my skill does not fire" must now fire this skill, and the second one carries an assertion that Mode B did **not** run, which is the internal border the merge created in place of the one it removed.
+
+### Changed — `/evolve` now calls a skill that exists in this plugin
+
+`commands/evolve.md` invoked `Skill("superpowers:writing-skills")` for the job `skill-creator` claimed, which meant the only functional call site in this territory pointed at an external plugin. It now calls `Skill("skill-improve")`, whose `references/testing-skills.md` carries the RED-GREEN-REFACTOR discipline. That edge was previously charged zero bytes by `check_context_budget.py`, because its regex matches no name containing a colon — the gate was measuring a load it could not see.
+
+### Changed — the context ceiling rose to 470,000, and the commit says what bought it
+
+Two separate things. 18,585 B was already over the old 440,000 ceiling before this change and had no owner. The rest is the merged 8.6 KB body now being charged to `/evolve` through a call site that finally resolves locally. Lower it again when the pre-existing overage is paid down.
+
+### Fixed — four defects the gates could not see, found by asking what invokes it
+
+Every gate passed on the merged skill, so a second pass asked two questions instead: what invokes this without a person typing it, and when does it open the files it writes. Four answers came back wrong. The merge had deleted `user-invocable: true` and `argument-hint` along with `allowed-tools` — only `allowed-tools` was retired by the rubric, and the other two are live fields, so the skill had stopped being typeable as a slash command while its reference still documented `--all` and `--phase N`. `learning.md` was written at the end of every round and opened at the start of none, which makes an inherited failure pattern decorative. The Phase 5 prompt ordered `MEMORY.md` pasted verbatim without ever saying where it lives, while Phase 0's skip-list named `agent-memory/` as skipped — the skill told itself to skip the directory it must read from. And nothing triggered it automatically at all.
+
+`.claude/rules/artifacts.md` now names it. That file auto-loads on `agents/**`, `skills/**`, `commands/**`, `references/**` and `workflows/**` — the exact territory the skill owns — and its own section titled "What invokes it" was the missing call site. A path glob is the only trigger in this repository that does not depend on a model reading a description and choosing.
+
+The first of those four is the deduplication pattern eating its own author: collapsing "`name` and `description` only" against a sibling that shipped five fields deleted two fields the disagreement was never about. Resolving a contradiction by picking a side also discards whatever the losing side carried incidentally.
+
+### Changed — NOTICE, because the Apache-2.0 obligation follows the directory
+
+`skills/skill-creator/` is Apache-2.0 material from anthropics/skills, and the section 4(b) modification statement names it by path. The path moved, so both the redistribution list and the modification statement were rewritten rather than string-replaced: the sentence claiming the iteration loop had "absorbed the separate `skill-improve` skill this repository used to carry" becomes self-contradictory the moment the merged skill is named `skill-improve`.
+
+## 1.5.0 — one task format, evidence instead of a checkbox, dispatch that stops waiting, and an execution floor that is always on
+
+Three defects in the planning chain, all measured in this repository before anything was edited — and the coordination rules, which were optional, are not any more.
+
+### Fixed — the skill taught a plan format the chain could not consume
+
+`commands/plan.md` mandates seven sections and `commands/verify.md` reads three of them verbatim.
+The template in `skills/planning/references/phase-b-writing-plans.md` — the one `ultra-plan` tells
+its synthesizer to "follow exactly" — contained none of them: `Reuse ledger`, `Regression
+watchlist`, `Rollback` and `Execution graph` appeared nowhere under `skills/planning/`. So the
+workflow was instructed to produce a plan that fails `/plan`'s own post-return checks, and this
+repository's real plan file followed the command rather than the skill. The template now carries
+all seven, and `ultra-plan` names them in the synthesis prompt.
+
+### Changed — a task is now written in one grammar, and its acceptance is a command
+
+A plan task was a `### Task N.M` block whose acceptance was a sentence. Nothing ran it, and the
+implementer self-reported PASS. It is now a checkbox — the syntax `/implement` already parses and
+this repository already writes — carrying `Owns:` (the paths that task alone writes), `Needs:` with
+the payload named, and `CHECK:` / `EXPECT:` / `EVIDENCE:` in place of the sentence.
+
+**A checked box whose `EVIDENCE` still reads `pending` is unmet — worse than unchecked, not
+better.** A checkbox is a claim; the evidence is the proof, and the gap between them was where
+self-certification lived. A check that turns out impossible is surrendered in the open with
+`ABANDON: <id> <reason>` and listed in the report. The idea and its wording come from
+[unlazy](https://github.com/Leonxlnx/unlazy) (MIT), read at `ed9e8d2`.
+
+Atomicity is now testable from both sides: too big if it would need two independent commits or two
+unrelated `EXPECT` strings; too small if its `Owns` set overlaps a sibling's or its `EXPECT` is a
+sub-assertion of one. The unverifiable `Estimated time: 2-5 min` field is gone; the granularity rule
+stays.
+
+### Changed — whole-project checks moved to the phase gate, and dispatch rolls
+
+Every task used to run `format`, `type-check` and `lint` over the whole repository: a twelve-task
+plan paid twelve times for one fact. Those commands now live in the phase's gate block and run once
+per phase. A task's own `CHECK` is scoped to the task.
+
+`workflows/ultra-build.js` dispatched a wave, awaited all of it, then dispatched the next — so every
+task waited for the slowest sibling, including the ones it never reads. It now starts a task the
+moment its own `needs` are done and no in-flight task holds one of its files. Three bounds keep that
+honest: a topological check that **throws** on a dependency cycle rather than awaiting a promise
+that can never settle, `graphGuardrails.maxParallelWave` as in-flight width, and `maxTasksPerPlan`
+as the total. A task the classifier could not give edges for falls back to the old wave barrier,
+which is the safe degradation. `check_workflows.mjs` dry-runs the scheduler's happy path; the other
+eight properties — the cycle, a self-reference, an unknown dependency id, the width cap, a file
+collision and a twelve-long chain among them — were checked once on a throwaway fixture and are not
+covered by a standing gate.
+
+### Fixed — an adversarial pass could widen the work it was reviewing
+
+`ultra-verify`'s skeptic panel had no scope boundary, so a finding past the plan's edge became a fix
+round, which became a new diff, which became a new panel. Findings now carry `inScope`, and only a
+defect the diff introduced, a regression of a `## Regression watchlist` row, or something that makes
+the plan's `## Destination` false can start a fix round. Everything else is reported and returned as
+`outOfScope` — logged, never silently dropped, never work. `commands/verify.md` says the same in
+prose, plus the rule that the same finding surviving its fix twice goes to a person rather than to a
+third patch.
+
+### Changed — one plan is one directory
+
+`${paths.planDir}/YYYY-MM-DD-<slug>/` holds `PLAN.md`, `spec.md` and the phase gates. Reading still
+accepts a bare `.md` written before this convention. `references/shared/007-path-conventions.md` is
+where that is defined, and every other file cites it.
+
+### Removed — the copies that disagreed
+
+The tier ladder existed in five places with three different ceilings, one of which prescribed more
+agents than the spawn cap allows; it is now only in `references/shared/020-complexity-routing.md`,
+which also absorbed the model/effort tiering. The disjoint-file rule was stated ten times and is now
+in `references/shared/070-parallel-agent-spawn.md`. The spawn cap was hardcoded as `5` in fourteen
+places and is `graphGuardrails.maxParallelWave` everywhere. `phase-b`'s duplicate confidence-scoring
+table and its three restatements of sprint contracts are gone; the canonical ones remain.
+`phase-c-executing-plans.md` carried twelve project-specific rules — "no hardcoded hex", "FK index",
+"webhooks idempotent" — inside a distributed artefact, against cardinal 1; they are now
+`chain.hardRules` and `chain.invariants`, which already existed and which `ultra-build` already
+reads.
+
+Two dangling citations that CI cannot see, because `check_wiring.py` only resolves numeric `§` ids:
+`.claude/CLAUDE.md § Intent classification` never existed, and `${rulesDir}/execution.md § Agents &
+Dispatch` had no such heading — the first now points at the tier ladder, and the second exists in
+`templates/rules/execution.md`.
+
+`/plan` cost 67,731 bytes before it did anything, 51% of it `commands/plan.md`. Its Step 0 reasoning
+and table templates moved to `skills/planning/references/step-0-inventory.md`, read at L3+, and the
+three shared fragments a direct edit never needs became conditional reads. Floor now 47,889 —
+**29.3% less on every invocation** — with the full text still reachable and still counted in the
+ceiling.
+
+### Added — `references/execution-floor.md`, the counterpart of the safety floor
+
+`safety-floor.md` says what must never happen. Nothing said how the work is *run*, so that half was
+optional: it lived in a skill the model had to choose to invoke, and in reference fragments a command
+had to name. A session that never invoked either coordinated nothing and reported success.
+
+The new floor holds eight sections: delegating is refused below L3 and required above it; a batch
+goes out in one message with read-only agents in the background; one writer per file; the
+seven-section delegation contract; the split between Claude Code delegating on its own and Codex
+needing to be told in words; one cloud thread per scope; what the parent does with the returns; and
+that an unresolved agent name is a route rather than a stop.
+
+What it deliberately does not carry is every number and table that already has an owner —
+`020-complexity-routing.md` keeps the ladder, `030-agent-assignment-matrix.md` the agent table,
+`070-parallel-agent-spawn.md` the spawn rules and the two configuration ceilings. A floor that
+restated them would be the fifteenth copy of `5`, which the release above had just finished removing.
+
+It reaches both harnesses without a new hook. Codex gets it from the `references/` copy the installer
+already writes, named in the delimited `AGENTS.md` block beside the safety floor.
+`hooks/session_context.py` puts one line in front of every Claude Code session: the posture, and the
+resolved path of the file. Four cases in `hooks/test_hooks.py` hold it to that, including on Codex.
+
+### Removed — `agent-orchestration`, folded into the floor
+
+1.3.0 decided explicitly **not** to delete this skill, on the reasoning that a skill's description is
+itself a routing trigger. That reasoning was sound while the content was lazy — the description was
+the only thing that could bring it into a session. A rule that is resident from the first turn needs
+no trigger, so the argument goes with the skill.
+
+Its unique content moved: the delegation contract into §4, the Claude-versus-Codex split into §5,
+cloud threads into §6, parent consolidation into §7. Its two agent rows that `030` was missing —
+`project-planner` and `verification` — moved into `030` rather than into the floor. Its restatements
+of the spawn rules and the hardcoded "cap at 5" were dropped rather than moved.
+
+`/delegate` no longer invokes a skill to decide the fan-out and no longer defines a second,
+different seven-section contract: it mirrors §4 with a provenance comment, the same convention the
+safety floor uses, so a divergence between the two is visible rather than silent. That also makes
+`/delegate` cheaper — the skill it used to load unconditionally is 4.5 KB of floor it no longer pays.
+
+### Fixed — a rename ate the sentence that taught the namespace
+
+`030-agent-assignment-matrix.md` read "`graph-powers:explorer` is not `graph-powers:explorer`" — an
+automated prefixing pass had rewritten the bare name on both sides of the comparison, in the one file
+that exists to teach the difference between them. The sentence is rewritten to make the point without
+needing the bare token, because `check_wiring.py` is right to refuse one.
+
+### Changed — `senior-prompt-engineer` says half as much and answers the same questions
+
+288 lines to 181, 16 KB to 9.6 KB, and the three `scripts/` are gone. What was cut was not detail —
+it was content that had a different owner, or no owner at all:
+
+- **§ 12, a seventeen-step refactoring checklist**, absorbed in May from a `/refactor-code` command
+  that was deleted in the same change. Nothing has cited it since. Steps like "run linters",
+  "update documentation" and "feature flags for gradual rollout" are true of any codebase, which is
+  what made them free to write and worthless to read. The bundled `/simplify` and
+  `superpowers:test-driven-development` already own that ground.
+- **`scripts/prompt_optimizer.py`, `rag_evaluator.py`, `agent_orchestrator.py`** — 97 lines each,
+  byte-identical apart from the class name, every one with a `_execute()` that returns
+  `{'success': True}` and a `# Add validation logic` where the logic would go. Three years of
+  "reserved for future automation" with no caller, no test and no concrete use case. A docstring
+  reading "Production-grade tool" above a stub is the shape of the problem.
+- **The spawn template and the parallel-batch rules**, which the execution floor and
+  `070-parallel-agent-spawn.md` now own. The skill points at them instead of holding a third copy of
+  the width cap.
+- **An invented table.** "Default preload assignments" prescribed `senior-prompt-engineer` for an
+  Orchestrator role this plugin does not have. The four agents that do preload something preload
+  their own domain skill; the table now says what is true instead of what would be tidy.
+
+The same pass removed the duplication *inside* the skill: `agentic_system_design.md` restated the
+file contract, the preload table and the anti-patterns almost line for line, and now starts where
+`SKILL.md` stops. `parallel-batch-contracts.md` lost a "remaining spawn budget" table that quietly
+contradicted the width-versus-total distinction the spawn rules exist to make.
+
+The floor gained the other half of the edge: filling the seven sections needs no skill, and when only
+the return shape is needed the one reference is read rather than the skill around it.
+
+### Fixed — three claims in that skill that the documentation does not support
+
+`python3 .github/check_wiring.py` cannot see any of these: two are prose, and one was true when it
+was written.
+
+- **"A subagent cannot spawn a subagent — Anthropic spec."** It can, to a default depth of three
+  layers below the main conversation. The anti-pattern is now the real one: nesting that nobody
+  decided on, which spends the session spawn ceiling without a fan-out ever being planned.
+- **A model-selection table recommending agents that do not exist.** It prescribed `opus` for an
+  `orchestrator` and an `oracle`, neither of which is in `agents/`, and named the rest by loose
+  description — "code reviewer", "codebase explorer". The bare-name lint cannot catch a name it has
+  never heard of. The rows are the real twelve now, namespaced. A batch example was corrected the
+  other way: `regression-hunter` is not a ghost but a **role label** for a second
+  `graph-powers:explorer` instance, and the table now says so rather than reading as an agent name.
+- **A citation that was never true.** `llm_evaluation_frameworks.md` opened by declaring itself
+  "cited by `evaluator` agent (Mode 3)". `agents/evaluator.md` has never named it — it loads
+  `references/rubrics/evaluator-rubric.md`. Also removed: two `${rulesDir}/execution.md § Agents &
+  Dispatch → …` sub-anchors pointing at headings the shipped template does not contain, and the
+  lineage prose citing `orchestrator.md`, a file this repository does not have.
+
+### Removed — `/delegate`, whose subject is now the floor
+
+The command had no caller. Nothing in the plugin invoked it; the only three mentions were a matrix
+row, a historical note about context budget, and the sentence the execution floor had just added to
+give it an edge. Everything it did was already defined a level up — the seven sections were a mirror
+of `execution-floor.md` §4, and which agent to pick was a pointer to `030`.
+
+What was genuinely its own moved into §4 rather than being dropped:
+
+- **The pre-delegation declaration** — agent, why that one, skills included **and the ones omitted,
+  with the reason**, expected deliverable. The omission line is the half that earns its place: an
+  included skill announces itself, and a skill that should have been loaded and was not leaves no
+  trace at all.
+- **The three questions after it returns** — does it work, does it follow the patterns already here,
+  did it honour MUST DO and MUST NOT DO.
+- **The brainstorming escape** for a delegation whose scope nobody has pinned down.
+
+Ten commands now, and the floor answers the question the eleventh was asking.
+
+### Changed — `/prime` stopped paying for what it never read
+
+The context loader was the second most expensive command in the set: 27,924 B before it did
+anything, of which its header ordered six shared fragments and the body acted on three. The agent
+matrix, the spawn rules and the guardrail index — 11,285 B — were loaded on every invocation and used
+on none. `shared-context.md` has stated the rule the whole time: *"A command's header names what it
+reads, and nothing else… if it does not, the line is wrong."*
+
+They are also exactly what the execution floor now carries without being read, so the header is three
+fragments and the body says why.
+
+The per-domain staging then moved out of the command and into
+`references/shared/045-context-staging.md`, one section per domain, read only for the mode that was
+dispatched. Floor **27,924 → 11,765 B (−58 %)**, worst case 34,512 → 16,576. The pointer carries a
+load verb on purpose, so the moved bytes still show up in the ceiling rather than disappearing from
+the measurement.
+
+## 1.4.1 — the approver stops vouching for what nobody owns
+
+A review of 1.4.0 ran the guardrails instead of reading them, and the two answers disagreed. Six
+commands had moved from `ask` to `allow` on the theory that a dedicated hook owned each decision.
+For `git commit` and `git push` that was exactly right and is documented — Claude Code runs every
+matching `PreToolUse` hook and applies the most restrictive answer, `deny` over `defer` over `ask`
+over `allow`, so the gates still decide. For the other four there was no owner, and the review
+found it by executing them rather than by trusting the comment.
+
+### Fixed — `git checkout -- .` was allowed by everything
+
+`checkout` reads as navigation, so it was sorted with the branch verbs and handed to
+`git_branch_gate`. But `git checkout -- <paths>` is not navigation; it is `git clean`'s twin. It
+overwrites the working tree from the index, and the edits it discards exist in no object git can
+name. `git_branch_gate` never answered for that form — its `target_branch()` gives up the moment
+`--` appears — so `smart_bash_approver` returned `allow` and the other four hooks returned silence.
+Measured on both levels: `guarded` and `autonomous` alike.
+
+The unambiguous destructive spellings are now on the destructive floor, where `git clean -f` and
+`git reset --hard` already were: `checkout -- <paths>`, `checkout .`, `checkout -f`,
+`switch --discard-changes`, and `git restore` without `--staged`. `restore` had been sitting in
+`ASK_PATTERNS`, which resolves to `bashDefault` — `allow` under `autonomous`.
+
+What is left is genuinely ambiguous: `git checkout main` is a branch, `git checkout main.py` is a
+path, and nothing separates them without asking the filesystem. That form went back to `ask`, so
+`guarded` stops and `autonomous` proceeds. It costs no extra prompt where it matters, because
+`deny` outranks `ask` — where `git_branch_gate` refuses, its answer is the one the user sees.
+
+### Fixed — a home directory could turn off the git gates in every repository
+
+`autonomy` is user-scoped so a person's posture survives `git clone`. The comment said `git` was
+excluded deliberately, and that was true of the top-level `git` block — branch names and the
+opt-in prefix. The three *decisions* live under `autonomy`, which is scoped, so they crossed:
+`~/.graph-powers/config.json` with `autonomy.git.{commit,push,protectedBranch}: "auto"` silenced
+`git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository that declares no
+`autonomy` block of its own — which is most of them, since that is why the layer exists. `level`
+went on reporting `guarded` throughout.
+
+A home directory may now tighten a git decision and not release one. `ask` under a personal
+`autonomous` is somebody holding themselves to a stricter line and costs nobody anything; `auto`
+has to be written in the repository it applies to, where a reviewer sees it. Dropping the whole
+sub-block instead would have quietly loosened the operators who had pinned it to `ask`.
+
+`protectedFiles` was the same shape with a worse ending. Lists replace on merge, so
+`{"segments": []}` at home deleted the defaults machine-wide — and unlike `autonomy`, a project
+declaring its own block did not win them back; it merged onto the emptied one. The user layer may
+now only add. `graphGuardrails` is deliberately untouched: its ceilings are spend on the operator's
+own machine, which is what a personal scope is for.
+
+### Fixed — one prefix defeated `allowPackageManagers`, and a runner was waved through
+
+The check ran once against the whole command line, so it only ever read the first word. With
+`["bun"]` declared, `npm install` was refused and `echo ok && npm install` was allowed. It now runs
+per segment, inside `_classify`, alongside every other rule.
+
+The family map added in 1.4.0 is right that `bunx` belongs to `bun` — the lockfile guarantee is
+what the setting protects, and running a package through the manager the project already chose
+forks nothing. But `allow` was the wrong answer: `bunx <package>` resolves and executes code from a
+registry the project never named, and the consent on record was about lockfiles. An in-family
+runner now asks. Declaring the manager outright still allows, and `npx` under `["bun"]` is still
+refused.
+
+### Fixed — `gh pr create`, `chown` and a remote `rsync` had no owner either
+
+All three moved to the always-allow list in 1.4.0. No hook in this plugin gates `gh`, and
+`safety-floor.md §1` wants approval in the turn before anything leaves the machine. Ownership is
+outside git entirely. And "additive" describes what `rsync` does to the destination filesystem,
+which says nothing about the destination *host* — a remote target is egress. All three ask again;
+a local-to-local `rsync` without `--delete` still runs unprompted, which was the change worth
+keeping.
+
+### Fixed — a symlink walked past every protected path
+
+`protect_files` matched the path as a string, so `ln -s .env notes.md` followed by a write to
+`notes.md` matched nothing and landed in `.env`. Both names are checked now — the link, because a
+project may protect the link itself, and its target, because that is where the bytes go. A failure
+to resolve falls back to the literal path: fewer names checked, never fewer than before.
+
+### Fixed — two gates that could not fail, and one that could not see
+
+`check_context_budget.py` shipped with no threshold and no step in CI, while `AGENTS.md` and
+`.claude/rules/verify-supplements.md` both listed it among the gates that pass before anything
+ships. Every mode returned 0. It now has a floor, a ceiling and a per-command cap, and it runs.
+
+`check_portability.py` named three `.mjs` defects in its own docstring as its motivation and
+scanned no `.mjs` file, so it could not have caught a regression of any of them. It scans the
+installers now, and the five checks are the five defects this repository actually shipped —
+verified against a synthetic file carrying all of them. Its markdown scan also skipped the
+repository root, where `AGENT_SETUP.md` — which ships, and which an agent follows — carried
+twenty-six POSIX-only lines. Those are rewritten as the Python the file already uses elsewhere.
+`README.md` and `CONTRIBUTING.md` are exempt and say why: they are prose for a person, not a block
+an agent executes.
+
+Two of the gate's own rules were wrong in the other direction and were narrowed rather than
+obeyed. `~/` inside `os.path.expanduser("~/…")` is the fix for the defect, not the defect, and a
+POSIX line beside its PowerShell counterpart is coverage. Both are now judged by their context —
+the file for the first, the fenced block for the second.
+
+### Fixed — CI could not go green on a correct changelog
+
+The dangling-reference gate held every `**/*.md` to today's tree. A changelog names files that
+were deleted and files this repository never owned: `agents/codex-rescue.md` belongs to the codex
+plugin, and the 1.3.1 entry describing it is accurate prose the regex cannot distinguish from a
+broken link. Requiring a history to resolve against the present means it can never record a
+removal, which is most of what a history is for. `CHANGELOG.md` is skipped; nothing else in the
+tree dangles.
+
+### Changed — the suite grew by twenty-seven cases, and four changed their answer
+
+`hooks/test_hooks.py` runs 212 checks. The four that changed are the four behaviours above that
+were asserted as correct in 1.4.0: `bunx` now asks rather than runs, `gh pr create` and a remote
+`rsync` ask, and the approver's vote on `git checkout` is `ask` rather than `allow` with
+`git_branch_gate`'s `deny` still proving what decides. The rest are new negative cases — the
+destructive `checkout`/`restore`/`switch` spellings and their legitimate mirrors, the per-segment
+package-manager refusal, `autonomy.git` in both directions, `protectedFiles` in both directions,
+and the symlink, which skips loudly on a platform that refuses to create one.
+
+## 1.4.0 — the harness answers a sentence, and a preference survives the clone
+
+### Changed — 24 descriptions rewritten, because that is where automatic invocation lives
+
+The commands and skills were already model-invocable; Claude Code merged commands into skills, and
+every one of them has been in the model's listing all along. What was missing is that the listing
+entry is the *only* text a plain sentence is matched against, and all 24 were written as
+documentation — explaining what an artefact is, to a reader who had already typed its name.
+
+They now split by the load they carry. The 12 **commands** are the intent surface: each one leads
+with what happens, then the sentences a person actually types, then a "do not use for" clause
+naming the neighbouring command. The 12 **skills** are the knowledge surface, loaded by a command
+that already routed or by a model already inside the domain, and they were cut to their domain and
+their nearest neighbour. Commands went 3,238 → 5,706 characters; skills went 7,514 → 3,625.
+
+Nothing was flagged wrong on the way in: zero `disable-model-invocation`, zero malformed
+frontmatter, 24 of 24 parsing. The defect was entirely in what the text said.
+
+### Added — `check_listing_budget.py`, because the ceiling is shared and invisible
+
+Claude Code budgets the skill listing at roughly 1% of the context window across *every* source on
+the machine, and on overflow it drops descriptions rather than failing — starting with whatever is
+invoked least. Three of this plugin's own skills were measured in that state: listed by name,
+matching nothing.
+
+That makes growth here a cost paid by somebody else's skill, so it is now a gate. The plugin
+measured 10,752 characters before this release; the ceiling is that number and the current total is
+9,331, leaving the headroom visible instead of spendable in silence. The one setting that raises the
+budget cannot ship from a plugin — only `agent` and `subagentStatusLine` are honoured from a
+plugin's `settings.json` — so `AGENT_SETUP.md` now documents `skillListingBudgetFraction`, and the
+two cheaper `skillOverrides` moves to try before spending context on it.
+
+### Fixed — a hand-written workflow script failed at parse, and nothing could have caught it
+
+```
+Error: Invalid workflow script: Script parse error: Unexpected token (156:63)
+0 lines per rule. Note: this project uses `globs:` not `paths:` in frontmatter —
+                                           ^
+```
+
+The caret is on a backtick and the line is prose. A workflow script is mostly agent prompts, prompts
+are template literals, and a prompt about code is dense with backticks — so the first one inside the
+prose ends the literal and the rest is parsed as JavaScript. The script reaches the runtime as text,
+so the failure lands after it is fully written and before anything runs.
+
+`check_workflows.mjs` has always performed exactly the right check — it applies the runtime's own
+wrapper, because these scripts use a top-level `return` and `node --check` rejects correct ones, then
+executes the body against stubbed `agent()`, `parallel()` and `pipeline()`. It was reachable only for
+`workflows/*.js`, which is the one case that never has this problem, because CI already gates it.
+
+It now takes file arguments: `node .github/check_workflows.mjs <script.js>` parses and dry-runs any
+script before it is handed to `Workflow`. Explicit-path mode drops the two checks that only mean
+something for a shipped workflow — filename/`meta.name` agreement and the refuses-empty-args guard —
+and keeps the parse and the dry run, which is what actually breaks. Since `Workflow` persists every
+inline script and returns its `scriptPath`, this is also the iteration loop: edit that file, re-check,
+re-invoke by path.
+
+`references/shared/130-workflow-authoring.md` carries the rule, cited from `agent-orchestration`
+(where fan-out is decided) and `harness-audit` Phase 5 (whose own prompt escapes its backticks
+correctly, and is the pattern the failing script imitated without the escapes). The quoting table
+leads with the cheapest fix: drop the backticks. `paths:` reads the same to an agent as `` `paths:` ``
+and cannot break the parse.
+
+The `globs:` claim inside that failed prompt came from `000-config-loader.md`, which said Tier 2
+rules auto-load via `globs:` frontmatter until this release corrected it to `paths:`. The script was
+repeating the plugin's own error back to it.
+
+### Fixed — `/verify` advertised a mechanism it never read
+
+`000-config-loader.md` has listed `${rulesDir}/verify-supplements.md` as "loaded by `/verify`" for
+as long as the table has existed. `commands/verify.md` never read it — the string appears in that one
+table row and nowhere else in the plugin. So a project whose real gate set does not fit the four rows
+`/verify` knows about had a documented place to put the rest, and putting it there did nothing.
+
+This repository is the case in point: `tooling.commands` accepts seven named keys, none of which is
+"validate the plugin manifest" or "check nothing POSIX-only entered a command an agent runs", so it
+declares one gate out of thirteen. `/verify` ran that one and printed a clean line. `§ 0` now reads
+the supplement and runs what it declares, and `.claude/rules/verify-supplements.md` carries this
+repository's thirteen with what each failure means.
+
+The same reference said Tier 2 rules auto-load via `globs:` frontmatter. The field is `paths:`, and
+the difference is not cosmetic: a rule with no `paths:` field loads unconditionally into every
+session at `.claude/CLAUDE.md` priority, so the wrong field name does not fail loudly — it silently
+converts a scoped rule into an always-on one, which is the opposite of what scoping it was for. The
+note now says so, and the new supplement carries a narrow `paths:` for exactly that reason.
+
+### Added — how to configure Biome and oxlint so the lint gate checks something
+
+Measured against a real Astro project in this org rather than reasoned about, because the first
+version of this section was wrong in a way only measurement catches.
+
+The reported symptom was ~2,400 findings. The project's own declared lint was **clean, exit 0, both
+tools**: the numbers came from running the linters unscoped at the repository root, where they walk
+`.claude/` and a timestamped `.claude.bak-*/`. 463 of oxlint's 468 warnings sat there, against 5 in
+the project's source; Biome went from 387 files and 1,093 errors to 62 files and 6 lint findings on
+the same repository once the harness directories were excluded.
+
+Almost all of it was bundled third-party JavaScript that a skill installs — `no-unused-vars` and
+`no-unused-expressions` on minified output, `no-loss-of-precision` on sRGB luminance constants that
+are supposed to be long doubles, `no-misleading-character-class` on an emoji range regex. Correct
+code, correctly flagged, in a file the project did not write. **The harness is what puts that code
+in the tree, so the harness is what has to exclude it** — the exclusion list is now part of both
+templates, and `.gitignore` is explicitly not a substitute, since `.claude/` is committed on purpose.
+
+Two corrections to the first version of this section, both from measurement:
+
+- **The oxlint template was noisier than oxlint's own default.** Same project, same ignores: the
+  default `correctness` category gave 5 findings; the recommended `plugins` + `suspicious`/`perf`
+  gave 68. The additions bought `no-underscore-dangle` (27 — Google Apps Script *requires* the
+  trailing underscore for private functions), `no-await-in-loop` (17 — deliberate sequencing),
+  `consistent-function-scoping` (8) and `no-array-sort` (6 — which this plugin's own config already
+  disables, with a reason). The template is now the ignore list and nothing else, with the widening
+  path described as something to measure one axis at a time.
+- **`biome check` runs the formatter too**, so scoping it as the whole tree minus exclusions asks the
+  repository to format every JSON config it can find: 255 findings of which 6 were lint. `includes`
+  now names the source, which is what the measured project's own working config does.
+
+Also documented: the triage order for someone handed four figures of findings — run what the project
+declares first, then group by *directory* before ever grouping by rule, because that is the step that
+ends most of these.
+
+
+`AGENT_SETUP.md` told installers to install both tools and declare the commands, and stopped there. A
+declared linter with no config file runs, exits 0 and reports nothing, which is the worst possible
+gate because the line reads as covered. Step 3 now carries both config files against the current
+official references, the division of labour between them — Biome formats, oxlint is the lint gate,
+because both linting the same rules yields two diagnostics per finding — and the reason
+`tooling.commands.format` must be `biome format --write` rather than `biome check --write`: `check`
+auto-fixes, the hook runs it after every Write, and a fix landing inside a half-finished refactor
+cascades into the next edit. Also the CI-only variants, `biome ci` and `oxlint --deny-warnings`, and
+the instruction not to add either to a project already on ESLint or Prettier.
+
+### Fixed — a project that mandates `bun` could not run `bunx`
+
+`autonomy.allowPackageManagers` compared the literal first word of the command against the list, so
+`bunx` under a `["bun"]` declaration was refused — bun's own package runner, the correct tool in
+that project, denied by the rule that exists to keep the project on bun. The refusal even read
+"`bunx` is not one of them" with `bun` sitting in the same sentence, which looks like a broken
+guardrail rather than an applied rule.
+
+The allowlist now names families. A command resolves to the manager that ships it — `bunx`→`bun`,
+`npx`→`npm`, `pnpx`→`pnpm`, `uvx`→`uv`, `pipx`→`pip` — and the family is what gets checked, so
+`["bun"]` admits `bunx` and still refuses `npx`. Resolution is one-directional: declaring `npx` does
+not hand over `npm`, because someone who asked for one-off execution did not ask for the lockfile to
+be rewritten. What the setting protects is unchanged — running a package through the manager the
+project already chose forks nothing.
+
+Every real project on the author's machine was carrying the workaround, `["bun", "bunx"]`, and so
+was the test fixture — which is precisely why CI never saw it. The fixture now declares `["bun"]`,
+the form the fix enables, and the explicit two-entry form is covered separately so the repositories
+already carrying it are not punished for the plugin's defect.
+
+### Fixed — the plugin told agents to run `npx`, then denied it
+
+`AGENT_SETUP.md`, `README.md` and `commands/design.md` all hardcoded `npx impeccable install`. In
+any project standardised on something else that instruction is refused by this plugin's own
+`smart_bash_approver` — the harness firing its guardrail at its own documentation, and `/design`
+losing its craft passes to it. A package manager is a project's choice, which cardinal 1 says makes
+it a parameter; all three now resolve the runner from `tooling.packageManager` and give the mapping.
+
+The same commands were missing `--yes`. With `--providers` and `--scope` supplied the installer is
+still interactive, so a command an agent runs unattended stopped on a prompt nobody was going to
+answer. `AGENT_SETUP.md` also now records where the Codex half actually lands —
+`~/.agents/skills/impeccable`, the shared skills directory, not `~/.codex/skills` — and how to
+verify the hooks merge left every other tool's entries standing.
+
+### Added — a user-scope config, so autonomy stops being re-decided per clone
+
+`_config.py` read one file: the project's. Everything in it was therefore per repository, including
+`autonomy`, which is the block deciding whether a session feels like work or like clicking Approve.
+A person who had already turned that off met the same prompt flood in the next clone, and it read
+as the setting having stopped working when it had simply never been asked.
+
+`~/.graph-powers/config.json` now answers it once, resolved `defaults < user < project`. Three
+limits keep the layer safe rather than merely convenient:
+
+- Only `autonomy`, `graphGuardrails`, `protectedFiles` and `autoUpdate` are read from it. The rest
+  of the schema describes a repository, and a `paths.frontendRoot` written once at home is wrong
+  everywhere except where it was meant.
+- `git` never crosses. `optInPrefix` is per repository so an approval typed in one cannot release
+  the same gate in another, and a home-directory prefix would delete that isolation for every
+  project at once.
+- `autonomy` is owned whole by whichever scope declares it. Field-merging a user's
+  `git.commit: ask` under a project's `level: autonomous` would leave a repository that asked to run
+  unattended stopping at every commit — its own declaration silently half-applied.
+
+### Fixed — the test suite was not hermetic, and the new layer proved it
+
+`test_hooks.py` invoked every hook with the real home directory, so once hooks began reading
+`~/.graph-powers/config.json` the suite inherited whatever the person running it had set. It did not
+fail honestly either: it failed as six unrelated cases about guarded defaults. Every invocation now
+runs against an empty temporary home unless a case sets one deliberately — the same isolation the
+two-project cases have always proved, one level up.
+
+Six new cases cover the layer: it reaches a project that declares nothing, it is absent when the
+user file is, the project outranks it, a user-level `optInPrefix` does not release the commit gate,
+and a malformed user file still exits 0 with the project's own config deciding.
+
+### Changed — 12 agent descriptions are routing rules now
+
+The field that drives automatic delegation read as a job title on all 12. Each now opens with the
+action cue the documentation calls for, states whether it writes or only reports, and names the
+neighbouring agent that owns the adjacent job — so two agents sharing vocabulary stop splitting one
+task between them.
+
 ## 1.3.1 — the Codex install stops accumulating
 
 ### Fixed — the Codex escalation path named an agent that does not exist

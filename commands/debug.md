@@ -1,5 +1,5 @@
 ---
-description: "Unified debug command. Modes (positional arg) — default: triage + fix · audit: full-stack 9-dimension audit · frontend: static React/UI + E2E browser · backend: API/service · auth-db: auth/permissions/RLS · recover: failure recovery after 2+ failed attempts."
+description: "Diagnose and fix a defect — error, crash, stack trace, failing test, 500, hydration mismatch, CI gone red, or behaviour that changed after a deploy. Use when the user reports something broken, pastes an error, says a test is failing, says it worked yesterday, or asks why staging differs from local. Modes (positional) — default: triage and fix · audit: 9-dimension full-stack audit · frontend: React/UI plus browser E2E · backend: API and services · auth-db: auth, permissions, RLS · recover: after two or more failed attempts, when the user says we tried three times and it is still broken, that we are going in circles, or asks to back out and start over. Do not use to add behaviour that never worked (/implement), to judge code that already works (/pr-review), or to prove gates pass (/verify)."
 workflow_type: routing
 ---
 
@@ -24,26 +24,17 @@ workflow_type: routing
 
 ---
 
-## Stopping Conditions (apply to ALL modes)
+## What this file is, and is not
 
-- STOP proposing fixes before root cause investigation
-- STOP after 3 failed fix attempts → switch to `/debug recover`
-- ASK if error affects production data or requires schema migration
-- ASK if fix scope expands beyond originally reported error
+The discipline — the Iron Law, the stopping triggers, the escalation ladder, the pack selector and
+the root-cause catalogue — is in `Skill("debugger")`, loaded in § 0.1 and **not restated here**.
+Read `§ Iron Law` and `§ Stopping & escalation` there before proposing any fix. Its References
+table is an index to consult, not a list to open: pick the row the Step calls for.
 
----
-
-## Iron Law
-
-```
-NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.
-```
-
-If investigation isn't complete, you cannot propose corrections.
-
-### Debugger skill loading (mandatory)
-
-This plugin ships `${CLAUDE_PLUGIN_ROOT}/skills/debugger/SKILL.md` alongside this command; inside a plugin it is namespaced, so a same-named personal skill cannot shadow it and `Skill("debugger")` resolves here. Load the skill body for pack selection, **Phases 0-7** (pre-flight → diagnose and reproduce → parallel research → hypothesis selection → instrument and fix through the superpowers chain → verification gate → evidence confirmation → cleanup and post-mortem), and its NEVER constraints. Its References section is an **index to consult**, not a list to open: pick the row the phase calls for. Browser verification lives in `Skill("webapp-testing")`, loaded only when the reproduction needs a browser. Use **this file** for mode-specific orchestration (`audit`, `frontend`, `recover`, …). Do not paste long catalogues here — defer to the skill's References table.
+**This file owns only mode dispatch and the per-mode orchestration** (`audit`, `frontend`,
+`backend`, `auth-db`, `recover`). The skill's numbering is **Steps 0-6** and it is the only
+numbering — an artefact of this harness that says "Phase 4" is citing a scheme that no longer
+exists. Browser work is `Skill("webapp-testing")`, loaded only when the reproduction needs one.
 
 ---
 
@@ -51,14 +42,16 @@ This plugin ships `${CLAUDE_PLUGIN_ROOT}/skills/debugger/SKILL.md` alongside thi
 
 Parse first positional token from `$ARGUMENTS`:
 
-| Token | Section to execute |
-|---|---|
-| (none) / `debug` / `auto` | § 1 (default flow) |
-| `audit` / `full` | § 2 (audit mode) |
-| `frontend` / `ui` / `react` | § 3 (frontend mode) |
-| `backend` / `api` | § 4 (backend mode) |
-| `auth-db` / `auth` / `db` / `permissions` | § 5 (auth-db mode) |
-| `recover` | § 6 (recovery mode) |
+| Token | Section | Sub-agents |
+|---|---|---|
+| (none) / `debug` / `auto` | § 1 default flow | by complexity (§ 1.3) |
+| `audit` / `full` | § 2 audit | 4 parallel |
+| `frontend` / `ui` / `react` | § 3 frontend | frontend-specialist + explorer ×3 |
+| `backend` / `api` | § 4 backend | templates B + C (+ D on a mutation) |
+| `auth-db` / `auth` / `db` / `permissions` | § 5 auth-db | templates B + C + D |
+| `recover` | § 6 recovery | evaluator Mode 3 |
+
+A performance complaint with no defect is not a mode here — run `/perf`.
 
 Modes share the **§ 0.1 Setup** preamble.
 
@@ -72,9 +65,14 @@ Skill("superpowers:systematic-debugging");     // 4-phase root-cause discipline 
 Skill("debugger");                     // the project anti-pattern catalog, packs, references, superpowers debug chain
 ```
 
-Chain rationale: `systematic-debugging` sets the investigation method (no fix without root cause); `graph-powers:debugger` provides project-specific bug patterns + Negative Constraints + the wired superpowers debug chain (its phases invoke TDD / dispatching-parallel-agents / verification-before-completion). Both load — they do not conflict. (`graph-powers:debugger`, not `graph-powers:debugger`: precedence personal > project shadows a same-named project skill — see § 0.42 header.)
+`systematic-debugging` sets the method; `Skill("debugger")` adds the bug catalogue and wires the
+rest of the superpowers chain into its Steps. Both load, and they do not conflict. Inside a plugin
+the skill is namespaced, so a same-named personal skill cannot shadow it.
 
-Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). For project-specific anti-patterns, load via `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (already loaded by debugger skill above).
+Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). The bug catalogue at
+`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` arrives with the skill — **this
+is the only place this command names it.** Every later section that needs a known-pattern lookup
+uses what was loaded here.
 
 Run baseline quality gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using `${tooling.typeChecker}` / `${tooling.linter}` / `${tooling.testRunner}`.
 
@@ -98,19 +96,16 @@ Detect error category in <10s:
 | Type-checker error (`TS2769`, `TS2345`, etc.) | Type mismatch | Compare schema vs DB column type |
 | `415 Unsupported Media Type` | Content-Type / framework | Verify request headers |
 | `CORS error` / preflight | Middleware ordering | CORS before auth |
-| `hydration mismatch` | SSR/CSR divergence | Check effects vs render |
-| Cache stale / stale-while-revalidate | Client query config | staleTime = refetchInterval |
-| `ERR_MODULE_NOT_FOUND` | Import/export | Check barrel `index.ts` |
-| `FORBIDDEN` / `401` / `403` | Auth/role | Check procedure level / RLS |
+| `ERR_MODULE_NOT_FOUND` | Import/export | Check the barrel file |
 | `connection timeout` / `ECONNREFUSED` | Infra/DB | Check connection string + pool |
 
-**Known-pattern shortcut.** Before investigating, check:
-- `${rulesDir}/stability.md` (Checklist A-L)
-- Tier 2 domain rules (auto-loaded via routing matrix)
-- `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (project anti-patterns)
-- Recent breaking changes in dependencies (`mcp__tavily__tavily_search` if needed)
+Symptom-to-cause lookups this table does not carry — hydration mismatch, stale cache after a
+mutation, `FORBIDDEN`/`401`, cross-tenant leak, the transaction-driver trap — are in
+`Skill("debugger") § Common Root Causes` and its bug catalogue, both already loaded.
 
-If error matches a known pattern → apply documented fix directly (L1-L2), no agents.
+**Known-pattern shortcut.** Also check `${rulesDir}/stability.md`, the domain rules the routing
+matrix auto-loaded, and recent breaking changes in dependencies. A match → apply the documented fix
+directly (L1-L2), no agents.
 
 ### 1.2 Complexity classification
 
@@ -121,26 +116,14 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 **L1-L2 — Direct fix.** Read file → identify root cause → apply minimal fix → run gates.
 
 **L3 — Single agent.** Spawn 1 `graph-powers:explorer` (foreground): investigate root cause, return a findings
-table with file:line. Read-only by frontmatter, not by instruction — `anti-patterns.md § Agent
-misuse` is explicit that a review task never goes to a write-capable subagent, and a prompt
-saying "do not fix" is a request, not a permission. Fixing is a separate dispatch, after the
-root cause is named.
+table with file:line. Read-only **by frontmatter, not by instruction** — a prompt saying "do not
+fix" is a request, not a permission, and the bug catalogue records the review agent that reverted
+80 lines of the diff it was reviewing. Fixing is a separate dispatch, after the root cause is named.
 
-**L4-L5 — Parallel agents.** Before spawning, invoke `Skill("superpowers:dispatching-parallel-agents")` to enforce distinct scope + shared return contract. Spawn in same message:
-
-```
-code-archaeologist (graph-powers:explorer, background):
-  - Find exact file:line where flow breaks
-  - git log --oneline -10 -- <affected-files> for recent regressions
-  - Map dependency chain
-  - Return findings table (# | Finding | Confidence 1-5 | Source | Impact). DO NOT FIX.
-
-regression-hunter (graph-powers:explorer, background):
-  - Read ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/methodology.md (or pack-guides.md)
-  - Cross-check stability rules + Skill("debugger") ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md
-  - If MATCH: return pattern + root cause + fix guidance
-  - If NO MATCH: top-3 hypotheses with evidence for/against. DO NOT FIX.
-```
+**L4-L5 — Parallel agents.** Invoke `Skill("superpowers:dispatching-parallel-agents")` first, then
+dispatch templates **B (Code Archaeologist)** and **C (Regression Hunter)** in one message from
+`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/pack-guides.md`. Use them verbatim — they carry
+the shared return contract and the read-only-by-frontmatter rule that a prose "do not fix" does not.
 
 If agents return contradictory findings or no definitive file:line → escalate to `codex:codex-rescue` (foreground, diagnosis-only):
 
@@ -151,7 +134,7 @@ If agents return contradictory findings or no definitive file:line → escalate 
  Focus: [file:line range]"
 ```
 
-**L6+ — Full investigation.** Above + `db-state-inspector` (graph-powers:debugger, background): schema check, FK indexes, type exports, RLS/tenant boundaries, auth procedure levels.
+**L6+ — Full investigation.** Above, plus template **D (DB State Inspector)** from the same file.
 
 ### 1.4 While agents run
 
@@ -178,7 +161,10 @@ If agents return contradictory findings or no definitive file:line → escalate 
 
 ### 1.6 Implement fix
 
-**Hard gate (L3+):** Before writing any patch, invoke `Skill("superpowers:test-driven-development")`. The skill requires a **failing reproduction test** that demonstrates the bug. No patch lands without a red test first. L1-L2 trivial fixes (single-line typo, exact-pattern from `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`) are exempt — note the exemption explicitly.
+**Hard gate:** before writing any patch, invoke `Skill("superpowers:test-driven-development")` — a
+failing reproduction test on the real seam, watched fail, before the fix. No exemption by tier: the
+skill's Iron Law #3 has none, and a command that granted one would be the only place in this harness
+where "too small to test" is an argument.
 
 - Fix the SOURCE, not the symptom
 - NEVER "while I'm here…" — scope creep kills debugging
@@ -289,13 +275,8 @@ Before § 2.4, run `codex adversarial-review --scope branch` for an independent 
 
 ## 3. Frontend mode — `/debug frontend` (static + agent-browser E2E)
 
-**Iron Laws (frontend):**
-```
-NO FIXES WITHOUT STATIC DIAGNOSIS + VISUAL EVIDENCE FIRST.
-NO INTERACTION WITHOUT A SNAPSHOT BEFORE IT.
-NO FIX WITHOUT A SNAPSHOT/SCREENSHOT AS EVIDENCE.
-NO FIX WITHOUT A PASSING UNIT REPRODUCTION TEST.
-```
+Pack rules for `frontend-debug` — screenshot before the fix, snapshot before every ref action —
+are in `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/pack-guides.md § Per-pack delta`.
 
 ### 3.1 Setup
 
@@ -303,7 +284,9 @@ Run § 0.1. Run `/prime frontend`.
 
 ### 3.2 Quality gates baseline
 
-Run unit-test suite first (cheap, catches logic errors): `${tooling.testRunner}` against frontend project. Then `${tooling.typeChecker}` and `${tooling.linter}`. Only proceed to browser if unit tests pass.
+Unit suite first — cheap, and it catches logic errors before a browser starts: `${tooling.testRunner}`
+against the frontend project, then `${tooling.typeChecker}` and `${tooling.linter}`. Only reach for a
+browser once the unit tests pass.
 
 ### 3.3 Static diagnosis (parallel)
 
@@ -315,11 +298,10 @@ Agent 1 (graph-powers:frontend-specialist, background):
   - Scope: $ARGUMENTS (after mode token)
   - Return: file:line + root cause hypothesis. DO NOT FIX.
 
-Agent 2 (graph-powers:debugger, background):
+Agent 2 (graph-powers:explorer, background):
   - Frontend ↔ backend integration paths used by the failing flow
   - Silent failures, latency issues, suspense interactions
-  - Mutations wrapped in try-catch (stability rule J)
-  - Post-mutation cache invalidation
+  - Mutation error handling and post-mutation cache invalidation
   - Return: handler/procedure with potential issues + hypothesis. DO NOT FIX.
 ```
 
@@ -330,90 +312,37 @@ Agent 1 (graph-powers:explorer, background):
   - Map all routes recursively under ${paths.frontendRoot}
   - List: path, component, functionality
   - Identify critical user flows (auth, CRUD, integrations, settings)
-  - List expected interactions per flow
   - Return: route table + prioritized journeys
 
 Agent 2 (graph-powers:explorer, background):
-  - Map existing E2E coverage (look for e2e/, tests/e2e/, playwright/, agent-browser/ — accept any historical layout)
+  - Map existing E2E coverage (e2e/, tests/e2e/, playwright/, agent-browser/ — accept any layout)
   - For each test: routes covered, assertions, interactions tested
   - Cross-reference; identify routes WITHOUT coverage
   - Return: coverage table (route | tested? | file | quality) + gaps list
 ```
 
-### 3.5 Browser session
+### 3.5 Browser journeys
 
-Browser stack: `vercel-labs/agent-browser` CLI invoked via Bash. Full reference: `${CLAUDE_PLUGIN_ROOT}/skills/webapp-testing/references/browser-setup.md`.
+`Skill("webapp-testing")` owns the browser entirely: pre-flight, named session, the core loop, the
+`--cdp` path for authenticated routes, the verdict rules and cleanup. Load it and follow it — the
+commands are not repeated here, and the CLI's own reference is one `skills get core` away.
 
-Pre-flight (mandatory): `bunx agent-browser --version`. If it fails → STOP, do not silently fall back.
+Target: `${project.stagingUrl}` from config, overridable with `/debug frontend url=http://...`.
 
-Resolve target URL: `${project.stagingUrl}` from config (override via `/debug frontend url=http://...`).
+Per critical flow, and this is the part that belongs to `/debug` rather than to the skill:
 
-```bash
-bunx agent-browser open "<the URL, substituted before you run this — resolve it from ${project.stagingUrl}; a shell variable is not set anywhere and expands to nothing>"
-bunx agent-browser snapshot -i -c              # accessibility baseline, interactive + compact
-bunx agent-browser console                     # any error-level messages collected since open
-```
+1. Drive the journey and capture evidence at each step.
+2. On an issue — document the snapshot, console, errors and network output **first**.
+3. Write a unit reproduction test and watch it **fail**. That is the repro, not the screenshot.
+4. Fix at the source, re-run the unit test to green, then re-drive the journey.
+5. Run the gates before moving to the next flow.
 
-### 3.6 Journey loop (per critical flow)
+Viewports worth one pass each: desktop `1280 720`, mobile `375 667`, tablet `768 1024` when the
+layout has a breakpoint there.
 
-```bash
-# 1. Navigate (or just continue in the existing session)
-bunx agent-browser open "<the URL, substituted before you run this>"
-
-# 2. Snapshot (ALWAYS before any ref-based interaction — refs go stale on DOM mutation)
-bunx agent-browser snapshot -i -c
-
-# 3. Interact using refs from snapshot
-bunx agent-browser click @e3
-bunx agent-browser fill  @e4 "value"
-bunx agent-browser select @e5 "option"
-
-# 4. Wait
-bunx agent-browser wait --text "Success"
-bunx agent-browser wait --url "**/dashboard"
-bunx agent-browser wait --load networkidle
-
-# 5. Capture
-bunx agent-browser snapshot -i -c
-bunx agent-browser screenshot ".graph-powers/logs/<flow>-step.png"   # only for visual regression
-bunx agent-browser screenshot ".graph-powers/logs/<flow>-step.png" --annotate  # numbered labels
-
-# 6. Verify
-bunx agent-browser console                     # error-level → FAIL
-bunx agent-browser errors                      # uncaught page errors → FAIL
-bunx agent-browser network requests --filter "api-staging"  # 4xx/5xx → FAIL
-
-# 7. If issue:
-#   a) Document: snapshot + console + errors + network output
-#   b) Write unit reproduction test → must FAIL (confirms repro)
-#   c) Fix in source
-#   d) Re-run unit test → must PASS
-#   e) Re-test E2E: navigate → snapshot → interact → snapshot
-#   f) Run gates (type-check + lint)
-```
-
-### 3.7 Viewports
-
-```bash
-bunx agent-browser set viewport 1280 720       # desktop
-bunx agent-browser set viewport 375 667        # mobile
-bunx agent-browser set viewport 768 1024       # tablet (optional)
-# Or full device emulation:
-bunx agent-browser set device "iPhone 15 Pro"
-```
-
-There is no bare `resize` subcommand — always `set viewport`.
-
-### 3.8 Per-step verification
-
-- [ ] Element exists/visible (snapshot)
-- [ ] Interaction produces expected state (snapshot)
-- [ ] No JS errors (`bunx agent-browser console`)
-- [ ] No uncaught page errors (`bunx agent-browser errors`)
-- [ ] No failed app requests (`bunx agent-browser network requests`)
-- [ ] Loading states appear/disappear
-- [ ] Visual feedback after actions (toast/alert)
-- [ ] Navigation returns to correct state
+**Per-step checklist:** element present · interaction produced the expected state · no error-level
+console message · no uncaught page error · no failed application request · loading states appear
+and clear · visible feedback after the action · navigation lands on the right state.
 
 ### 3.9 Report
 
@@ -442,11 +371,8 @@ Date: {date} | Target: {url} | Viewports: Desktop, Mobile
 
 ### 3.10 Cleanup
 
-```bash
-bunx agent-browser close --all   # headless sessions ONLY; over `--cdp` this kills the person's signed-in browser
-```
-
-Run final quality gates per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
+Close headless sessions; over `--cdp`, cleanup is doing nothing (`Skill("webapp-testing")`). Then
+the final gates per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
 
 ---
 
@@ -474,7 +400,7 @@ Run § 0.1, then default flow (§ 1) with focus on:
 
 Spawn `code-archaeologist` + `regression-hunter` + `db-state-inspector` (background).
 
-Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bug touches, plus `${rulesDir}/stability.md`. List the directory; do not assume a filename. Plus, **when the bug touches row-level security**, `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (RLS specifics).
+Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bug touches, plus `${rulesDir}/stability.md`. List the directory; do not assume a filename. Row-level security specifics are in the bug catalogue the skill already loaded.
 
 ---
 
@@ -484,47 +410,26 @@ Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bu
 
 If the recovery was triggered by code-review feedback (codex review P0/P1, evaluator REVISION_REQUIRED, user pointing to a specific reviewer note), invoke `Skill("superpowers:receiving-code-review")` **before** reading the recovery protocol. The skill enforces technical evaluation of feedback (implement / clarify / pushback) instead of blind agreement.
 
-**Only in `recover` mode**, load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute its five steps verbatim.
-They are written there and nowhere else — this command used to restate them from memory, and the
-restatement had drifted into five different steps under the same numbers, so an agent obeying the
-command never ran the protocol and an agent reading the file contradicted the command.
-
-Anti-patterns: looping past 2 attempts · skipping the write-up in Step 1 · reverting without showing
-the diff · escalating with a question too vague to answer.
+**Only in `recover` mode**, load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute
+it verbatim, Step 0 through Step 5. It is written there and nowhere else: this command once restated
+the steps from memory, the restatement drifted into different steps under the same numbers, and an
+agent obeying the command never ran the protocol. There is no second entry point either — a
+standalone `/recover` command existed for exactly that reason and was removed.
 
 ---
 
-## 7. Agent / mode matrix
+## 7. Escalation hierarchy
 
-| Bug type | Mode | Sub-agents | Skill |
-|---|---|---|---|
-| API / handler error | `backend` | code-archaeologist + regression-hunter | `graph-powers:debugger` |
-| UI / component / hydration | `frontend` | (per § 3) + frontend-specialist + debugger | `graph-powers:debugger` |
-| Auth / permissions / RLS | `auth-db` | code-archaeologist + regression-hunter + db-state-inspector | `graph-powers:debugger` |
-| Database / schema / migration | `auth-db` | code-archaeologist + db-state-inspector | `graph-powers:debugger` |
-| Performance | (run `/perf` instead) | — | `performance-optimization` |
-| Full audit | `audit` | 4 parallel (evaluator/debugger/debugger/frontend-specialist) | all |
-| Failure recovery | `recover` | evaluator (Mode 3) | — |
+The triggers that send you back to Step 1, and the ≥3-attempt architecture rule, are in
+`Skill("debugger") § Stopping & escalation`. What this command adds is the order of outside help:
+
+1. Two failed fixes in the same area → `codex:codex-rescue` for a full fix.
+2. Contradictory agent findings → `codex:codex-rescue`, diagnosis mode.
+3. Architecture-level blocker → `graph-powers:evaluator` Mode 3.
+4. Exhausted → `/debug recover`, then the user decides.
 
 ---
 
-## 8. Escalation hierarchy
-
-Before stopping, escalate in this order:
-1. 2+ failed fixes in same area → `codex:codex-rescue` for full fix
-2. Contradictory agent findings → `codex:codex-rescue` diagnosis mode
-3. Architecture-level blocker → `graph-powers:evaluator` (Mode 3)
-4. All escalations exhausted → `/debug recover` → user decides
-
-**Hard STOP signs:**
-- Proposing a fix before finding root cause
-- Multiple simultaneous changes in same flow
-- "Just try this and see"
-- Skipping quality gate verification
-- Ignoring evidence contradicting your hypothesis
-
----
-
-## 9. Auto mode
+## 8. Auto mode
 
 If `auto` token in `$ARGUMENTS`: complete default flow (§ 1), then run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` on skills used in this session.
