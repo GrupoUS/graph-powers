@@ -145,6 +145,7 @@ function cliVersion(bin) {
 const claudeVersion = cliVersion("claude");
 const codexVersion = cliVersion("codex");
 
+const targetWasAsked = valueOf("--target", null) !== null;
 let target = valueOf("--target", null);
 if (!target) {
   target = claudeVersion && codexVersion ? "both" : codexVersion ? "codex" : "claude";
@@ -478,14 +479,21 @@ step(++n, TOTAL, "Checking the environment");
   else info("claude not found");
   if (codexVersion) ok(`codex ${codexVersion}`);
   else info("codex not found");
-  if (!claudeVersion && !codexVersion) {
+  // A missing CLI is only fatal when nobody said what to wire. With an explicit `--target` the
+  // request is unambiguous, and generating the artefacts for a CLI that is not installed yet is a
+  // real use: a container image, a CI runner, a machine being prepared for someone else.
+  if (!claudeVersion && !codexVersion && !targetWasAsked) {
     die(
       "neither `claude` nor `codex` was found on PATH.",
-      "Install Claude Code (https://claude.com/claude-code) or Codex CLI first.",
+      "Install Claude Code (https://claude.com/claude-code) or Codex CLI first, "
+        + "or pass --target to write the artefacts anyway.",
     );
   }
   if (wantClaude && !claudeVersion) {
-    die("--target includes claude, but the `claude` CLI is not on PATH.", "Use --target codex, or install Claude Code.");
+    // Claude Code is different: its half of the install *is* the CLI. There are no files to write
+    // without it, so there is nothing to generate ahead of time.
+    die("--target includes claude, but the `claude` CLI is not on PATH.",
+        "Use --target codex, or install Claude Code.");
   }
   if (wantCodex && !codexVersion) {
     warn("codex is not on PATH — the artefacts will still be written, but nothing will read them yet.");
