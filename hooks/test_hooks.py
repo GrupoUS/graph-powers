@@ -34,6 +34,15 @@ from pathlib import Path
 HOOKS = Path(__file__).resolve().parent
 FAILS: list[str] = []
 
+# Every hook below runs with this as its home directory unless a case deliberately says otherwise.
+#
+# Hooks read `~/.graph-powers/config.json` for the operator's own autonomy posture, so without this
+# the suite inherits whatever the person running it happens to have set — and it does not fail
+# honestly, it fails as six unrelated cases about guarded defaults. That is the same class of bug
+# the two-project cases exist to catch, one level up: a setting from outside the fixture deciding
+# the fixture's behaviour. The directory is created empty and never written to.
+EMPTY_HOME = Path(tempfile.mkdtemp(prefix="gp-empty-home-"))
+
 # Assembled rather than written out, and not for style. This file is edited by agents whose own
 # commit gate scans the Bash command that performs the edit; a literal here turns every edit of
 # the test suite into a blocked tool call, which is a guardrail firing at its own author.
@@ -53,7 +62,8 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
     claude: CLAUDE_PROJECT_DIR in the environment, nothing in the payload.
     codex:  no CLAUDE_PROJECT_DIR at all, `cwd` in the payload — the Codex contract.
     """
-    env_full = {**os.environ, **(env or {})}
+    env_full = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
+                **(env or {})}
     body = dict(payload)
     if harness == "claude":
         env_full["CLAUDE_PROJECT_DIR"] = str(proj)
@@ -78,7 +88,8 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
 def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
              harness: str = "claude"):
     """Same call, but the whole stdout — for hooks that emit context rather than a decision."""
-    env_full = {**os.environ, **(env or {})}
+    env_full = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
+                **(env or {})}
     payload = dict(payload)
     if harness == "claude":
         env_full["CLAUDE_PROJECT_DIR"] = str(proj)
@@ -176,15 +187,45 @@ def main() -> int:
 
     print("### Package managers — the plugin does not pick one for the project")
     pm_free = mkproj({"git": {"optInPrefix": "PMFREE"}})
+    # `["bun"]` and not `["bun", "bunx"]`, deliberately. The fixture used to list the runner too,
+    # and so did all five real projects — because listing it was the only way to run `bunx` at all.
+    # That workaround is what kept the defect out of CI: the allowlist compared the literal command
+    # word, so `bunx` under `["bun"]` was refused, and the refusal even said `bunx` is not one of
+    # them while `bun` sat right there in the message. A fixture that carries the workaround cannot
+    # see the bug the workaround exists for.
     pm_bun = mkproj({"git": {"optInPrefix": "PMBUN"},
-                     "autonomy": {"allowPackageManagers": ["bun", "bunx"]}})
+                     "autonomy": {"allowPackageManagers": ["bun"]}})
     npm = {"tool_name": "Bash", "tool_input": {"command": "npm install"}}
     bun = {"tool_name": "Bash", "tool_input": {"command": "bun install"}}
+    bunx = {"tool_name": "Bash", "tool_input": {"command": "bunx impeccable install"}}
+    npx = {"tool_name": "Bash", "tool_input": {"command": "npx impeccable install"}}
     check("npm runs when the project declares nothing",
           call("smart_bash_approver", npm, pm_free)[0], "allow")
     check("npm is refused when the project declared bun only",
           call("smart_bash_approver", npm, pm_bun)[0], "deny")
     check("...and bun still runs there", call("smart_bash_approver", bun, pm_bun)[0], "allow")
+
+    # The family rule, both directions. A runner is admitted by its own manager and by nothing else,
+    # which is what keeps the lockfile guarantee while letting the project use the tool it chose.
+    check("bunx runs under a bare `bun` declaration — it is bun's own runner",
+          call("smart_bash_approver", bunx, pm_bun)[0], "allow")
+    check("...while npx is still refused there — it belongs to npm",
+          call("smart_bash_approver", npx, pm_bun)[0], "deny")
+
+    # One-directional: naming only the runner does not hand over the manager. Someone who wrote
+    # `["npx"]` asked for one-off execution, not for `npm install` to start rewriting the lockfile.
+    pm_npx = mkproj({"git": {"optInPrefix": "PMNPX"},
+                     "autonomy": {"allowPackageManagers": ["npx"]}})
+    check("declaring npx admits npx", call("smart_bash_approver", npx, pm_npx)[0], "allow")
+    check("...and does not admit npm", call("smart_bash_approver", npm, pm_npx)[0], "deny")
+
+    # The workaround still works, because five repositories are carrying it right now and an
+    # upgrade that punished them for the plugin's own defect would be the wrong kind of fix.
+    pm_both = mkproj({"git": {"optInPrefix": "PMBOTH"},
+                      "autonomy": {"allowPackageManagers": ["bun", "bunx"]}})
+    check("the explicit `[bun, bunx]` form keeps working",
+          call("smart_bash_approver", bunx, pm_both)[0], "allow")
+    check("...and still refuses npm", call("smart_bash_approver", npm, pm_both)[0], "deny")
 
     print("### One question sorts every command: does git undo it?")
     # Both halves are proved, because a gate that refuses the correct case trains people to ignore
@@ -610,7 +651,66 @@ def main() -> int:
     check("a missing linter exits 0 at Stop", rc, 0)
     check("...and does not block the stop", "block" in out, False)
 
-    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun,
+    # ── User-scope config: a decision the operator makes once, for every repository ──────────
+    #
+    # Before this layer existed, `autonomy` was reachable only from inside a repository that
+    # carried the block, so a person who had turned approvals off re-met the prompt flood in the
+    # next clone. These cases pin the four things that make the layer safe rather than merely
+    # convenient: it applies, the project outranks it, `git` never crosses, and a broken file is
+    # still fail-open.
+    print("\nUser-scope config")
+
+    def mkhome(cfg: dict) -> Path:
+        h = Path(tempfile.mkdtemp(prefix="gp-home-"))
+        (h / ".graph-powers").mkdir(parents=True)
+        (h / ".graph-powers" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+        return h
+
+    def as_home(h: Path) -> dict:
+        # POSIX resolves ~ through HOME, Windows through USERPROFILE. Setting both is what makes
+        # this case run on every machine instead of only on the author's.
+        return {"HOME": str(h), "USERPROFILE": str(h)}
+
+    read_cmd = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                "tool_input": {"command": "printf hello"}}
+
+    home_auto = mkhome({"autonomy": {"level": "autonomous"}})
+    bare = Path(tempfile.mkdtemp(prefix="gp-bare-"))  # a clone with no Graph Powers config at all
+    d, _ = call("smart_bash_approver", read_cmd, bare, env=as_home(home_auto))
+    check("user autonomy reaches a project that declares nothing", d, "allow")
+
+    home_none = Path(tempfile.mkdtemp(prefix="gp-home-empty-"))
+    d, _ = call("smart_bash_approver", read_cmd, bare, env=as_home(home_none))
+    check("...and without it that same project is still guarded", d, "ask")
+
+    # The project outranks the person: a repository that ships `guarded` keeps it, even for an
+    # operator whose personal posture is looser. Relaxing somebody else's repository from a home
+    # directory is the one direction this layer must not travel.
+    strict = mkproj({"autonomy": {"level": "guarded"}})
+    d, _ = call("smart_bash_approver", read_cmd, strict, env=as_home(home_auto))
+    check("a project's guarded setting outranks user autonomy", d, "ask")
+
+    # `git` never crosses. A user-level prefix would make an approval typed in one repository
+    # release the same gate in every other one — the isolation the two-project cases above prove.
+    home_git = mkhome({"git": {"optInPrefix": "HOMEKEY"}})
+    commit = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+              "tool_input": {"command": "HOMEKEY_ALLOW_COMMIT=1 " + GIT_WRITE}}
+    d, _ = call("git_commit_gate", commit, bare, env=as_home(home_git))
+    check("a user-level optInPrefix does not release the commit gate", d, "deny")
+
+    # Cardinal 3 through two layers: the user's typo must not take the session down, and must not
+    # take the project's own config down with it.
+    home_broken = Path(tempfile.mkdtemp(prefix="gp-home-bad-"))
+    (home_broken / ".graph-powers").mkdir(parents=True)
+    (home_broken / ".graph-powers" / "config.json").write_text("{ not json", encoding="utf-8")
+    d, rc = call("smart_bash_approver", read_cmd, a, env=as_home(home_broken))
+    check("a malformed user config exits 0", rc, 0)
+    check("...and the project's own config still decides", d, "ask")
+
+    for d_ in (home_auto, home_none, home_git, home_broken, bare, strict, EMPTY_HOME):
+        shutil.rmtree(d_, ignore_errors=True)
+
+    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_npx, pm_both,
               installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
         shutil.rmtree(d, ignore_errors=True)
 

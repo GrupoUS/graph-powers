@@ -1,5 +1,5 @@
 ---
-description: Post-implementation verification gate. Runs the gates the project declared, checks the safety floor, and returns a verdict with the command output that proves it. Use before claiming completion of L3+ work or before handing work to review.
+description: "Prove the work actually holds before it is handed off — runs the gates the project declared, checks the safety floor, and returns a verdict with the command output behind it. Use when the user asks whether this is done, to run the gates, to check nothing broke, or before claiming any L3+ task complete. Do not use to review a diff for quality (/pr-review) or to chase a gate that is already failing (/debug)."
 workflow_type: augmented-llm
 ---
 
@@ -32,6 +32,19 @@ nothing is assumed:
 **A gate with no declared command is reported as `NOT DECLARED`, never as passing.** A missing
 script that exits non-zero as "script not found" reads exactly like a real failure, and a gate
 nobody declared reads exactly like a gate nobody needed. Say which one it was.
+
+**Then read `${rulesDir}/verify-supplements.md`, if the project has one, and run what it declares
+as well.** The four rows above are the shape a typical application has; they are not the shape every
+repository has. A project whose real gate set is a manifest validator, a portability scan and a
+schema check has nowhere to put any of it — `tooling.commands` accepts seven named keys and those
+are not among them — so without this file `/verify` reports one green gate out of thirteen and the
+line reads as full coverage.
+
+The file is a table: gate name, exact command, and one line on what a failure means. Run each in
+order, capture the exit code, and report them in the same table as the declared gates, marked as
+coming from the supplement. A supplement command that fails is a gate failure like any other. When
+the project has no such file, say so in one line — for most projects the four rows are the whole
+story, and their absence is a fact, not a gap.
 
 Load the domain skill for what changed — `Skill("debugger")` when chasing a failure,
 `Skill("performance-optimization")` when performance, security or SEO surfaces moved,

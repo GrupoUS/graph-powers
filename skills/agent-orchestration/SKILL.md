@@ -1,6 +1,7 @@
 ---
 name: agent-orchestration
-description: Use when the user asks to use agents, subagents, parallel work, delegation, advanced research, debug audit, implement a plan, or maximize agent usage. Trigger phrases include use agentes, subagentes, paralelo, delegue, pesquisa avancada, debug audit, implemente o plano, PLEASE IMPLEMENT THIS PLAN. Do not trigger for trivial L1-L2 single-file fixes.
+description: "How many agents a task needs and which ones: parallel versus sequential, disjoint file ownership, background read-only research, delegation contracts. Use when the user authorises agents, subagents, parallel work or delegation — including use agentes, subagentes, paralelo, delegue. Not for a trivial single-file fix."
+
 ---
 
 # Agent Orchestration
@@ -80,6 +81,11 @@ For review batches, add `Severity (P0-P3)` as the sixth table column.
 - Cap at 5 spawned agents per user request. If the natural fan-out is larger, cluster the work first.
 - In Codex, include explicit prompt text such as: "Spawn one subagent per point, wait for all, and consolidate results."
 - In Claude Code, use agent teams only for L6+ work with real dependencies or multi-session coordination.
+- Writing a `Workflow({ script })` by hand rather than calling one by name: read
+  `${CLAUDE_PLUGIN_ROOT}/references/shared/130-workflow-authoring.md` first, and check the script
+  with the command it names before invoking it. A workflow script is mostly agent prompts written as
+  template literals, so one backtick inside prose about code ends the literal and the whole call
+  fails at parse — after you have written it, and before anything runs.
 
 ## Codex Hook Bridge
 

@@ -1,6 +1,6 @@
 ---
 name: verification
-description: "Browser verification specialist using agent-browser CLI. Use after UI/user-flow changes for staging smokes, screenshots, console/page/network evidence, and acceptance-flow QA."
+description: "Use proactively after a UI or user-flow change to prove it works in a real browser: staging smoke runs, screenshots, console and page errors, network evidence, acceptance flows. Reports defects and never edits them."
 model: opus
 color: green
 role_type: worker

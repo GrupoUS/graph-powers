@@ -1,6 +1,7 @@
 ---
 name: debugger
-description: Debugging chain. Use when diagnosing failing tests, runtime errors, production regressions, or verifying root cause before changing code. Wraps the superpowers debug skills (superpowers:systematic-debugging → superpowers:test-driven-development → superpowers:verification-before-completion, plus dispatching-parallel-agents and receiving-code-review) as the engine, layering domain packs, anti-pattern catalog, agent-browser/DB evidence, and diagnose-first Step 0-6 gates on top. Trigger on stack traces, flaky CI, 500s, hydration mismatch, UNAUTHORIZED or FORBIDDEN, stale client cache after mutations, blank UI, E2E or browser-automation failures, webhook errors, schema drift, tenant isolation doubts, database transaction errors, user runs slash-debug, or asks why staging differs from local.
+description: "Root-cause discipline for a defect already under investigation: reproduce, isolate, prove the cause, then fix. Wraps superpowers systematic-debugging, test-driven-development and verification-before-completion, adding this harness's anti-pattern catalogue and evidence gates. Loaded by /debug and /recover. Not for choosing what to build."
+
 ---
 
 # Debugger (the project)

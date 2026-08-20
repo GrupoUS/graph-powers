@@ -1,5 +1,5 @@
 ---
-description: Capture learnings after successful tasks. Updates skills and project AGENTS.md to prevent recurring errors.
+description: "Turn what this session learned into something the next one inherits — updates the project's rules and AGENTS.md so a mistake does not recur. Use when the user says to capture the learning, make sure this does not happen again, or write the convention down. Do not use for a personal preference, which belongs in memory rather than in the repository."
 workflow_type: prompt-chaining
 ---
 

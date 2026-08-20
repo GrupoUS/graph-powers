@@ -1,6 +1,7 @@
 ---
 name: skill-creator
-description: Use when creating a new skill, editing or iterating on an existing skill, verifying skill quality before deployment, or when unsure how to structure skill content for maximum agent discoverability and compliance. Also trigger when a user says "make a skill for X", "create a skill that does Y", "how do I package this as a skill", "improve this skill", "my skill isn't triggering", or "help me write a SKILL.md". Even if they don't say "skill" explicitly — if they're asking how to make an agent reliably invoke specialized knowledge or workflows, use this skill. Do NOT use it to audit how a whole harness is wired together — agents, skills, commands and hooks resolving to each other — that is `harness-audit`.
+description: "Authoring and iterating one skill: description tuning for reliable triggering, structure, progressive disclosure, and the eval loop that proves a change helped. Use for make a skill for X, improve this skill, my skill is not triggering. Auditing the whole harness is harness-audit."
+
 ---
 
 > Derived from `skill-creator` in anthropics/skills (Apache-2.0, see `LICENSE.txt`). Modified by GrupoUS: harness-wiring questions are routed to `harness-audit`, and the iteration loop absorbed this repository's former `skill-improve` skill. Changes are listed in the NOTICE file at the root of the plugin.

@@ -2,8 +2,16 @@
 """_config.py — the one piece that knows projects are different.
 
 Every guardrail in this plugin runs in repositories with different branches,
-toolchains and paths. Instead of each hook guessing, they all read from here, and
-this module reads from one place: the project's Graph Powers config file.
+toolchains and paths. Instead of each hook guessing, they all read from here.
+
+Two scopes, resolved `DEFAULTS < user < project`:
+
+    ~/.graph-powers/config.json     the operator — how much runs without asking
+    <repo>/.graph-powers/config.json  the repository — branches, tooling, paths
+
+The user file answers only the blocks in `USER_SCOPED_KEYS`; everything else in the
+schema describes a repository and is meaningless from a home directory. The project
+file sits on top because rules a repository ships apply to everyone who clones it.
 
 Why this shape
 --------------
@@ -43,6 +51,31 @@ CONFIG_PATHS = (
     ".graph-powers/config.json",
     ".claude/config.json",
 )
+
+# Where a *person* declares themselves, once, for every repository they open. Same filename and
+# same shape as the project file — one config format, two scopes.
+#
+# Why this exists: until it did, `autonomy` was reachable only from inside a repository that
+# carried the block. A person who had already decided "I do not want to approve every read"
+# had to re-decide it per clone, and every repository without the block silently fell back to
+# `guarded` — so the setting looked like it had stopped working when in fact it had never been
+# asked. Autonomy is a property of the operator, not of the checkout.
+#
+# It sits UNDER the project file on purpose (`DEFAULTS < user < project`): a repository that
+# states a rule is stating it for everyone who clones it, including a person whose personal
+# posture is looser. The strictness a project ships is not the user's to relax by default.
+USER_CONFIG_PATHS = (".graph-powers/config.json",)
+
+# Only these blocks are read from the user file. The rest of the schema describes a repository —
+# which branch is the work branch, where the frontend lives, what the test command is — and a
+# value like that, applied from the home directory, is wrong in every repository except the one
+# it was written for.
+#
+# `git` is the sharp one, and it is excluded deliberately. `optInPrefix` is per project by
+# design: two repositories sharing a prefix would make an approval typed in one of them release
+# the same gate in the other, and `test_hooks.py` proves that isolation. A user-level prefix
+# would delete the guarantee for every project at once.
+USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate")
 
 DEFAULTS: dict[str, Any] = {
     # Git — branch names and the opt-in key that releases a risky action.
@@ -151,7 +184,7 @@ def _coerce_list(value: Any, default: list[Any]) -> list[Any]:
 
 
 def config_path(root: Path | None = None) -> Path | None:
-    """The config file in use, or None when the project declares nothing."""
+    """The project's config file, or None when the project declares nothing."""
     root = root or project_dir()
     for rel in CONFIG_PATHS:
         candidate = root / rel
@@ -163,18 +196,80 @@ def config_path(root: Path | None = None) -> Path | None:
     return None
 
 
-def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    root = root or project_dir(payload)
-    found = config_path(root)
-    if found is None:
-        return dict(DEFAULTS)
+def user_config_path() -> Path | None:
+    """The person's own config file, or None when they have never written one.
+
+    `Path.home()` is the portable resolution: POSIX reads `HOME`, Windows reads `USERPROFILE`,
+    and neither is spelled out anywhere in this repository — cardinal 2. It can raise on a
+    machine with no resolvable home, which is why the whole lookup is guarded.
+    """
     try:
-        raw = json.loads(found.read_text(encoding="utf-8"))
+        home = Path.home()
     except Exception:
-        return dict(DEFAULTS)
-    if not isinstance(raw, dict):
-        return dict(DEFAULTS)
-    return _deep_merge(DEFAULTS, raw)
+        return None
+    for rel in USER_CONFIG_PATHS:
+        candidate = home / rel
+        try:
+            if candidate.is_file():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+def _read_config(path: Path | None) -> dict[str, Any]:
+    """One config file as a dict. Missing, unreadable, or not an object all mean `no opinion`.
+
+    Returning `{}` rather than raising is what keeps cardinal 3 true through two layers: a typo
+    in the user's file must not take the session down, and it must not take the project's file
+    down with it either.
+    """
+    if path is None:
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The resolved config: `DEFAULTS < user < project`.
+
+    The user layer is what makes a personal decision survive `git clone`. The project layer stays
+    on top because a repository's own rules outrank the preferences of whoever opened it.
+    """
+    root = root or project_dir(payload)
+    project_file = config_path(root)
+    user_file = user_config_path()
+
+    # Running a session inside the home directory itself would otherwise read one file as both
+    # layers. Harmless — the merge is idempotent — but it makes `user_config_path()` look like it
+    # found something it did not.
+    if project_file is not None and user_file is not None:
+        try:
+            if project_file.resolve() == user_file.resolve():
+                user_file = None
+        except Exception:
+            pass
+
+    project = _read_config(project_file)
+    user = {k: v for k, v in _read_config(user_file).items() if k in USER_SCOPED_KEYS}
+
+    # `autonomy` is owned by whichever scope declares it, whole. Every other block deep-merges
+    # field by field, which is right for them and wrong for this one, because `level` is a preset:
+    # it decides `bashDefault`, `cleanup`, `commit` and `push` at once. Field-merging a user's
+    # `git.commit: ask` under a project's `level: autonomous` leaves a repository that asked to run
+    # unattended stopping at every commit — the project's own declaration silently half-applied.
+    #
+    # So a user's autonomy is what a repository gets when it has no opinion, and nothing more. The
+    # direction this errs in is the safe one: an unrecognised block falls back to the defaults,
+    # which ask.
+    if isinstance(project.get("autonomy"), dict):
+        user.pop("autonomy", None)
+
+    cfg = _deep_merge(DEFAULTS, user)
+    return _deep_merge(cfg, project)
 
 
 # ── Shortcuts the hooks use ──────────────────────────────────────────────────

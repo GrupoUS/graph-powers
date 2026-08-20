@@ -1,6 +1,6 @@
 ---
 name: mobile-developer
-description: "Cross-platform mobile specialist. Use for React Native or Flutter architecture, native modules, offline-first flows, platform optimization, iOS/Android behavior, and app-store delivery."
+description: "Use proactively for React Native and Flutter work: navigation, native modules, offline-first sync, platform-specific behaviour on iOS and Android, build and app-store delivery. Writes code. Web React is frontend-specialist."
 model: opus
 color: orange
 role_type: worker

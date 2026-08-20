@@ -1,5 +1,176 @@
 # Changelog
 
+## 1.4.0 — the harness answers a sentence, and a preference survives the clone
+
+### Changed — 24 descriptions rewritten, because that is where automatic invocation lives
+
+The commands and skills were already model-invocable; Claude Code merged commands into skills, and
+every one of them has been in the model's listing all along. What was missing is that the listing
+entry is the *only* text a plain sentence is matched against, and all 24 were written as
+documentation — explaining what an artefact is, to a reader who had already typed its name.
+
+They now split by the load they carry. The 12 **commands** are the intent surface: each one leads
+with what happens, then the sentences a person actually types, then a "do not use for" clause
+naming the neighbouring command. The 12 **skills** are the knowledge surface, loaded by a command
+that already routed or by a model already inside the domain, and they were cut to their domain and
+their nearest neighbour. Commands went 3,238 → 5,706 characters; skills went 7,514 → 3,625.
+
+Nothing was flagged wrong on the way in: zero `disable-model-invocation`, zero malformed
+frontmatter, 24 of 24 parsing. The defect was entirely in what the text said.
+
+### Added — `check_listing_budget.py`, because the ceiling is shared and invisible
+
+Claude Code budgets the skill listing at roughly 1% of the context window across *every* source on
+the machine, and on overflow it drops descriptions rather than failing — starting with whatever is
+invoked least. Three of this plugin's own skills were measured in that state: listed by name,
+matching nothing.
+
+That makes growth here a cost paid by somebody else's skill, so it is now a gate. The plugin
+measured 10,752 characters before this release; the ceiling is that number and the current total is
+9,331, leaving the headroom visible instead of spendable in silence. The one setting that raises the
+budget cannot ship from a plugin — only `agent` and `subagentStatusLine` are honoured from a
+plugin's `settings.json` — so `AGENT_SETUP.md` now documents `skillListingBudgetFraction`, and the
+two cheaper `skillOverrides` moves to try before spending context on it.
+
+### Fixed — a hand-written workflow script failed at parse, and nothing could have caught it
+
+```
+Error: Invalid workflow script: Script parse error: Unexpected token (156:63)
+0 lines per rule. Note: this project uses `globs:` not `paths:` in frontmatter —
+                                           ^
+```
+
+The caret is on a backtick and the line is prose. A workflow script is mostly agent prompts, prompts
+are template literals, and a prompt about code is dense with backticks — so the first one inside the
+prose ends the literal and the rest is parsed as JavaScript. The script reaches the runtime as text,
+so the failure lands after it is fully written and before anything runs.
+
+`check_workflows.mjs` has always performed exactly the right check — it applies the runtime's own
+wrapper, because these scripts use a top-level `return` and `node --check` rejects correct ones, then
+executes the body against stubbed `agent()`, `parallel()` and `pipeline()`. It was reachable only for
+`workflows/*.js`, which is the one case that never has this problem, because CI already gates it.
+
+It now takes file arguments: `node .github/check_workflows.mjs <script.js>` parses and dry-runs any
+script before it is handed to `Workflow`. Explicit-path mode drops the two checks that only mean
+something for a shipped workflow — filename/`meta.name` agreement and the refuses-empty-args guard —
+and keeps the parse and the dry run, which is what actually breaks. Since `Workflow` persists every
+inline script and returns its `scriptPath`, this is also the iteration loop: edit that file, re-check,
+re-invoke by path.
+
+`references/shared/130-workflow-authoring.md` carries the rule, cited from `agent-orchestration`
+(where fan-out is decided) and `harness-audit` Phase 5 (whose own prompt escapes its backticks
+correctly, and is the pattern the failing script imitated without the escapes). The quoting table
+leads with the cheapest fix: drop the backticks. `paths:` reads the same to an agent as `` `paths:` ``
+and cannot break the parse.
+
+The `globs:` claim inside that failed prompt came from `000-config-loader.md`, which said Tier 2
+rules auto-load via `globs:` frontmatter until this release corrected it to `paths:`. The script was
+repeating the plugin's own error back to it.
+
+### Fixed — `/verify` advertised a mechanism it never read
+
+`000-config-loader.md` has listed `${rulesDir}/verify-supplements.md` as "loaded by `/verify`" for
+as long as the table has existed. `commands/verify.md` never read it — the string appears in that one
+table row and nowhere else in the plugin. So a project whose real gate set does not fit the four rows
+`/verify` knows about had a documented place to put the rest, and putting it there did nothing.
+
+This repository is the case in point: `tooling.commands` accepts seven named keys, none of which is
+"validate the plugin manifest" or "check nothing POSIX-only entered a command an agent runs", so it
+declares one gate out of thirteen. `/verify` ran that one and printed a clean line. `§ 0` now reads
+the supplement and runs what it declares, and `.claude/rules/verify-supplements.md` carries this
+repository's thirteen with what each failure means.
+
+The same reference said Tier 2 rules auto-load via `globs:` frontmatter. The field is `paths:`, and
+the difference is not cosmetic: a rule with no `paths:` field loads unconditionally into every
+session at `.claude/CLAUDE.md` priority, so the wrong field name does not fail loudly — it silently
+converts a scoped rule into an always-on one, which is the opposite of what scoping it was for. The
+note now says so, and the new supplement carries a narrow `paths:` for exactly that reason.
+
+### Added — how to configure Biome and oxlint so the lint gate checks something
+
+`AGENT_SETUP.md` told installers to install both tools and declare the commands, and stopped there. A
+declared linter with no config file runs, exits 0 and reports nothing, which is the worst possible
+gate because the line reads as covered. Step 3 now carries both config files against the current
+official references, the division of labour between them — Biome formats, oxlint is the lint gate,
+because both linting the same rules yields two diagnostics per finding — and the reason
+`tooling.commands.format` must be `biome format --write` rather than `biome check --write`: `check`
+auto-fixes, the hook runs it after every Write, and a fix landing inside a half-finished refactor
+cascades into the next edit. Also the CI-only variants, `biome ci` and `oxlint --deny-warnings`, and
+the instruction not to add either to a project already on ESLint or Prettier.
+
+### Fixed — a project that mandates `bun` could not run `bunx`
+
+`autonomy.allowPackageManagers` compared the literal first word of the command against the list, so
+`bunx` under a `["bun"]` declaration was refused — bun's own package runner, the correct tool in
+that project, denied by the rule that exists to keep the project on bun. The refusal even read
+"`bunx` is not one of them" with `bun` sitting in the same sentence, which looks like a broken
+guardrail rather than an applied rule.
+
+The allowlist now names families. A command resolves to the manager that ships it — `bunx`→`bun`,
+`npx`→`npm`, `pnpx`→`pnpm`, `uvx`→`uv`, `pipx`→`pip` — and the family is what gets checked, so
+`["bun"]` admits `bunx` and still refuses `npx`. Resolution is one-directional: declaring `npx` does
+not hand over `npm`, because someone who asked for one-off execution did not ask for the lockfile to
+be rewritten. What the setting protects is unchanged — running a package through the manager the
+project already chose forks nothing.
+
+Every real project on the author's machine was carrying the workaround, `["bun", "bunx"]`, and so
+was the test fixture — which is precisely why CI never saw it. The fixture now declares `["bun"]`,
+the form the fix enables, and the explicit two-entry form is covered separately so the repositories
+already carrying it are not punished for the plugin's defect.
+
+### Fixed — the plugin told agents to run `npx`, then denied it
+
+`AGENT_SETUP.md`, `README.md` and `commands/design.md` all hardcoded `npx impeccable install`. In
+any project standardised on something else that instruction is refused by this plugin's own
+`smart_bash_approver` — the harness firing its guardrail at its own documentation, and `/design`
+losing its craft passes to it. A package manager is a project's choice, which cardinal 1 says makes
+it a parameter; all three now resolve the runner from `tooling.packageManager` and give the mapping.
+
+The same commands were missing `--yes`. With `--providers` and `--scope` supplied the installer is
+still interactive, so a command an agent runs unattended stopped on a prompt nobody was going to
+answer. `AGENT_SETUP.md` also now records where the Codex half actually lands —
+`~/.agents/skills/impeccable`, the shared skills directory, not `~/.codex/skills` — and how to
+verify the hooks merge left every other tool's entries standing.
+
+### Added — a user-scope config, so autonomy stops being re-decided per clone
+
+`_config.py` read one file: the project's. Everything in it was therefore per repository, including
+`autonomy`, which is the block deciding whether a session feels like work or like clicking Approve.
+A person who had already turned that off met the same prompt flood in the next clone, and it read
+as the setting having stopped working when it had simply never been asked.
+
+`~/.graph-powers/config.json` now answers it once, resolved `defaults < user < project`. Three
+limits keep the layer safe rather than merely convenient:
+
+- Only `autonomy`, `graphGuardrails`, `protectedFiles` and `autoUpdate` are read from it. The rest
+  of the schema describes a repository, and a `paths.frontendRoot` written once at home is wrong
+  everywhere except where it was meant.
+- `git` never crosses. `optInPrefix` is per repository so an approval typed in one cannot release
+  the same gate in another, and a home-directory prefix would delete that isolation for every
+  project at once.
+- `autonomy` is owned whole by whichever scope declares it. Field-merging a user's
+  `git.commit: ask` under a project's `level: autonomous` would leave a repository that asked to run
+  unattended stopping at every commit — its own declaration silently half-applied.
+
+### Fixed — the test suite was not hermetic, and the new layer proved it
+
+`test_hooks.py` invoked every hook with the real home directory, so once hooks began reading
+`~/.graph-powers/config.json` the suite inherited whatever the person running it had set. It did not
+fail honestly either: it failed as six unrelated cases about guarded defaults. Every invocation now
+runs against an empty temporary home unless a case sets one deliberately — the same isolation the
+two-project cases have always proved, one level up.
+
+Six new cases cover the layer: it reaches a project that declares nothing, it is absent when the
+user file is, the project outranks it, a user-level `optInPrefix` does not release the commit gate,
+and a malformed user file still exits 0 with the project's own config deciding.
+
+### Changed — 12 agent descriptions are routing rules now
+
+The field that drives automatic delegation read as a job title on all 12. Each now opens with the
+action cue the documentation calls for, states whether it writes or only reports, and names the
+neighbouring agent that owns the adjacent job — so two agents sharing vocabulary stop splitting one
+task between them.
+
 ## 1.3.1 — the Codex install stops accumulating
 
 ### Fixed — the Codex escalation path named an agent that does not exist

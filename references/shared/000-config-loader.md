@@ -28,7 +28,9 @@ Substitution placeholders used in commands (resolve at runtime):
 | `${gates.lcp/cls/inp/initialJsKb}` | `gates.*` |
 | `${rulesDir}` | `paths.rulesDir` (defaults to `.claude/rules`) |
 
-**Rule layer.** All project rules + supplements live under `${rulesDir}`. No overlay folder, no overlay-first resolution. Tier 2 rules auto-load via `globs:` frontmatter; supplements load on demand by command/skill:
+**Rule layer.** All project rules + supplements live under `${rulesDir}`. No overlay folder, no overlay-first resolution. Tier 2 rules auto-load via `paths:` frontmatter; supplements are read on demand, by explicit path, from the command or skill that needs them:
+
+> The field is `paths:`, not `globs:` — a rule written with `globs:` has no `paths:` field, and **a rule with no `paths:` field loads unconditionally into every session**, at the same priority as `.claude/CLAUDE.md`. So the typo does not fail loudly; it silently converts a scoped rule into an always-on one, which is the opposite of what it was written for. Reading a supplement by explicit path works either way, so give every supplement a narrow `paths:` and let the command that needs it read it directly.
 
 | File | Purpose |
 |---|---|

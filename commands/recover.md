@@ -1,5 +1,5 @@
 ---
-description: Failure recovery protocol for post-failure handling. Use after 2+ failed fix attempts.
+description: "Stop and restructure after repeated failure — two or more fix attempts on the same problem have not held. Use when the user says it is still broken after several tries, that we are going in circles, or to back out and start over. Do not use on a first defect report (/debug)."
 workflow_type: routing
 ---
 

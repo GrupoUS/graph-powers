@@ -1,6 +1,6 @@
 ---
 name: skill-improver
-description: "Read-only harness auditor. Use to independently verdict the wiring of `.claude/` — agents, skills, commands, hooks, workflows: frontmatter validity, dangling references, orphans, name shadowing, trigger collision, and loop-engineering compliance. Never edits; proposes diffs."
+description: "Use proactively before adding an agent or a skill, and after any model or plugin upgrade, to verdict how the harness is wired: frontmatter that would not register, dangling references, orphans, name shadowing, trigger collision. Read-only — it proposes diffs and applies none."
 model: opus
 color: red
 role_type: evaluator

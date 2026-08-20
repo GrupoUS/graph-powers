@@ -1,6 +1,6 @@
 ---
 name: performance-optimizer
-description: "Performance, security-baseline, and SEO/GEO optimizer. Use for slow paths, memory/CPU, bundles, Core Web Vitals, benchmarks, load time, OWASP baseline, or search visibility."
+description: "Use proactively when something is measurably too slow, too large, or too exposed: slow paths, memory and CPU, bundle size, Core Web Vitals, benchmarks, the OWASP baseline, and search visibility. Writes the optimisation. Output that is wrong rather than slow is debugger."
 model: opus
 color: blue
 role_type: worker

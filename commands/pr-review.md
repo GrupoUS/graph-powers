@@ -1,5 +1,5 @@
 ---
-description: Unified PR/branch review. Runs independent review paths in parallel — an adversarial evaluator, a security reviewer, the bundled code-review skill, and /debug audit pr — consolidates them with superpowers:receiving-code-review, and produces a verdict plus a ready-to-post comment body. Read-only by default; never approves or merges. Modes (positional) — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug.
+description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Runs an adversarial evaluator, a security reviewer, the code-review skill and /debug audit in parallel, consolidates through superpowers:receiving-code-review, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
 workflow_type: prompt-chaining
 ---
 

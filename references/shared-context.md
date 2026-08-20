@@ -29,6 +29,7 @@ measured against a worktree of the pre-split tree with the same script.
 | 11 | `110-guardrails-index.md` | each guardrail and the rule file that states it |
 | 11.5 | `115-code-graph.md` | the code-graph contract, its cookbook and its `[HARD]` limits |
 | 12 | `120-skill-invocation-order.md` | meta, then method, then harness, then domain |
+| 13 | `130-workflow-authoring.md` | writing a workflow script by hand, and checking it before it runs |
 
 ## Two rules that survive the split
 

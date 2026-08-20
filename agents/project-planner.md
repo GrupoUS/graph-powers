@@ -1,6 +1,6 @@
 ---
 name: project-planner
-description: "Adversarial plan synthesizer. Use after research to turn a feature request into a scoped spec, acceptance criteria, risks, architecture decisions, and executable sprint plan."
+description: "Use proactively after research and before implementation, to turn a request into a scoped spec with acceptance criteria, risks, architecture decisions and an executable sprint plan. Writes the plan file and never touches implementation files. Judging a finished plan is evaluator."
 model: opus
 color: yellow
 role_type: orchestrator

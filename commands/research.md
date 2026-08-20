@@ -1,5 +1,5 @@
 ---
-description: Deep research mode — parallel exploration of codebase + external docs. Returns structured findings only, no code changes.
+description: "Investigate without changing anything — how this codebase does X, what a library or API actually supports, what a change would touch. Use when the user says to look into it, find out how something works, or explicitly not to edit yet. Explores the codebase and external docs in parallel and returns structured findings only. Do not use to then fix what it found (/debug) or to turn it into a plan (/plan)."
 workflow_type: parallelization
 ---
 

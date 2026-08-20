@@ -148,8 +148,8 @@ twice.
 | Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | Generated from the same source |
 | Instructions | `CLAUDE.md` | `AGENTS.md` | A delimited, idempotent block |
 
-The Codex hooks file is **merged, never overwritten**. Other tools write it too — `npx impeccable
-install` is one — and clobbering it would silently disable someone else's guardrails, which is this
+The Codex hooks file is **merged, never overwritten**. Other tools write it too — impeccable's
+installer is one — and clobbering it would silently disable someone else's guardrails, which is this
 project's own failure mode pointed the other way. Every entry added is recorded, so
 `node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
 standing.
@@ -173,10 +173,22 @@ The setup playbook installs both.
 /plugin install superpowers@superpowers-marketplace
 # superpowers — Codex CLI: /plugins -> search "superpowers" -> Install Plugin
 
-# impeccable — both
-npx impeccable install --providers=claude,codex --scope=project
-npx impeccable update      # keep it current
+# impeccable — both. Run it through the package runner THIS project uses:
+#   npm -> npx        pnpm -> pnpm dlx
+#   bun -> bunx       yarn -> yarn dlx
+<runner> impeccable install --providers=claude,codex --scope=project --yes
+<runner> impeccable update     # keep it current
 ```
+
+Neither detail there is cosmetic.
+
+`--yes` is what makes the command non-interactive. Without it the installer asks which harnesses and
+which scope, and an agent running it waits on a prompt nobody is going to answer.
+
+The runner has to match because a project that declares `autonomy.allowPackageManagers` refuses the
+ones it did not choose — that is the setting keeping its lockfile from forking. Reaching for `npx`
+inside a bun project is denied by this plugin's own guardrail, correctly, and the fix is to use the
+runner the project already standardised on rather than to widen the allowlist.
 
 Three more plugins are optional, and only the commands that call them notice their absence:
 `code-review` (bundled with Claude Code, invoked by `/pr-review`), and the Codex plugin's

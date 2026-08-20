@@ -1,6 +1,7 @@
 ---
 name: planning
-description: planning chain for multi-layer features, third-party integrations, architecture trade-offs, unclear implementation order, or “how should we build X?” requests. Use for “plan this”, “write a plan”, “implementation plan”, “design before code”, /plan, loop engineering, or iterate-until-goal work. It wraps brainstorming, writing-plans, and subagent-driven-development with this plugin's agents, tier gating, branch policy, and layer ordering. Skip single-file bug fixes with a known root cause.
+description: "Layer ordering, tier gating and branch policy for decomposing a multi-layer feature into an executable plan. Wraps superpowers brainstorming and writing-plans. Loaded by /plan. Not for a single-file fix with a known cause."
+
 ---
 
 # Planning skill — brainstorm → write → execute, as a tier-gated workflow

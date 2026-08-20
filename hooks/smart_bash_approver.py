@@ -271,6 +271,33 @@ ASK_PATTERNS = [
 # Any package manager. Which ones a project accepts is `autonomy.allowPackageManagers`; by default
 # all of them do, because a plugin that hardcodes one breaks every project that chose another.
 PACKAGE_MANAGER_RE = re.compile(r"^(bun|bunx|npm|npx|pnpm|pnpx|yarn|corepack|uv|uvx|pip|pipx|poetry|cargo|go)\b")
+
+# A package runner belongs to the manager that ships it, and the allowlist names families.
+#
+# Without this, a project declaring `["bun"]` had `bunx` refused — bun's own package runner, the
+# correct tool there, denied by the rule that exists to keep the project on bun. The message said
+# "`bunx` is not one of them" while `bun` sat in the list, which reads as the guardrail being
+# broken rather than as a rule being applied.
+#
+# What the setting protects is the lockfile: `npm install` in a bun project forks it, and that is a
+# real defect. Running a package through the manager the project already chose forks nothing. So
+# the check resolves the command to its family first — `["bun"]` accepts `bunx` and still refuses
+# `npx`, which belongs to npm.
+#
+# The resolution is one-directional on purpose: listing `npx` does not admit `npm`. A project that
+# wants only the runner gets only the runner, and the broader permission stays something you have
+# to write down.
+#
+# `pipx` is the judgment call. It is a separate project rather than pip's own runner, but it
+# installs into isolated environments and never touches the project's dependency set, so under a
+# `["pip"]` declaration it is in-family for the thing being protected.
+PACKAGE_MANAGER_FAMILY = {
+    "bunx": "bun",
+    "npx": "npm",
+    "pnpx": "pnpm",
+    "uvx": "uv",
+    "pipx": "pip",
+}
 DANGEROUS_PM_PATTERN = re.compile(r"(rm -rf|cache clean|publish.*--force)")
 COMMAND_SEPARATOR_PATTERN = re.compile(r"\s*(?:&&|\|\||;)\s*")
 
@@ -390,13 +417,20 @@ def main() -> None:
     allowed_pms = policy.get("allowPackageManagers") or []
     if allowed_pms:
         pm = PACKAGE_MANAGER_RE.match(command)
-        if pm and pm.group(1) not in allowed_pms:
-            _deny(
-                f"BLOCKED: this project declares its package managers as "
-                f"{', '.join(allowed_pms)}; `{pm.group(1)}` is not one of them "
-                "(autonomy.allowPackageManagers)."
-            )
-            return
+        if pm:
+            name = pm.group(1)
+            family = PACKAGE_MANAGER_FAMILY.get(name)
+            if name not in allowed_pms and family not in allowed_pms:
+                # Naming the family in the refusal is what makes it actionable: the reader needs to
+                # know that the runner they reached for belongs to a manager this project excluded,
+                # not that the runner itself was overlooked in the list.
+                belongs = f" (`{name}` belongs to `{family}`)" if family else ""
+                _deny(
+                    f"BLOCKED: this project declares its package managers as "
+                    f"{', '.join(allowed_pms)}; `{name}` is not one of them{belongs} "
+                    "(autonomy.allowPackageManagers)."
+                )
+                return
 
     segments = [
         segment.strip()

@@ -1,5 +1,5 @@
 ---
-description: "Performance audits + optimization. Modes (positional arg) — default: runtime audit (PSI/Lighthouse) · build: bundle analysis, code splitting, build-tool tuning · db: pool audit, N+1 scan, index gaps, prepared-statement candidates · vercel: real-user CWV + traffic from Vercel Speed Insights/Analytics · doctor: React Doctor render/effect health audit (local/advisory). Pass URL/scope/strategy after the mode token."
+description: "Make something measurably faster or lighter — slow page, slow query, oversized bundle, poor Core Web Vitals, memory growth, weak SEO baseline. Use when the user says something takes too long, feels sluggish, times out, or that the bundle is too big. Modes (positional) — default: runtime audit · build: bundle and code splitting · db: pool, N+1, index gaps · vercel: real-user vitals · doctor: React render and effect health. Pass URL, scope or strategy after the mode. Do not use when the output is wrong rather than slow (/debug)."
 workflow_type: orchestrator-workers
 ---
 

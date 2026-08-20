@@ -1,6 +1,6 @@
 ---
 name: webapp-testing
-description: Use when verifying frontend functionality in a real browser, driving E2E flows on a staging or local web app, debugging UI behaviour, or capturing screenshots, console errors, page errors and network evidence. The browser stack is the agent-browser CLI (`bunx agent-browser`), with local Playwright as the fallback for what it cannot do.
+description: "Driving a real browser for evidence: E2E flows, screenshots, console and page errors, network traces. The stack is the agent-browser CLI, with local Playwright as fallback. Loaded by /verify and /debug frontend. Not for unit tests."
 license: Complete terms in LICENSE.txt
 ---
 

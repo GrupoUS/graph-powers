@@ -1,6 +1,7 @@
 ---
 name: performance-optimization
-description: Use for runtime performance, build performance, database and API speed, security baseline checks, bundle size, Core Web Vitals, production release gates, runtime memory optimization, and search engine optimization. Triggers on memory leak, garbage collection, heap snapshot, heap dump, object pool, GC pause, OOM, V8 heap, --max-old-space-size, memory profiling, /optimize-memory-usage, keyword research, meta tags, schema markup, structured data, robots.txt, sitemap, canonical tags, organic search visibility, and SEO audits.
+description: "Method for runtime, build, database and bundle performance, plus the OWASP security baseline and SEO/GEO. Covers Core Web Vitals, memory and GC, heap snapshots, N+1 and index gaps, sitemaps and structured data. Loaded by /perf. Not for a wrong result, which is a defect."
+
 ---
 
 # Performance Optimization

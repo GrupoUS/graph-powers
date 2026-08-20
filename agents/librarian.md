@@ -1,6 +1,6 @@
 ---
 name: librarian
-description: "External knowledge researcher. Use for current library/API behavior, official docs, versions, breaking changes, security advisories, and integration research. Never inspects or edits local files."
+description: "Use proactively when the answer lives outside this repository: how a library or API actually behaves in its current version, breaking changes, migration notes, security advisories, official documentation. Never reads or edits local files — for that, explorer. Read-only; run it in the background."
 tools: WebFetch, mcp__tavily__tavily_search, mcp__tavily__tavily_research, mcp__tavily__tavily_extract, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__sequential-thinking__sequentialthinking, mcp__claude_ai_Context7__resolve-library-id, mcp__claude_ai_Context7__query-docs
 model: haiku
 color: yellow

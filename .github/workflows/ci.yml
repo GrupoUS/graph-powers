@@ -161,6 +161,15 @@ jobs:
         # live defect here, and none of them raised — they returned the wrong answer quietly.
         run: python3 .github/check_portability.py
 
+      - name: The skill listing stays inside its budget
+        # Claude Code loads every skill and command description into context at session start and
+        # matches the user's sentence against that listing. The budget is about 1% of the context
+        # window and it is shared with every other plugin on the machine — on overflow, Claude Code
+        # drops descriptions silently, starting with the least-invoked entries, so a skill goes on
+        # being listed while it stops being reachable. Three of this plugin's own skills were
+        # measured in that state. Growth here is therefore paid by somebody else's skill.
+        run: python3 .github/check_listing_budget.py
+
       - name: Every routing reference resolves
         # The path gate below checks files. This one checks the routing: the agent a command
         # spawns, the workflow it invokes, the skill it loads, the section of another file it

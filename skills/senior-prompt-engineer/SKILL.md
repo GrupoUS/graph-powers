@@ -1,6 +1,7 @@
 ---
 name: senior-prompt-engineer
-description: Canonical contract for Claude Code subagent design, handoff schemas, orchestrator spawn templates, parallel-batch return contracts, and coordinator failure-recovery rules. Use when authoring or editing .claude/agents/*.md, designing multi-agent commands in .claude/commands/, building handoff schemas, or when a parallel batch needs a shared return contract. Also covers prompt engineering for application-level LLM features (RAG, structured outputs, eval harnesses) and systematic refactor methodology — extract method, eliminate duplication, simplify conditionals, design-pattern application, with test-gated incremental steps. Triggers on refactor, refactor-code, extract method, extract class, rename, DRY, code-smell cleanup, technical-debt reduction.
+description: "Designing the harness itself: subagent contracts, handoff schemas, orchestrator spawn templates, parallel-batch return contracts, and coordinator failure recovery. Also covers application-level LLM features (RAG, structured outputs, eval harnesses) and systematic refactor method — extract, deduplicate, simplify, test-gated."
+
 ---
 
 # Senior Prompt Engineer — Claude Code Agent Orchestration SSOT

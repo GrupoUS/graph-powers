@@ -1,5 +1,5 @@
 ---
-description: Execute implementation plans. Parses plan for phase structure + agent assignments, loads domain skills, spawns specialists, orchestrates parallel/sequential execution with sprint contract gates.
+description: "Execute an implementation plan that already exists — in a plan file or in this conversation. Use when the user says to implement, build or execute the plan, to start a sprint, or to carry out what was agreed. Parses phases and agent assignments, loads the domain skills, spawns specialists, runs parallel and sequential waves against sprint-contract gates. Do not use to decide what to build (/plan) or to confirm the result holds (/verify)."
 workflow_type: orchestrator-workers
 ---
 

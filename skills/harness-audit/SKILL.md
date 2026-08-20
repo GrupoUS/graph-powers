@@ -1,6 +1,6 @@
 ---
 name: harness-audit
-description: "Audits a whole agent harness as a graph and proposes prioritised patches. Use when the question is about the WIRING between artefacts rather than the content of one of them: 'are my agents, skills and commands connected?', 'audit my harness', 'this skill fires at the wrong time', 'the subagent is not found', 'what part of .claude no longer earns its place?', before adding a new agent or skill, after a model upgrade, or at a periodic review. Covers frontmatter, dangling references, orphans, repo-versus-global name shadowing, trigger collision, hooks, workflows, and loop-engineering compliance. Report-only; never applies a patch without approval. Do NOT use it to create or rewrite ONE skill (that is `skill-creator`), to design ONE agent's prompt (that is `senior-prompt-engineer`), or to choose which agents to spawn for a task (that is `agent-orchestration`)."
+description: "Audits the wiring between harness artefacts as a graph — dangling references, orphans, name shadowing, trigger collision, frontmatter that would not register, hooks and workflows. Use when the question is whether .claude/ is connected, not what one file says. Report-only. Authoring one skill is skill-creator; designing one agent's prompt is senior-prompt-engineer."
 user-invocable: true
 argument-hint: "[path | --all | --phase N] — defaults to .claude/"
 allowed-tools:
@@ -98,7 +98,14 @@ the wrong time" = collision between N skills).
 
 ## Phase 5 — Independent judgement
 
-You do **not** judge your own gathering. Dispatch the auditor with the inventory and graph attached:
+You do **not** judge your own gathering. Dispatch the auditor with the inventory and graph attached.
+
+Note the `\`` escapes in the prompt below and keep them. An audit prompt is prose about frontmatter
+fields, so it is dense with backticks, and the prompt is a template literal — one unescaped backtick
+ends the literal and the call fails at parse. If you fan this phase out through a hand-written
+`Workflow({ script })` instead of `Agent()`, read
+`${CLAUDE_PLUGIN_ROOT}/references/shared/130-workflow-authoring.md` and check the script before
+running it; there the same mistake costs the whole script rather than one spawn.
 
 ```ts
 Agent({

@@ -1,5 +1,5 @@
 ---
-description: Delegate a task to a specialist agent using the mandatory 7-section delegation protocol.
+description: "Hand one task to a named specialist agent through the 7-section delegation protocol. Use when the user asks to delegate, to hand it to an agent, or to spawn a specialist for a specific piece. Do not use to decide how many agents a task needs — that is the agent-orchestration skill."
 workflow_type: routing
 ---
 

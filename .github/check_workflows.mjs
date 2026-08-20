@@ -24,14 +24,19 @@ import { basename, join } from "node:path";
  */
 function checkAgentSet(path, source, onDisk) {
   const block = source.match(/const PLUGIN_AGENTS = new Set\(\[([\s\S]*?)\]\)/);
-  if (!block) return [];        // a workflow that spawns nothing needs no set
+  if (!block) return []; // a workflow that spawns nothing needs no set
   const listed = new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
   const problems = [];
-  for (const name of listed) if (!onDisk.has(name)) problems.push(`AGENTS ${path}: PLUGIN_AGENTS lists "${name}", which is not in agents/`);
-  for (const name of onDisk) if (!listed.has(name)) problems.push(`AGENTS ${path}: agents/${name}.md exists but PLUGIN_AGENTS omits it — a spawn of it would go unnamespaced`);
+  for (const name of listed)
+    if (!onDisk.has(name))
+      problems.push(`AGENTS ${path}: PLUGIN_AGENTS lists "${name}", which is not in agents/`);
+  for (const name of onDisk)
+    if (!listed.has(name))
+      problems.push(
+        `AGENTS ${path}: agents/${name}.md exists but PLUGIN_AGENTS omits it — a spawn of it would go unnamespaced`,
+      );
   return problems;
 }
-
 
 /**
  * Dry-run a workflow with every runtime hook stubbed.
@@ -52,10 +57,15 @@ function sampleFor(schema) {
   if (!schema || typeof schema !== "object") return {};
   if (schema.enum?.length) return schema.enum[0];
   switch (schema.type) {
-    case "string": return "x";
-    case "number": case "integer": return 1;
-    case "boolean": return true;
-    case "array": return [sampleFor(schema.items ?? {})];
+    case "string":
+      return "x";
+    case "number":
+    case "integer":
+      return 1;
+    case "boolean":
+      return true;
+    case "array":
+      return [sampleFor(schema.items ?? {})];
     default: {
       const out = {};
       for (const [key, sub] of Object.entries(schema.properties ?? {})) out[key] = sampleFor(sub);
@@ -79,7 +89,8 @@ async function dryRun(body, args) {
     log: () => {},
     phase: () => {},
     agent: async (prompt, opts = {}) => {
-      if (typeof prompt !== "string" || !prompt.trim()) throw new Error(`empty prompt at ${spawned.length}`);
+      if (typeof prompt !== "string" || !prompt.trim())
+        throw new Error(`empty prompt at ${spawned.length}`);
       spawned.push(opts.agentType ?? "(inherited)");
       return opts.schema ? sampleFor(opts.schema) : "ok";
     },
@@ -104,25 +115,65 @@ async function dryRun(body, args) {
   return { result, spawned };
 }
 
+/**
+ * Two modes, one check.
+ *
+ *   node .github/check_workflows.mjs                 the gate: every file in workflows/
+ *   node .github/check_workflows.mjs <file> [...]    one script, before it is ever run
+ *
+ * The second mode exists because the failure this file was written to catch does not only happen
+ * to workflows that ship. A script authored inline for a single run — the shape `Workflow({script})`
+ * takes — reaches the runtime unparsed, and a stray backtick inside one of its prompt template
+ * literals surfaces as `Unexpected token (156:63)` with a caret pointing at prose. By then the call
+ * has failed and whatever the script was orchestrating has to be re-authored from scratch.
+ *
+ * The `Workflow` tool writes every inline script to a file and returns its `scriptPath`, so the
+ * loop that avoids this is: write the script to a file, run it past this, then invoke it by path.
+ *
+ * Explicit-path mode drops the two checks that only make sense for a shipped workflow — the
+ * filename/`meta.name` agreement and the refuses-empty-args guard — because a one-run script is not
+ * registered under a name and has no contract to refuse. What it keeps is what actually breaks:
+ * the parse, and the dry run.
+ */
+const EXPLICIT = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+const CHECKING_ONE_OFF = EXPLICIT.length > 0;
+
 const DIR = "workflows";
-if (!existsSync(DIR)) {
+if (!CHECKING_ONE_OFF && !existsSync(DIR)) {
   console.log("no workflows/ directory — nothing to check");
   process.exit(0);
 }
 
-const files = readdirSync(DIR).filter((f) => f.endsWith(".js")).sort();
+const files = CHECKING_ONE_OFF
+  ? EXPLICIT
+  : readdirSync(DIR)
+      .filter((f) => f.endsWith(".js"))
+      .sort();
 if (files.length === 0) {
-  console.error("workflows/ exists but is empty — a shipped directory with no content is a broken promise");
+  console.error(
+    "workflows/ exists but is empty — a shipped directory with no content is a broken promise",
+  );
   process.exit(1);
 }
 
+for (const f of files) {
+  if (CHECKING_ONE_OFF && !existsSync(f)) {
+    console.error(`MISSING ${f}: no such file`);
+    process.exit(1);
+  }
+}
+
 const agentsOnDisk = existsSync("agents")
-  ? new Set(readdirSync("agents").filter((f) => f.endsWith(".md")).map((f) => basename(f, ".md")))
+  ? new Set(
+      readdirSync("agents")
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => basename(f, ".md")),
+    )
   : new Set();
 
 let failed = 0;
 for (const file of files) {
-  const path = join(DIR, file);
+  const path = CHECKING_ONE_OFF ? file : join(DIR, file);
   const source = readFileSync(path, "utf8");
 
   // Same wrapper the runtime applies: strip the ESM export (an `export` is illegal inside a
@@ -139,12 +190,16 @@ for (const file of files) {
 
   const declared = source.match(/name:\s*['"]([^'"]+)['"]/);
   if (!declared) {
-    console.error(`META   ${path}: no \`name\` in \`export const meta\` — the runtime has nothing to register`);
+    console.error(
+      `META   ${path}: no \`name\` in \`export const meta\` — the runtime has nothing to register`,
+    );
     failed++;
     continue;
   }
+  // A one-off script is invoked by `scriptPath`, never by name, so the filename it happens to sit
+  // under carries no meaning and disagreeing with `meta.name` breaks nothing.
   const expected = basename(file, ".js");
-  if (declared[1] !== expected) {
+  if (!CHECKING_ONE_OFF && declared[1] !== expected) {
     console.error(`NAME   ${path}: meta.name is "${declared[1]}" but the file is "${expected}.js"`);
     failed++;
     continue;
@@ -169,7 +224,9 @@ for (const file of files) {
       (a) => a !== "(inherited)" && !a.includes(":") && agentsOnDisk.has(a),
     );
     if (unnamespaced.length) {
-      console.error(`SPAWN  ${path}: spawns ${unnamespaced.join(", ")} without the plugin namespace`);
+      console.error(
+        `SPAWN  ${path}: spawns ${unnamespaced.join(", ")} without the plugin namespace`,
+      );
       failed++;
       continue;
     }
@@ -179,21 +236,35 @@ for (const file of files) {
     continue;
   }
 
-  try {
-    // oxlint-disable-next-line no-await-in-loop
-    await dryRun(body, undefined);
-    console.error(`GUARD  ${path}: ran with no args instead of refusing — a missing plan path or task must throw before any spawn`);
-    failed++;
-    continue;
-  } catch {
-    // Expected: the input guard fired.
+  // A shipped workflow must refuse an empty invocation; a one-off script written for one known set
+  // of arguments has no such contract, and demanding one would fail every correct ad-hoc script.
+  if (!CHECKING_ONE_OFF) {
+    try {
+      // oxlint-disable-next-line no-await-in-loop
+      await dryRun(body, undefined);
+      console.error(
+        `GUARD  ${path}: ran with no args instead of refusing — a missing plan path or task must throw before any spawn`,
+      );
+      failed++;
+      continue;
+    } catch {
+      // Expected: the input guard fired.
+    }
   }
 
-  console.log(`ok     ${path} (${declared[1]}) — parses, runs dry in ${spawnCount} stubbed spawns, refuses empty args`);
+  console.log(
+    CHECKING_ONE_OFF
+      ? `ok     ${path} (${declared[1]}) — parses, runs dry in ${spawnCount} stubbed spawns`
+      : `ok     ${path} (${declared[1]}) — parses, runs dry in ${spawnCount} stubbed spawns, refuses empty args`,
+  );
 }
 
 if (failed) {
   console.error(`\n${failed} workflow file(s) failed`);
   process.exit(1);
 }
-console.log(`\n${files.length} workflow(s) parse, and every meta.name matches its file`);
+console.log(
+  CHECKING_ONE_OFF
+    ? `\n${files.length} script(s) parse and survive a dry run — safe to hand to Workflow`
+    : `\n${files.length} workflow(s) parse, and every meta.name matches its file`,
+);

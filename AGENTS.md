@@ -73,6 +73,7 @@ node .github/check_workflows.mjs             # workflow scripts parse, and each 
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
+python3 .github/check_listing_budget.py     # what the plugin costs before anything is invoked
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 node bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed

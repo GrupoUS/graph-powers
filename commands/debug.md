@@ -1,5 +1,5 @@
 ---
-description: "Unified debug command. Modes (positional arg) — default: triage + fix · audit: full-stack 9-dimension audit · frontend: static React/UI + E2E browser · backend: API/service · auth-db: auth/permissions/RLS · recover: failure recovery after 2+ failed attempts."
+description: "Diagnose and fix a defect — error, crash, stack trace, failing test, 500, hydration mismatch, CI gone red, or behaviour that changed after a deploy. Use when the user reports something broken, pastes an error, says a test is failing, says it worked yesterday, or asks why staging differs from local. Modes (positional) — default: triage and fix · audit: 9-dimension full-stack audit · frontend: React/UI plus browser E2E · backend: API and services · auth-db: auth, permissions, RLS · recover: after 2+ failed attempts. Do not use to add behaviour that never worked (/implement), to judge code that already works (/pr-review), or to prove gates pass (/verify)."
 workflow_type: routing
 ---
 

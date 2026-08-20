@@ -1,6 +1,6 @@
 {
   "name": "graph-powers",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "A shared harness for Claude Code and Codex CLI: agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in one config file and the plugin adapts.",
   "license": "MIT AND Apache-2.0",
   "type": "module",

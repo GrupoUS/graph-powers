@@ -1,5 +1,5 @@
 ---
-description: "Project context loader. Modes (positional arg) — default: auto-classify cross-domain · backend: backend rules + domain refs · frontend: frontend rules + design refs · fullstack: cross-domain. Loads minimum-viable context, never eager."
+description: "Load this project's context at the start of a session — rules, conventions, stack, the paths that matter. Use when the user asks to load context, get up to speed, or what the conventions here are. Modes (positional) — default: auto-classify · backend · frontend · fullstack. Loads the minimum viable context, never eagerly. Do not use to locate one specific thing (/research)."
 workflow_type: augmented-llm
 ---
 

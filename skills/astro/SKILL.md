@@ -1,6 +1,14 @@
 ---
 name: astro
-description: Use when implementing, debugging, or reviewing Astro components, pages, Content Collections, islands architecture, client directives, astro.config.mjs, Tailwind v4 integration, static generation, hydration, build errors, performance optimization, API routes, endpoints, middleware, Astro.locals, prerender, adapters, Actions, Sessions, astro:env, server islands, and CSP.
+description: "Astro specifics: Content Collections, islands and client directives, astro.config.mjs, prerender and adapters, Actions, Sessions, astro:env, server islands, middleware and CSP. Loads when project.stack names Astro."
+# The one glob set in this plugin that is a fact rather than a convention: an `.astro` file is an
+# `.astro` file in every repository, so this narrows automatic loading without encoding anybody's
+# layout. The frontmatter reference says every field applies to plugin skills too; this is the
+# live test of that claim, which is why it is here and not on eleven other skills.
+paths:
+  - "**/*.astro"
+  - "**/astro.config.*"
+  - "**/content.config.*"
 ---
 
 # Astro Framework Reference

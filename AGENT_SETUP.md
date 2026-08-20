@@ -187,12 +187,36 @@ user — do not carry on and let commands fail halfway through a task.
 Design, critique, audit and anti-pattern detection for interfaces. Apache-2.0, maintained at
 [pbakaus/impeccable](https://github.com/pbakaus/impeccable).
 
+**Resolve the runner from the project before you type the command.** `tooling.packageManager` in the
+config (Step 3) decides it, and getting it wrong is not a style question: a project that declares
+`autonomy.allowPackageManagers` refuses every manager outside its own family, so `npx` inside a bun
+project is denied by this plugin's own guardrail — correctly, since that setting is what keeps the
+lockfile from forking. Widening the allowlist to get past it is the wrong fix.
+
+| `tooling.packageManager` | runner |
+|---|---|
+| `npm` | `npx` |
+| `bun` | `bunx` |
+| `pnpm` | `pnpm dlx` |
+| `yarn` | `yarn dlx` |
+
 ```bash
-# Global first, like everything else that is identical per project:
-npx impeccable install --providers=claude,codex --scope=global
+# Global first, like everything else that is identical per project.
+# Substitute <runner> from the table above.
+<runner> impeccable install --providers=claude,codex --scope=global --yes
 
 # Only fall back to --scope=project when the team must get it by cloning the repository.
 ```
+
+**`--yes` is not optional here.** Without it the installer prompts for the harnesses and the scope,
+and a command an agent runs unattended stops on a question nobody answers. With `--providers` and
+`--scope` both given, `--yes` is what makes the run deterministic instead of merely defaulted.
+
+**Where it lands, so you can verify it.** The Codex half installs to `~/.agents/skills/impeccable`,
+not `~/.codex/skills` — `.agents/skills` is the shared skills directory Codex reads, and it is the
+same one `codex/install.mjs` writes this plugin's skills into. Confirm with a directory listing of
+`~/.agents/skills` and by checking that `~/.codex/hooks.json` still holds this plugin's hook
+commands alongside impeccable's.
 
 **Order matters.** Run this *before* Step 3 writes the Codex artefacts: impeccable also writes
 `.codex/hooks.json`, and although the Graph Powers installer merges rather than overwrites, doing
@@ -204,7 +228,7 @@ Both age independently of this plugin. Add these to whatever the project uses fo
 maintenance, and tell the user they exist:
 
 ```bash
-npx impeccable update
+<runner> impeccable update      # same runner as the install above
 claude plugin update graph-powers
 # superpowers updates through the plugin marketplace it was installed from
 ```
@@ -238,6 +262,48 @@ in the config if you ran it.
 Target: `.graph-powers/config.json`. The contract is `$PLUGIN/schema/config.schema.json`; starting
 points are in `$PLUGIN/examples/`.
 
+### Two scopes, and which answer belongs in which
+
+The same file shape is read from two places, resolved `defaults < user < project`:
+
+| File | Answers | Read from it |
+|---|---|---|
+| `~/.graph-powers/config.json` | *How does this person work?* | `autonomy`, `graphGuardrails`, `protectedFiles`, `autoUpdate` |
+| `<repo>/.graph-powers/config.json` | *What is this repository?* | everything in the schema |
+
+The split exists because `autonomy` is the one block whose answer does not change between
+repositories. Before the user scope existed it was reachable only from inside a repository that
+carried it, so a person who had already decided "stop asking me to approve a read" met the same
+prompt flood in the next clone — and the setting looked broken when it had simply never been asked.
+
+Everything else stays project-only, `git` most deliberately: `optInPrefix` is per repository so that
+an approval typed in one of them cannot release the same gate in another, and a home-directory
+prefix would delete that isolation everywhere at once. A key outside the four above is ignored in
+the user file rather than applied — a `paths.frontendRoot` written once at home is wrong in every
+repository except the one it was meant for.
+
+A project that declares its own `autonomy` block wins. Rules a repository ships apply to everyone
+who clones it, including someone whose personal posture is looser.
+
+**One thing to know before writing `level: "autonomous"` at user scope:** the level also implies
+`git.commit: auto` and `git.push: auto`. That is defensible inside one repository whose owner chose
+it; applied from a home directory it means every repository you open can commit and push without
+you in the loop. If what you want is only for routine commands to stop prompting, pin git back:
+
+```jsonc
+// ~/.graph-powers/config.json
+{
+  "autonomy": {
+    "level": "autonomous",          // unrecognised commands and cleanup run
+    "destructiveFloor": true,       // what git cannot undo is still refused
+    "git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" }
+  }
+}
+```
+
+Undo is deleting the file. Prove it is being read with the snippet at the end of this step — from a
+repository that has no config of its own, `gp.autonomy()['bashDefault']` should print `allow`.
+
 **Only declare a command whose tool is installed.** `tooling.commands.format` runs after every
 edit and `tooling.commands.lint` at every stop; the plugin runs what you wrote and nothing more, so
 a command naming a binary that is not on PATH simply never runs. Install them globally — this
@@ -251,6 +317,174 @@ biome --version && oxlint --version   # both must answer before you declare them
 Nothing is hidden if you get it wrong: every session start names what did not resolve
 (`NOT INSTALLED: lint needs \`oxlint\``). A command routed through the package manager
 (`bun run lint`) is never reported, because the tool is named in the manifest rather than here.
+
+### Configuring Biome and oxlint so the gate actually checks something
+
+A declared command with no config file behind it runs, exits 0, and reports nothing — the worst
+possible gate, because the line reads as covered. Both tools need a config committed to the
+repository, and they need to divide the work or they duplicate it.
+
+#### Scope before rules — this is where the noise comes from
+
+Measured on a real Astro project in this org, running each tool at the repository root with no
+scoping, against the same tool scoped to the project's own source:
+
+| Run | Files | Findings |
+|---|---|---|
+| oxlint, no config | — | 468 warnings |
+| oxlint, defaults + `ignorePatterns` | — | **5** |
+| Biome, `includes: ["**"]` | 387 | 1,093 errors · 1,090 warnings · 1,345 infos |
+| Biome, `includes` minus harness dirs | 62 | 56 errors (50 of them *formatting* of JSON config files) · 163 warnings |
+
+**Ninety-nine per cent of it was in files the project did not write.** Nearly all of it sat in
+`.claude/` and a timestamped `.claude.bak-*/` — bundled third-party JavaScript that skills ship,
+where `no-unused-vars` (169), `no-unused-expressions` (156) and `no-loss-of-precision` fire on
+minified output and on colour-conversion constants that are supposed to be long doubles. Correct
+code, correctly flagged, in somebody else's file.
+
+That makes it this plugin's problem rather than the project's chore: **the harness is what puts
+that code in the tree**, so the harness has to be what excludes it. Put these in both configs, and
+add `.claude.bak*` because a backup taken during setup is linted like source:
+
+```
+.claude/**   .claude.bak*/**   .codex/**   .agents/**
+node_modules/**   dist/**   build/**   .astro/**   .next/**   coverage/**   *.min.js
+```
+
+`.gitignore` is not a substitute. oxlint does respect it — verified — but `.claude/` is *deliberately
+committed*, since the harness config is meant to be shared, so an ignore file will never exclude it.
+The exclusion has to be in the linter config.
+
+Do this first and measure again before touching a single rule. A project whose declared lint already
+passes has nothing to fix; the number that alarmed you may be entirely outside its source. Check
+what the project actually declares before running anything wider:
+
+```bash
+python3 -c "import json;print(json.load(open('.graph-powers/config.json'))['tooling']['commands'])"
+```
+
+**The division.** Biome formats; oxlint lints. Both *can* lint, and turning both loose on the same
+rules produces two diagnostics per finding, which trains people to skim. Biome's linter still earns
+its place for the editor and for a manual full pass; it is simply not the thing the Stop gate runs.
+
+| Tool | Owns | Runs as |
+|---|---|---|
+| Biome | formatting, import sorting, editor diagnostics | `tooling.commands.format`, on every edit |
+| oxlint | the lint gate — correctness across the whole tree | `tooling.commands.lint`, at Stop |
+
+```json
+"tooling": {
+  "commands": {
+    "format": "biome format --write",
+    "lint": "oxlint"
+  }
+}
+```
+
+**`format` is `biome format --write`, not `biome check --write`.** `check` runs the linter and the
+assists with auto-fix, so it rewrites imports and code shape between two edits of a half-finished
+refactor — the hook applies it after *every* Write, and a fix landing mid-edit cascades errors into
+the next one. `format` touches whitespace and nothing else. For the same reason `lint` never carries
+`--fix` or `--write`: at Stop the job is to report, not to change code the person is about to read.
+
+**`biome.json`** — `biome init` writes a starter; these are the keys that matter
+([reference](https://biomejs.dev/reference/configuration/)). Pin `$schema` to the installed version
+(`biome --version`) so the editor validates against the rules you actually run:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["**", "!**/node_modules", "!**/dist", "!**/*.md"] },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": { "noUnusedVariables": "error", "noUnusedImports": "error" }
+    }
+  },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
+}
+```
+
+`vcs.useIgnoreFile` is the one people skip and then wonder why the formatter walks `dist/`. Rule
+severities are `off`, `info`, `warn`, `error`; `rules.preset` accepts `recommended`, `all` or
+`none`, and the domains are a11y, complexity, correctness, nursery, performance, security, style and
+suspicious.
+
+**`.oxlintrc.json`** — the file oxlint reads by default
+([reference](https://oxc.rs/docs/guide/usage/linter/config-file-reference.html)):
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "**/.claude/**", "**/.claude.bak*/**", "**/.codex/**", "**/.agents/**",
+    "**/node_modules/**", "**/dist/**", "**/build/**", "**/.astro/**",
+    "**/.next/**", "**/coverage/**", "**/*.min.js"
+  ]
+}
+```
+
+**That is the whole file, and the omissions are the point.** oxlint's default is the `correctness`
+category — rules that flag code that is wrong, not code that is unfashionable. On the project
+measured above that default plus these ignores produced **5 findings**, every one worth a look.
+
+Adding `plugins` and widening `categories` is not free, and the direction is the opposite of what it
+looks like. The same project, same ignores, with `["import","node","promise","unicorn","oxc",
+"typescript"]` and `suspicious`/`perf` at warn: **68 findings**. What the extra rules bought:
+
+| Rule | Count | Why it was noise here |
+|---|---|---|
+| `no-underscore-dangle` | 27 | Google Apps Script *requires* a trailing `_` to keep a function private. The rule was arguing with the platform |
+| `no-await-in-loop` | 17 | Deliberate sequencing in a smoke-test script. Parallelising it would have been the bug |
+| `consistent-function-scoping` | 8 | Test helpers and inline handlers, hoisted for no benefit |
+| `no-array-sort` | 6 | Wants `toSorted()`. Every call sorted an array `map` had just produced — nothing to mutate |
+
+None of those is a false positive in the sense of the rule misfiring; each is the rule correctly
+reporting something this codebase decided on purpose. That is still noise, and it is worse than
+silence: 63 entries nobody will read, hiding the 5 that mattered.
+
+So widen only after measuring, one axis at a time, and write down what each addition bought. If a
+rule fires more than a handful of times and every hit is intentional, turn that rule off by name and
+say why in the config — a rule disabled with a reason is a decision, and one disabled silently is a
+mystery for whoever inherits it. `"react"` and `"jsx-a11y"` are the two additions that usually do pay
+for themselves in a React project; add `"vitest"` or `"jest"` if the suite is large enough to have
+its own smells. Severities are `off`, `warn`, `error`, and a rule entry overrides its category.
+
+One option worth setting the moment `no-unused-vars` is on, because the underscore prefix is the
+language-wide convention for "deliberately unused" and the rule does not assume it:
+
+```json
+"rules": {
+  "no-unused-vars": ["warn", {
+    "argsIgnorePattern": "^_",
+    "varsIgnorePattern": "^_",
+    "caughtErrorsIgnorePattern": "^_"
+  }]
+}
+```
+
+**Prove both are wired before moving on**, and show the output — a config that is present but not
+being read looks exactly like a clean run:
+
+```bash
+biome --version && oxlint --version          # both must answer
+biome check --reporter=summary               # names the files it would touch
+oxlint --max-warnings 0                      # exit 1 on any finding; 0 means genuinely clean
+```
+
+**In CI, use the check-only variants**, which never write and exit non-zero on a finding:
+`biome ci` and `oxlint --deny-warnings`. `biome ci` is Biome's own CI mode — same checks as `check`,
+no writes.
+
+**If the project already has ESLint or Prettier, do not add these.** Two formatters fighting over
+the same file is worse than the one that was already there, and this plugin's contract is to run
+what the project declared, not to migrate it.
 
 **If a config already exists** (at `.graph-powers/config.json` or the legacy `.claude/config.json`):
 merge field by field, show the diff, and keep every value the project already chose. Never
@@ -490,6 +724,44 @@ Validate afterwards: `python3 -c "import json;json.load(open('.claude/settings.j
 
 Hooks accumulate across levels rather than overriding — a project hook and an equivalent plugin hook
 both run. Nothing breaks immediately, which is why it goes unnoticed.
+
+### The one setting this plugin cannot ship for you
+
+Claude Code loads a listing of every skill and command name plus description into context at session
+start, and that listing is the only thing a plain sentence is matched against when the model decides
+on its own to reach for `/debug`. Its budget is about **1% of the context window**, shared across
+every source on the machine — this plugin, every other plugin, your own skills, the bundled ones. On
+overflow nothing fails and nothing warns: Claude Code drops descriptions, starting with whatever you
+invoke least, and those entries go on being listed while they stop being reachable.
+
+A plugin cannot raise that budget. Only the `agent` and `subagentStatusLine` keys are honoured from a
+plugin's own `settings.json`, so this is yours to set:
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "skillListingBudgetFraction": 0.02    // 2% instead of the default 1%
+}
+```
+
+Check first, and only spend the budget if you are actually over it:
+
+```bash
+# /doctor reports the listing's cost and its biggest contributors.
+# /context shows the Skills row after the budget is applied — what the model really got.
+# claude --debug writes an overflow warning to the debug log.
+```
+
+Two cheaper moves before raising the number, because a bigger listing is context spent every turn:
+
+- `"skillOverrides": { "<name>": "name-only" }` lists a skill without its description — right for
+  something you invoke by slash and never want auto-selected.
+- `"skillOverrides": { "<name>": "off" }` removes it entirely. A skill unused across a hundred
+  sessions is the cheapest thing on the list to cut.
+
+This plugin holds up its own end: `python3 .github/check_listing_budget.py` fails CI if its
+contribution grows past what it measured, so what it costs you does not drift upward between
+releases.
 
 ---
 
