@@ -14,8 +14,8 @@ Used by `/verify` to consolidate signals from gates + agents + reviews into a si
 | Performance | `/perf` | PASS / FAIL | {Lighthouse / CWV} |
 | E2E | `/debug frontend` | PASS / FAIL | {snapshots captured / regressions} |
 | Spec compliance | manual or eval | PASS / FAIL | {requirements satisfied?} |
-| Codex review | `codex:rescue` | PASS / FAIL / N findings | {by severity} |
-| Codex adversarial | `codex:rescue` adversarial-review | PASS / FAIL / N findings | {by severity} |
+| Codex review | `codex:codex-rescue` | PASS / FAIL / N findings | {by severity} |
+| Codex adversarial | `codex:codex-rescue` adversarial-review | PASS / FAIL / N findings | {by severity} |
 | Architecture review | `graph-powers:evaluator` Mode 3 | PASS / WARNINGS | {warnings if any} |
 
 ## Decision

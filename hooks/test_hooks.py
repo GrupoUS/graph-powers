@@ -354,12 +354,34 @@ def main() -> int:
           call("graph_guardrails", {**spawn("debugger"), **sess}, ceil,
                env={"CEIL_ALLOW_SPAWN_OVER": "1"})[0], None)
 
-    # A denied spawn still counts. `bump` increments before the check, so once a session is over
-    # the ceiling it stays over — a refusal does not hand the budget back. That is the right
-    # behaviour (the alternative lets a caller retry forever at no cost) and it is worth an
-    # assertion, because it is invisible from the code that reads the limit.
-    check("a spawn refused by the ceiling still consumed its slot",
+    # A refused spawn is NOT charged, and the ceiling holds anyway. Charging for it was the older
+    # behaviour, defended as "otherwise a caller retries forever at no cost" — but a retry that is
+    # refused never ran, so there is nothing to charge, and the refusal repeats regardless because
+    # the spawns that DID run are still inside the window. All the charge bought was a number that
+    # grew with every retry until it described nothing that happened: this repository's own log
+    # read `27 agent spawns` in a session where 25 ran and 2 were denied.
+    counter = ceil / ".graph-powers" / "logs" / "sessions" / "ceil-g2-guardrails.json"
+    charged = json.loads(counter.read_text(encoding="utf-8"))["spawnsInWindow"]
+    check("a refused spawn is still refused on retry",
           call("graph_guardrails", {**spawn("explorer"), **sess}, ceil)[0], "deny")
+    check("...and was not charged to the window",
+          json.loads(counter.read_text(encoding="utf-8"))["spawnsInWindow"], charged)
+
+    # The window is what the ceiling counts over. Twenty-five spawns in an hour is a runaway
+    # fan-out; the same twenty-five across a day of work is a day of work. Counted from session
+    # start the ceiling became a session-lifetime quota that, once reached, refused the FIRST
+    # spawn of every unrelated later task for the rest of the session.
+    aged = {"spawnEvents": [[time.time() - 7200, k] for k in ("explorer", "librarian", "evaluator")]}
+    counter.write_text(json.dumps(aged), encoding="utf-8")
+    check("spawns older than the window do not count against it",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], None)
+    fresh = {"spawnEvents": [[time.time(), k] for k in ("explorer", "librarian", "evaluator")]}
+    counter.write_text(json.dumps(fresh), encoding="utf-8")
+    check("...and spawns inside it still do",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], "deny")
+    counter.write_text(json.dumps({"spawns": 99, "agent:debugger": 99}), encoding="utf-8")
+    check("a counter with no timestamps cannot be windowed, so it does not deny",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], None)
 
     # G3 — round ceiling, isolated from G2 so the total is not what trips it. Same specialist over
     # and over is the signature of a loop that is not converging.
@@ -376,6 +398,19 @@ def main() -> int:
     check("...and the opt-in key releases the round ceiling too",
           call("graph_guardrails", {**spawn("debugger"), **sess}, rounds,
                env={"ROUNDS_ALLOW_SPAWN_OVER": "1"})[0], None)
+
+    # One specialist, one counter, whichever way the caller spelled the name. A plugin agent is
+    # addressed `<plugin>:<agent>`, and the bare form still reaches the same agent, so counted
+    # verbatim the two spellings were two counters and the ceiling granted double the rounds —
+    # seen in this repository's own log as `agent:evaluator: 1` beside
+    # `agent:graph-powers:evaluator: 3` during the bare-to-namespaced migration.
+    ns = {"session_id": "ceil-namespaced"}
+    check("round 1 under the namespaced name",
+          call("graph_guardrails", {**spawn("graph-powers:debugger"), **ns}, rounds)[0], None)
+    check("round 2 under the bare name — same specialist",
+          call("graph_guardrails", {**spawn("debugger"), **ns}, rounds)[0], None)
+    check("...so the 3rd, whichever spelling, is refused",
+          call("graph_guardrails", {**spawn("graph-powers:debugger"), **ns}, rounds)[0], "deny")
 
     # G4 — write lease. The half that IS implementable: "touch only the files you declared".
     check("with no lease on disk the check stands down",

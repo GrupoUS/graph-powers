@@ -55,6 +55,9 @@ DEFAULTS: dict[str, Any] = {
     "graphGuardrails": {
         "maxSpawnsPerSession": 25,
         "maxRoundsPerAgent": 8,
+        # Both ceilings above are counted inside this rolling window, not from session start. A
+        # session that lives all day is normal work; twenty-five spawns inside an hour is not.
+        "spawnWindowMinutes": 60,
     },
     # How much runs without stopping to ask. `guarded` is the default because a stranger's first
     # session should not be the one that discovers what this harness will do unattended.

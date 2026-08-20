@@ -2,6 +2,84 @@
 
 ## 1.3.1 — the Codex install stops accumulating
 
+### Fixed — the Codex escalation path named an agent that does not exist
+
+Eleven citations of `codex:rescue`, in the escalation path of `/debug` (six), `/implement` (two)
+and three shared fragments. The plugin that provides it ships `agents/codex-rescue.md`, so the
+address is `codex:codex-rescue`; `codex:rescue` resolves to nothing. Two of the eleven called it a
+*skill*, and that plugin's skills are `codex-cli-runtime`, `codex-result-handling` and
+`gpt-5-4-prompting` — no `rescue` among them either. So `/debug`'s documented route out of a stuck
+fix, and `/implement --codex`, pointed at nothing, and the failure is the quiet kind: the model
+reads the instruction, finds no such agent, and continues with less than it thinks it has.
+
+Eight of the eleven predate this release. The other three were created *by* it — the bare-to-
+namespaced migration corrected every `graph-powers:` name and copied the wrong `codex:` one into
+three new `references/shared/` fragments. A migration that fixes one namespace and propagates
+another is worse than none, because the corrected neighbours make the wrong one look reviewed.
+
+Alongside it, `agent-handoff-contracts.md:89` listed `code-reviewer` among the reviewer agents.
+This plugin has never shipped one. It now names `graph-powers:evaluator` and
+`graph-powers:security-reviewer`, which it does ship.
+
+**The gate that should have caught it now does.** `check_wiring.py` skipped every namespaced
+reference on the stated principle that another plugin's tree cannot be opened in CI. True, and it
+does not follow that nothing can be checked: the fix is not to verify the dependency but to
+**declare** it. `EXTERNAL_ROUTES` lists every external agent and skill this harness routes to, each
+checked by hand against the plugin that ships it, and a namespaced name outside the set fails.
+
+Two details decide whether a gate like this survives. It matches only namespaces already declared,
+not the shape `<word>:<word>` — the shape alone flagged `path:line`, `file:line`,
+`client:visible`, `main:main` and `skipped:true`, sixty-eight of them, which is how a check ends up
+with `|| true` after it. And four superpowers skills were nearly declared from memory —
+`condition-based-waiting`, `defense-in-depth`, `root-cause-tracing`, `webapp-testing` — none of
+which exists in superpowers 6.3.0. A declaration is worth something only if somebody opened the
+other plugin before writing the line.
+
+### Verified — every agent this harness routes to actually runs
+
+Not inferred from frontmatter. Each of the twelve was spawned with a probe that forces a real tool
+call and returns evidence, plus `codex:codex-rescue` at its corrected address. Twelve of twelve
+returned; the Codex side generates twelve TOMLs that all parse. Two observations worth keeping:
+`explorer` and `performance-optimizer` answered with Bash rather than Glob/Grep, because a
+session-level directive to prefer shell tools reaches subagents too — which silently defeats the
+Windows-safe path `/debug § 2.2` prescribes, where `find` is a different program. And
+`mobile-developer` has no call site in any command or skill; it is reachable only through
+`workflows/*.js`, and only when `paths.mobileRoot` is set.
+
+### Fixed — the spawn ceiling had become a session-lifetime quota
+
+Found the way these are supposed to be found: by the guardrail firing on work that was not what it
+guards. A `/pr-review` fan-out of three review agents got one through and two denied. The command
+then ran one path where it declares three, and nothing in its output would have said so — a
+skipped path reading as a passed path is the exact failure `/pr-review § 8` promises not to have.
+
+G2 counted `Agent` spawns from the start of the session and never let go of one. Its own docstring
+says what it is for — *"a runaway fan-out burns a budget in one afternoon"* — and a runaway fan-out
+is a burst. A session that lives all day is not one. Counted cumulatively the ceiling stopped
+measuring bursts and started measuring session age: once a long session crossed 25, it refused the
+**first** spawn of every unrelated later task for the rest of the day. Both ceilings now count
+inside `graphGuardrails.spawnWindowMinutes` (default 60).
+
+Two smaller defects fell out of the same file:
+
+**A refused spawn was charged for.** `bump()` incremented, then compared, so a denial consumed a
+slot it never used and every retry pushed the number higher. The message read `27 agent spawns` in
+a session where 25 ran and 2 were refused. The old behaviour had a comment defending it — *without
+it a caller retries forever at no cost* — which does not hold: a refused retry never ran, and the
+spawns that did run are still inside the window, so the refusal repeats on its own. All the charge
+bought was a number that described nothing.
+
+**One specialist, two counters.** G3 keyed on the `subagent_type` verbatim, so a plugin agent and
+the same agent named without its prefix were counted separately and the ceiling granted double the
+rounds. This repository's own session log carried `agent:evaluator: 1` beside the prefixed key at
+3 while the namespacing migration was in flight. The key is now normalised on the last segment.
+
+`hooks/test_hooks.py` goes from 166 checks to 173: the window (aged events do not count, fresh ones
+do), the migration (a counter written before timestamps existed cannot be placed in a window, so it
+stands down rather than denying on evidence that is not there), the uncharged refusal, and the two
+spellings sharing one counter.
+
+
 ### Fixed — every guardrail on the Codex side was registered twice
 
 Found by updating a real machine rather than a fixture. `~/.codex/hooks.json` pointed all twelve

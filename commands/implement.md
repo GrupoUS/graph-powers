@@ -40,7 +40,7 @@ Read `.graph-powers/config.json` for tooling + paths. If `${rulesDir}/routing-su
 
 | Flag | Effect |
 |---|---|
-| `--codex` | Delegate L5+ phases to `codex:rescue` skill |
+| `--codex` | Delegate L5+ phases to the `codex:codex-rescue` agent |
 | `--sprint=N` | Execute only sprint N of multi-sprint plan |
 | `--dry-run` | Parse + display task/agent assignments without executing |
 
@@ -217,7 +217,7 @@ Context anxiety symptoms (Sonnet): agent rushing, skipping edge cases, accepting
 
 For implementation phases too large or complex for a standard agent:
 
-Invoke `codex:rescue` skill with:
+Spawn the `codex:codex-rescue` agent with:
 - Task description from the plan phase
 - Sprint contract done criteria
 - Relevant file paths + line references

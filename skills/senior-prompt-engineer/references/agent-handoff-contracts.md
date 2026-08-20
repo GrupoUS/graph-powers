@@ -86,7 +86,7 @@ Every agent returns this block at the end of its response. Single canonical shap
 |---|---|---|
 | `COMPLETED` | Task done. All listed quality gates PASS. | `artifacts[]` non-empty (or `[]` if read-only); all `qualityGates[].status == PASS` |
 | `BLOCKED` | Cannot proceed without external input or escalation. | `risks[]` non-empty AND every entry has a `mitigation` (or `mitigation: "ESCALATE"` to flag for parent) |
-| `REVISION_REQUIRED` | Returned by reviewer agents (`evaluator`, `code-reviewer`, `codex:rescue`) when output fails its rubric. | `decisions[]` lists each failed criterion + the threshold it missed |
+| `REVISION_REQUIRED` | Returned by reviewer agents (`graph-powers:evaluator`, `graph-powers:security-reviewer`, `codex:codex-rescue`) when output fails its rubric. | `decisions[]` lists each failed criterion + the threshold it missed |
 
 **Invariants:**
 1. `confidence < 3` on a **critical** finding → status MUST be `BLOCKED` (per

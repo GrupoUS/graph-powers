@@ -142,7 +142,7 @@ regression-hunter (graph-powers:explorer, background):
   - If NO MATCH: top-3 hypotheses with evidence for/against. DO NOT FIX.
 ```
 
-If agents return contradictory findings or no definitive file:line → escalate to `codex:rescue` (foreground, diagnosis-only):
+If agents return contradictory findings or no definitive file:line → escalate to `codex:codex-rescue` (foreground, diagnosis-only):
 
 ```
 "Diagnose root cause only — do not apply any fixes.
@@ -203,7 +203,7 @@ Edit → Quality Gates → Pass? → Next fix
 
 After parallel fixes: full gate suite. If gates fail → resolve sequentially.
 
-**If 2+ fixes failed in same area:** escalate to `codex:rescue` for full fix. Then if still failing → switch to `/debug recover`.
+**If 2+ fixes failed in same area:** escalate to `codex:codex-rescue` for full fix. Then if still failing → switch to `/debug recover`.
 
 ### 1.7 Cleanup
 
@@ -217,7 +217,7 @@ After validated fixes:
 | Dead code | No commented-out blocks introduced | Remove |
 | Root cause test | Fix has a regression test | Add test |
 
-Auth/payments/PII fixes (L4+) → run `codex:rescue` adversarial review:
+Auth/payments/PII fixes (L4+) → run `codex:codex-rescue` adversarial review:
 
 ```
 "Run codex adversarial-review --scope working-tree.
@@ -279,7 +279,7 @@ Produce `docs/AUDIT-REPORT-{YYYY-MM-DD}.md` per template in `${CLAUDE_PLUGIN_ROO
 
 ### 2.7 Codex adversarial cross-check (P0/P1)
 
-When report surfaces P0/P1 → optionally run `codex:rescue` with adversarial-review on those file:line targets. Show findings → STOP → ask user.
+When report surfaces P0/P1 → optionally run `codex:codex-rescue` with adversarial-review on those file:line targets. Show findings → STOP → ask user.
 
 ### 2.8 PR variant — `/debug audit pr`
 
@@ -511,8 +511,8 @@ the diff · escalating with a question too vague to answer.
 ## 8. Escalation hierarchy
 
 Before stopping, escalate in this order:
-1. 2+ failed fixes in same area → `codex:rescue` for full fix
-2. Contradictory agent findings → `codex:rescue` diagnosis mode
+1. 2+ failed fixes in same area → `codex:codex-rescue` for full fix
+2. Contradictory agent findings → `codex:codex-rescue` diagnosis mode
 3. Architecture-level blocker → `graph-powers:evaluator` (Mode 3)
 4. All escalations exhausted → `/debug recover` → user decides
 

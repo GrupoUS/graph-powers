@@ -11,7 +11,7 @@ This skill enforces: distinct scope per agent, shared return contract, single-me
 When invoking 2+ agents in parallel:
 
 1. **Single message** — all `Agent()` calls in the same response (concurrent execution).
-2. **Background flag** — `run_in_background: true` for read-only agents (`graph-powers:explorer`, `graph-powers:librarian`, audit dimensions, codex:rescue diagnose).
+2. **Background flag** — `run_in_background: true` for read-only agents (`graph-powers:explorer`, `graph-powers:librarian`, audit dimensions, codex:codex-rescue diagnose).
 3. **Foreground only** when the agent must write/edit (`graph-powers:frontend-specialist`, `graph-powers:debugger` in fix mode).
 4. **Distinct scope** — each agent prompt has non-overlapping investigation area; otherwise merge into one agent.
 5. **Same return contract** — all agents in a parallel batch return findings in the same format (table, columns, severity scale) so consolidation is mechanical.
