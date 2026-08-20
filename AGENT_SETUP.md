@@ -395,7 +395,15 @@ the next one. `format` touches whitespace and nothing else. For the same reason 
 {
   "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["**", "!**/node_modules", "!**/dist", "!**/*.md"] },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "src/**", "tests/**", "*.config.*",
+      "!**/.claude/**", "!**/.claude.bak*/**", "!**/.codex/**", "!**/.agents/**",
+      "!**/node_modules/**", "!**/dist/**", "!**/build/**", "!**/.astro/**",
+      "!**/.next/**", "!**/coverage/**"
+    ]
+  },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "javascript": {
     "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
@@ -411,8 +419,22 @@ the next one. `format` touches whitespace and nothing else. For the same reason 
 }
 ```
 
-`vcs.useIgnoreFile` is the one people skip and then wonder why the formatter walks `dist/`. Rule
-severities are `off`, `info`, `warn`, `error`; `rules.preset` accepts `recommended`, `all` or
+Three details in `files.includes` decide whether this is a gate or a wall of noise.
+
+**Name the source; do not take the whole tree minus exclusions.** `biome check` runs the formatter
+as well as the linter, so `["**", …]` asks the repository to format every `package.json`,
+`tsconfig.json`, `vercel.json` and `.vscode/` file it can find. Measured on the project above: the
+tree-minus-exclusions form reported 255 findings of which **6 were lint** and the rest formatting of
+config files nobody formats with Biome. Listing `src/**` and the config files you actually own gave
+41 files and a clean exit on the same repository.
+
+**The patterns resolve relative to the config file**, not to where you run the command. `src/**` in
+a root `biome.json` means the project's `src`, wherever Biome is invoked from.
+
+**`vcs.useIgnoreFile` is the one people skip** and then wonder why the formatter walks `dist/`. It is
+not a substitute for the exclusion list, since the harness directories are committed on purpose.
+
+Rule severities are `off`, `info`, `warn`, `error`; `rules.preset` accepts `recommended`, `all` or
 `none`, and the domains are a11y, complexity, correctness, nursery, performance, security, style and
 suspicious.
 
@@ -485,6 +507,39 @@ no writes.
 **If the project already has ESLint or Prettier, do not add these.** Two formatters fighting over
 the same file is worse than the one that was already there, and this plugin's contract is to run
 what the project declared, not to migrate it.
+
+#### Someone hands you four figures of lint findings
+
+Do not start fixing. Establish, in this order, how many of them are about this project at all:
+
+```bash
+# 1. What does the project actually declare? Run THAT first. It is frequently already clean.
+python3 -c "import json;print(json.load(open('.graph-powers/config.json'))['tooling']['commands'])"
+
+# 2. Where do the findings live? Directory, not rule — this is the question that resolves it.
+oxlint 2>&1 | grep -oE "^[^:]+" | sed "s|/.*||" | sort | uniq -c | sort -rn | head
+
+# 3. Only once 2 shows the project's own source, group by rule.
+oxlint 2>&1 | grep -oE "(warning|error) [a-z-]+\([a-z0-9-]+\)" | sort | uniq -c | sort -rn
+```
+
+Step 2 is the one that ends most of these. On the project measured above it returned 235 findings
+under `.claude/` and 228 under `.claude.bak-*/` against 5 in the source — and the alarming ones,
+`no-loss-of-precision` on colour-conversion constants and `no-misleading-character-class` on an emoji
+range regex, were correct code inside a bundled third-party detector a skill had installed.
+
+Then triage what survives, and expect to keep less than you fix:
+
+| Finding | Verdict |
+|---|---|
+| Fires once or twice, names a real defect | Fix it |
+| Fires many times, every hit deliberate | Turn the rule off **by name, with the reason in the config** |
+| Fires in generated, vendored or bundled code | Widen `ignorePatterns` — never fix somebody else's build output |
+| Argues with a platform requirement | Turn it off. A rule that contradicts the runtime is wrong here regardless of how sound it is elsewhere |
+
+A rule disabled with a written reason is a decision the next person can reopen. A rule disabled
+silently is a mystery, and a gate with 2,000 open findings is off in practice already — nobody reads
+it, so nothing it catches gets seen.
 
 **If a config already exists** (at `.graph-powers/config.json` or the legacy `.claude/config.json`):
 merge field by field, show the diff, and keep every value the project already chose. Never

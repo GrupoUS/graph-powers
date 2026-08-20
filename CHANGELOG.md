@@ -88,6 +88,40 @@ note now says so, and the new supplement carries a narrow `paths:` for exactly t
 
 ### Added — how to configure Biome and oxlint so the lint gate checks something
 
+Measured against a real Astro project in this org rather than reasoned about, because the first
+version of this section was wrong in a way only measurement catches.
+
+The reported symptom was ~2,400 findings. The project's own declared lint was **clean, exit 0, both
+tools**: the numbers came from running the linters unscoped at the repository root, where they walk
+`.claude/` and a timestamped `.claude.bak-*/`. 463 of oxlint's 468 warnings sat there, against 5 in
+the project's source; Biome went from 387 files and 1,093 errors to 62 files and 6 lint findings on
+the same repository once the harness directories were excluded.
+
+Almost all of it was bundled third-party JavaScript that a skill installs — `no-unused-vars` and
+`no-unused-expressions` on minified output, `no-loss-of-precision` on sRGB luminance constants that
+are supposed to be long doubles, `no-misleading-character-class` on an emoji range regex. Correct
+code, correctly flagged, in a file the project did not write. **The harness is what puts that code
+in the tree, so the harness is what has to exclude it** — the exclusion list is now part of both
+templates, and `.gitignore` is explicitly not a substitute, since `.claude/` is committed on purpose.
+
+Two corrections to the first version of this section, both from measurement:
+
+- **The oxlint template was noisier than oxlint's own default.** Same project, same ignores: the
+  default `correctness` category gave 5 findings; the recommended `plugins` + `suspicious`/`perf`
+  gave 68. The additions bought `no-underscore-dangle` (27 — Google Apps Script *requires* the
+  trailing underscore for private functions), `no-await-in-loop` (17 — deliberate sequencing),
+  `consistent-function-scoping` (8) and `no-array-sort` (6 — which this plugin's own config already
+  disables, with a reason). The template is now the ignore list and nothing else, with the widening
+  path described as something to measure one axis at a time.
+- **`biome check` runs the formatter too**, so scoping it as the whole tree minus exclusions asks the
+  repository to format every JSON config it can find: 255 findings of which 6 were lint. `includes`
+  now names the source, which is what the measured project's own working config does.
+
+Also documented: the triage order for someone handed four figures of findings — run what the project
+declares first, then group by *directory* before ever grouping by rule, because that is the step that
+ends most of these.
+
+
 `AGENT_SETUP.md` told installers to install both tools and declare the commands, and stopped there. A
 declared linter with no config file runs, exits 0 and reports nothing, which is the worst possible
 gate because the line reads as covered. Step 3 now carries both config files against the current
