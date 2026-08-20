@@ -424,7 +424,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 133 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 154 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,

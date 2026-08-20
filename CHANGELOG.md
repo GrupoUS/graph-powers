@@ -130,7 +130,7 @@ it. Both halves are proved in the suite: the approver allows, the dedicated gate
 The approver also stopped naming a package manager. `bun run dev` used to ask while `pnpm run dev`
 did not, in the same project, for the same kind of command.
 
-`hooks/test_hooks.py` goes from 71 checks to 133. Every reclassification carries the violation and
+`hooks/test_hooks.py` goes from 71 checks to 154. Every reclassification carries the violation and
 the mirrored legitimate case, because a gate that fails the correct case trains people to ignore
 gates.
 
@@ -209,13 +209,78 @@ caller retry forever at no cost — and it is now asserted rather than merely tr
 - The dangling-reference and machine-path gates now cover `workflows/` and `.js`. The copy of the
   dangling regex in `CONTRIBUTING.md` had already drifted from the one in CI; both are updated.
 
+### Fixed — the plugin now actually runs on Windows
+
+It never claimed otherwise, and it did not. A full read of every shipped surface found defects on
+all of them, and the thing they had in common is that **none of them raised**. They returned the
+wrong answer quietly, which is why this release adds a gate rather than a paragraph.
+
+**The three that were worst:**
+
+- **A clone on Windows installed nothing, and said it worked.** `codex/lib.mjs` matched frontmatter
+  with `^---\n`, which does not match `---\r\n`, and Git for Windows checks out CRLF by default
+  because the repository never said otherwise. Every agent and every command-as-skill was dropped
+  by the `if (!data.name)` guard downstream, and the installer printed success. Fixed at the
+  parser, and a `.gitattributes` now pins `eol=lf` so the clone never gets there.
+- **The uninstaller could delete every other tool's skills.** `codex/install.mjs` refused to
+  `rmSync` a shared directory with a guard written `(^|/)`. On Windows the manifest paths carry
+  `\`, the guard never matched, and `~/.agents/skills` was in scope for a recursive force delete.
+- **The destructive floor did not exist under PowerShell.** Every list in `smart_bash_approver.py`
+  was POSIX grammar, so `Remove-Item -Recurse -Force C:\` matched nothing and fell through to
+  `bashDefault` — which under `autonomous` is allow. The mirror image was as bad: `Get-ChildItem`,
+  a pure read, fell through to `ask`. Windows was prompted about the harmless and waved through the
+  catastrophic, while the docstring promised "always denied". The approver now speaks both
+  grammars, with `format`, `diskpart`, `vssadmin delete shadows`, `cipher /w` and `bcdedit` on the
+  floor beside `rm -rf /`.
+
+**A `--scope user` install wrote into somebody else's repository.** `process.env.HOME` is undefined
+on Windows, and every fallback landed on the project directory — so `.codex/`, `.agents/skills/`
+and the permission allowlist were created inside the user's repo. Now `homedir()`, everywhere.
+
+**The installer decided Claude Code was not installed** on machines where it was: an npm-installed
+CLI is `claude.cmd`, and `CreateProcess` does not run `.cmd`. Same for the Python probe, where
+`python3` is not the name and a Microsoft Store stub by that name exits non-zero.
+
+**The write lease denied every write it was meant to permit** — a native-separator path compared
+against a lease written with `/`. It was armed for the first time in this same release, so the
+defect shipped and was caught in the same breath.
+
+**Smaller, and all of the same shape:** `commit_audit_gate` read only exit 127 for "command not
+found", while cmd.exe answers 9009 — turning fail-open into fail-closed and blocking every commit
+on a machine without the audit tool. `protect_files` compared `contains` patterns against the raw
+path, so a project declaring `config/secrets/` got no protection and no warning — and `.lstrip("./")`
+strips *characters*, so every dotfile in `exact` (`.env`, `.gitignore`) was quietly unprotected.
+`select.select` takes only sockets on Windows, losing the `cwd` the Codex CLI sends. `text=True`
+without an encoding decodes with the locale code page, so an accented branch name stopped matching
+the protected list. `shlex.split` ate the backslashes out of a Windows path in
+`tooling.commands.format`, and `CreateProcess` could not run the `.cmd` shim anyway, so the
+formatter silently never ran.
+
+**In the prose an agent executes**, roughly forty commands were POSIX-only: `awk`, `find | wc -l`,
+`ls -lh | sort | head`, `jq`, `grep`, `date +%F`, `$( )`, `/dev/null`, `/tmp`, `~/`, `export VAR=`,
+and trailing-`\` continuations. They are now the agent's own tools (`Grep`, `Glob`, `Read`) or one
+line of `python -X utf8 -c`. One of them was a bug on Linux too: `a || b || c | sort | head` parses
+as `a || b || (c | sort | head)`, so the common case was never sorted or truncated.
+
+**The opt-in mechanism turned out to be portable already, and nobody was told.** `opted_in` matches
+the key as *text*, not as shell syntax, so `$env:KEY=1; git commit …` and `set KEY=1 && git commit …`
+release a gate exactly as the POSIX form does. Nine files taught only the POSIX form — including
+the message each gate prints at the moment it blocks. All three forms are now in
+`110-guardrails-index.md`, in the gates' own denial messages, in the rule template that ships into
+every project, and asserted in the suite so a refactor to `^KEY=1\s` cannot quietly lock Windows out.
+
+**`python3 .github/check_portability.py`** is what keeps this from coming back: POSIX binaries and
+constructs in executable blocks, and the silent half in Python — `startswith("a/")` on a glob
+result, bare `HOME`, `select.select`, `subprocess` without an encoding, `shlex.split` without
+`posix=`. `AGENTS.md` gains cardinal 8 to say why.
+
 ### Verified in this session
 
 - The bash reclassification ran under itself for the whole of the work that produced this release.
 - `node .github/check_workflows.mjs` dry-runs all three workflows against stubs: 3, 9 and 15
   stubbed spawns respectively, and all three refuse empty args.
 - `python3 .github/check_wiring.py`: 130 routing references, 0 unresolved.
-- `python3 hooks/test_hooks.py`: 133 checks, exit 0.
+- `python3 hooks/test_hooks.py`: 154 checks, exit 0.
 - `python3 .github/check_context_budget.py --compare`: the twelve commands load 28 % less; the
   shared layer specifically, 72 %.
 - The Codex installer fixture (install, reinstall, uninstall, both scopes) still passes, a third
