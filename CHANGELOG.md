@@ -31,8 +31,9 @@ that was 88 % of everything it loaded.
 Each `## Section N` is now its own file under `references/shared/`, extracted byte for byte with its
 heading, so the words a citation lands on are unchanged. Each command's header names only what it
 acts on. **The shared layer went from 272,676 bytes across the twelve commands to 76,303 — 72 %
-less**, and the full chain (command + references + skills) fell 28 %; the rest is dominated by the
-skills a command loads, which this change does not touch.
+less**. Against a worktree of the pre-split tree measured with the same script, what the twelve
+commands load on **every** invocation fell from 523,746 bytes to 289,512 — **44.7 % less** — and the
+worst case, every conditional branch taken at once, fell 31 %.
 
 Deciding what each command *needs* could not be done by grepping citations, because a citation is
 not a need and this repository had both kinds of error: sections named in a header and never used,
@@ -291,6 +292,37 @@ arms now agree.
 `ci.yml`, `AGENTS.md` and `CONTRIBUTING.md` — where correcting one left the other two wrong. It
 prints what it deliberately lets through, so the next person does not re-widen it.
 
+### Fixed — commands loaded on every run what they need on one branch
+
+`/verify` measured 51 KB, and 42 KB of it was three domain skills its own text loads *conditionally*
+— `Skill("debugger")` when chasing a failure, `Skill("astro")` when the stack is Astro. A `/verify`
+on a passing typecheck loads none of them. The same shape appeared five more times: `/debug` named
+the audit prompts, the recovery protocol and three debugger references in sentences beginning
+"Load", so a session debugging a crash paid for the audit mode and the recovery mode as well;
+`/implement` declared the planning skill in its header, charging 14 KB to every run that already
+had a plan; `/plan` read the issue-triage rubric whether or not the argument was an issue;
+`/pr-review` loaded the `full`-mode set in every mode.
+
+Each of those sentences now names the branch that pays for it. That is a change to the instruction,
+not to the measurement: an agent reading `/debug` was previously told to open files it had no use
+for, and did.
+
+**`python3 .github/check_context_budget.py` now reports two numbers**, because one was lying in
+both directions. FLOOR is what an invocation pays before it has read its arguments; CEILING is the
+floor plus every branch taken at once. Conditionality is read off the line — a stated `when`/`if`,
+a routing-table row, or a fenced block, since what a subagent reads is paid out of the subagent's
+context — so the rule applies unchanged to a tree written before the script existed, and a
+before/after comparison stays fair. A baseline written by the previous single-number version is
+refused rather than silently compared.
+
+Measured across the twelve commands, pre-work tree in a `git worktree` and both sides run through
+the same script: floor 523,746 → 289,512 B (**44.7 %**), ceiling 578,666 → 399,043 B (31.0 %).
+Every one of the twelve fell.
+
+`.claude/rules/artifacts.md` now covers `workflows/**`, which shipped in this release with no rule
+declaring its contract: `meta` as a pure literal, `agentType` namespaced, the six-name script scope,
+no `fs` and no `Date.now()`, and an `enum` on every field that becomes a `subagent_type`.
+
 ### Verified in this session
 
 - The bash reclassification ran under itself for the whole of the work that produced this release.
@@ -298,8 +330,8 @@ prints what it deliberately lets through, so the next person does not re-widen i
   stubbed spawns respectively, and all three refuse empty args.
 - `python3 .github/check_wiring.py`: 130 routing references, 0 unresolved.
 - `python3 hooks/test_hooks.py`: 154 checks, exit 0.
-- `python3 .github/check_context_budget.py --compare`: the twelve commands load 28 % less; the
-  shared layer specifically, 72 %.
+- `python3 .github/check_context_budget.py --compare`: 44.7 % less on every invocation, 31 % less
+  in the worst case, against a `git worktree` of the pre-work tree measured with the same script.
 - The Codex installer fixture (install, reinstall, uninstall, both scopes) still passes, a third
   party's skill survives it, and no workflow leaks into the Codex tree — correctly, since Codex has
   no `Workflow`.

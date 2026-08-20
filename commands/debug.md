@@ -43,7 +43,7 @@ If investigation isn't complete, you cannot propose corrections.
 
 ### Debugger skill loading (mandatory)
 
-This plugin ships `${CLAUDE_PLUGIN_ROOT}/skills/debugger/SKILL.md` alongside this command; inside a plugin it is namespaced, so a same-named personal skill cannot shadow it and `Skill("debugger")` resolves here. Load the skill body for pack selection, **Phases 0-7** (pre-flight → diagnose and reproduce → parallel research → hypothesis selection → instrument and fix through the superpowers chain → verification gate → evidence confirmation → cleanup and post-mortem), its NEVER constraints, and its References index (`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/diagnose.md`, `anti-patterns.md`, `pack-guides.md`, …; browser verification lives in `Skill("webapp-testing")`). Use **this file** for mode-specific orchestration (`audit`, `frontend`, `recover`, …). Do not paste long catalogues here — defer to the skill's References table.
+This plugin ships `${CLAUDE_PLUGIN_ROOT}/skills/debugger/SKILL.md` alongside this command; inside a plugin it is namespaced, so a same-named personal skill cannot shadow it and `Skill("debugger")` resolves here. Load the skill body for pack selection, **Phases 0-7** (pre-flight → diagnose and reproduce → parallel research → hypothesis selection → instrument and fix through the superpowers chain → verification gate → evidence confirmation → cleanup and post-mortem), and its NEVER constraints. Its References section is an **index to consult**, not a list to open: pick the row the phase calls for. Browser verification lives in `Skill("webapp-testing")`, loaded only when the reproduction needs a browser. Use **this file** for mode-specific orchestration (`audit`, `frontend`, `recover`, …). Do not paste long catalogues here — defer to the skill's References table.
 
 ---
 
@@ -238,7 +238,7 @@ After close: optionally `/evolve` to persist learnings.
 
 ### 2.1 Setup
 
-Run § 0.1, then load `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` for the 4 agent prompts and consolidation report template.
+Run § 0.1, then — **only in `audit` mode** — load `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` for the 4 agent prompts and consolidation report template. No other mode opens it.
 
 ### 2.2 Quality gates baseline
 
@@ -474,7 +474,7 @@ Run § 0.1, then default flow (§ 1) with focus on:
 
 Spawn `code-archaeologist` + `regression-hunter` + `db-state-inspector` (background).
 
-Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bug touches, plus `${rulesDir}/stability.md`. List the directory; do not assume a filename. Plus `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (RLS specifics).
+Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bug touches, plus `${rulesDir}/stability.md`. List the directory; do not assume a filename. Plus, **when the bug touches row-level security**, `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` (RLS specifics).
 
 ---
 
@@ -484,7 +484,7 @@ Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bu
 
 If the recovery was triggered by code-review feedback (codex review P0/P1, evaluator REVISION_REQUIRED, user pointing to a specific reviewer note), invoke `Skill("superpowers:receiving-code-review")` **before** reading the recovery protocol. The skill enforces technical evaluation of feedback (implement / clarify / pushback) instead of blind agreement.
 
-Load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute its five steps verbatim.
+**Only in `recover` mode**, load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute its five steps verbatim.
 They are written there and nowhere else — this command used to restate them from memory, and the
 restatement had drifted into five different steps under the same numbers, so an agent obeying the
 command never ran the protocol and an agent reading the file contradicted the command.

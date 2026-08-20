@@ -7,7 +7,8 @@ byte with their headings, so a citation of `§ 7` still lands on the same words 
 The split happened because of a number. Every command opened by loading this file whole, all 22 KB
 of it, before doing anything; `/plan` used one section, and `/delegate` and `/recover` used
 essentially none. Each command now names only the fragments it reads, and the twelve of them
-together load a third less than they did.
+together load 45 % less on every invocation — `python3 .github/check_context_budget.py --compare`,
+measured against a worktree of the pre-split tree with the same script.
 
 | § | under `${CLAUDE_PLUGIN_ROOT}/references/shared/` | Carries |
 |---|---|---|

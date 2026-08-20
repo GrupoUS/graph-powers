@@ -59,7 +59,7 @@ Skill("superpowers:requesting-code-review");
 Resolve the config (`${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`). Confirm the working tree state, the branch, the diff
 base, and — for a PR — `gh` auth and PR metadata.
 
-**`full` mode** additionally loads, in full: `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md`,
+**Only when `full` mode is requested**, additionally load, in full: `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md`,
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/structural-quality.md`,
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`, and the nearest `AGENTS.md`
 for every touched path. `full` overrides `--quick` and `--no-debug`.

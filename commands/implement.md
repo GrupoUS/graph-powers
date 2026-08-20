@@ -11,7 +11,7 @@ workflow_type: orchestrator-workers
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
-> **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map.
+> **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map — both loaded only when no plan exists and this command has to write one first.
 > **Plan files:** `${paths.planDir}/YYYY-MM-DD-<feature>-plan.md` (per `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`) or active conversation context. Legacy `docs/plans/*.md` accepted for back-compat.
 
 ---
