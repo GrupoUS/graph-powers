@@ -59,7 +59,7 @@ that project, and nothing else does.
 `.graph-powers/config.json` at runtime, through `hooks/_config.py`. One global copy therefore
 enforces a different work branch and a different opt-in key in every repository. Copying the
 harness into each project would buy nothing and reintroduce the divergence this plugin exists to
-end — twelve skills copied into five repositories is five copies that drift.
+end — eleven skills copied into five repositories is five copies that drift.
 
 **The only reason to go local instead:** the team must receive the harness by cloning the
 repository, on machines where nobody will run an installer. Then use `--scope project`, and accept
@@ -71,18 +71,21 @@ Global installation is idempotent, and skipping it when it is already there is t
 between a five-second setup and a needless one:
 
 ```bash
-# Claude Code — is the plugin already installed for this whole machine?
+# Already installed for this whole machine? Both harnesses, one answer.
+# Python rather than `cat ~/... 2>/dev/null`: `~` is not expanded by PowerShell and there is no
+# /dev/null on Windows, so the shell form reported "not installed" on every Windows machine —
+# which reads as a clean check and is really the check never running.
 python3 - <<'CHECK'
 import json, os
-p = os.path.expanduser("~/.claude/plugins/installed_plugins.json")
-d = json.load(open(p)) if os.path.exists(p) else {"plugins": {}}
+claude = os.path.expanduser("~/.claude/plugins/installed_plugins.json")
+d = json.load(open(claude)) if os.path.exists(claude) else {"plugins": {}}
 hits = [(k, i) for k, v in d.get("plugins", {}).items() if k.startswith("graph-powers@")
         for i in v if i.get("scope") == "user"]
-print(hits or "not installed globally")
-CHECK
+print("claude:", hits or "not installed globally")
 
-# Codex — same question
-cat ~/.codex/graph-powers-installed.json 2>/dev/null || echo "not installed globally"
+codex = os.path.expanduser("~/.codex/graph-powers-installed.json")
+print("codex: ", json.load(open(codex)) if os.path.exists(codex) else "not installed globally")
+CHECK
 ```
 
 **If both say it is already installed at the current version, skip the global half entirely and do
@@ -96,26 +99,40 @@ differ, update the global install rather than adding a second copy beside it.
 Report all of this back before touching anything:
 
 ```bash
-# harnesses present
-claude --version 2>/dev/null || echo "claude: not installed"
-codex --version  2>/dev/null || echo "codex: not installed"
-python3 --version                      # the guardrails are Python stdlib; without it they cannot run
-
-# the repository
+# the repository — git speaks the same on all three platforms
 git rev-parse --show-toplevel
 git branch --show-current
 git status --short                     # dirty files are the user's; you do not touch them
 
-# what already exists globally — decides whether the global half runs at all
-claude plugin list 2>/dev/null | grep -A3 graph-powers || echo "no global Claude plugin"
-cat ~/.codex/graph-powers-installed.json 2>/dev/null || echo "no global Codex install"
+# everything else, in one pass that runs the same on Linux, macOS and Windows
+python3 - <<'STATE'
+import json, os, shutil, subprocess, sys
 
-# what already exists in this project
-ls -a .claude .codex .graph-powers 2>/dev/null
-ls .claude/agents .claude/skills .claude/commands .claude/rules 2>/dev/null
-test -f CLAUDE.md && wc -l CLAUDE.md
-test -f AGENTS.md && wc -l AGENTS.md
-test -f .claude/settings.json && echo "settings.json present"
+for tool in ("claude", "codex", "python3", "node"):
+    exe = shutil.which(tool)
+    if not exe:
+        print(f"{tool:8} not installed")
+        continue
+    out = subprocess.run([exe, "--version"], capture_output=True, encoding="utf-8",
+                         errors="replace", check=False).stdout.strip()
+    print(f"{tool:8} {out or exe}")
+
+codex = os.path.expanduser("~/.codex/graph-powers-installed.json")
+print("global codex install:",
+      json.load(open(codex)) if os.path.exists(codex) else "none")
+
+for d in (".claude", ".codex", ".graph-powers", ".claude/agents", ".claude/skills",
+          ".claude/commands", ".claude/rules"):
+    print(f"{d:20}", sorted(os.listdir(d)) if os.path.isdir(d) else "absent")
+
+for f in ("CLAUDE.md", "AGENTS.md", ".claude/settings.json"):
+    if os.path.exists(f):
+        n = sum(1 for _ in open(f, encoding="utf-8", errors="replace"))
+        print(f"{f:20} present, {n} lines")
+STATE
+
+# what already exists globally for Claude Code — its own command, whatever the shell
+claude plugin list
 ```
 
 Then locate the plugin on this machine, in this order, and **say which one you found**:
@@ -142,16 +159,30 @@ Then locate the plugin on this machine, in this order, and **say which one you f
 turning `node "$PLUGIN/bin/graph-powers.mjs"` into `node /bin/graph-powers.mjs`:
 
 ```bash
+# bash / zsh
 export PLUGIN=<the directory you just found>
-test -f "$PLUGIN/AGENT_SETUP.md" && echo "PLUGIN=$PLUGIN"   # prove it before going on
+
+# PowerShell
+$env:PLUGIN = "<the directory you just found>"
+
+# prove it before going on, on either
+python3 -c "import os,sys;p=os.environ.get('PLUGIN','');sys.exit(print('PLUGIN=' + p) if os.path.isfile(os.path.join(p,'AGENT_SETUP.md')) else 'PLUGIN does not point at a plugin root')"
 ```
 
 **Back up before the first write, and show the command you ran:**
 
 ```bash
-cp -r .claude ".claude.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-cp CLAUDE.md "CLAUDE.md.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
-cp AGENTS.md "AGENTS.md.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+python3 - <<'BACKUP'
+import datetime, os, shutil
+stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+for src in (".claude", "CLAUDE.md", "AGENTS.md"):
+    if not os.path.exists(src):
+        print(f"{src}: absent, nothing to back up")
+        continue
+    dst = f"{src}.bak-{stamp}"
+    shutil.copytree(src, dst) if os.path.isdir(src) else shutil.copy2(src, dst)
+    print(f"{src} -> {dst}")
+BACKUP
 ```
 
 ---
@@ -737,8 +768,17 @@ honesty gate. If a rule ends up repeating a decision from one of the three, the 
 List what the project has locally against what the plugin provides:
 
 ```bash
-ls .claude/agents .claude/skills .claude/commands 2>/dev/null
-ls "$PLUGIN/agents" "$PLUGIN/skills" "$PLUGIN/commands"
+python3 - <<'SHADOW'
+import os
+plugin = os.environ.get("PLUGIN", "")
+for kind in ("agents", "skills", "commands"):
+    local = sorted(os.listdir(f".claude/{kind}")) if os.path.isdir(f".claude/{kind}") else []
+    theirs = sorted(os.listdir(os.path.join(plugin, kind))) if plugin else []
+    print(f"\n{kind}")
+    print("  local :", local or "none")
+    print("  plugin:", theirs or "none")
+    print("  BOTH  :", sorted(set(local) & set(theirs)) or "no shadowing")
+SHADOW
 ```
 
 For every local artefact whose name matches a plugin one, `diff` them and classify:
@@ -865,7 +905,24 @@ Not one of these is optional, and each needs its output shown:
 
 ```bash
 # 1. no placeholder survived
-grep -rn '{{' .claude/ .codex/ CLAUDE.md AGENTS.md 2>/dev/null || echo "no pending placeholders"
+python3 - <<'PLACEHOLDERS'
+import os
+hits = []
+for root in (".claude", ".codex"):
+    for base, _, names in os.walk(root):
+        hits += [os.path.join(base, n) for n in names]
+hits += [f for f in ("CLAUDE.md", "AGENTS.md") if os.path.exists(f)]
+found = False
+for path in hits:
+    try:
+        for i, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
+            if "{{" in line:
+                print(f"{path}:{i}: {line.strip()}")
+                found = True
+    except OSError:
+        pass
+print("" if found else "no pending placeholders")
+PLACEHOLDERS
 
 # 2. the guardrails hold, and one project's key does not work in another
 python3 "$PLUGIN/hooks/test_hooks.py"        # expected: exit 0

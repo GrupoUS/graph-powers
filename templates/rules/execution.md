@@ -69,4 +69,19 @@ burns the most time — after two attempts on the same hypothesis, the hypothesi
 Work on `{{WORK_BRANCH}}`. `{{PROTECTED_BRANCHES}}` mirror what has already been approved: nothing
 is written there directly. The path is branch → PR → review → merge by a person.
 
+## Agents & Dispatch
+
+The generic rules — spawn width, background by default, one writer per file, the return contract —
+come from the plugin and are not restated here. What belongs in this section is only what is true of
+**this** repository:
+
+| Row | Example of what goes here |
+|---|---|
+| Paths that are never parallel | a generated client, a lockfile, a single-session browser harness |
+| Paths that pair with a specific agent | "anything under `<path>` goes to `<agent>`, always" |
+| Local spawn ceiling | lower than `graphGuardrails.maxParallelWave` when the machine or the API quota says so |
+| Work this project never delegates | the call that costs money, the migration somebody watches |
+
+Leave the table empty until a real incident fills a row. An invented row reads as a rule.
+
 {{EXECUTION_PROJECT_NOTES}}

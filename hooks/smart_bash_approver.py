@@ -94,6 +94,23 @@ DANGEROUS_PATTERNS = [
     re.compile(r"^git\s+(filter-branch|filter-repo)\b"),
     re.compile(r"^git\s+update-ref\s+-d\b"),
     re.compile(r"^git\s+branch\b[^|;&]*\s-D\b"),
+    # The same class, one pass later. `checkout` reads as navigation, so it was sorted with the
+    # branch verbs and handed to `git_branch_gate` — but `git checkout -- <paths>` is not
+    # navigation, it is `git clean`'s twin: it overwrites the working tree from the index and the
+    # discarded edits exist in no object git can name. `git_branch_gate` returns nothing for it,
+    # because its own `target_branch()` gives up as soon as `--` appears, so the form was reaching
+    # `allow` with no hook refusing it at all.
+    #
+    # Each spelling is listed rather than one loose `checkout` pattern, so `git checkout -b feat`
+    # and `git checkout main` stay out of the floor and keep their real owner.
+    re.compile(r"^git\s+checkout\b[^|;&]*\s--\s"),
+    re.compile(r"^git\s+checkout\b[^|;&]*\s(-f|--force)\b"),
+    re.compile(r"^git\s+checkout\s+\.(\s|$)"),
+    re.compile(r"^git\s+switch\b[^|;&]*\s--discard-changes\b"),
+    # `restore` is the modern spelling of the same destruction and was sitting in ASK_PATTERNS,
+    # which resolves to `bashDefault` — `allow` under `autonomous`. The staged form is only an
+    # unstage and is excluded, which is why this needs the lookahead rather than a bare verb.
+    re.compile(r"^git\s+restore\b(?![^|;&]*--staged)"),
 ]
 
 # ── The same categories, in the grammar Windows shells speak ─────────────────
@@ -184,9 +201,13 @@ SAFE_PATTERNS = [
     # every matching hook run to completion in parallel — so `git_commit_gate`, `git_push_gate`
     # and `git_branch_gate` still refuse exactly what they refused before. What disappears is the
     # second prompt for the same decision, which is the one nobody was reading.
-    re.compile(r"^git( --no-pager)? (commit|push|checkout|switch)(\s|$)"),
+    # `checkout` and `switch` are deliberately NOT here. Their branch forms do have a dedicated
+    # owner, but their pathspec forms discard the working tree, and no rule this file can write
+    # separates `git checkout main` from `git checkout main.py` without asking the filesystem.
+    # The unambiguous destructive spellings are on the floor above; the ambiguous remainder is in
+    # ASK_PATTERNS, so `guarded` stops and `autonomous` proceeds — which is what the level means.
+    re.compile(r"^git( --no-pager)? (commit|push)(\s|$)"),
     re.compile(r"^gh pr (view|list|status)(\s|$)"),
-    re.compile(r"^gh (pr|issue) create(\s|$)"),
     re.compile(r"^gh run (view|list)(\s|$)"),
     re.compile(r"^gh issue (view|list)(\s|$)"),
     re.compile(r"^gh repo view(\s|$)"),
@@ -228,9 +249,10 @@ SAFE_PATTERNS = [
     re.compile(r"^touch "),
     re.compile(r"^cp (-r )?"),
     re.compile(r"^mv "),          # tracked file: git restores it. Untracked: it still exists
-    re.compile(r"^chown "),
     re.compile(r"^ln -s"),
-    re.compile(r"^rsync\b(?![^|;&]*--delete)"),   # additive; `--delete` falls through to the default
+    # Local-to-local only. `--delete` and a remote target (`host:path`, `user@host:path`) are both
+    # excluded here and land in ASK_PATTERNS: the first removes files, the second is egress.
+    re.compile(r"^rsync\b(?![^|;&]*--delete)(?![^|;&]*\s[\w.@-]+:)"),
     re.compile(r"^chmod \+x"),
     re.compile(r"^chmod (755|644)"),
     # Process / system read
@@ -261,11 +283,22 @@ SAFE_PATTERNS = [
 # undone by git. Everything that used to be here for being merely *unfamiliar* was moved out — an
 # `ask` that the user always answers the same way is a prompt that trains them not to read prompts.
 ASK_PATTERNS = [
-    # Discards uncommitted work in the working tree, and has no dedicated gate.
-    # `restore --staged` is only an unstage, and is allowed above.
-    re.compile(r"^git\s+restore\b"),
+    # `restore` and the destructive `checkout`/`switch` spellings moved to the floor: they are not
+    # "ask" material, they are unrecoverable. What is left here is the half no pattern can classify
+    # — `git checkout <name>` is a branch or a path depending on what exists on disk — plus the
+    # dry runs. Ambiguity is exactly what a prompt is for.
+    re.compile(r"^git\s+(checkout|switch)\b"),
     # `clean -f` is on the floor; what remains here is the dry run and the ambiguous form.
     re.compile(r"^git\s+clean\b"),
+    # No hook in this plugin gates `gh`, and `safety-floor.md §1` requires approval in the turn
+    # before anything leaves the machine. It was moved to the safe list as if it had an owner;
+    # it does not.
+    re.compile(r"^gh\s+(pr|issue)\s+create\b"),
+    # Ownership is outside git entirely — the sorting question ("does git undo it?") answers no.
+    re.compile(r"^chown\b"),
+    # Additive on the destination filesystem, which says nothing about the destination *host*.
+    # A remote target is egress of whatever the source contains.
+    re.compile(r"^rsync\b[^|;&]*\s[^\s]+:"),
 ]
 
 # Any package manager. Which ones a project accepts is `autonomy.allowPackageManagers`; by default
@@ -355,6 +388,41 @@ def _matches(patterns: list[re.Pattern[str]], command: str) -> bool:
     return any(pattern.search(command) for pattern in patterns)
 
 
+def _package_manager_verdict(
+    command: str, policy: dict[str, typing.Any]
+) -> tuple[str, str | None] | None:
+    """How a declared `allowPackageManagers` answers one segment, or None when it has no opinion.
+
+    Two answers, not one. A manager the project did not declare is refused, because that is the
+    lockfile fork the setting exists to prevent. A *runner* whose manager was declared is asked,
+    not waved through: `bunx <package>` resolves and executes code from a registry that the
+    project never named, and the consent on record was about which lockfile to keep — a narrower
+    thing than arbitrary execution. Denying it outright was the other error, and the one that
+    produced `BLOCKED: ... bunx is not one of them` while `bun` sat in the list.
+    """
+    allowed = policy.get("allowPackageManagers") or []
+    if not allowed:
+        return None
+    match = PACKAGE_MANAGER_RE.match(command)
+    if not match:
+        return None
+    name = match.group(1)
+    if name in allowed:
+        return None
+    family = PACKAGE_MANAGER_FAMILY.get(name)
+    if family in allowed:
+        return "ask", (
+            f"`{name}` is {family}'s package runner and {family} is declared, so the lockfile is "
+            f"safe — but a runner fetches and executes a package this project never named. "
+            f"Approve only if you know what `{command.split()[1] if len(command.split()) > 1 else name}` is."
+        )
+    belongs = f" (`{name}` belongs to `{family}`)" if family else ""
+    return "deny", (
+        f"BLOCKED: this project declares its package managers as {', '.join(allowed)}; "
+        f"`{name}` is not one of them{belongs} (autonomy.allowPackageManagers)."
+    )
+
+
 def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | None]:
     """Return (allow|ask|deny, optional reason) for one shell segment.
 
@@ -367,6 +435,13 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
             "deny",
             "BLOCKED: Dangerous, non-Bun, or branch-protected command detected",
         )
+
+    # Per segment, not per command line. This check used to run once in `main()` against the whole
+    # string, so it only ever saw the first word: `npm install` was refused and
+    # `echo ok && npm install` was allowed, which is the refusal defeated by one prefix.
+    verdict = _package_manager_verdict(command, policy)
+    if verdict:
+        return verdict
 
     if _matches(BUILD_ARTIFACT_PATTERNS, command):
         return "allow", None
@@ -412,26 +487,9 @@ def main() -> None:
 
     policy = gp.autonomy(gp.load(payload=data))
 
-    # A project that declares which package managers it accepts gets the others refused — a
-    # lockfile that forks is a real defect. A project that declares none accepts all of them.
-    allowed_pms = policy.get("allowPackageManagers") or []
-    if allowed_pms:
-        pm = PACKAGE_MANAGER_RE.match(command)
-        if pm:
-            name = pm.group(1)
-            family = PACKAGE_MANAGER_FAMILY.get(name)
-            if name not in allowed_pms and family not in allowed_pms:
-                # Naming the family in the refusal is what makes it actionable: the reader needs to
-                # know that the runner they reached for belongs to a manager this project excluded,
-                # not that the runner itself was overlooked in the list.
-                belongs = f" (`{name}` belongs to `{family}`)" if family else ""
-                _deny(
-                    f"BLOCKED: this project declares its package managers as "
-                    f"{', '.join(allowed_pms)}; `{name}` is not one of them{belongs} "
-                    "(autonomy.allowPackageManagers)."
-                )
-                return
-
+    # `allowPackageManagers` is applied inside `_classify`, once per segment — see
+    # `_package_manager_verdict`. Applying it here, to the whole line, is what let a leading
+    # `echo ok &&` carry an undeclared manager past the refusal.
     segments = [
         segment.strip()
         for segment in COMMAND_SEPARATOR_PATTERN.split(command)

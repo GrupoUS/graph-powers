@@ -200,7 +200,7 @@ const REQS = { type: 'object', required: ['requirements'], properties: {
 } }
 const SKEPTIC = { type: 'object', required: ['lens', 'satisfied'], properties: {
   lens: { type: 'string' }, satisfied: { type: 'boolean' },
-  findings: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, agent: { type: 'string', enum: AGENT_ENUM } } } },
+  findings: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: AGENT_ENUM } } } },
 } }
 const COMPLETENESS = { type: 'object', required: ['items'], properties: {
   items: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string' }, agent: { type: 'string', enum: AGENT_ENUM } } } },
@@ -333,7 +333,17 @@ const BUILTIN_LENSES = [
   { name: 'performance-regression', agent: 'performance-optimizer', when: [] },
   paths.frontendRoot && { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
 ].filter(Boolean)
+// `chain.lenses[].agent` stays a free string on purpose — a project must be able to name its own
+// agent — but a free string that becomes a `subagent_type` and resolves to nothing spawns nothing,
+// and the lens then drops out of the panel with no trace. The pass-through is kept and the silence
+// is not: every lens reaching for an agent this plugin does not ship is named before the wave runs,
+// so a hallucinated or misspelt value in a config an agent transcribed is visible in the log rather
+// than in a verification that quietly checked one thing fewer than it reported.
 const ALL_LENSES = [...BUILTIN_LENSES, ...(cfg.lenses ?? [])]
+const foreignLenses = ALL_LENSES.filter((l) => l.agent && !PLUGIN_AGENTS.has(l.agent))
+if (foreignLenses.length) {
+  log(`lenses naming a non-plugin agent (must exist in this project, or the lens will not run): ${foreignLenses.map((l) => `${l.name}->${l.agent}`).join(', ')}`)
+}
 const lenses = ALL_LENSES.filter((l) => !l.when?.length || l.when.some((w) => touched[w]))
 
 // Folded perf pass — only the performance-regression lens runs these, only for touched surfaces.
@@ -353,14 +363,36 @@ const clauseFor = (l) => {
   return ''
 }
 
+// A skeptic that is free to widen the question is a loop with no floor: every fix it demands is a
+// new diff, and a new diff is a new panel. So the panel's mandate is bounded to the plan, and the
+// boundary is a field the fixer reads — `inScope: false` is reported and never spawns a fixer.
+const SCOPE_LOCK = `
+SCOPE — this decides whether a finding can start a fix round, so apply it literally.
+Set inScope: true ONLY when the finding is one of: (a) a defect this diff introduces, (b) a
+regression of a row in the plan's "## Regression watchlist", or (c) something that makes the plan's
+"## Destination" false. Everything else is inScope: false — a pre-existing issue the diff did not
+touch, a refactor you would prefer, a hardening idea, anything matching a row under the plan's
+"## Out of scope". Report those; they are useful. They do NOT become work.
+Do not propose new features, new files, new abstractions, or a redesign. Do not widen the plan. The
+question is "does what was built hold?", never "what else could be built".`
+
+// P0/P1 AND in scope. `inScope` absent counts as in scope: an older lens that never learned the
+// field must not go silent. Out-of-scope findings are kept for the report and logged, never
+// truncated in silence — they are the panel's most useful output and its least actionable.
+const actionable = (f) => (f.severity === 'P0' || f.severity === 'P1') && f.inScope !== false
+const outOfScopeFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter((f) => f.inScope === false))
+const refutedFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter(actionable))
+
 const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => agent(
   `Adversarially verify the working tree against the plan through the "${l.name}" lens. DEFAULT to "not satisfied" when uncertain — your job is to REFUTE, not to confirm. Apply the checklist in ${DBG_GUIDE} (read it); do NOT invoke a skill — this workflow is the orchestration, report only.${clauseFor(l)}
 PLAN: ${PLAN_PATH}
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
-Surface concrete failures with file:line + severity P0-P3 + which agent should fix it. Read-only.`,
+Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it. Read-only.${SCOPE_LOCK}`,
   { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}` }
 ))
 let sk = (await parallel(skMaker('init'))).filter(Boolean)
+const outOfScope = outOfScopeFrom(sk)
+if (outOfScope.length) log(`${outOfScope.length} finding(s) outside this plan's scope — reported, not fixed: ${outOfScope.slice(0, 4).map((f) => f.title).join(' · ')}${outOfScope.length > 4 ? ` (+${outOfScope.length - 4})` : ''}`)
 
 // 4. Completeness — every requirement vs the diff, plus drift
 phase('Completeness')
@@ -375,9 +407,8 @@ let c = await completeMaker(0)
 // Intermediate rounds drive on the cheap objective pair (gates + completeness); the expensive
 // skeptic panel is NOT re-fanned-out per round — it brackets the loop.
 phase('Fix loop')
-const refutedFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter((f) => f.severity === 'P0' || f.severity === 'P1'))
 const lensesThatFlagged = (arr) => {
-  const names = new Set((arr ?? []).filter((s) => (s?.findings ?? []).some((f) => f.severity === 'P0' || f.severity === 'P1')).map((s) => s.lens))
+  const names = new Set((arr ?? []).filter((s) => (s?.findings ?? []).some(actionable)).map((s) => s.lens))
   return lenses.filter((l) => names.has(l.name))
 }
 const openItems = (completeness, refuted, gates) => {
@@ -469,6 +500,7 @@ return {
   missing,
   openFindings,
   blocked, // items dropped after hitting the re-patch cap — these need a human, not another round
+  outOfScope, // real findings the panel raised past this plan's edge: reported, never fixed here
   drift: c?.drift ?? [],
   scope: scopeOut(),
   next: verdict === 'VERIFIED'

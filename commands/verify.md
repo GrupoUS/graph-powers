@@ -100,8 +100,31 @@ moment, and a plan that produces them for nobody to read is wasted work:
 - **`## Rollback`** — present and specific enough to execute. This is checked whatever the verdict:
   it matters most exactly when everything else failed.
 
+Then the plan's own ledger, if it carries task checkboxes: **a checked box whose `EVIDENCE:` line
+still reads `pending` is unmet.** The box is a claim and the evidence is the proof; checked without
+evidence counts as worse than unchecked, not better. An `ABANDON: <id> <reason>` line resolves a
+task honestly, and every one of them is listed in the report.
+
 No plan file, or the plan has none of these: say so in one line and continue. Their absence is a
 fact about the plan, not a gate failure.
+
+### What a finding may and may not become
+
+Review here is adversarial on purpose, and that is exactly why its mandate is bounded. A finding
+becomes **work** only when it is a defect this change introduced, a regression of a
+`## Regression watchlist` row, or something that makes the plan's `## Destination` false.
+
+Everything else — a pre-existing issue the diff did not touch, a refactor you would prefer, a
+hardening idea, anything matching a `## Out of scope` row — is reported under the verdict's notes
+and **does not reopen the work**. It is useful; it is not this change's job.
+
+Two rules follow, and they are what keep an adversarial pass from becoming an unbounded one:
+
+- **Never design past the request.** No new feature, no new file, no new abstraction, no redesign.
+  The question is "does what was built hold?", never "what else could be built".
+- **The same finding twice is a decision, not a third attempt.** A finding that survives its fix
+  goes to the user with what was tried. Re-patching the same item past
+  `graphGuardrails.maxRepatch` is how a review turns into a loop with no floor.
 
 ---
 

@@ -1,6 +1,6 @@
 # LLM Evaluation Frameworks
 
-> Eval harness patterns for AI features. Cited by `evaluator` agent (Mode 3 — Architecture Analysis) and any project-bound autoresearch loop.
+> Eval harness patterns for AI features the host project ships. Read from `senior-prompt-engineer` § 9, and by any project-bound autoresearch loop.
 
 References:
 - Karpathy autoresearch: https://github.com/karpathy/autoresearch

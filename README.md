@@ -69,12 +69,12 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 ```
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
-  skills/       12 skills              .claude/rules/             <- only your domain
+  skills/       11 skills              .claude/rules/             <- only your domain
   commands/     12 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
   workflows/    3 orchestrations
-  references/   safety floor
-    shared/     17 shared patterns, loaded one at a time
+  references/   safety + execution floors
+    shared/     18 shared patterns, loaded one at a time
   schema/       the config contract
   DESIGN.md     specs for the three authorities
   PRODUCT.md      the plugin installs into
@@ -96,11 +96,11 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 11 skills, 12 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
-| Shared references — the safety floor, the shared context | `~/.codex/graph-powers/` |
+| Shared references — the safety floor, the execution floor, the shared context | `~/.codex/graph-powers/` |
 
 | Stays in the project | Why it cannot be global |
 |---|---|
@@ -113,7 +113,7 @@ differs per project stays in that project.
 **Why one global copy is correct rather than sloppy:** the guardrails read *the project's own*
 config at runtime. The same twelve files enforce `dev-test` and `ACME_ALLOW_COMMIT` in one
 repository and `develop` and `OTHER_ALLOW_COMMIT` in the next. Copying the harness into each project
-would buy nothing and reintroduce exactly the divergence this plugin exists to end — twelve skills
+would buy nothing and reintroduce exactly the divergence this plugin exists to end — eleven skills
 copied into five repositories is five copies that drift.
 
 **Installing in your second project costs almost nothing.** The installer checks whether the global

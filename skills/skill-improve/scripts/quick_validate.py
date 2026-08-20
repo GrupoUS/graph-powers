@@ -29,6 +29,20 @@ def validate_skill(skill_path):
 
     frontmatter = match.group(1)
 
+    def unquote(value: str) -> str:
+        """Strip one matching pair of surrounding quotes from a scalar.
+
+        Without this the captured value keeps its opening quote, and every downstream check reads
+        it as part of the content: a quoted `name` fails the hyphen-case regex, and a quoted
+        `description` never satisfies the "Use when" prefix rule no matter how it starts. Both are
+        valid YAML, so the validator was failing correct files -- and a gate that rejects a valid
+        file trains everyone to ignore the gate.
+        """
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            return value[1:-1].strip()
+        return value
+
     # Check required fields
     if "name:" not in frontmatter:
         return False, "Missing 'name' in frontmatter"
@@ -39,7 +53,7 @@ def validate_skill(skill_path):
     name = None
     name_match = re.search(r"name:\s*(.+)", frontmatter)
     if name_match:
-        name = name_match.group(1).strip()
+        name = unquote(name_match.group(1))
         # Check naming convention (hyphen-case: lowercase with hyphens)
         if not re.match(r"^[a-z0-9-]+$", name):
             return (
@@ -64,7 +78,7 @@ def validate_skill(skill_path):
     description = None
     desc_match = re.search(r"description:\s*(.+)", frontmatter)
     if desc_match:
-        description = desc_match.group(1).strip()
+        description = unquote(desc_match.group(1))
         # Check for angle brackets
         if "<" in description or ">" in description:
             return False, "Description cannot contain angle brackets (< or >)"

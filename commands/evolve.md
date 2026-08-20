@@ -78,8 +78,7 @@ Generic mapping (the project overrides it in `${rulesDir}/` when it has its own 
 - `${paths.schemaRoot}` → `graph-powers:debugger` + host database skill if configured
 - `${paths.frontendRoot}` → `graph-powers:debugger` + the project's design rule (if styling/design)
 - Performance changes → `performance-optimization`
-- Skill files themselves → `skill-creator`
-- Harness wiring → `harness-audit`
+- Skill files themselves, or harness wiring → `skill-improve`
 
 Ask user which skills to update if multiple are relevant and not obvious.
 
@@ -87,7 +86,7 @@ Ask user which skills to update if multiple are relevant and not obvious.
 
 ## 4. Improve skills
 
-If this learning calls for editing or creating a SKILL.md (skill body change, new reference doc, frontmatter `description:` update), invoke `Skill("superpowers:writing-skills")` first. It enforces RED-GREEN-REFACTOR discipline on the skill itself (pressure-test the new skill against a subagent before committing). Skip if the learning only adds a new entry to an existing `references/` markdown without changing the SKILL.md body.
+If this learning calls for editing or creating a SKILL.md (skill body change, new reference doc, frontmatter `description:` update), invoke `Skill("skill-improve")` first. Its Mode A owns the authoring loop, and `${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/references/testing-skills.md` carries the RED-GREEN-REFACTOR discipline — pressure-test the skill against a subagent before committing. Skip if the learning only adds a new entry to an existing `references/` markdown without changing the SKILL.md body.
 
 For each selected skill, add to `references/` or the relevant SKILL.md section:
 
@@ -190,5 +189,5 @@ AGENTS.md:  [list, or none]
 
 ## References
 
-- `skill-creator` skill — for any change to a SKILL.md body
+- `skill-improve` skill — for any change to a SKILL.md body, and for harness-wiring questions
 - AutoResearch Loop: `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`

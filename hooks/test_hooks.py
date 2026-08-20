@@ -207,10 +207,25 @@ def main() -> int:
 
     # The family rule, both directions. A runner is admitted by its own manager and by nothing else,
     # which is what keeps the lockfile guarantee while letting the project use the tool it chose.
-    check("bunx runs under a bare `bun` declaration — it is bun's own runner",
-          call("smart_bash_approver", bunx, pm_bun)[0], "allow")
+    #
+    # `ask`, not `allow`. The two things are not the same permission: `bun` was declared so the
+    # lockfile is safe, but `bunx <package>` resolves and executes code from a registry the project
+    # never named. Denying it was the first error — it read as the guardrail being broken, with
+    # `bun` sitting in the message. Waving it through was the second, and the more expensive one.
+    check("bunx is not refused under a bare `bun` declaration — it is bun's own runner",
+          call("smart_bash_approver", bunx, pm_bun)[0] != "deny", True)
+    check("...but it asks, because a runner executes a package the project never declared",
+          call("smart_bash_approver", bunx, pm_bun)[0], "ask")
     check("...while npx is still refused there — it belongs to npm",
           call("smart_bash_approver", npx, pm_bun)[0], "deny")
+
+    # The refusal is per segment. Applied to the whole command line it only ever read the first
+    # word, so one harmless prefix carried an undeclared manager straight past it.
+    for prefix in ("echo ok && ", "true; ", "cd . && "):
+        check(f"an undeclared manager behind `{prefix.strip()}` is still refused",
+              call("smart_bash_approver",
+                   {"tool_name": "Bash", "tool_input": {"command": prefix + "npm install"}},
+                   pm_bun)[0], "deny")
 
     # One-directional: naming only the runner does not hand over the manager. Someone who wrote
     # `["npx"]` asked for one-off execution, not for `npm install` to start rewriting the lockfile.
@@ -243,9 +258,8 @@ def main() -> int:
         ("a soft reset", "git reset HEAD~1"),
         ("git stash", "git stash"),
         ("unstaging", "git restore --staged src/app.ts"),
-        ("opening a PR", "gh pr create --title x"),
         ("moving a file", "mv old.ts new.ts"),
-        ("an additive rsync", "rsync -a src/ dest/"),
+        ("a local-to-local rsync", "rsync -a src/ dest/"),
     ]:
         check(f"guarded runs {label} without asking",
               call("smart_bash_approver", bash(cmd), a)[0], "allow")
@@ -271,6 +285,16 @@ def main() -> int:
         ("rewriting history", "git filter-branch --all"),
         ("deleting a ref", "git update-ref -d refs/heads/wip"),
         ("force-deleting a branch", "git branch -D wip"),
+        # `checkout` was sorted with the branch verbs and handed to `git_branch_gate`, which
+        # returns nothing the moment `--` appears. So the one spelling that destroys the working
+        # tree was the one no hook answered for. `restore` is the same destruction, modern
+        # spelling, and it was sitting in ASK — which under `autonomous` means allow.
+        ("discarding the working tree by pathspec", "git checkout -- ."),
+        ("the terse form of the same", "git checkout ."),
+        ("discarding a single path", "git checkout -- src/app.ts"),
+        ("a forced checkout", "git checkout -f main"),
+        ("switch throwing the tree away", "git switch --discard-changes main"),
+        ("git restore", "git restore src/app.ts"),
     ]:
         check(f"the floor stops {label}, even autonomous",
               call("smart_bash_approver", bash(cmd), auton)[0], "deny")
@@ -284,6 +308,10 @@ def main() -> int:
         ("a plain gc keeps unreachable objects", "git gc"),
         ("creating a ref is not deleting one", "git update-ref refs/heads/wip HEAD"),
         ("listing branches is not deleting one", "git branch -a"),
+        # The half that must keep working, or the floor becomes a reason to disable the floor.
+        ("a new branch is not a discarded tree", "git checkout -b feature"),
+        ("switching branches is not discarding changes", "git switch feature"),
+        ("restore --staged is an unstage, not a discard", "git restore --staged src/app.ts"),
     ]:
         check(f"...but {label}",
               call("smart_bash_approver", bash(cmd), auton)[0] != "deny", True)
@@ -296,12 +324,39 @@ def main() -> int:
     for label, cmd, gate in [
         ("committing", GIT_WRITE, "git_commit_gate"),
         ("pushing", "git push origin dev-test", "git_push_gate"),
-        ("landing on a protected branch", "git checkout main", "git_branch_gate"),
     ]:
         check(f"the generic approver no longer double-asks about {label}",
               call("smart_bash_approver", bash(cmd), a)[0], "allow")
         check(f"...and {gate} still denies it, which is what decides",
               call(gate, bash(cmd), a)[0], "deny")
+
+    # `checkout` is the exception to "one owner per decision", and the reason is that it is two
+    # decisions wearing one verb. `git checkout main` is navigation and `git_branch_gate` owns it;
+    # `git checkout main.py` discards that file's edits and nobody owns it. No pattern separates
+    # them without asking the filesystem, so the approver keeps its vote and asks. It costs no
+    # extra prompt in the case that matters: `deny` outranks `ask`, so where the gate refuses, the
+    # gate's answer is the one the user sees.
+    check("the approver asks about a bare `git checkout <name>` — branch or path is undecidable",
+          call("smart_bash_approver", bash("git checkout main"), a)[0], "ask")
+    check("...and git_branch_gate still denies it, which is what decides",
+          call("git_branch_gate", bash("git checkout main"), a)[0], "deny")
+
+    # Owned by nobody, and not undone by git — so the approver is the only thing that can stop
+    # them, and it has to ask. Each of the three was moved to the always-allow list on the theory
+    # that it was reversible; none of them is.
+    for label, cmd in [
+        # `safety-floor.md §1` wants approval in the turn before anything leaves the machine, and
+        # no hook in this plugin gates `gh`.
+        ("opening a PR", "gh pr create --title x"),
+        ("opening an issue", "gh issue create --title x"),
+        # Ownership is outside git entirely: the sorting question answers no.
+        ("changing ownership", "chown -R root:root /etc"),
+        # Additive on the destination filesystem says nothing about the destination host.
+        ("an rsync to a remote host", "rsync -a ./src user@host:/backup"),
+        ("...and the short host form", "rsync -a ./src host:/backup"),
+    ]:
+        check(f"guarded asks before {label}",
+              call("smart_bash_approver", bash(cmd), a)[0], "ask")
 
     # The plugin does not name a package manager. Before this, `bun run dev` asked and
     # `pnpm run dev` did not, in the same project, for the same kind of command.
@@ -590,6 +645,32 @@ def main() -> int:
     check("declared path denied", call("protect_files", declared, guarded)[0], "deny")
     check("an ordinary file is not denied", call("protect_files", ordinary, guarded)[0], None)
 
+    # A symlink is a path that names one file and writes another, and every list here matched the
+    # string. `ln -s .env notes.md` then `Write notes.md` matched nothing and landed in `.env`.
+    # Both names are checked now, so the link is refused for where it points, and a link into
+    # ordinary source stays ordinary — the half that proves this is a resolution and not a ban.
+    (guarded / ".env").write_text("SECRET=1\n", encoding="utf-8")
+    (guarded / "src").mkdir(parents=True, exist_ok=True)
+    (guarded / "src" / "app.ts").write_text("export {}\n", encoding="utf-8")
+    linked = False
+    try:
+        (guarded / "notes.md").symlink_to(".env")
+        (guarded / "link-ok.ts").symlink_to("src/app.ts")
+        linked = True
+    except (OSError, NotImplementedError):
+        # Windows needs Developer Mode or elevation to create one. Skipping loudly beats a
+        # green tick for a case that never ran.
+        print("  [SKIP] symlink cases — this platform refused to create one")
+    if linked:
+        via_link = {"tool_name": "Write",
+                    "tool_input": {"file_path": str(guarded / "notes.md")}}
+        harmless = {"tool_name": "Write",
+                    "tool_input": {"file_path": str(guarded / "link-ok.ts")}}
+        check("a symlink pointing at a protected file is refused",
+              call("protect_files", via_link, guarded)[0], "deny")
+        check("...and a symlink into ordinary source is not",
+              call("protect_files", harmless, guarded)[0], None)
+
     print("### Declared is not installed — the session says so instead of pretending")
     # `ABSENT` cannot resolve on any machine; `sys.executable` resolves on every machine the
     # suite runs on, which is what makes the mirrored case meaningful rather than decorative.
@@ -625,6 +706,14 @@ def main() -> int:
     # payload and then resolved the project without it, so the tag described whatever repository
     # the hook process started in.
     check("codex resolves the project from the payload", "DEMO" in tag(absent, harness="codex"), True)
+
+    # The execution floor is only "always on" if it reaches the session without anyone asking.
+    # Both harnesses get the same line, and it names a file rather than restating it.
+    check("the execution floor reaches the session", "Execution floor in force" in tag(installed), True)
+    check("...on codex too", "Execution floor in force" in tag(installed, harness="codex"), True)
+    check("...naming the file, not copying it", "execution-floor.md" in tag(installed), True)
+    check("...and it does not disturb the gate tag",
+          "lint" in tag(installed).split("gates: ")[-1].split("\n")[0], True)
 
     print("### ultracite — a tool that is not installed skips, and never blocks")
     marker = absent / "formatted.txt"
@@ -707,7 +796,55 @@ def main() -> int:
     check("a malformed user config exits 0", rc, 0)
     check("...and the project's own config still decides", d, "ask")
 
-    for d_ in (home_auto, home_none, home_git, home_broken, bare, strict, EMPTY_HOME):
+    # `git` never crosses — the second half, and the one the comment above did not cover. The
+    # exclusion was written for the top-level `git` block, but the three *decisions* live under
+    # `autonomy`, which IS user-scoped, so they rode across. A home file saying `auto` silenced
+    # all three gates in every repository that declares no `autonomy` block of its own, while
+    # `level` went on reporting `guarded`.
+    home_git_auto = mkhome({"autonomy": {"level": "guarded",
+                                         "git": {"commit": "auto", "push": "auto",
+                                                 "protectedBranch": "auto"}}})
+    for gate, cmd in [("git_commit_gate", GIT_WRITE),
+                      ("git_push_gate", "git push origin main"),
+                      ("git_branch_gate", "git checkout main")]:
+        payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                   "tool_input": {"command": cmd}}
+        d, _ = call(gate, payload, bare, env=as_home(home_git_auto))
+        check(f"a home directory cannot set {gate} to auto", d, "deny")
+
+    # Tightening from home stays legal, and has to: the operator's real file pins git to `ask`
+    # under a personal `autonomous`, which is somebody holding themselves to a stricter line than
+    # the preset. Dropping the whole sub-block would have quietly loosened them to `auto`.
+    home_git_ask = mkhome({"autonomy": {"level": "autonomous",
+                                        "git": {"commit": "ask", "push": "ask"}}})
+    d, _ = call("git_commit_gate",
+                {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                 "tool_input": {"command": GIT_WRITE}}, bare, env=as_home(home_git_ask))
+    check("...but a home directory may hold itself to `ask` under its own autonomous", d, "deny")
+    d, _ = call("smart_bash_approver", read_cmd, bare, env=as_home(home_git_ask))
+    check("...without losing the autonomy it asked for elsewhere", d, "allow")
+
+    # `protectedFiles` is a guarantee about a repository's files, not a personal preference, so the
+    # user layer may only add to it. Emptying the lists from home used to delete the defaults
+    # everywhere — and unlike `autonomy`, a project declaring its own block did not win them back,
+    # because lists replace on merge and the project was merging onto an already-emptied one.
+    home_unprotect = mkhome({"protectedFiles": {"segments": [], "contains": []}})
+    for label, rel in [("node_modules", "node_modules/pkg/index.js"),
+                       ("a dotenv variant", ".env.staging")]:
+        write = {"hook_event_name": "PreToolUse", "tool_name": "Write",
+                 "tool_input": {"file_path": str(bare / rel)}}
+        d, _ = call("protect_files", write, bare, env=as_home(home_unprotect))
+        check(f"a home directory cannot unprotect {label}", d, "deny")
+
+    # ...and the same file may still widen, which is the direction that costs nobody anything.
+    home_more = mkhome({"protectedFiles": {"segments": ["vendor"]}})
+    write = {"hook_event_name": "PreToolUse", "tool_name": "Write",
+             "tool_input": {"file_path": str(bare / "vendor" / "lib.js")}}
+    d, _ = call("protect_files", write, bare, env=as_home(home_more))
+    check("...but it may add a path of its own", d, "deny")
+
+    for d_ in (home_auto, home_none, home_git, home_git_auto, home_git_ask, home_unprotect,
+               home_more, home_broken, bare, strict, EMPTY_HOME):
         shutil.rmtree(d_, ignore_errors=True)
 
     for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_npx, pm_both,

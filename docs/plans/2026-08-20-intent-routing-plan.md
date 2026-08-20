@@ -19,7 +19,7 @@ Measured on Claude Code 2.1.237, plugin 1.3.1, 2026-08-20:
 | Finding | Evidence |
 |---|---|
 | Commands are already model-invocable — the "migrate to skills" premise was false | docs/skills § "Custom commands have been merged into skills"; all 12 commands appear in this session's model-visible listing |
-| The listing is overflowing **now** | `graph-powers:skill-creator`, `:uxmaster`, `:webapp-testing` appear name-only, descriptions dropped; the other nine keep theirs |
+| The listing is overflowing **now** | `graph-powers:skill-improve`, `:uxmaster`, `:webapp-testing` appear name-only, descriptions dropped; the other nine keep theirs |
 | The plugin is the largest single contributor | 10,752 of 23,902 local characters — 45% |
 | Nothing is misconfigured | zero `disable-model-invocation`, zero malformed frontmatter, 24/24 parse |
 | Nothing is written for triggering | zero `when_to_use`, zero `paths`, zero `context: fork`, zero per-skill `model` |
@@ -152,7 +152,7 @@ what actually gets typed.
 | T2 | delegate the frontend part | delegate |
 | T3 | spawn an agent for this | delegate |
 | N1 | do it yourself | no command |
-| N2 | run these three things in parallel | agent-orchestration skill, not delegate |
+| N2 | run these three things in parallel | the execution floor decides the fan-out, not delegate |
 
 ### Skills — knowledge surface (2 each; these fire mid-work, not from a cold sentence)
 | Skill | T | N |
@@ -163,12 +163,10 @@ what actually gets typed.
 | `uxmaster` | model is deciding UX direction or conversion copy | a runtime error |
 | `webapp-testing` | model needs real-browser evidence | a unit test |
 | `astro` | model is editing `.astro` or `astro.config.mjs` | a React file |
-| `harness-audit` | model is asked whether `.claude/` is wired correctly | authoring one skill |
-| `skill-creator` | model is authoring or iterating one skill | auditing the whole harness |
+| `skill-improve` | model is authoring one skill, or asking whether `.claude/` is wired correctly | designing one agent's prompt |
 | `senior-architect` | model is weighing an architecture trade-off | writing a component |
 | `senior-prompt-engineer` | model is authoring an agent prompt or handoff schema | ordinary refactor |
 | `second-opinion` | a fix keeps not sticking and needs an uninherited verdict | routine review |
-| `agent-orchestration` | user authorises parallel/subagent work | a trivial single-file fix |
 
 ### PT-BR reality check (typed, not translated)
 | # | Prompt | Expect |

@@ -49,8 +49,12 @@ SHELL_CONSTRUCTS = {
         re.compile(r"/dev/null"),
     "`/tmp` does not exist on Windows — use tempfile.gettempdir()":
         re.compile(r"(?<![\w`.\"<])/tmp\b"),
+    # `expanduser` and `os.homedir()` are the fix for this, so a line that calls one and then
+    # writes `~/` as its argument is the corrected form being reported as the defect. The gate
+    # said so four times against instructions that had just been rewritten to be portable, which
+    # is the fastest way to teach somebody to stop reading it.
     "`~` is not expanded by cmd.exe or PowerShell":
-        re.compile(r"(?<![\w`])~/"),
+        re.compile(r"(?<![\w`])~/(?<!expanduser\(\"~/)(?<!expanduser\('~/)"),
     "`export VAR=` is POSIX; PowerShell uses $env:, cmd uses set":
         re.compile(r"^\s*export\s+[A-Z]"),
     "inline `VAR=value command` is POSIX-only shell syntax":
@@ -64,7 +68,14 @@ EXEMPT_FILES = {
     ".github/check_portability.py",
     "references/shared/110-guardrails-index.md",   # documents all three shell forms, by design
     "skills/astro/references/troubleshooting.md",  # has an explicit PowerShell branch
-    "CHANGELOG.md",
+    "CHANGELOG.md",                                # a record of what happened, not an instruction
+    # Prose for a person, not a block an agent executes — which is the line this gate draws in its
+    # own docstring. Somebody reading the README on a Mac types `~/.claude`, and rewriting that as
+    # a Python one-liner would make the documentation worse to serve a rule about agent execution.
+    # `AGENT_SETUP.md` is deliberately NOT here: the agent follows it, it ships, and it carried
+    # twenty-six POSIX-only lines for as long as the root went unscanned.
+    "README.md",
+    "CONTRIBUTING.md",
 }
 
 FENCE_START = re.compile(r"^```(bash|sh|shell|console)?\s*$")
@@ -97,15 +108,59 @@ def executable_lines(path: str):
                 yield i, code.rstrip("\n")
 
 
+def executable_blocks(path: str) -> list[tuple[str, list[tuple[int, str]]]]:
+    """The same lines, grouped by the fenced block they came from, with the block's raw text.
+
+    Some constructs are only a defect in isolation. A block that shows `export VAR=` under a
+    `# bash / zsh` heading and `$env:VAR =` under a `# PowerShell` heading is documenting both
+    platforms, which is the thing the gate wants — read one line at a time it looks like the
+    thing the gate refuses.
+    """
+    blocks: list[tuple[str, list[tuple[int, str]]]] = []
+    current: list[tuple[int, str]] = []
+    open_fence = False
+    executable = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for i, line in enumerate(fh, 1):
+            if line.startswith("```"):
+                if open_fence:
+                    if current:
+                        blocks.append(("\n".join(c for _, c in current), current))
+                        current = []
+                    open_fence, executable = False, False
+                else:
+                    open_fence, executable = True, bool(FENCE_START.match(line))
+                continue
+            if not (open_fence and executable):
+                continue
+            code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
+            if code.strip():
+                current.append((i, code.rstrip("\n")))
+    if current:
+        blocks.append(("\n".join(c for _, c in current), current))
+    return blocks
+
+
 def scan_markdown() -> list[str]:
     problems: list[str] = []
     binaries = re.compile(r"^\s*(" + "|".join(POSIX_BINARIES) + r")\b")
     roots = ["commands", "skills", "references", "templates", "agents", "workflows"]
-    for root in roots:
-        for path in sorted(glob.glob(f"{root}/**/*.md", recursive=True)):
-            if path.replace(os.sep, "/") in EXEMPT_FILES:
-                continue
-            for lineno, line in executable_lines(path):
+    # The repository root was missing, and it is where the file a new installer reads first lives.
+    # `AGENT_SETUP.md` ships (`check_version_bump.SHIPPED` lists it), it is the longest set of
+    # copy-paste commands the plugin publishes, and none of it was ever scanned — seven POSIX-only
+    # lines sat in it while this gate reported clean. `glob` with no recursion is deliberate: the
+    # roots above already cover every subdirectory that matters, and `**` from `.` would walk
+    # `node_modules` on a machine that has one.
+    paths = [p for root in roots for p in glob.glob(f"{root}/**/*.md", recursive=True)]
+    paths += glob.glob("*.md")
+    for path in sorted(set(paths)):
+        if path.replace(os.sep, "/") in EXEMPT_FILES:
+            continue
+        for raw, lines in executable_blocks(path):
+            # One exemption, and it is conditional on the block doing the work: a POSIX spelling
+            # beside its PowerShell counterpart is coverage, not a gap.
+            both_shells = "$env:" in raw
+            for lineno, line in lines:
                 m = binaries.match(line)
                 if m:
                     problems.append(
@@ -113,8 +168,61 @@ def scan_markdown() -> list[str]:
                         f"use the agent's own tool, or one line of Python"
                     )
                 for why, pattern in SHELL_CONSTRUCTS.items():
+                    if both_shells and why.startswith("`export VAR=`"):
+                        continue
                     if pattern.search(line):
                         problems.append(f"SHELL {path}:{lineno}: {why}")
+    return problems
+
+
+# The same class of defect, in the language the installers are written in. Two of the five defects
+# this file's own docstring cites live in `codex/lib.mjs` and `codex/install.mjs`, and neither was
+# ever scanned — the gate named them as its motivation and could not have caught a regression of
+# either. Every pattern below is a defect this repository actually shipped, generalised one step.
+JS_CHECKS = (
+    (re.compile(r"\(\^\|/\)"),
+     r"`(^|/)` misses the Windows separator — use `(^|[\\/])`"),
+    (re.compile(r"""\.split\(\s*['"]/['"]\s*\)"""),
+     "split('/') on a path — use path.sep, or normalise to posix form first"),
+    (re.compile(r"process\.env\.HOME(?!\s*\|\|)"),
+     "HOME is not set on Windows — fall back to USERPROFILE, or use os.homedir()"),
+    (re.compile(r"""['"]/tmp/"""),
+     "`/tmp` does not exist on Windows — use os.tmpdir()"),
+)
+
+
+CRLF_NORMALISE = re.compile(r"""replace\(\s*/\\r\\n/g""")
+LF_ANCHOR = re.compile(r"""/\^---\\n""")
+
+
+def scan_js() -> list[str]:
+    """The installers. Same defect class as `scan_python`, different runtime."""
+    problems: list[str] = []
+    roots = ("bin/*.mjs", "bin/*.js", "codex/*.mjs", "codex/*.js",
+             ".github/*.mjs", ".github/*.js", "workflows/*.js", "workflows/*.mjs")
+    for path in sorted({p for root in roots for p in glob.glob(root)}):
+        if path.replace(os.sep, "/") in EXEMPT_FILES:
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            source = fh.read()
+        # Anchoring a match to `\n` is only a defect against text that may still carry `\r\n`.
+        # `codex/lib.mjs` normalises first and then anchors, which is correct and is what the
+        # repair looked like — so the condition is the absence of the normalisation, not the
+        # presence of the anchor. Checking it per file rather than per line is the whole point:
+        # the fix and the defect sit on different lines.
+        normalises_crlf = CRLF_NORMALISE.search(source) is not None
+        for i, line in enumerate(source.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            if not normalises_crlf and LF_ANCHOR.search(line):
+                problems.append(
+                    f"PATH  {path}:{i}: a match anchored to \\n never fires on a CRLF checkout, "
+                    f"and this file never normalises — allow \\r?\\n, or normalise first"
+                )
+            for pattern, why in JS_CHECKS:
+                if pattern.search(line):
+                    problems.append(f"PATH  {path}:{i}: {why}")
     return problems
 
 
@@ -212,7 +320,7 @@ def balanced(source: str, open_paren: int) -> str | None:
 
 
 def main() -> int:
-    problems = scan_markdown() + scan_python()
+    problems = scan_markdown() + scan_python() + scan_js()
     for p in problems:
         print(p)
     print(f"\n{len(problems)} portability problem(s)")

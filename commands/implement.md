@@ -12,7 +12,8 @@ workflow_type: orchestrator-workers
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
 > **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map — both loaded only when no plan exists and this command has to write one first.
-> **Plan files:** `${paths.planDir}/YYYY-MM-DD-<feature>-plan.md` (per `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`) or active conversation context. Legacy `docs/plans/*.md` accepted for back-compat.
+> **Plan files:** `${paths.planDir}/YYYY-MM-DD-<slug>/PLAN.md` — one plan is one directory, per `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`. A bare `${paths.planDir}/*.md` written before that convention is still accepted, as is a plan in the active conversation.
+> **The driver doctrine** — rolling dispatch, the two review gates, the subagent prompt templates — is `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-c-executing-plans.md`, read when a plan is executed by subagents rather than inline.
 
 ---
 
@@ -22,7 +23,7 @@ workflow_type: orchestrator-workers
 Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 ```
 
-Use the file-search tool to locate `${paths.planDir}/*.md` (preferred) and `docs/plans/*.md` (legacy). Do not rely on shell globbing or stderr redirection for this check.
+Use the file-search tool to locate `${paths.planDir}/*/PLAN.md` (preferred) and `${paths.planDir}/*.md` (older shape). Do not rely on shell globbing or stderr redirection for this check.
 
 | Source | Action |
 |---|---|
@@ -30,7 +31,7 @@ Use the file-search tool to locate `${paths.planDir}/*.md` (preferred) and `docs
 | Plan in chat context | `Skill("superpowers:executing-plans")` — extract phases + tasks from conversation |
 | No plan found | `Skill("superpowers:writing-plans")` → `Skill("planning")` — write plan to `${paths.planDir}/`. Never implement without a plan. |
 
-Parse from plan: **Complexity**, **Layers**, phase markers (`[SEQUENTIAL]` / `[PARALLEL]`), task list (`- [ ]`), verify commands, sprint contracts, `[ASSUMED]` items to validate before starting.
+Parse from plan: **Tier**, **Layers**, phase markers (`[SEQUENTIAL]` / `[PARALLEL-SAFE]`), the task checkboxes (`- [ ]`) with their `Owns:` / `Needs:` / `CHECK:` / `EXPECT:` fields, each phase's gate block, the `## Verification` commands, sprint contracts, and `[ASSUMED]` items to validate before starting.
 
 For L4+ work (multi-domain or multi-file changes), invoke `Skill("superpowers:using-git-worktrees")` to isolate the workspace before any agent spawns. Skip for L1-L3 trivial work.
 
@@ -55,7 +56,7 @@ If the plan touches:
 - API / handlers / services → `graph-powers:debugger`
 - Components / styling → the project's design rule, or its own design-system skill when it has one
 - Performance / SEO → `performance-optimization`
-- Skill creation / iteration → `skill-creator`
+- Skill authoring, iteration or harness wiring audit → `skill-improve`
 - External provider/deployment/product API → host provider skill if configured; otherwise there is no skill for this — spawn the **agent** `graph-powers:librarian`, which is a different namespace from a skill
 
 Multiple skills may load. Process skills (`planning`, `graph-powers:debugger`) before implementation skills.
@@ -141,9 +142,11 @@ Load domain skill
 → ...
 ```
 
-### Parallel phase
+### Parallel phase — rolling dispatch
 
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` (Parallel Agent Spawn). Spawn all independent tasks in **single message**:
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`. Dispatch every task whose
+`Needs` are already **verified** and whose `Owns` collide with nothing in flight, up to
+`graphGuardrails.maxParallelWave`:
 
 ```typescript
 // Write-capable → foreground:
@@ -153,7 +156,18 @@ Agent({ subagent_type: "graph-powers:debugger", prompt: "..." })
 Agent({ subagent_type: "graph-powers:explorer", prompt: "...", run_in_background: true })
 ```
 
-After all complete: parse each agent's `## Context Handoff` block, consolidate changes, run phase gate, then invoke `Skill("superpowers:verification-before-completion")` to capture the gate output as evidence before marking the phase complete.
+**Review each task the moment it returns** — do not hold its review until its siblings finish. A
+task's verification is what releases whatever it unblocked, so the phase runs in the length of its
+longest chain rather than the sum of its waves. Parse the returning agent's `## Context Handoff`,
+run that task's own `CHECK`, paste the deciding output into its `EVIDENCE:` line and check the box.
+
+**The phase gate runs once**, when every task in the phase is verified: the whole-project commands
+live there and nowhere else, then `Skill("superpowers:verification-before-completion")` captures the
+gate output as the phase's evidence.
+
+**A checked box whose `EVIDENCE` still reads `pending` is unmet.** A check that proves impossible is
+surrendered in the open — `ABANDON: <task id> <reason>` — and named in the report. Silent
+scope-narrowing is the failure this rule exists to catch.
 
 ### Sprint contract gate
 

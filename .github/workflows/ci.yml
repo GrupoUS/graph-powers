@@ -170,6 +170,14 @@ jobs:
         # measured in that state. Growth here is therefore paid by somebody else's skill.
         run: python3 .github/check_listing_budget.py
 
+      - name: No command grew its floor without saying so
+        # The other budget. `check_listing_budget.py` measures what the plugin costs before
+        # anything is invoked; this measures what one command costs the moment it is. It shipped
+        # with no ceiling and no step here, while `AGENTS.md` and `.claude/rules/verify-
+        # supplements.md` both listed it among the gates that pass before anything ships — a line
+        # that read as coverage for a script that could not fail.
+        run: python3 .github/check_context_budget.py
+
       - name: Every routing reference resolves
         # The path gate below checks files. This one checks the routing: the agent a command
         # spawns, the workflow it invokes, the skill it loads, the section of another file it
@@ -187,7 +195,15 @@ jobs:
               r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)'
           )
           missing = {}
+          # A changelog is a record of what happened, not a description of what exists. It names
+          # files this repository has since deleted, and files it never owned — `agents/codex-
+          # rescue.md` belongs to the codex plugin, and the entry describing it is correct prose
+          # that this gate has no way to tell from a broken link. Holding a history to today's
+          # tree means the history can never mention a removal, which is most of what a changelog
+          # is for.
           for f in glob.glob("**/*.md", recursive=True):
+              if os.path.basename(f) == "CHANGELOG.md":
+                  continue
               base = os.path.dirname(f)
               for m in set(pat.findall(open(f, encoding="utf-8", errors="replace").read())):
                   candidates = (m, os.path.join(base, m), os.path.join(base, "..", m),
@@ -266,7 +282,12 @@ jobs:
           rootA=$(mktemp -d)/A; rootB=$(mktemp -d)/B
           git -C "$fixture" init -q
           mkdir -p "$fakehome/.codex"
-          third='{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"}]}]}}'
+          # Two third-party hooks, and the second one is the case that matters: it shares a
+          # basename with one of ours. Ownership used to be inferred from the path shape with the
+          # plugin root wildcarded to `.+`, which `/opt/other-tool/hooks/notify.py` satisfies — so
+          # the next install deleted it. The fixture carried only `node /other/tool.mjs`, which
+          # shares nothing, so it could not see that.
+          third='{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"},{"type":"command","command":"python3 \"/opt/other-tool/hooks/notify.py\""}]}]}}'
           printf '%s\n' "$third" > "$fakehome/.codex/hooks.json"
           cp -r "$PWD" "$rootA"; cp -r "$PWD" "$rootB"
           python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['version']='0.0.1';json.dump(d,open(p,'w'),indent=2)" \
@@ -288,12 +309,18 @@ jobs:
           for groups in data["hooks"].values():
               for group in groups:
                   for hook in group.get("hooks", []):
+                      # Only ours. A third party's file living at the same basename is not a
+                      # duplicate of anything — counting it was what made this assertion ambiguous.
+                      if new not in hook["command"]:
+                          continue
                       for name in re.findall(r"/hooks/([a-z_]+)\.py", hook["command"]):
                           seen[name] += 1
           dupes = {k: v for k, v in seen.items() if v > 1}
           assert not dupes, f"a guardrail is registered more than once: {dupes}"
           assert "node /other/tool.mjs" in raw, "a third party's hook was dropped"
-          print(f"{len(seen)} guardrails, each registered once, old root gone, third party intact")
+          assert "/opt/other-tool/hooks/notify.py" in raw, \
+              "a third party's hook sharing a basename with ours was deleted"
+          print(f"{len(seen)} guardrails, each registered once, old root gone, third parties intact")
           PY
 
   clone:

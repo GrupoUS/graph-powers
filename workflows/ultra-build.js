@@ -1,7 +1,7 @@
 export const meta = {
   name: 'ultra-build',
-  description: 'Classify each plan task by domain + dependency, then execute in disjoint-file waves routed to the paired specialist agent (classify-and-act). Writes to the working tree; commits nothing.',
-  whenToUse: 'Execute an approved plan from ultra-plan. Reads the plan, builds a wave graph (disjoint files run in parallel, dependents run later), routes each task to the specialist that owns those paths. Pass the plan path as args, or { planPath, config }.',
+  description: 'Classify each plan task by domain + dependency, then dispatch it the moment its own dependencies are done and no in-flight task holds one of its files, routed to the paired specialist agent (classify-and-act). Writes to the working tree; commits nothing.',
+  whenToUse: 'Execute an approved plan from ultra-plan. Reads the plan, builds a dependency graph from each task Needs and Owns, dispatches on a rolling basis instead of in lockstep waves, and routes each task to the specialist that owns those paths. Pass the plan path as args, or { planPath, config }.',
   phases: [{ title: 'Classify', model: 'haiku' }, { title: 'Act' }],
 }
 
@@ -19,20 +19,27 @@ export const meta = {
 // Agent budget: 1 config (only when invoked bare) + 1 classify + one implementer per plan task.
 // The runtime caps live CONCURRENCY but not the TOTAL, so a malformed plan could enqueue hundreds
 // of implementers; the two ceilings below are the hard stop. Neither silently drops work — an
-// oversized wave is SPLIT and logged, and blowing the total throws instead of implementing part
+// oversized group is SPLIT and logged, and blowing the total throws instead of implementing part
 // of a plan and reporting success.
 //
+// Dispatch is ROLLING, not lockstep. A wave barrier made every task wait for the slowest task of
+// the previous wave, including the ones it never reads. A task here starts when its own `needs`
+// are done and no in-flight task holds one of its files. Three things bound it: a topological
+// check that THROWS on a dependency cycle (awaiting a cyclic promise is a hang, not an error),
+// `maxParallelWave` as in-flight width, and `maxTasksPerPlan` as the total.
+//
 // One writer per file is enforced here, not requested: `classify` is asked for disjoint file sets,
-// but it is a haiku node and asking is not proving. `splitByFileOwnership` re-slices any wave where
-// two tasks claim the same path, so a bad classification costs an extra wave, never a corrupted
-// file. This function is the structural half of guardrail G4 in `hooks/graph_guardrails.py`.
+// but it is a haiku node and asking is not proving. `splitByFileOwnership` orders any group where
+// two tasks claim the same path, and the in-flight file set refuses the overlap again at dispatch
+// time, so a bad classification costs an extra turn, never a corrupted file. This is the structural
+// half of guardrail G4 in `hooks/graph_guardrails.py`.
 //
 // No nested orchestration: task agents LOAD a domain skill for conventions (knowledge, no agent
 // dispatch) but must NOT invoke a process skill that dispatches agents — this workflow already
 // orchestrates, and an inner dispatch re-fans-out. The debug chain belongs to ultra-verify's fix
 // loop, not to a greenfield build.
 //
-// Model tiering: Classify transcribes an already-structured plan into waves → 'haiku'.
+// Model tiering: Classify transcribes an already-structured plan into a task graph → 'haiku'.
 // Implementers inherit the main-loop model; code quality depends on it, so do not downgrade them.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -130,8 +137,9 @@ const LANES = [
 const AGENT_ENUM = LANES.map((l) => l.agent)
 const ROUTING = LANES.map((l) => `${l.agent} for ${l.where}`).join('; ')
 
-// Re-slice a wave so no two tasks running in parallel claim the same file, then chunk to WAVE_CAP.
-// Returns a list of sub-waves that run sequentially in place of the original wave.
+// Split a group so no two tasks claiming the same file land in the same one, then chunk to
+// WAVE_CAP. With rolling dispatch this only refines the FALLBACK ordering used for tasks whose
+// `needs` the classifier could not determine; the in-flight file set is what actually enforces it.
 function splitByFileOwnership(tasks) {
   const subWaves = []
   for (const t of tasks) {
@@ -165,6 +173,7 @@ const TASK_GRAPH = { type: 'object', required: ['waves'], properties: {
       id: { type: 'string' }, title: { type: 'string' },
       agent: { type: 'string', enum: AGENT_ENUM },
       files: { type: 'array', items: { type: 'string' } },
+      needs: { type: 'array', items: { type: 'string' } },
       criterion: { type: 'string' }, detail: { type: 'string' },
     } } },
   } } },
@@ -178,7 +187,8 @@ const TASK_RESULT = { type: 'object', required: ['id', 'status', 'changedPaths']
 phase('Classify')
 const graph = await agent(
   `Read the plan at ${PLAN_PATH}. Extract every atomic task and CLASSIFY each: domain → agent (${ROUTING}); file ownership; dependency; acceptance criterion. Those ${AGENT_ENUM.length} are the ONLY routable values — a task the plan left unassigned, or assigned to anything else (including "main"), goes to debugger as the generic lane; say so in its detail so the reassignment is visible rather than silent.
-Group into WAVES: tasks in the same wave MUST have DISJOINT file sets and no inter-dependency (safe to run in parallel). Any task that depends on another or shares a file goes in a later wave. Order waves by dependency. Read-only — return the wave structure.`,
+For each task also return \`needs\`: the ids of the tasks whose OUTPUT it reads. Copy the plan's \`Needs:\` field when the plan has one; otherwise infer it, and only where you can name what is read — a task that merely comes later in the plan does NOT need it. An empty \`needs\` on a task the plan really does gate is the one error that costs correctness here, so when a dependency is genuinely unclear, declare it.
+Group into WAVES: tasks in the same wave MUST have DISJOINT file sets and no inter-dependency. Order waves by dependency. Waves remain the fallback ordering for tasks whose \`needs\` you could not determine. Read-only — return the wave structure.`,
   { agentType: AG('explorer'), phase: 'Classify', schema: TASK_GRAPH, label: 'classify', model: 'haiku' }
 )
 
@@ -199,7 +209,7 @@ const waves = []
 for (const w of rawWaves) {
   const subWaves = splitByFileOwnership(w.tasks ?? [])
   if (subWaves.length > 1) {
-    log(`Wave split into ${subWaves.length}: ${(w.tasks ?? []).length} task(s) exceeded the parallel cap of ${WAVE_CAP} or shared a file`)
+    log(`Group split into ${subWaves.length}: ${(w.tasks ?? []).length} task(s) exceeded the width of ${WAVE_CAP} or shared a file`)
   }
   waves.push(...subWaves.map((tasks) => ({ tasks })))
 }
@@ -208,31 +218,95 @@ const skillLine = (cfg.domainSkills ?? []).length
   ? `Load the DOMAIN skill matching your files for conventions (knowledge only, no agent dispatch): ${(cfg.domainSkills ?? []).map((d) => `${d.skill} for ${d.match}`).join('; ')}. `
   : ''
 
-for (let w = 0; w < waves.length; w++) {
-  const wave = waves[w]
-  log(`Wave ${w + 1}/${waves.length}: ${wave.tasks.length} task(s) in parallel`)
-  // Waves are the barrier: wave N+1 builds on files wave N wrote, so this await is the point.
+// Rolling dispatch. A wave barrier makes every task in wave N+1 wait for the SLOWEST task in wave
+// N, including the ones it never reads — so a plan of disjoint tasks ran in the sum of its waves
+// instead of the length of its longest chain. Here a task starts the moment its own dependencies
+// are done and no in-flight task holds one of its files.
+//
+// Two bounds keep this from becoming a loop with no floor:
+//   - the topological check below throws on a dependency cycle instead of awaiting a promise that
+//     can never settle (`Promise.all` on a cycle is a hang, not an error);
+//   - `WAVE_CAP` still bounds how many run at once, now as in-flight width rather than wave size.
+const flat = waves.flatMap((w, i) => w.tasks.map((t) => ({ ...t, wave: i })))
+const byId = new Map(flat.map((t) => [t.id, t]))
+
+// A task with no usable `needs` falls back to the old barrier — everything in an earlier wave.
+// That is the honest degradation: no declared edge means the classifier could not name what is
+// read, and guessing "independent" there is how a task runs against a file that does not exist yet.
+const depsOf = (t) => {
+  const declared = (t.needs ?? []).filter((id) => id !== t.id && byId.has(id))
+  return declared.length ? declared : flat.filter((o) => o.wave < t.wave).map((o) => o.id)
+}
+
+// Topological order, and the cycle guard. Kahn's algorithm: whatever is left when no node has an
+// in-degree of zero is the cycle, and it is named rather than hung on.
+const order = []
+const remaining = new Map(flat.map((t) => [t.id, new Set(depsOf(t))]))
+let progressed = true
+while (remaining.size && progressed) {
+  progressed = false
+  for (const [id, deps] of remaining) {
+    if ([...deps].every((d) => !remaining.has(d))) {
+      order.push(byId.get(id)); remaining.delete(id); progressed = true
+    }
+  }
+}
+if (remaining.size) {
+  throw new Error(
+    `ultra-build: the task dependencies form a cycle — ${[...remaining.keys()].join(' -> ')}. ` +
+    'Fix the plan\'s Needs edges; refusing to dispatch a graph that cannot finish.'
+  )
+}
+
+// In-flight width and file ownership, enforced here rather than trusted from the plan.
+const held = new Set()
+let inFlight = 0
+const waiting = []
+const wake = () => { while (waiting.length) waiting.shift()() }
+const canStart = (t) => inFlight < WAVE_CAP && !(t.files ?? []).some((f) => held.has(f))
+const acquire = async (t) => {
+  // Awaiting in this loop IS the wait: the task parks until a release wakes it, re-checks, and
+  // parks again. There is nothing to collect into a Promise.all — the condition is what it waits on.
   // oxlint-disable-next-line no-await-in-loop
-  const waveResults = await parallel(
-    wave.tasks.map((t) => () => agent(
-      `Implement this task from ${PLAN_PATH}. ${skillLine}Do NOT invoke any process skill that dispatches agents — this workflow already orchestrates; implement directly (the debug chain is reserved for ultra-verify's fix loop).
+  while (!canStart(t)) await new Promise((resolve) => waiting.push(resolve))
+  inFlight++
+  for (const f of t.files ?? []) held.add(f)
+}
+const release = (t) => {
+  inFlight--
+  for (const f of t.files ?? []) held.delete(f)
+  wake()
+}
+
+log(`Rolling dispatch: ${order.length} task(s), up to ${WAVE_CAP} in flight, dependency-ordered`)
+const started = new Map()
+for (const t of order) {
+  started.set(t.id, (async () => {
+    await Promise.all(depsOf(t).map((d) => started.get(d)))
+    await acquire(t)
+    try {
+      return await agent(
+        `Implement this task from ${PLAN_PATH}. ${skillLine}Do NOT invoke any process skill that dispatches agents — this workflow already orchestrates; implement directly (the debug chain is reserved for ultra-verify's fix loop).
 TASK ${t.id}: ${t.title}
 DETAIL: ${t.detail ?? ''}
 FILES YOU OWN (do not touch anything outside this set): ${JSON.stringify(t.files)}
 ACCEPTANCE: ${t.criterion}
 ${GIT_RAILS}
 Return id, status, changedPaths, gateEvidence.`,
-      { agentType: AG(t.agent), phase: 'Act', schema: TASK_RESULT, label: `${t.agent}:${t.id}` }
-    ))
-  )
-  results.push(...waveResults.filter(Boolean))
+        { agentType: AG(t.agent), phase: 'Act', schema: TASK_RESULT, label: `${t.agent}:${t.id}` }
+      )
+    } finally {
+      release(t)
+    }
+  })())
 }
+results.push(...(await Promise.all(started.values())).filter(Boolean))
 
 const blocked = results.filter((r) => r.status !== 'done')
 return {
   planPath: PLAN_PATH,
   wavesPlanned: rawWaves.length,
-  wavesRun: waves.length,
+  dispatchGroups: waves.length, // the fallback ordering; real dispatch is per task, not per group
   tasksTotal: results.length,
   done: results.filter((r) => r.status === 'done').length,
   blocked: blocked.map((r) => ({ id: r.id, status: r.status, notes: r.notes })),

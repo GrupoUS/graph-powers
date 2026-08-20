@@ -13,7 +13,7 @@ Whenever a command spawns ≥2 agents in a single message via the parallel patte
 | Command | Parallel batch members |
 |---|---|
 | `/research` | `graph-powers:explorer` + `graph-powers:librarian` |
-| `/debug` (L4-L5) | `graph-powers:explorer` + `regression-hunter` |
+| `/debug` (L4-L5) | two `graph-powers:explorer` instances, under the role labels `code-archaeologist` and `regression-hunter` |
 | `/implement` (L6+ Phase 2 PARALLEL) | 2-3 `graph-powers:frontend-specialist` instances on independent tasks |
 | `/perf fix` | 1 `graph-powers:performance-optimizer` per route cluster |
 | `/verify` Phase 8 | parallel codex review + adversarial review |
@@ -111,26 +111,14 @@ Commands that spawn `graph-powers:librarian` (currently `/research`, `/debug aut
 
 ---
 
-## 7. Non-overlapping scope
+## 7. Scope and width belong to the spawn rules
 
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` rule 4 ("Distinct scope"): each agent in a parallel batch must investigate a non-overlapping area. If two agents would cover the same files / questions / docs, merge into one agent.
+Distinct scope per member, and how many members a wave may hold, are
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` rules 4 and 6 — not restated
+here, because the width is a configuration key and a copy of it goes stale. The test for scope is one
+question: could a single agent answer both prompts in one pass? If yes, it is one agent.
 
-When in doubt, ask: "Could one agent answer both prompts in one pass?" If yes → one agent.
-
----
-
-## 8. Maximum batch size
-
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`: at most `graphGuardrails.maxParallelWave` agents in one
-fan-out (default 5). A parallel batch counts each agent toward that width. Plan accordingly:
-
-| Batch size | Remaining spawn budget |
-|---|---|
-| 2 (e.g., explorer + librarian) | 3 left for follow-ups |
-| 3 | 2 left |
-| 4 | 1 left — cannot afford another batch |
-| 5 | 0 — must checkpoint with user |
-
-If the natural fan-out exceeds 5, **cluster** by root cause (see `/perf` § 2.5 pattern) before spawning.
+When the natural fan-out is wider than the wave allows, cluster by root cause before spawning
+(`/perf` § 2.5 is the worked example) rather than truncating the list.
 
 Owner: `senior-prompt-engineer` skill.

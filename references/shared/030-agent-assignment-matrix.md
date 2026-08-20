@@ -10,6 +10,8 @@
 | Codebase patterns/files lookup | `graph-powers:explorer` | **YES — mandatory** |
 | External docs/packages | `graph-powers:librarian` | **YES — mandatory** |
 | Architecture consultation | `graph-powers:evaluator` (Mode 3) | Caller decides |
+| Plan synthesis / sprint breakdown | `graph-powers:project-planner` | Caller decides |
+| UI or user-flow verification, after the code lands | `graph-powers:verification` | No (drives a browser) |
 
 Read-only agents (`graph-powers:explorer`, `graph-powers:librarian`) **must** use `run_in_background: true`.
 
@@ -23,9 +25,9 @@ Read-only agents (`graph-powers:explorer`, `graph-powers:librarian`) **must** us
 
 ### The name carries the plugin
 
-Every agent above ships inside this plugin, and the registry names it `graph-powers:<agent>`. The
-bare name is a different thing: `graph-powers:explorer` is not `graph-powers:explorer`, and `Explore` is the
-CLI's own built-in, which is not this plugin's agent at all.
+Every agent above ships inside this plugin, and the registry names it `graph-powers:<agent>`. Drop
+that prefix and the name addresses something else, or nothing — and `Explore`, with a capital E, is
+the CLI's own built-in, which is not this plugin's agent at all.
 
 This matrix prescribed the bare form until 1.3.1, and every command copied it. That is what produced
 

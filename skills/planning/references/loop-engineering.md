@@ -25,7 +25,7 @@ of them maps to a guard this skill already owns:
 | **No hard stopping condition** — loops forever | **HARD-STOP**: max iterations per artifact → escalate to user | `SKILL.md § Stopping & red flags` + each phase guide |
 | **Underspecified goal** — "looks good" is not checkable | **GOAL-GUARD**: refuse to enter the loop unless the goal is a binary PASS/FAIL criterion | this file (§ Calibration anchors) |
 | **Context overflow** — long sessions degrade | **CTX-GUARD**: at ~80K tokens, write a handoff + reset, resume from the artifact | this file (§ Context Reset Protocol) |
-| **Missing cost controls** — runaway spend | **COST-GUARD**: spawn cap 5, retry cap 3 per task | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
+| **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, retry cap 3 per task | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
 
 ---
 
@@ -42,7 +42,7 @@ LOOP <phase>:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
     - CTX-GUARD : context > ~80K → handoff artifact + reset (§ Context Reset Protocol)
-    - COST-GUARD: spawn cap 5 / retry cap 3 per task
+    - COST-GUARD: width `graphGuardrails.maxParallelWave` / retry cap 3 per task
   terminal: goal PASS → next phase | any guard trips → escalate / halt
 ```
 
@@ -99,7 +99,7 @@ At/above threshold → goal PASS → exit. Below → FAIL with actionable feedba
 
 > **Loop budget (cost control).** Thresholds give the loop a terminal; the budget keeps it from
 > running away. CTX-GUARD = the Context Reset Protocol (§ below) at ~80K tokens. COST-GUARD =
-> retry cap 3 per artifact + spawn cap 5 per batch. Together they prevent "context overflow" and
+> retry cap 3 per artifact + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
 > "runaway spend".
 
 ---
@@ -176,7 +176,7 @@ artifact + active sprint contract.
 
 ### Handoff Artifact Format
 
-Save to `${paths.planDir}/HANDOFF-{slug}.md`:
+Save to `<plan dir>/HANDOFF.md`:
 
 ```markdown
 # Context Handoff — {slug}
@@ -234,10 +234,10 @@ limitations. The interesting harness work moves to more sophisticated orchestrat
 A loop that may reset (CTX-GUARD) needs durable state to resume from — the loop's *control
 plane*. In this chain that state is the artifacts on disk, not the conversation:
 
-- `${paths.planDir}/specs/YYYY-MM-DD-<topic>-design.md` — Phase A's output, Phase B's input.
-- `${paths.planDir}/YYYY-MM-DD-<feature>.md` — Phase B's output, Phase C's input.
+- `<plan dir>/spec.md` — Phase A's output, Phase B's input.
+- `<plan dir>/PLAN.md` — Phase B's output, Phase C's input. One plan is one directory: `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`.
 - `.graph-powers/logs/progress.md` — the cross-session ledger (date + base HEAD and working-tree status per phase).
-- `${paths.planDir}/HANDOFF-<slug>.md` — the reset checkpoint (§ Context Reset Protocol).
+- `<plan dir>/HANDOFF.md` — the reset checkpoint (§ Context Reset Protocol).
 
 Because goal and state live in files, a fresh context can re-enter any loop mid-flight by reading
 the artifact + the active sprint contract — the conversation history is replaceable.
@@ -253,7 +253,7 @@ read them as "all clauses true → exit".
 |---|---|---|---|
 | **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | `superpowers:brainstorming` → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable state change in Phase 0 framing → do not plan) · devil's-advocate at L6+ |
 | **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** GATE 2 `graph-powers:evaluator` Mode 1 meets the 4 anchors **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved | `superpowers:writing-plans` → `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Executing-plans** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** reviewed working-tree checkpoint; overall: all tasks done **AND** `/verify quick` PASS **AND** `/evolve auto` done | implementer → GATE A → GATE B → working-tree checkpoint (`subagent-driven-development`) | HARD-STOP 3 retries/task · COST-GUARD spawn cap 5 · CTX-GUARD reset > 80K · seq-think gate before the 3rd retry |
+| **C — Executing-plans** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → GATE A → GATE B → close the task, and its verification releases what it unblocked (`subagent-driven-development`) | HARD-STOP 3 retries/task · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · seq-think gate before the 3rd retry |
 
 ---
 

@@ -57,6 +57,13 @@ Every artefact needs a real call site. An agent no skill dispatches, and a skill
 mentions, are dead weight in the context budget of every session. The audit that produced this
 repository found 13 orphans of exactly that kind.
 
+This rule file loads whenever you touch `agents/`, `skills/`, `commands/`, `references/` or
+`workflows/` — which is exactly the territory `Skill("skill-improve")` owns. Invoke it when the
+edit is more than a typo: Mode A for the body or description of one artefact, Mode B before adding
+an agent or a skill and after any model or plugin upgrade, to check that what you just wired still
+resolves. The path glob above is the only automatic trigger in this repository that does not depend
+on a model reading a description and deciding.
+
 ## Workflow scripts
 
 `workflows/*.js` has no frontmatter and none of the rules above about it. Its own contract:

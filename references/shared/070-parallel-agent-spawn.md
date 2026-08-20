@@ -22,4 +22,11 @@ When invoking 2+ agents in parallel:
    approach the total, and only the total is enforced in code — the width is a design rule that
    `workflows/ultra-build.js` applies when it slices a wave.
 
+7. **One writer per file.** Units running at the same time own **disjoint** paths, declared per task
+   (`Owns:`), never inferred at dispatch and never negotiated between two running agents. Overlap
+   means the split is wrong: re-split by directory, route or component family, or move the shared
+   thing into the plan's contract as its own task. Schema and migrations, cross-cutting singletons
+   and global stylesheets are never parallel with anything — their ordering is load-bearing.
+   `workflows/ultra-build.js` enforces this in code; a plan that needs the re-slice was drawn wrong.
+
 Anti-pattern: spawning agents serially across multiple messages → loses parallelism + multiplies overhead.

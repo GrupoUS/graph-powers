@@ -1,0 +1,272 @@
+{
+  "skill_name": "skill-improve",
+  "notes": "4 Mode A positives (author or iterate one skill) + 3 Mode B positives (harness wiring) + 2 negatives (must route to senior-prompt-engineer or out of the harness). The two cases that used to be negatives against skill-creator flipped polarity when the two skills merged: 'create a skill for X' and 'my skill does not fire' now MUST fire this skill. They were repointed, not string-replaced, because their predicate was the border itself.",
+  "runner": "ALWAYS run case by case with --test-case; NEVER in default mode. In default mode the runner flattens the assertions of every case against a single response, so a positive `contains` and a negative `not_contains` cancel out — the mathematical ceiling lands near 81%, below any useful threshold, and a correct set of artefacts measured 75% with 4 critical failures. Pass --threshold 1.0: the exit code is only `pass_rate >= threshold`, and the `critical` field never enters it.",
+  "runner_command": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/run_evals.py --skill-path ${CLAUDE_PLUGIN_ROOT}/skills/skill-improve --evals-path ${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/evals/evals.json --response-file <response.txt> --test-case <id> --threshold 1.0",
+  "assertion_design": "Skill-name checks use `regex: (?i)skill-improve\\b` rather than `contains: skill-improve`, because the agent `skill-improver` contains the skill's name as a substring and would match it. Negative cases assert the ABSENCE OF THIS SKILL'S ARTEFACTS (graph.json for Mode B, quick_validate for Mode A) instead of `not_contains` on the name, because a correct refusal that says 'this is not skill-improve territory' contains the forbidden string and would fail the correct behaviour.",
+  "evals": [
+    {
+      "id": "pos-author-new-skill",
+      "polarity": "positive",
+      "mode": "A",
+      "prompt": "Create a new skill for managing Stripe webhook integrations.",
+      "expected_output": "Fires skill-improve in Mode A. Captures intent before drafting, names the SKILL.md frontmatter contract, mentions the anatomy of a skill directory, and treats the description as the triggering mechanism.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires, and the match is not the agent skill-improver.",
+          "check": "regex: (?i)skill-improve\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Names SKILL.md as the required entry point.",
+          "check": "contains: SKILL.md",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Treats the description as the triggering mechanism, not a summary.",
+          "check": "contains_one_of: [\"trigger\", \"triggering\", \"discoverability\"]",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "References the bundled directory anatomy.",
+          "check": "contains_one_of: [\"scripts/\", \"references/\", \"assets/\", \"anatomy\"]",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-reference-skill-structure",
+      "polarity": "positive",
+      "mode": "A",
+      "prompt": "How should I structure a skill that provides API documentation reference for a third-party service?",
+      "expected_output": "Fires Mode A, classifies the skill as the Reference type, and routes the bulk of the material to references/ under progressive disclosure rather than into the SKILL.md body.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires.",
+          "check": "regex: (?i)skill-improve\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Classifies the skill type.",
+          "check": "contains_one_of: [\"Technique\", \"Pattern\", \"Reference\", \"Discipline\"]",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Applies progressive disclosure instead of inlining the reference.",
+          "check": "contains_one_of: [\"progressive disclosure\", \"references/\", \"500\"]",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "pos-full-authoring-loop",
+      "polarity": "positive",
+      "mode": "A",
+      "prompt": "Full skill creation: design, build, and verify a new debugging skill with scripts, references, and evals.",
+      "expected_output": "Fires Mode A and runs the whole loop, including the eval step with the runner invoked per case, and records the round in learning.md.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires.",
+          "check": "regex: (?i)skill-improve\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Reaches the evaluation step rather than stopping at authoring.",
+          "check": "contains_one_of: [\"evals\", \"assertion\", \"run_evals\"]",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Invokes the runner per case, which is the only honest mode.",
+          "check": "contains: --test-case",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Does not claim the work is done without an exit code.",
+          "check": "contains_one_of: [\"exit\", \"threshold\", \"verbatim\"]",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-skill-does-not-fire",
+      "polarity": "positive",
+      "mode": "A",
+      "prompt": "My deploy skill does not fire when I ask for a deploy. How do I make it fire?",
+      "expected_output": "Fires skill-improve in Mode A and stays there: one weak description is description tuning, not a graph audit. Proposes corrected wording and a way to score it. Escalates to Mode B only if a second skill turns out to claim the same words.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires.",
+          "check": "regex: (?i)skill-improve\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Works the description, which is where triggering lives.",
+          "check": "regex: (?i)description",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Stays in Mode A — a full wiring graph is the wrong instrument for one weak description.",
+          "check": "not_contains: graph.json",
+          "critical": true,
+          "note": "This is the A-versus-B border, and it used to be the border between two separate skills. The old negative case neg-skill-does-not-fire asserted the opposite, because firing the wrong skill was the failure then. After the merge the failure mode changed: the skill fires either way, and what can still go wrong is picking the heavier mode."
+        }
+      ]
+    },
+    {
+      "id": "pos-wiring-connected",
+      "polarity": "positive",
+      "mode": "B",
+      "prompt": "Are my commands, skills and agents inside .claude connected and calling each other correctly?",
+      "expected_output": "Fires skill-improve in Mode B, builds the inventory and wiring graph, classifies dangling references, orphans and cycles with path:line, dispatches skill-improver in an isolated subagent for the verdict, and stops without applying a patch.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires.",
+          "check": "regex: (?i)skill-improve\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Produces a wiring graph whose edges cite path:line at both ends.",
+          "check": "contains: graph.json",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "The verdict comes from an isolated subagent, not from the gathering itself.",
+          "check": "contains: skill-improver",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Explicitly states that it stopped without applying a patch.",
+          "check": "regex: (?i)(without applying|no patch|awaiting approval|\\bSTOP\\b)",
+          "critical": true,
+          "note": "A POSITIVE check of the stop, not `not_contains: \"patch applied\"` — that one fires precisely on the correct report, because 'no patch applied' contains the forbidden string. Same family as `contains: ls`: a substring that matches the opposite of what it means to detect."
+        }
+      ]
+    },
+    {
+      "id": "pos-wrong-trigger",
+      "polarity": "positive",
+      "mode": "B",
+      "prompt": "A skill in my repository fires at the wrong time and sometimes loads content from a global skill of the same name. What is going on?",
+      "expected_output": "Fires Mode B, runs the shadowing phase, applies enterprise over personal over project precedence, compares the repository's name values against the global skills directory, proves which file the listing serves by comparing the two descriptions, classifies it P0 when the losing version is the repository's authority, and proposes a rename without applying it.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Names the precedence rule that decides which file the listing serves.",
+          "check": "regex: (?i)precedence",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Reaches outside the repository, where the shadowing copy lives.",
+          "check": "contains: ~/.claude/skills",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Proposes a rename rather than a deletion.",
+          "check": "regex: (?i)rename",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-subagent-not-found",
+      "polarity": "positive",
+      "mode": "B",
+      "prompt": "One of my commands calls a subagent the CLI says it cannot find. Check everything: agents, skills, commands and workflows.",
+      "expected_output": "Fires Mode B, tests the four silent resolvers — symlink, precedence, alias map, module importer — and reopens the disk before confirming anything dangles, then grades severity by call site: it executes is P0, a name inside an illustrative code block is P3.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Tests the alias map, one of the four silent resolvers.",
+          "check": "contains: agentRouting.aliases",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Reopens the disk rather than trusting the inventory.",
+          "check": "regex: \\b(ls |find |grep |Read\\(|Glob\\()",
+          "critical": false,
+          "note": "Word boundary is what kills the false positive: a bare `contains: ls` matches inside 'skills', 'aliases' and 'false'. The first correction, `ls -`, was a false NEGATIVE — real reports write `ls .claude/skills/...` with no flag. Tested in both directions."
+        },
+        {
+          "id": "A03",
+          "description": "Grades severity by call site, so a name inside an example is not a P0.",
+          "check": "regex: (?i)code block",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-agent-prompt",
+      "polarity": "negative",
+      "prompt": "Improve the debugger agent's prompt so it stops proposing a fix before it has found the root cause.",
+      "expected_output": "Does NOT fire skill-improve. Routes to senior-prompt-engineer, the owner of the shape contract for an agent's prompt.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the artefact that owns an agent's prompt.",
+          "check": "contains: senior-prompt-engineer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Mode B did not run — no wiring graph was produced.",
+          "check": "not_contains: graph.json",
+          "critical": true,
+          "note": "Asserts the absence of this skill's ARTEFACT rather than of its name. `not_contains: skill-improve` would fail a correct refusal that says 'this is not skill-improve territory', and would also match the agent skill-improver."
+        },
+        {
+          "id": "A03",
+          "description": "Mode A did not run — no skill was validated or scaffolded.",
+          "check": "not_contains: quick_validate",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-refactor-component",
+      "polarity": "negative",
+      "prompt": "Refactor the inventory-table component — it is too big and it breaks on mobile.",
+      "expected_output": "Does NOT fire skill-improve. This is application source code, outside the harness scope entirely.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Says the subject is outside the harness.",
+          "check": "regex: (?i)(outside|not part of|application (source|code)|frontend)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Mode B did not run.",
+          "check": "not_contains: graph.json",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Mode A did not run.",
+          "check": "not_contains: quick_validate",
+          "critical": true
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ an issue.
 Apache License 2.0 — redistributed, with modifications
 ================================================================================
 
-  skills/skill-creator/
+  skills/skill-improve/
   skills/webapp-testing/
 
 Derived from the Anthropic Agent Skills repository (https://github.com/anthropics/skills),
@@ -32,10 +32,13 @@ as LICENSE.txt.
 
 Modifications by GrupoUS, as required by section 4(b) of that License:
 
-  skills/skill-creator/    SKILL.md rewritten to route harness-wiring questions to this
-                           repository's `harness-audit` skill rather than answering them; the
-                           iteration loop and the `scripts/` evaluation tooling absorbed the
-                           separate `skill-improve` skill this repository used to carry.
+  skills/skill-improve/    Renamed from `skill-creator`. SKILL.md rewritten as a two-mode
+                           router: the upstream authoring loop is Mode A, and this repository's
+                           former `harness-audit` skill was merged in whole as Mode B, the
+                           wiring audit. The `scripts/` evaluation tooling is unmodified
+                           upstream code, now shared by both modes. The name is one this
+                           repository carried before and retired; it is reused here for the
+                           merged skill, whose scope is broader than either original.
   skills/webapp-testing/   Retargeted from a hardcoded URL to `project.stagingUrl` read from
                            `.graph-powers/config.json`; the browser stack documented as the
                            `agent-browser` CLI with Playwright as the fallback.

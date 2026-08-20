@@ -10,7 +10,7 @@ Strict policy anchors for skill compliance. Use with `quick_validate.py`.
 | ------------- | ---------------------------------------------------------------- | --------------------- |
 | `name`        | MUST be kebab-case (a-z, 0-9, hyphens only)                      | Regex: `^[a-z0-9-]+$` |
 | `name`        | MUST be under 64 characters                                      | `len(name) < 64`      |
-| `description` | MUST be under 1024 characters                                    | `len(desc) <= 1024`   |
+| `description` | MUST fit the shared listing entry cap of 1,536 characters        | `check_listing_budget.py` |
 | `description` | MUST NOT contain angle brackets `<>` or `[]`                     | Grepped exclusion     |
 | `description` | MUST start with "Use when..." or equivalent practical invocation | Pattern match         |
 
@@ -49,8 +49,11 @@ Strict policy anchors for skill compliance. Use with `quick_validate.py`.
 
 ### Naming (MUST)
 
-- MUST use gerund form: `creating-skills`, `debugging-flaky-tests`
 - MUST NOT use generic labels: `helper`, `utils`, `tools`
+- MUST match the directory name exactly, unquoted in the frontmatter
+
+A gerund form (`creating-skills`) reads well upstream but is not a rule here: no skill this plugin
+ships uses it, and enforcing it would condemn every name in the repository including this one.
 
 ### Progressive Disclosure (SHOULD)
 
@@ -131,14 +134,15 @@ Strict policy anchors for skill compliance. Use with `quick_validate.py`.
 
 ## Quick Validation
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/quick_validate.py <skill-path>`:
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/quick_validate.py <skill-path>`:
 
-**Exit codes**:
+**Exit codes** — the script emits exactly two, whatever the category of the violation:
 
-- `0`: All MUST rules pass
-- `1`: Frontmatter violation
-- `2`: Structure violation
-- `3`: Content policy violation
+- `0`: every rule passes
+- `1`: any violation, frontmatter or structure or content policy alike
+
+The trigger-phrase rule is a warning on stderr and never changes the exit code, so a skill whose
+description does not start with "Use when" still exits `0`.
 
 **Auto-fixable**:
 

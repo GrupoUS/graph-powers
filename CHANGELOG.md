@@ -1,5 +1,347 @@
 # Changelog
 
+## 1.6.0 — the two skills that policed a border neither could hold
+
+`skill-creator` and `harness-audit` covered one territory between them: what a skill should say, and how skills resolve to each other. Keeping them apart cost 677 characters of the shared listing budget, two eval cases, five statements of prose and two routing-table rows — and the border still leaked. The repository had already measured that. The eval case `neg-skill-does-not-fire` carried a note recording that "my skill does not fire" was the exact prompt where the two collided and that no eval covered it; the response at the time was to add a case defending the border. The border was the defect. They are now one skill, `skill-improve`, paired with the `skill-improver` agent that already existed and whose self-audit clause had been pointing at `skills/skill-improve/` — a path that dangled until this change made it real.
+
+### Changed — two skills became one, and the body shrank by 72%
+
+`skills/skill-creator/` and `skills/harness-audit/` merged into `skills/skill-improve/`, a two-mode router: Mode A authors or iterates one skill, Mode B audits how a harness is wired. The detail moved into `references/authoring.md` and `references/harness-wiring-audit.md`, because a command that loads a skill is charged the SKILL.md bytes and not the references. SKILL.md bodies went 235 + 149 = 384 non-empty lines to 107. The listing budget went 9,331 to 8,898 against the same 10,752 ceiling, and headroom went 1,421 characters to 1,854. Neither skill had a functional call site; the merged one has its first.
+
+### Fixed — fifteen rules that were written twice and believed twice
+
+The merge surfaced fifteen pairs where the two skills, or a skill and its own reference, stated the same rule in incompatible terms. The description cap was 1024 in three files and 1,536 in three others, and only 1,536 is enforced by anything. The eval path was documented as nested in one section and flat in another of the same file, while that file's own evals used the form its own instructions forbade. The frontmatter contract said "`name` and `description` only" while the sibling skill shipped five fields. A naming rule demanded gerund form, which condemns every skill name this plugin ships, and the documented exit codes `2` and `3` for `quick_validate.py` do not exist — it emits `0` or `1`. None of these was a disagreement between authors: each was one author writing the same rule twice, months apart, and believing both. That is now recorded in `skills/skill-improve/learning.md` as the pattern to watch, because fixing a contradiction displaces it unless one home is made canonical.
+
+### Fixed — a validator that rejected the form it forces
+
+`quick_validate.py` captured the opening quote of a YAML scalar as part of the value, so a quoted `description` could never satisfy the "Use when" prefix rule and a quoted `name` failed the hyphen-case check. A folded block scalar is rejected by the angle-bracket test, so a quoted single-line scalar is the only form left — and the validator was warning about the one form it permits. An `unquote` helper now strips one matching pair before the checks. Verified in both directions: the warning fires on `planning`, whose description really does start with "Layer ordering", and no longer on `skill-improve`.
+
+### Fixed — an eval assertion that failed the correct answer
+
+`contains: precedence` is case-sensitive, and a real report capitalises the word at the start of a sentence. Four prose assertions became `regex: (?i)...`; literal filenames, flags and identifiers were left as substring checks. Measured before the fix: 8 of 9 cases exit 0. After: 9 of 9, with a deliberately wrong response exiting 1 and a positive response scored against a negative case exiting 1. The two cases that used to be negatives against `skill-creator` were repointed rather than deleted — "create a skill for X" and "my skill does not fire" must now fire this skill, and the second one carries an assertion that Mode B did **not** run, which is the internal border the merge created in place of the one it removed.
+
+### Changed — `/evolve` now calls a skill that exists in this plugin
+
+`commands/evolve.md` invoked `Skill("superpowers:writing-skills")` for the job `skill-creator` claimed, which meant the only functional call site in this territory pointed at an external plugin. It now calls `Skill("skill-improve")`, whose `references/testing-skills.md` carries the RED-GREEN-REFACTOR discipline. That edge was previously charged zero bytes by `check_context_budget.py`, because its regex matches no name containing a colon — the gate was measuring a load it could not see.
+
+### Changed — the context ceiling rose to 470,000, and the commit says what bought it
+
+Two separate things. 18,585 B was already over the old 440,000 ceiling before this change and had no owner. The rest is the merged 8.6 KB body now being charged to `/evolve` through a call site that finally resolves locally. Lower it again when the pre-existing overage is paid down.
+
+### Fixed — four defects the gates could not see, found by asking what invokes it
+
+Every gate passed on the merged skill, so a second pass asked two questions instead: what invokes this without a person typing it, and when does it open the files it writes. Four answers came back wrong. The merge had deleted `user-invocable: true` and `argument-hint` along with `allowed-tools` — only `allowed-tools` was retired by the rubric, and the other two are live fields, so the skill had stopped being typeable as a slash command while its reference still documented `--all` and `--phase N`. `learning.md` was written at the end of every round and opened at the start of none, which makes an inherited failure pattern decorative. The Phase 5 prompt ordered `MEMORY.md` pasted verbatim without ever saying where it lives, while Phase 0's skip-list named `agent-memory/` as skipped — the skill told itself to skip the directory it must read from. And nothing triggered it automatically at all.
+
+`.claude/rules/artifacts.md` now names it. That file auto-loads on `agents/**`, `skills/**`, `commands/**`, `references/**` and `workflows/**` — the exact territory the skill owns — and its own section titled "What invokes it" was the missing call site. A path glob is the only trigger in this repository that does not depend on a model reading a description and choosing.
+
+The first of those four is the deduplication pattern eating its own author: collapsing "`name` and `description` only" against a sibling that shipped five fields deleted two fields the disagreement was never about. Resolving a contradiction by picking a side also discards whatever the losing side carried incidentally.
+
+### Changed — NOTICE, because the Apache-2.0 obligation follows the directory
+
+`skills/skill-creator/` is Apache-2.0 material from anthropics/skills, and the section 4(b) modification statement names it by path. The path moved, so both the redistribution list and the modification statement were rewritten rather than string-replaced: the sentence claiming the iteration loop had "absorbed the separate `skill-improve` skill this repository used to carry" becomes self-contradictory the moment the merged skill is named `skill-improve`.
+
+## 1.5.0 — one task format, evidence instead of a checkbox, dispatch that stops waiting, and an execution floor that is always on
+
+Three defects in the planning chain, all measured in this repository before anything was edited — and the coordination rules, which were optional, are not any more.
+
+### Fixed — the skill taught a plan format the chain could not consume
+
+`commands/plan.md` mandates seven sections and `commands/verify.md` reads three of them verbatim.
+The template in `skills/planning/references/phase-b-writing-plans.md` — the one `ultra-plan` tells
+its synthesizer to "follow exactly" — contained none of them: `Reuse ledger`, `Regression
+watchlist`, `Rollback` and `Execution graph` appeared nowhere under `skills/planning/`. So the
+workflow was instructed to produce a plan that fails `/plan`'s own post-return checks, and this
+repository's real plan file followed the command rather than the skill. The template now carries
+all seven, and `ultra-plan` names them in the synthesis prompt.
+
+### Changed — a task is now written in one grammar, and its acceptance is a command
+
+A plan task was a `### Task N.M` block whose acceptance was a sentence. Nothing ran it, and the
+implementer self-reported PASS. It is now a checkbox — the syntax `/implement` already parses and
+this repository already writes — carrying `Owns:` (the paths that task alone writes), `Needs:` with
+the payload named, and `CHECK:` / `EXPECT:` / `EVIDENCE:` in place of the sentence.
+
+**A checked box whose `EVIDENCE` still reads `pending` is unmet — worse than unchecked, not
+better.** A checkbox is a claim; the evidence is the proof, and the gap between them was where
+self-certification lived. A check that turns out impossible is surrendered in the open with
+`ABANDON: <id> <reason>` and listed in the report. The idea and its wording come from
+[unlazy](https://github.com/Leonxlnx/unlazy) (MIT), read at `ed9e8d2`.
+
+Atomicity is now testable from both sides: too big if it would need two independent commits or two
+unrelated `EXPECT` strings; too small if its `Owns` set overlaps a sibling's or its `EXPECT` is a
+sub-assertion of one. The unverifiable `Estimated time: 2-5 min` field is gone; the granularity rule
+stays.
+
+### Changed — whole-project checks moved to the phase gate, and dispatch rolls
+
+Every task used to run `format`, `type-check` and `lint` over the whole repository: a twelve-task
+plan paid twelve times for one fact. Those commands now live in the phase's gate block and run once
+per phase. A task's own `CHECK` is scoped to the task.
+
+`workflows/ultra-build.js` dispatched a wave, awaited all of it, then dispatched the next — so every
+task waited for the slowest sibling, including the ones it never reads. It now starts a task the
+moment its own `needs` are done and no in-flight task holds one of its files. Three bounds keep that
+honest: a topological check that **throws** on a dependency cycle rather than awaiting a promise
+that can never settle, `graphGuardrails.maxParallelWave` as in-flight width, and `maxTasksPerPlan`
+as the total. A task the classifier could not give edges for falls back to the old wave barrier,
+which is the safe degradation. `check_workflows.mjs` dry-runs the scheduler's happy path; the other
+eight properties — the cycle, a self-reference, an unknown dependency id, the width cap, a file
+collision and a twelve-long chain among them — were checked once on a throwaway fixture and are not
+covered by a standing gate.
+
+### Fixed — an adversarial pass could widen the work it was reviewing
+
+`ultra-verify`'s skeptic panel had no scope boundary, so a finding past the plan's edge became a fix
+round, which became a new diff, which became a new panel. Findings now carry `inScope`, and only a
+defect the diff introduced, a regression of a `## Regression watchlist` row, or something that makes
+the plan's `## Destination` false can start a fix round. Everything else is reported and returned as
+`outOfScope` — logged, never silently dropped, never work. `commands/verify.md` says the same in
+prose, plus the rule that the same finding surviving its fix twice goes to a person rather than to a
+third patch.
+
+### Changed — one plan is one directory
+
+`${paths.planDir}/YYYY-MM-DD-<slug>/` holds `PLAN.md`, `spec.md` and the phase gates. Reading still
+accepts a bare `.md` written before this convention. `references/shared/007-path-conventions.md` is
+where that is defined, and every other file cites it.
+
+### Removed — the copies that disagreed
+
+The tier ladder existed in five places with three different ceilings, one of which prescribed more
+agents than the spawn cap allows; it is now only in `references/shared/020-complexity-routing.md`,
+which also absorbed the model/effort tiering. The disjoint-file rule was stated ten times and is now
+in `references/shared/070-parallel-agent-spawn.md`. The spawn cap was hardcoded as `5` in fourteen
+places and is `graphGuardrails.maxParallelWave` everywhere. `phase-b`'s duplicate confidence-scoring
+table and its three restatements of sprint contracts are gone; the canonical ones remain.
+`phase-c-executing-plans.md` carried twelve project-specific rules — "no hardcoded hex", "FK index",
+"webhooks idempotent" — inside a distributed artefact, against cardinal 1; they are now
+`chain.hardRules` and `chain.invariants`, which already existed and which `ultra-build` already
+reads.
+
+Two dangling citations that CI cannot see, because `check_wiring.py` only resolves numeric `§` ids:
+`.claude/CLAUDE.md § Intent classification` never existed, and `${rulesDir}/execution.md § Agents &
+Dispatch` had no such heading — the first now points at the tier ladder, and the second exists in
+`templates/rules/execution.md`.
+
+`/plan` cost 67,731 bytes before it did anything, 51% of it `commands/plan.md`. Its Step 0 reasoning
+and table templates moved to `skills/planning/references/step-0-inventory.md`, read at L3+, and the
+three shared fragments a direct edit never needs became conditional reads. Floor now 47,889 —
+**29.3% less on every invocation** — with the full text still reachable and still counted in the
+ceiling.
+
+### Added — `references/execution-floor.md`, the counterpart of the safety floor
+
+`safety-floor.md` says what must never happen. Nothing said how the work is *run*, so that half was
+optional: it lived in a skill the model had to choose to invoke, and in reference fragments a command
+had to name. A session that never invoked either coordinated nothing and reported success.
+
+The new floor holds eight sections: delegating is refused below L3 and required above it; a batch
+goes out in one message with read-only agents in the background; one writer per file; the
+seven-section delegation contract; the split between Claude Code delegating on its own and Codex
+needing to be told in words; one cloud thread per scope; what the parent does with the returns; and
+that an unresolved agent name is a route rather than a stop.
+
+What it deliberately does not carry is every number and table that already has an owner —
+`020-complexity-routing.md` keeps the ladder, `030-agent-assignment-matrix.md` the agent table,
+`070-parallel-agent-spawn.md` the spawn rules and the two configuration ceilings. A floor that
+restated them would be the fifteenth copy of `5`, which the release above had just finished removing.
+
+It reaches both harnesses without a new hook. Codex gets it from the `references/` copy the installer
+already writes, named in the delimited `AGENTS.md` block beside the safety floor.
+`hooks/session_context.py` puts one line in front of every Claude Code session: the posture, and the
+resolved path of the file. Four cases in `hooks/test_hooks.py` hold it to that, including on Codex.
+
+### Removed — `agent-orchestration`, folded into the floor
+
+1.3.0 decided explicitly **not** to delete this skill, on the reasoning that a skill's description is
+itself a routing trigger. That reasoning was sound while the content was lazy — the description was
+the only thing that could bring it into a session. A rule that is resident from the first turn needs
+no trigger, so the argument goes with the skill.
+
+Its unique content moved: the delegation contract into §4, the Claude-versus-Codex split into §5,
+cloud threads into §6, parent consolidation into §7. Its two agent rows that `030` was missing —
+`project-planner` and `verification` — moved into `030` rather than into the floor. Its restatements
+of the spawn rules and the hardcoded "cap at 5" were dropped rather than moved.
+
+`/delegate` no longer invokes a skill to decide the fan-out and no longer defines a second,
+different seven-section contract: it mirrors §4 with a provenance comment, the same convention the
+safety floor uses, so a divergence between the two is visible rather than silent. That also makes
+`/delegate` cheaper — the skill it used to load unconditionally is 4.5 KB of floor it no longer pays.
+
+### Fixed — a rename ate the sentence that taught the namespace
+
+`030-agent-assignment-matrix.md` read "`graph-powers:explorer` is not `graph-powers:explorer`" — an
+automated prefixing pass had rewritten the bare name on both sides of the comparison, in the one file
+that exists to teach the difference between them. The sentence is rewritten to make the point without
+needing the bare token, because `check_wiring.py` is right to refuse one.
+
+### Changed — `senior-prompt-engineer` says half as much and answers the same questions
+
+288 lines to 181, 16 KB to 9.6 KB, and the three `scripts/` are gone. What was cut was not detail —
+it was content that had a different owner, or no owner at all:
+
+- **§ 12, a seventeen-step refactoring checklist**, absorbed in May from a `/refactor-code` command
+  that was deleted in the same change. Nothing has cited it since. Steps like "run linters",
+  "update documentation" and "feature flags for gradual rollout" are true of any codebase, which is
+  what made them free to write and worthless to read. The bundled `/simplify` and
+  `superpowers:test-driven-development` already own that ground.
+- **`scripts/prompt_optimizer.py`, `rag_evaluator.py`, `agent_orchestrator.py`** — 97 lines each,
+  byte-identical apart from the class name, every one with a `_execute()` that returns
+  `{'success': True}` and a `# Add validation logic` where the logic would go. Three years of
+  "reserved for future automation" with no caller, no test and no concrete use case. A docstring
+  reading "Production-grade tool" above a stub is the shape of the problem.
+- **The spawn template and the parallel-batch rules**, which the execution floor and
+  `070-parallel-agent-spawn.md` now own. The skill points at them instead of holding a third copy of
+  the width cap.
+- **An invented table.** "Default preload assignments" prescribed `senior-prompt-engineer` for an
+  Orchestrator role this plugin does not have. The four agents that do preload something preload
+  their own domain skill; the table now says what is true instead of what would be tidy.
+
+The same pass removed the duplication *inside* the skill: `agentic_system_design.md` restated the
+file contract, the preload table and the anti-patterns almost line for line, and now starts where
+`SKILL.md` stops. `parallel-batch-contracts.md` lost a "remaining spawn budget" table that quietly
+contradicted the width-versus-total distinction the spawn rules exist to make.
+
+The floor gained the other half of the edge: filling the seven sections needs no skill, and when only
+the return shape is needed the one reference is read rather than the skill around it.
+
+### Fixed — three claims in that skill that the documentation does not support
+
+`python3 .github/check_wiring.py` cannot see any of these: two are prose, and one was true when it
+was written.
+
+- **"A subagent cannot spawn a subagent — Anthropic spec."** It can, to a default depth of three
+  layers below the main conversation. The anti-pattern is now the real one: nesting that nobody
+  decided on, which spends the session spawn ceiling without a fan-out ever being planned.
+- **A model-selection table recommending agents that do not exist.** It prescribed `opus` for an
+  `orchestrator` and an `oracle`, neither of which is in `agents/`, and named the rest by loose
+  description — "code reviewer", "codebase explorer". The bare-name lint cannot catch a name it has
+  never heard of. The rows are the real twelve now, namespaced. A batch example was corrected the
+  other way: `regression-hunter` is not a ghost but a **role label** for a second
+  `graph-powers:explorer` instance, and the table now says so rather than reading as an agent name.
+- **A citation that was never true.** `llm_evaluation_frameworks.md` opened by declaring itself
+  "cited by `evaluator` agent (Mode 3)". `agents/evaluator.md` has never named it — it loads
+  `references/rubrics/evaluator-rubric.md`. Also removed: two `${rulesDir}/execution.md § Agents &
+  Dispatch → …` sub-anchors pointing at headings the shipped template does not contain, and the
+  lineage prose citing `orchestrator.md`, a file this repository does not have.
+
+## 1.4.1 — the approver stops vouching for what nobody owns
+
+A review of 1.4.0 ran the guardrails instead of reading them, and the two answers disagreed. Six
+commands had moved from `ask` to `allow` on the theory that a dedicated hook owned each decision.
+For `git commit` and `git push` that was exactly right and is documented — Claude Code runs every
+matching `PreToolUse` hook and applies the most restrictive answer, `deny` over `defer` over `ask`
+over `allow`, so the gates still decide. For the other four there was no owner, and the review
+found it by executing them rather than by trusting the comment.
+
+### Fixed — `git checkout -- .` was allowed by everything
+
+`checkout` reads as navigation, so it was sorted with the branch verbs and handed to
+`git_branch_gate`. But `git checkout -- <paths>` is not navigation; it is `git clean`'s twin. It
+overwrites the working tree from the index, and the edits it discards exist in no object git can
+name. `git_branch_gate` never answered for that form — its `target_branch()` gives up the moment
+`--` appears — so `smart_bash_approver` returned `allow` and the other four hooks returned silence.
+Measured on both levels: `guarded` and `autonomous` alike.
+
+The unambiguous destructive spellings are now on the destructive floor, where `git clean -f` and
+`git reset --hard` already were: `checkout -- <paths>`, `checkout .`, `checkout -f`,
+`switch --discard-changes`, and `git restore` without `--staged`. `restore` had been sitting in
+`ASK_PATTERNS`, which resolves to `bashDefault` — `allow` under `autonomous`.
+
+What is left is genuinely ambiguous: `git checkout main` is a branch, `git checkout main.py` is a
+path, and nothing separates them without asking the filesystem. That form went back to `ask`, so
+`guarded` stops and `autonomous` proceeds. It costs no extra prompt where it matters, because
+`deny` outranks `ask` — where `git_branch_gate` refuses, its answer is the one the user sees.
+
+### Fixed — a home directory could turn off the git gates in every repository
+
+`autonomy` is user-scoped so a person's posture survives `git clone`. The comment said `git` was
+excluded deliberately, and that was true of the top-level `git` block — branch names and the
+opt-in prefix. The three *decisions* live under `autonomy`, which is scoped, so they crossed:
+`~/.graph-powers/config.json` with `autonomy.git.{commit,push,protectedBranch}: "auto"` silenced
+`git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository that declares no
+`autonomy` block of its own — which is most of them, since that is why the layer exists. `level`
+went on reporting `guarded` throughout.
+
+A home directory may now tighten a git decision and not release one. `ask` under a personal
+`autonomous` is somebody holding themselves to a stricter line and costs nobody anything; `auto`
+has to be written in the repository it applies to, where a reviewer sees it. Dropping the whole
+sub-block instead would have quietly loosened the operators who had pinned it to `ask`.
+
+`protectedFiles` was the same shape with a worse ending. Lists replace on merge, so
+`{"segments": []}` at home deleted the defaults machine-wide — and unlike `autonomy`, a project
+declaring its own block did not win them back; it merged onto the emptied one. The user layer may
+now only add. `graphGuardrails` is deliberately untouched: its ceilings are spend on the operator's
+own machine, which is what a personal scope is for.
+
+### Fixed — one prefix defeated `allowPackageManagers`, and a runner was waved through
+
+The check ran once against the whole command line, so it only ever read the first word. With
+`["bun"]` declared, `npm install` was refused and `echo ok && npm install` was allowed. It now runs
+per segment, inside `_classify`, alongside every other rule.
+
+The family map added in 1.4.0 is right that `bunx` belongs to `bun` — the lockfile guarantee is
+what the setting protects, and running a package through the manager the project already chose
+forks nothing. But `allow` was the wrong answer: `bunx <package>` resolves and executes code from a
+registry the project never named, and the consent on record was about lockfiles. An in-family
+runner now asks. Declaring the manager outright still allows, and `npx` under `["bun"]` is still
+refused.
+
+### Fixed — `gh pr create`, `chown` and a remote `rsync` had no owner either
+
+All three moved to the always-allow list in 1.4.0. No hook in this plugin gates `gh`, and
+`safety-floor.md §1` wants approval in the turn before anything leaves the machine. Ownership is
+outside git entirely. And "additive" describes what `rsync` does to the destination filesystem,
+which says nothing about the destination *host* — a remote target is egress. All three ask again;
+a local-to-local `rsync` without `--delete` still runs unprompted, which was the change worth
+keeping.
+
+### Fixed — a symlink walked past every protected path
+
+`protect_files` matched the path as a string, so `ln -s .env notes.md` followed by a write to
+`notes.md` matched nothing and landed in `.env`. Both names are checked now — the link, because a
+project may protect the link itself, and its target, because that is where the bytes go. A failure
+to resolve falls back to the literal path: fewer names checked, never fewer than before.
+
+### Fixed — two gates that could not fail, and one that could not see
+
+`check_context_budget.py` shipped with no threshold and no step in CI, while `AGENTS.md` and
+`.claude/rules/verify-supplements.md` both listed it among the gates that pass before anything
+ships. Every mode returned 0. It now has a floor, a ceiling and a per-command cap, and it runs.
+
+`check_portability.py` named three `.mjs` defects in its own docstring as its motivation and
+scanned no `.mjs` file, so it could not have caught a regression of any of them. It scans the
+installers now, and the five checks are the five defects this repository actually shipped —
+verified against a synthetic file carrying all of them. Its markdown scan also skipped the
+repository root, where `AGENT_SETUP.md` — which ships, and which an agent follows — carried
+twenty-six POSIX-only lines. Those are rewritten as the Python the file already uses elsewhere.
+`README.md` and `CONTRIBUTING.md` are exempt and say why: they are prose for a person, not a block
+an agent executes.
+
+Two of the gate's own rules were wrong in the other direction and were narrowed rather than
+obeyed. `~/` inside `os.path.expanduser("~/…")` is the fix for the defect, not the defect, and a
+POSIX line beside its PowerShell counterpart is coverage. Both are now judged by their context —
+the file for the first, the fenced block for the second.
+
+### Fixed — CI could not go green on a correct changelog
+
+The dangling-reference gate held every `**/*.md` to today's tree. A changelog names files that
+were deleted and files this repository never owned: `agents/codex-rescue.md` belongs to the codex
+plugin, and the 1.3.1 entry describing it is accurate prose the regex cannot distinguish from a
+broken link. Requiring a history to resolve against the present means it can never record a
+removal, which is most of what a history is for. `CHANGELOG.md` is skipped; nothing else in the
+tree dangles.
+
+### Changed — the suite grew by twenty-seven cases, and four changed their answer
+
+`hooks/test_hooks.py` runs 212 checks. The four that changed are the four behaviours above that
+were asserted as correct in 1.4.0: `bunx` now asks rather than runs, `gh pr create` and a remote
+`rsync` ask, and the approver's vote on `git checkout` is `ask` rather than `allow` with
+`git_branch_gate`'s `deny` still proving what decides. The rest are new negative cases — the
+destructive `checkout`/`restore`/`switch` spellings and their legitimate mirrors, the per-segment
+package-manager refusal, `autonomy.git` in both directions, `protectedFiles` in both directions,
+and the symlink, which skips loudly on a platform that refuses to create one.
+
 ## 1.4.0 — the harness answers a sentence, and a preference survives the clone
 
 ### Changed — 24 descriptions rewritten, because that is where automatic invocation lives

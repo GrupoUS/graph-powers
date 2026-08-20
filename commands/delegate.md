@@ -1,5 +1,5 @@
 ---
-description: "Hand one task to a named specialist agent through the 7-section delegation protocol. Use when the user asks to delegate, to hand it to an agent, or to spawn a specialist for a specific piece. Do not use to decide how many agents a task needs — that is the agent-orchestration skill."
+description: "Hand one task to a named specialist agent through the 7-section delegation protocol. Use when the user asks to delegate, to hand it to an agent, or to spawn a specialist for a specific piece. Do not use to decide how many agents a task needs — that is the execution floor, which is already loaded."
 workflow_type: routing
 ---
 
@@ -16,9 +16,10 @@ Skill("superpowers:using-superpowers"); // meta — bootstrap (per `${CLAUDE_PLU
 
 If the task scope is ambiguous (user did not name the agent, multiple agents could plausibly own the work, or the deliverable is not a concrete file change), invoke `Skill("superpowers:brainstorming")` first to surface alternatives + tradeoffs before locking in the delegation. Skip when the user already named the agent or the routing matrix is unambiguous.
 
-**Which agent, and whether to use one at all**, is `Skill("agent-orchestration")` — it routes; this
-command executes. It also fires on its own when a request asks for agents in so many words, in which
-case it hands the chosen agent here and the contract below is what runs.
+**Which agent, and whether to use one at all**, is the execution floor
+(`${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` §1) — it routes, this command executes. That
+floor is always in force, not invoked: when its ladder says a task needs a specialist, the chosen
+agent lands here and the contract below is what runs.
 
 Before delegating, you MUST complete the Pre-Delegation Declaration:
 
@@ -32,15 +33,18 @@ Skill evaluation:
 Expected outcome: [concrete deliverable]
 ```
 
-Then structure the delegation prompt with ALL 7 sections:
+Then structure the delegation prompt with ALL 7 sections. <!-- mirror of execution-floor.md §4 -->
+The floor defines them; this list is the same seven, in the same order, so the parent can consolidate
+mechanically. Changing one without the other is the divergence the provenance comment exists to make
+visible:
 
 1. TASK: [atomic, specific - one action per delegation]
 2. EXPECTED OUTCOME: [concrete deliverables with success criteria]
-3. REQUIRED SKILLS: [skills to invoke]
-4. REQUIRED TOOLS: [explicit whitelist]
+3. MANDATORY CONTEXT: [original request, locked decisions, prior findings, current state, and an explicit "do NOT redo"]
+4. REQUIRED SKILLS & TOOLS: [skills to invoke, plus the explicit tool whitelist]
 5. MUST DO: [exhaustive requirements - nothing implicit]
 6. MUST NOT DO: [forbidden actions]
-7. CONTEXT: [file paths, patterns, constraints]
+7. RETURN FORMAT: [Context Handoff; the finding table for a parallel batch]
 
 After delegation completes, VERIFY:
 

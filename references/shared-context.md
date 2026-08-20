@@ -45,5 +45,5 @@ to a header is a claim that the command acts on it; if it does not, the line is 
 
 Nothing inside the plugin cites `shared-context.md § N` any more. The path stays live because
 things outside it do: `codex/install.mjs` writes it into the generated `AGENTS.md`, the
-harness-audit skill reads it, and installed copies of older versions point here. An index is what
+installed copies of older versions point here. An index is what
 they should find — not a 22 KB file, and not a 404.

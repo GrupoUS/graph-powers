@@ -28,8 +28,16 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  asList, copyTree, listDirs, listMarkdown, parseFrontmatter, readJson,
-  rewriteForCodex, tomlBlock, tomlString, writeFile,
+  asList,
+  copyTree,
+  listDirs,
+  listMarkdown,
+  parseFrontmatter,
+  readJson,
+  rewriteForCodex,
+  tomlBlock,
+  tomlString,
+  writeFile,
 } from "./lib.mjs";
 
 const MARKER_START = "<!-- graph-powers:start -->";
@@ -78,19 +86,26 @@ export function readHooksFile(path, log = () => {}) {
   try {
     raw = readFileSync(path, "utf8");
   } catch (e) {
-    throw new Error(`${path} exists but could not be read (${e.message}) — refusing to overwrite it.`, {
-      cause: e,
-    });
+    throw new Error(
+      `${path} exists but could not be read (${e.message}) — refusing to overwrite it.`,
+      {
+        cause: e,
+      },
+    );
   }
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed;
-  } catch { /* handled below */ }
+  } catch {
+    /* handled below */
+  }
 
   const backup = `${path}.unparseable-backup`;
   try {
     copyFileSync(path, backup);
-  } catch { /* the warning below is still the important part */ }
+  } catch {
+    /* the warning below is still the important part */
+  }
   log(`${path} is not valid JSON — a copy was kept at ${backup}; its entries are NOT carried over`);
   return { hooks: {} };
 }
@@ -106,16 +121,32 @@ export function readHooksFile(path, log = () => {}) {
  * of each running code from a directory that no longer had a reason to exist. Comparing against
  * the template with the root wildcarded is what makes the merge idempotent across a move.
  */
-function ourCommandPattern(template) {
-  const escaped = template.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped.replaceAll("\\$\\{CLAUDE_PLUGIN_ROOT\\}", ".+")}$`);
+function ourCommandPattern(template, roots) {
+  const escapeRe = (value) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // The roots this install can vouch for: where it is running from now, plus wherever the manifest
+  // says the previous install ran from. `.+` used to stand in for "any root", and it matched more
+  // than any root — `python3 "/opt/other-tool/hooks/notify.py"` satisfies
+  // `^python3 "(.+)/hooks/notify\.py"$`, so a third party's hook with the same basename was
+  // deleted on the next install. That is destruction of a file this installer did not create, in
+  // the one file the uninstall path and the CI fixture are both explicit about preserving.
+  //
+  // An unknown root now matches nothing, which at worst leaves a duplicate registration — visible,
+  // and repaired by `--force`. Deleting somebody else's hook is neither.
+  if (!roots.length) return null;
+  const alternation = roots.map(escapeRe).join("|");
+  const escaped = escapeRe(template);
+  return new RegExp(`^${escaped.replaceAll("\\$\\{CLAUDE_PLUGIN_ROOT\\}", `(?:${alternation})`)}$`);
 }
 
-export function mergeHooks(existing, ours, templates = []) {
+export function mergeHooks(existing, ours, templates = [], roots = [], known = []) {
   const merged = JSON.parse(JSON.stringify(existing?.hooks ? existing : { hooks: {} }));
   merged.hooks ??= {};
-  const mine = templates.map(ourCommandPattern);
-  const isMine = (command) => mine.some((re) => re.test(command));
+  const mine = templates.map((t) => ourCommandPattern(t, roots)).filter(Boolean);
+  // Two ways to recognise our own: the exact strings the last manifest recorded writing, and the
+  // templates resolved against a root we know about. The first is identity, not inference, and it
+  // is what makes a moved root repairable without guessing at paths.
+  const recorded = new Set(known);
+  const isMine = (command) => recorded.has(command) || mine.some((re) => re.test(command));
 
   for (const [event, groups] of Object.entries(ours)) {
     merged.hooks[event] ??= [];
@@ -174,7 +205,9 @@ export function emitHooks(path, merged, { dryRun = false, log = () => {}, writte
   let current = null;
   try {
     current = readFileSync(path, "utf8");
-  } catch { /* absent — write it */ }
+  } catch {
+    /* absent — write it */
+  }
   if (current === next) {
     log(`${path} — unchanged, left alone (a rewrite would cost a /hooks re-approval)`);
     return false;
@@ -233,8 +266,9 @@ export function agentToToml(markdown, { model, reasoningEffort } = {}) {
   const declared = String(asList(data.effort)[0] ?? "").toLowerCase();
   const fromModel = EFFORT_BY_MODEL[String(asList(data.model)[0] ?? "").toLowerCase()];
   const byRole = JUDGING_ROLES.has(String(asList(data.role_type)[0] ?? "")) ? "high" : null;
-  const effort = [declared, fromModel, byRole, reasoningEffort]
-    .find((e) => e && VALID_EFFORT.has(String(e)));
+  const effort = [declared, fromModel, byRole, reasoningEffort].find(
+    (e) => e && VALID_EFFORT.has(String(e)),
+  );
   if (effort) lines.push(`model_reasoning_effort = ${tomlString(effort)}`);
 
   if (readOnly) lines.push(`sandbox_mode = "read-only"`);
@@ -254,7 +288,7 @@ export function agentsBlock(refsDir = "~/.codex/graph-powers", { global: isGloba
       ? "This machine runs the Graph Powers harness, installed once and shared by every project."
       : "This project runs the Graph Powers harness.",
     "",
-    "Two files carry everything else:",
+    "Three files carry everything else:",
     "",
     `- \`${refsDir}/shared-context.md\` — an index of the shared patterns, one file each under`,
     `  \`${refsDir}/shared/\`: config loader, quality gates, complexity routing, agent matrix,`,
@@ -262,6 +296,11 @@ export function agentsBlock(refsDir = "~/.codex/graph-powers", { global: isGloba
     `- \`${refsDir}/safety-floor.md\` — the invariants that hold regardless of the task: git and`,
     "  outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,",
     "  scope, completion claims, accessibility.",
+    `- \`${refsDir}/execution-floor.md\` — how the work is coordinated, in force from the first turn:`,
+    "  delegation is required above L3 and refused below it, read-only agents go to the background in",
+    "  a single message, one writer per file, and the seven-section contract every spawned prompt",
+    "  carries. On Codex nothing spawns on its own — the prompt has to say so. Read it before",
+    "  spawning anything.",
     "",
     "**What is global and what is this project's.** The harness itself — skills, subagents,",
     "commands, guardrails — is installed once for the whole machine, because it is identical",
@@ -364,18 +403,31 @@ export function globallyInstalled(pluginRoot) {
  * then edited by the project, so the line somebody added after an incident lives in them. Removal
  * reports where they are and leaves them alone.
  */
-function manifestBuilder({ manifestPath, version, pluginRoot, scope, hookCommands, adopted = [], extra = {} }) {
+function manifestBuilder({
+  manifestPath,
+  version,
+  pluginRoot,
+  scope,
+  hookCommands,
+  adopted = [],
+  extra = {},
+}) {
   const excluded = new Set([manifestPath, ...adopted]);
-  return (list, complete) => `${JSON.stringify({
-    version,
-    scope,
-    complete,
-    pluginRoot,
-    hookCommands,
-    paths: list.filter((path) => !excluded.has(path)),
-    ...(adopted.length ? { adopted } : {}),
-    ...extra,
-  }, null, 2)}\n`;
+  return (list, complete) =>
+    `${JSON.stringify(
+      {
+        version,
+        scope,
+        complete,
+        pluginRoot,
+        hookCommands,
+        paths: list.filter((path) => !excluded.has(path)),
+        ...(adopted.length ? { adopted } : {}),
+        ...extra,
+      },
+      null,
+      2,
+    )}\n`;
 }
 
 /**
@@ -386,8 +438,22 @@ function manifestBuilder({ manifestPath, version, pluginRoot, scope, hookCommand
  * load-bearing part — a manifest written after the files it describes cannot survive an install
  * that dies in between.
  */
-function openInstall({ paths, pluginJson, pluginRoot, manifestBody, extraPlanned, dryRun, log, written }) {
+function openInstall({
+  paths,
+  pluginJson,
+  pluginRoot,
+  manifestBody,
+  extraPlanned,
+  dryRun,
+  log,
+  written,
+}) {
   const planned = plannedPaths(pluginRoot, paths, extraPlanned);
+  // Read before the write, because the write destroys it. The previous manifest is the only record
+  // of which command strings this plugin put in a shared hooks file and which root it used; the
+  // line below replaces it with this run's. Reading it afterwards returns the current root twice
+  // and leaves the old block in place — which is the duplication this whole path exists to stop.
+  const previous = readJson(paths.manifest) ?? {};
   if (!dryRun) writeFile(paths.manifest, manifestBody(planned, false));
 
   // Hooks, merged. Another tool writes this file too (`npx impeccable install` is one), and
@@ -400,9 +466,18 @@ function openInstall({ paths, pluginJson, pluginRoot, manifestBody, extraPlanned
   // The manifest's own command templates, root still unresolved: what lets the merge recognise a
   // block this plugin wrote from somewhere else and replace it instead of doubling it.
   const templates = Object.values(pluginJson.hooks ?? {})
-    .flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
-  emitHooks(paths.hooks, mergeHooks(readHooksFile(paths.hooks, log), hooks, templates),
-            { dryRun, log, written });
+    .flat()
+    .flatMap((g) => (g.hooks ?? []).map((h) => h.command));
+  // What the previous install left behind, read from its own manifest: the exact command strings
+  // and the root they were written with. Without this the merge has to infer ownership from the
+  // path shape, and a path shape is exactly what a third party can share by accident.
+  const roots = [...new Set([pluginRoot, previous.pluginRoot].filter(Boolean))];
+  const known = Array.isArray(previous.hookCommands) ? previous.hookCommands : [];
+  emitHooks(
+    paths.hooks,
+    mergeHooks(readHooksFile(paths.hooks, log), hooks, templates, roots, known),
+    { dryRun, log, written },
+  );
   return { planned, added };
 }
 
@@ -422,10 +497,12 @@ function plannedPaths(pluginRoot, paths, extra = []) {
   return [
     ...extra,
     ...listDirs(join(pluginRoot, "skills")).map((n) => join(paths.skills, n)),
-    ...listMarkdown(join(pluginRoot, "commands"))
-      .map((f) => join(paths.skills, `graph-powers-${basename(f, ".md")}`)),
-    ...listMarkdown(join(pluginRoot, "agents"))
-      .map((f) => join(paths.agents, `${basename(f, ".md")}.toml`)),
+    ...listMarkdown(join(pluginRoot, "commands")).map((f) =>
+      join(paths.skills, `graph-powers-${basename(f, ".md")}`),
+    ),
+    ...listMarkdown(join(pluginRoot, "agents")).map((f) =>
+      join(paths.agents, `${basename(f, ".md")}.toml`),
+    ),
   ];
 }
 
@@ -450,27 +527,37 @@ function writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written,
   // Commands become skills: Codex deprecated custom prompts in favour of them.
   for (const file of listMarkdown(join(pluginRoot, "commands"))) {
     const name = basename(file, ".md");
-    const { data, body } = parseFrontmatter(readFileSync(join(pluginRoot, "commands", file), "utf8"));
+    const { data, body } = parseFrontmatter(
+      readFileSync(join(pluginRoot, "commands", file), "utf8"),
+    );
     if (!data.description) continue;
     written.push(join(paths.skills, `graph-powers-${name}`));
-    emit(join(paths.skills, `graph-powers-${name}`, "SKILL.md"), rewrite([
-      "---",
-      `name: graph-powers-${name}`,
-      `description: ${JSON.stringify(String(data.description))}`,
-      "---",
-      "",
-      `> Generated from the \`/${name}\` command of Graph Powers. On Claude Code this is a slash`,
-      "> command; Codex reads it as a skill, which is the surface Codex kept.",
-      "",
-      body.trimStart(),
-    ].join("\n")));
+    emit(
+      join(paths.skills, `graph-powers-${name}`, "SKILL.md"),
+      rewrite(
+        [
+          "---",
+          `name: graph-powers-${name}`,
+          `description: ${JSON.stringify(String(data.description))}`,
+          "---",
+          "",
+          `> Generated from the \`/${name}\` command of Graph Powers. On Claude Code this is a slash`,
+          "> command; Codex reads it as a skill, which is the surface Codex kept.",
+          "",
+          body.trimStart(),
+        ].join("\n"),
+      ),
+    );
   }
 
   // Subagents. Rewritten before translation, not after: the agent bodies carry the same
   // plugin-root references the skills do, and a subagent pointed at a path that resolves to
   // nothing loads an empty rubric and reports as if it had read one.
   for (const file of listMarkdown(join(pluginRoot, "agents"))) {
-    const toml = agentToToml(rewrite(readFileSync(join(pluginRoot, "agents", file), "utf8")), codex);
+    const toml = agentToToml(
+      rewrite(readFileSync(join(pluginRoot, "agents", file), "utf8")),
+      codex,
+    );
     if (toml) emit(join(paths.agents, `${basename(file, ".md")}.toml`), toml);
   }
 
@@ -488,11 +575,17 @@ function writeInstructions({ path, referencesRef, global: isGlobal, emit }) {
 /**
  * The global half: everything that is identical in every project.
  *
- * Skipped entirely when it is already present at the same version — re-copying 12 skills on every
+ * Skipped entirely when it is already present at the same version — re-copying 11 skills on every
  * project setup is work nobody asked for, and on Codex it would also churn `hooks.json`, which
  * costs the user a re-approval prompt for no change.
  */
-export function installGlobal({ pluginRoot, dryRun = false, force = false, codex = {}, log = () => {} }) {
+export function installGlobal({
+  pluginRoot,
+  dryRun = false,
+  force = false,
+  codex = {},
+  log = () => {},
+}) {
   const paths = codexPaths("user", process.cwd());
   const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
   if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
@@ -517,24 +610,36 @@ export function installGlobal({ pluginRoot, dryRun = false, force = false, codex
     hookCommands: buildHooks(pluginJson, pluginRoot).added.map((a) => a.command),
   });
   const { planned } = openInstall({
-    paths, pluginJson, pluginRoot, manifestBody,
+    paths,
+    pluginJson,
+    pluginRoot,
+    manifestBody,
     extraPlanned: [paths.hooks, paths.instructions, paths.references],
-    dryRun, log, written,
+    dryRun,
+    log,
+    written,
   });
 
   const home = homedir();
-  const rewrite = (text) => rewriteForCodex(text, {
-    skillsRef: home ? paths.skills.replace(home, "~") : paths.skills,
-    referencesRef: paths.referencesRef,
-    pluginRoot,
-  });
+  const rewrite = (text) =>
+    rewriteForCodex(text, {
+      skillsRef: home ? paths.skills.replace(home, "~") : paths.skills,
+      referencesRef: paths.referencesRef,
+      pluginRoot,
+    });
 
   writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written, emit });
-  writeInstructions({ path: paths.instructions, referencesRef: paths.referencesRef, global: true, emit });
+  writeInstructions({
+    path: paths.instructions,
+    referencesRef: paths.referencesRef,
+    global: true,
+    emit,
+  });
 
   // Rewritten with what actually landed, and marked complete.
   log(paths.manifest);
-  if (!dryRun) writeFile(paths.manifest, manifestBody([...new Set([...planned, ...written])], true));
+  if (!dryRun)
+    writeFile(paths.manifest, manifestBody([...new Set([...planned, ...written])], true));
 
   return { skipped: false, written, version: pluginJson.version, manifest: paths.manifest };
 }
@@ -576,7 +681,12 @@ export function installProject({ projectDir, pluginRoot, dryRun = false, log = (
     written.push(rulesDst);
   }
 
-  writeInstructions({ path: agentsPath, referencesRef: globalPaths.referencesRef, global: true, emit });
+  writeInstructions({
+    path: agentsPath,
+    referencesRef: globalPaths.referencesRef,
+    global: true,
+    emit,
+  });
 
   log(manifestPath);
   if (!dryRun) writeFile(manifestPath, manifestBody(written, true));
@@ -586,7 +696,15 @@ export function installProject({ projectDir, pluginRoot, dryRun = false, log = (
 }
 
 /** Backwards-compatible entry point: global first, then the project half. */
-export function install({ projectDir, pluginRoot, scope = "user", dryRun = false, force = false, codex = {}, log = () => {} }) {
+export function install({
+  projectDir,
+  pluginRoot,
+  scope = "user",
+  dryRun = false,
+  force = false,
+  codex = {},
+  log = () => {},
+}) {
   if (scope === "project") {
     return installProjectOnlyLegacy({ projectDir, pluginRoot, dryRun, codex, log });
   }
@@ -600,7 +718,13 @@ export function install({ projectDir, pluginRoot, scope = "user", dryRun = false
  * a machine where several people share a home directory, or a repository that must carry its own
  * pinned copy. It is not the default, and the setup playbook says why.
  */
-function installProjectOnlyLegacy({ projectDir, pluginRoot, dryRun = false, codex = {}, log = () => {} }) {
+function installProjectOnlyLegacy({
+  projectDir,
+  pluginRoot,
+  dryRun = false,
+  codex = {},
+  log = () => {},
+}) {
   const paths = codexPaths("project", projectDir);
   const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
   if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
@@ -619,16 +743,22 @@ function installProjectOnlyLegacy({ projectDir, pluginRoot, dryRun = false, code
     extra: { machineSpecific: [".codex/hooks.json", ".codex/agents/", ".agents/skills/"] },
   });
   const { planned } = openInstall({
-    paths, pluginJson, pluginRoot, manifestBody,
+    paths,
+    pluginJson,
+    pluginRoot,
+    manifestBody,
     extraPlanned: [paths.hooks, agentsPath, paths.references],
-    dryRun, log, written,
+    dryRun,
+    log,
+    written,
   });
 
-  const rewrite = (text) => rewriteForCodex(text, {
-    skillsRef: ".agents/skills",
-    referencesRef: paths.referencesRef,
-    pluginRoot,
-  });
+  const rewrite = (text) =>
+    rewriteForCodex(text, {
+      skillsRef: ".agents/skills",
+      referencesRef: paths.referencesRef,
+      pluginRoot,
+    });
 
   writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written, emit });
 
@@ -656,7 +786,11 @@ export function uninstall({ projectDir, scope = "all", dryRun = false, log = () 
   const targets = [];
   if (scope !== "project") targets.push({ kind: "global", ...codexPaths("user", projectDir) });
   if (scope !== "user") {
-    targets.push({ kind: "project", ...codexPaths("project", projectDir), manifest: join(projectDir, MANIFEST) });
+    targets.push({
+      kind: "project",
+      ...codexPaths("project", projectDir),
+      manifest: join(projectDir, MANIFEST),
+    });
   }
 
   const removed = [];
@@ -688,7 +822,8 @@ export function uninstall({ projectDir, scope = "all", dryRun = false, log = () 
         const b = text.indexOf(MARKER_END);
         if (a !== -1 && b !== -1) {
           log(`${path} (block removed)`);
-          if (!dryRun) writeFile(path, `${(text.slice(0, a) + text.slice(b + MARKER_END.length)).trim()}\n`);
+          if (!dryRun)
+            writeFile(path, `${(text.slice(0, a) + text.slice(b + MARKER_END.length)).trim()}\n`);
         }
         continue;
       }
@@ -710,14 +845,19 @@ export function uninstall({ projectDir, scope = "all", dryRun = false, log = () 
 
   // Prune only directories we created, and only when nothing else moved in.
   for (const dir of [
-    join(projectDir, ".codex/agents"), join(projectDir, ".codex/graph-powers"),
-    join(projectDir, ".codex/rules"), join(projectDir, ".graph-powers"),
+    join(projectDir, ".codex/agents"),
+    join(projectDir, ".codex/graph-powers"),
+    join(projectDir, ".codex/rules"),
+    join(projectDir, ".graph-powers"),
     join(codexPaths("user", projectDir).references),
     join(codexPaths("user", projectDir).agents),
   ]) {
     try {
-      if (existsSync(dir) && readdirSync(dir).length === 0 && !dryRun) rmSync(dir, { recursive: true });
-    } catch { /* non-empty or unreadable stays — never guess here */ }
+      if (existsSync(dir) && readdirSync(dir).length === 0 && !dryRun)
+        rmSync(dir, { recursive: true });
+    } catch {
+      /* non-empty or unreadable stays — never guess here */
+    }
   }
   return removed;
 }
@@ -732,7 +872,9 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   };
   const opts = {
     projectDir: resolve(value("--project", process.cwd())),
-    pluginRoot: resolve(value("--plugin", join(fileURLToPath(new URL(".", import.meta.url)), ".."))),
+    pluginRoot: resolve(
+      value("--plugin", join(fileURLToPath(new URL(".", import.meta.url)), "..")),
+    ),
     scope: value("--scope", "user"),
     dryRun: argv.includes("--dry-run"),
     // `install()` and `installGlobal()` have honoured `force` since they were written; the argv

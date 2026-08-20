@@ -26,51 +26,11 @@ References:
 
 ---
 
-## 2. Subagent file contract
+## 2. The file contract, and preloading
 
-Required per Anthropic spec:
-
-```markdown
----
-name: <unique-lowercase-hyphens>
-description: <when Claude should delegate — front-load use case>
-tools: <allowlist OR omit to inherit all>          # OR disallowedTools
-model: opus | sonnet | haiku | inherit             # default: inherit
-skills: [<skill-name>, …]                          # optional preload
-permissionMode: default | acceptEdits | plan | …   # optional
-maxTurns: <int>                                    # optional cap
-isolation: worktree                                # optional sandbox
----
-
-# <Agent Name>
-
-[System prompt — 50-300 lines. Sections: Role · Iron Laws · Phases · Handoff · Stopping]
-```
-
-**Body conventions in this repo:**
-
-1. **Role** — one paragraph: who the agent is, what it owns.
-2. **Iron Laws** — non-negotiable invariants (e.g., "never write outside `src/`", "always finish with quality gate").
-3. **Phases** — numbered execution flow.
-4. **Handoff Format** — link to `agent-handoff-contracts.md` (do NOT redeclare schema).
-5. **Stopping Conditions** — explicit triggers for `BLOCKED` / escalation.
-
-**Forbidden:** repeating context that the `senior-prompt-engineer` skill already preloads.
-
----
-
-## 3. Skill preload (`skills:` frontmatter) vs. body-level `Skill()`
-
-> **Anthropic doc:** "Subagents don't inherit skills from the parent conversation; you must list them explicitly. The full content of each skill is injected into the subagent's context, not just made available for invocation."
-
-| Pattern | When | Cost | Typical example |
-|---|---|---|---|
-| **Preload** (`skills: [<name>]` in frontmatter) | The agent **always** needs the skill — every invocation. Process skills (planning methodology, debugging methodology, agent-orchestration). | Skill body injected at startup; counts against subagent context budget once. | Orchestrator preloads `senior-prompt-engineer` + `planning`; debugger preloads its methodology skill. |
-| **Body-level `Skill()` call** | The agent **conditionally** needs the skill (depends on routing). Domain skills (framework-specific, design system, brand voice). | Skill body loaded only when invoked; cheaper if skill is unused. | A frontend specialist calling a UI/design-system skill only on UI tasks. |
-
-**Rule of thumb:** if removing the skill would break >50% of the agent's invocations, preload it. Otherwise body-level.
-
-**Precondition for preloading:** target skill must NOT set `disable-model-invocation: true` (Anthropic constraint).
+Both live in `SKILL.md` — the frontmatter shape and body sections in § 2, the preload-versus-`Skill()`
+decision in § 8. They are not repeated here; this file starts where those stop, at the four choices
+below that the contract leaves open.
 
 ---
 
@@ -95,9 +55,9 @@ isolation: worktree                                # optional sandbox
 
 | Model | When | Typical agents |
 |---|---|---|
-| `opus` | Architecture, ambiguous reasoning, multi-lens evaluation | orchestrator, evaluator, oracle, debugger, write-capable specialists, planner, verification |
-| `sonnet` | Code review, structured analysis with clear rubric | code reviewer |
-| `haiku` | Fast read-only search, low-stakes lookups | codebase explorer, docs/web librarian |
+| `opus` | Architecture, ambiguous reasoning, multi-lens evaluation | `graph-powers:evaluator`, `graph-powers:debugger`, `graph-powers:project-planner`, `graph-powers:verification`, write-capable specialists |
+| `sonnet` | Review and structured analysis against a clear rubric | `graph-powers:security-reviewer`, `graph-powers:skill-improver` |
+| `haiku` | Fast read-only lookup, low stakes | nothing in this plugin today — the two researchers judge what they find |
 | `inherit` | When agent should match parent's capability tier | rare |
 
 **Cost guidance:** prefer `haiku` for read-only research agents; tokens add up across parallel batches.
@@ -130,16 +90,13 @@ The third pattern is **not the default** here — keep skills as content (loaded
 
 ---
 
-## 8. Anti-patterns
+## 8. One anti-pattern that only exists at this level
 
-| Anti-pattern | Symptom | Fix |
-|---|---|---|
-| **Vague description** | Skill/agent never auto-triggers | Front-load use case in description; include trigger phrases ("Use when…") |
-| **Body bloat** | SKILL.md > 500 lines | Move detail to `references/<topic>.md`; SKILL.md is the index |
-| **Re-declared schemas** | Three agents define their own "Context Handoff" block | Single SSOT in this skill; agents link only |
-| **Auto-trigger on `disable-model-invocation: true`** | Skill listed in `skills:` preload silently skipped | Remove the flag; or invoke manually only |
-| **Subagent spawning subagent** | Doesn't work — Anthropic spec | Use coordinator + agent team for nested orchestration |
-| **Spawning eagerly when result not yet needed** | Wasted parallelism — agent finishes idle while parent works on something else | Use `run_in_background: true` for read-only agents per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` |
+Nesting is allowed: a subagent may spawn a subagent, to a default depth of three layers below the
+main conversation. That is the trap, not a capability to reach for — a chain that spawns at every
+level exhausts `graphGuardrails.maxSpawnsPerSession` without anyone having decided to fan out. Spawn
+from the level that owns the decision; below L6, a coordinator plus phase gates costs less than a
+third layer. The rest of the anti-patterns are in `SKILL.md` § 11.
 
 ---
 

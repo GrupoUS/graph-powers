@@ -1,15 +1,15 @@
 # Agent Handoff Contracts
 
 > Canonical structured handoff schema returned by every Claude Code subagent.
-> Loaded by the `senior-prompt-engineer` skill, by `skills/planning/SKILL.md`, by
-> `skills/agent-orchestration/SKILL.md`, and read by all twelve agents in `agents/` for the
+> Loaded by the `senior-prompt-engineer` skill, by `skills/planning/SKILL.md`, named as the return
+> format by `references/execution-floor.md` §4, and read by all twelve agents in `agents/` for the
 > canonical Context Handoff.
 
 ---
 
 ## 1. Spawn template (5 mandatory context fields)
 
-Every `Agent()` / `Task()` invocation MUST inject these fields into the prompt. Promoted from `orchestrator.md` to skill SSOT — do not re-declare in command bodies.
+The `MANDATORY CONTEXT` section of the seven that `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` §4 requires of every spawn. That file is the envelope; this section is its semantics. Neither is re-declared in a command body.
 
 ```markdown
 ## MANDATORY CONTEXT
@@ -111,7 +111,7 @@ When an agent-team coordinator (`/implement § 6`) receives `REVISION_REQUIRED` 
    ```
 4. Main agent invokes `/debug recover`. Do **not** escalate to user mid-loop — `/debug recover` triages first.
 
-**Why a hard limit:** without it, REVISION_REQUIRED loops can burn the 5-spawn cap silently and leave the user with no signal except a stalled task tree.
+**Why a hard limit:** without it, `REVISION_REQUIRED` loops burn the session spawn ceiling (`graphGuardrails.maxSpawnsPerSession`) silently, and the only signal the user gets is a task tree that stopped moving.
 
 ---
 
@@ -133,11 +133,5 @@ When ≥2 agents run in a single message (parallel spawn pattern, `${CLAUDE_PLUG
 - ❌ Skill content dumps. Reference the skill name; don't paste its body.
 - ❌ Speculation without evidence. If `confidence ≤ 2`, mark it `BLOCKED` and ask.
 - ❌ "Done" without `qualityGates[]`. A claim of completion without evidence is the most common defect this schema prevents.
-
----
-
-## 7. Migration note
-
-This schema **replaces** ad-hoc `## Context Handoff` blocks scattered through `debugger.md`, `frontend-specialist.md`, `mobile-developer.md`. Those files reference this schema rather than re-declaring it.
 
 Owner: `senior-prompt-engineer` skill.

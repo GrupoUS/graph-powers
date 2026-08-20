@@ -268,8 +268,64 @@ def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dic
     if isinstance(project.get("autonomy"), dict):
         user.pop("autonomy", None)
 
+    user = _sanitise_user_scope(user)
+
     cfg = _deep_merge(DEFAULTS, user)
     return _deep_merge(cfg, project)
+
+
+def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
+    """What a home directory is allowed to say, out of what it did say.
+
+    The layer above answers "which scope owns `autonomy`". This answers a different question the
+    same file raised: a user block reaches every repository on the machine, including ones the
+    person has never opened, so a value that *releases* a guarantee there is a decision taken on
+    behalf of code nobody has read yet. Two blocks needed narrowing, for two different reasons.
+
+    **`autonomy.git`.** The comment on `USER_SCOPED_KEYS` says git is excluded deliberately, and
+    that was true only of the top-level `git` block — branch names and the opt-in prefix. The three
+    *decisions* rode in under `autonomy` and were honoured: a home file setting them to `auto`
+    silenced `git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository with no
+    `autonomy` block of its own, while `level` went on reporting `guarded`. Tightening from home
+    stays legal — `ask` under a personal `autonomous` is someone holding themselves to a stricter
+    line, which costs nobody anything. Releasing does not: `auto` has to be written in the
+    repository it applies to, where a reviewer sees it.
+
+    **`protectedFiles`.** Lists replace on merge, so `{"segments": []}` at home deleted the
+    defaults everywhere, and — unlike `autonomy` — a project declaring its own `protectedFiles`
+    did not win the block back, it merely added to the emptied one. Here the user layer may only
+    add: the union, never the difference. A person who wants to write into `node_modules` in one
+    repository says so in that repository.
+
+    `graphGuardrails` is deliberately left alone. Its ceilings are spend on the operator's own
+    machine, not a guarantee about somebody's files, and "how much fan-out I am willing to pay
+    for" is the exact kind of thing a personal scope exists to carry.
+    """
+    if not user:
+        return user
+    out = dict(user)
+
+    autonomy = out.get("autonomy")
+    if isinstance(autonomy, dict) and isinstance(autonomy.get("git"), dict):
+        autonomy = dict(autonomy)
+        held = {k: v for k, v in autonomy["git"].items() if v == "ask"}
+        if held:
+            autonomy["git"] = held
+        else:
+            autonomy.pop("git")
+        out["autonomy"] = autonomy
+
+    protected = out.get("protectedFiles")
+    if isinstance(protected, dict):
+        base = DEFAULTS["protectedFiles"]
+        merged: dict[str, Any] = {}
+        for key, default in base.items():
+            extra = protected.get(key)
+            extra = extra if isinstance(extra, list) else []
+            merged[key] = list(default) + [v for v in extra if v not in default]
+        out["protectedFiles"] = merged
+
+    return out
 
 
 # ── Shortcuts the hooks use ──────────────────────────────────────────────────
