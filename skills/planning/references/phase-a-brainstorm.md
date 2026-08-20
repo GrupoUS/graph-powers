@@ -27,7 +27,7 @@ Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit);
 ## Exit contract
 
 - **L3:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (project-planner) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
+- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (evaluator) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
 
 ---
 
@@ -36,8 +36,8 @@ Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit);
 > Phase A is a goal-gated loop. Model: `references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ on `${git.workBranch}`.
-- **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
-- **body:** `superpowers:brainstorming` generates the spec → `graph-powers:project-planner` evaluates (Step 8) → revise inline.
+- **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:evaluator` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
+- **body:** `superpowers:brainstorming` generates the spec → `graph-powers:evaluator` evaluates (Step 8) → revise inline.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: if Phase 0 question (a) names no observable state change, do not plan · devil's-advocate question at L6+.
 - **terminal:** goal PASS → Phase B. Any guard trips → escalate to user.
 
@@ -49,7 +49,7 @@ For every L4+ entry (and L3 in light form), **invoke `Skill("superpowers:brainst
 
 | The engine owns | the harness wraps (the deltas below) |
 |---|---|
-| explore project context · clarifying questions one-at-a-time · 2-3 approaches w/ recommendation · design sections w/ inline approval · write the spec into the plan directory · spec self-review · user review gate · terminal "invoke writing-plans" | Phase 0 framing + 5-10→3 divergence (below) · parallel `graph-powers:explorer`+`graph-powers:librarian` dispatch (Step 1) · `AskUserQuestion` UI (Step 2) · `layer-map.md` cross-check (Step 3) · GATE 1 `graph-powers:project-planner` after self-review (Step 8) · branch policy · tier-gated entry · intercept terminal → Phase B |
+| explore project context · clarifying questions one-at-a-time · 2-3 approaches w/ recommendation · design sections w/ inline approval · write the spec into the plan directory · spec self-review · user review gate · terminal "invoke writing-plans" | Phase 0 framing + 5-10→3 divergence (below) · parallel `graph-powers:explorer`+`graph-powers:librarian` dispatch (Step 1) · `AskUserQuestion` UI (Step 2) · `layer-map.md` cross-check (Step 3) · GATE 1 `graph-powers:evaluator` after self-review (Step 8) · branch policy · tier-gated entry · intercept terminal → Phase B |
 
 The engine's HARD-GATE ("every project gets a design") is overridden by the tier gating in this skill: L1-L2 skip the engine entirely; L3 runs the light path; L4+ runs the full engine + all deltas. The numbered steps below are the **harness deltas in execution order** — interleave them with the engine.
 
@@ -182,11 +182,11 @@ without explicit current-turn user approval.
 
 Scan before GATE 1: no "TBD"/"TODO"/placeholder/"similar to N" · no internal contradictions (architecture ↔ data flow ↔ testing) · scope tight (one project, not three masquerading — if three, **stop, decompose, brainstorm only the first**) · no ambiguity (any requirement readable two ways → pick one) · every `[ASSUMED]` labeled. Fix inline.
 
-## Step 8 — GATE 1 — project-planner review (L4+ mandatory)
+## Step 8 — GATE 1 — evaluator review (L4+ mandatory)
 
 ```ts
 Agent({
-  subagent_type: "graph-powers:project-planner",
+  subagent_type: "graph-powers:evaluator",
   prompt: "Plan Review mode. Review spec at <path>. Verify: scope tight, layer ordering valid, missing risks, user-intent alignment, no contradictions, no scope creep. Return: PASS / FAIL+specifics / BLOCKED. < 2000 tokens.",
 })
 ```
@@ -195,7 +195,7 @@ Agent({
 
 ## Step 9 — User approval
 
-> "Spec written to `<plan dir>/spec.md` and project-planner returned PASS. Approve to proceed to Phase B (writing-plans)?"
+> "Spec written to `<plan dir>/spec.md` and evaluator returned PASS. Approve to proceed to Phase B (writing-plans)?"
 
 Wait for explicit "yes"/"approve"/"go". On change request → revise + re-loop self-review + Step 8.
 
@@ -225,6 +225,6 @@ Devil's advocate at Step 2 · inversion paragraph at Step 5 · pre-mortem block 
 | Phase 0 (a): user answers "I don't know what problem this solves" | STOP, escalate, do not plan |
 | Phase 0.2 produces ≥ 3 child tasks confirmed by user | STOP planning, suggest per-child invocations |
 | User rejects 3 design proposals | Stop, ask for explicit constraints, do not auto-iterate |
-| project-planner FAIL 3× on same spec | Escalate; spec likely has fundamental ambiguity |
+| evaluator FAIL 3× on same spec | Escalate; spec likely has fundamental ambiguity |
 | Background agents both return BLOCKED | Halt Phase A, surface, do not invent design from nothing |
 | Scope keeps expanding | Stop, decompose into sub-projects, brainstorm only first |

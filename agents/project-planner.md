@@ -5,10 +5,7 @@ model: opus
 color: yellow
 role_type: orchestrator
 effort: xhigh
-tools: Read, Glob, Grep, Bash, Write
-# `Write` stays for the new plan file; `Edit` goes, to encode the Iron Law
-# "never edit implementation files", which until now was prose only (it inherited the whole toolset).
-disallowedTools: Edit
+tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # Project Planner — Adversarial Planning
