@@ -5,7 +5,7 @@ description: Debugging chain. Use when diagnosing failing tests, runtime errors,
 
 # Debugger (the project)
 
-Production-grade debugging — root-cause rigor, parallel sub-agent research, agent-browser evidence, DB validation. **Diagnose first: find the bug before fixing it.** The superpowers debug skills are the engine of each Step (§ Engine); the project layers packs, the anti-pattern catalog, and stack-specific evidence gates around them. Inside this plugin the skill is namespaced as `graph-powers:debugger`, so a same-named personal skill cannot shadow it; `/debug` and `Skill("debugger")` both resolve here. The **agent** `subagent_type: "debugger"` is a separate namespace and a different artefact.
+Production-grade debugging — root-cause rigor, parallel sub-agent research, agent-browser evidence, DB validation. **Diagnose first: find the bug before fixing it.** The superpowers debug skills are the engine of each Step (§ Engine); the project layers packs, the anti-pattern catalog, and stack-specific evidence gates around them. Inside this plugin the skill is namespaced as `graph-powers:debugger`, so a same-named personal skill cannot shadow it; `/debug` and `Skill("debugger")` both resolve here. The **agent** `subagent_type: "graph-powers:debugger"` is a separate namespace and a different artefact.
 
 ## Iron Law (diagnose-first)
 
@@ -15,7 +15,7 @@ Production-grade debugging — root-cause rigor, parallel sub-agent research, ag
 4. **No "fixed" without fresh evidence** — gate suite exit-0 **plus** screenshot or DB check.
 5. **No scope expansion mid-incident** — log follow-ups; fix only what reproduces.
 
-**Guardrails (NEVER):** cite a `file:line` without `Read` (lines drift) · click/fill before `agent-browser snapshot -i -c` (`@eN` refs stale) · `as any` to patch a type (hides the contract bug) · ship `console.log`/`debugger` (Step 6 grep must be 0).
+**Guardrails (NEVER):** cite a `file:line` without `Read` (lines drift) · click/fill before `agent-browser snapshot -i -c` (`@eN` refs stale) · `as any` to patch a type (hides the contract bug) · ship `console.log`/`graph-powers:debugger` (Step 6 grep must be 0).
 
 > **Never de-atomize a transaction you have not proven is unsupported.** Serverless Postgres
 > vendors ship two drivers: an HTTP one that rejects `db.transaction()`, and a pool/WebSocket one
@@ -84,7 +84,7 @@ Production-grade debugging — root-cause rigor, parallel sub-agent research, ag
 | Self-talk: "just try this quick" / "it's obvious, no repro" / "two fixes at once" / "worked on my guess" / "no test, saw it run" / "patch it there" / "skip the repro" | **STOP — return to Step 1.** Each is a disguised guess / skipped gate. |
 | User: "stop guessing" / "is that not happening?" / "ultrathink this" / "we're stuck" / "will it show us…?" / "did you reproduce it?" | Return to Step 1 — missing evidence or instrumentation. |
 | 1–2 failed fix attempts | Return to Step 1 with a new hypothesis (rebuild the reproducer if the loop drifted). |
-| ≥3 failed attempts (each reveals new shared state/coupling · fixes demand massive refactor · each fix spawns a new symptom elsewhere) | **STOP — wrong architecture, not wrong hypothesis.** Escalate to `evaluator` Mode 3 before any further attempt; hunt the code-judo restructure that deletes the bug class (`references/structural-quality.md`). |
+| ≥3 failed attempts (each reveals new shared state/coupling · fixes demand massive refactor · each fix spawns a new symptom elsewhere) | **STOP — wrong architecture, not wrong hypothesis.** Escalate to `graph-powers:evaluator` Mode 3 before any further attempt; hunt the code-judo restructure that deletes the bug class (`references/structural-quality.md`). |
 | Review feedback (codex P0/P1, evaluator REVISION_REQUIRED, user points at a reviewer note) | `Skill("superpowers:receiving-code-review")` **before** acting — evaluate each item technically, never blind agreement. |
 | Wrong skill: perf/SEO/bundle/Lighthouse · feature design with no bug · pure dep upgrade with no failure signal | Redirect → `performance-optimization` · `Skill("planning")` (`/plan`) · repo upgrade docs. |
 

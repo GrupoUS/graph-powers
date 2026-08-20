@@ -31,6 +31,8 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -53,6 +55,9 @@ DEFAULTS: dict[str, Any] = {
     "graphGuardrails": {
         "maxSpawnsPerSession": 25,
         "maxRoundsPerAgent": 8,
+        # Both ceilings above are counted inside this rolling window, not from session start. A
+        # session that lives all day is normal work; twenty-five spawns inside an hour is not.
+        "spawnWindowMinutes": 60,
     },
     # How much runs without stopping to ask. `guarded` is the default because a stranger's first
     # session should not be the one that discovers what this harness will do unattended.
@@ -197,6 +202,74 @@ def graph_limits(cfg: dict[str, Any] | None = None) -> dict[str, int]:
         return dict(DEFAULTS["graphGuardrails"])
     return {k: (raw[k] if isinstance(raw.get(k), int) and not isinstance(raw.get(k), bool) and raw[k] > 0
                 else v) for k, v in DEFAULTS["graphGuardrails"].items()}
+
+
+
+# ── Declared versus runnable ─────────────────────────────────────────────────
+#
+# A command in `tooling.commands` is a declaration, not a capability. `session_context.py` prints
+# `gates: lint+test` at the start of every session and `ultracite.py` runs the formatter after every
+# edit — both from the same config, and both were silent when the tool itself was not installed.
+# The formatter raised `FileNotFoundError` into an `except` that swallowed it, so a session could
+# edit files for hours believing they were being formatted. The session tag said `lint` either way.
+#
+# That is the failure this module already names elsewhere: a line that reads as covered and never
+# runs. So the question "is this command actually runnable" gets answered here, once, for every
+# caller.
+
+# Tokens that launch something else rather than being the tool. `npm`/`bun`/`pnpm`/`yarn` are here
+# because `bunx biome check` needs *biome*; whether `bunx` exists says nothing about that.
+_RUNNERS = frozenset({
+    "npx", "bunx", "pnpm", "yarn", "npm", "bun", "deno", "uvx", "uv", "pipx", "poetry", "dlx",
+})
+
+
+def tool_of(command: str) -> str | None:
+    """The executable a declared command needs, or None when that cannot be known.
+
+    None is returned for `npm run lint` and friends: the real tool is named in the project's
+    package manifest, not in the command, and guessing it would produce a confident wrong answer.
+    Silence is the correct output there — this function is used to warn, and a warning that might
+    be wrong is worse than none.
+    """
+    try:
+        parts = shlex.split(str(command or ""), posix=(os.name != "nt"))
+    except ValueError:
+        return None
+    skip_next_is_script = False
+    for token in parts:
+        bare = token.strip('"').strip("'")
+        if not bare or bare.startswith("-"):
+            continue
+        if skip_next_is_script:
+            return None                      # `<runner> run <script>` — the tool lives in the manifest
+        if bare in _RUNNERS:
+            skip_next_is_script = False
+            continue
+        if bare in ("run", "exec"):
+            skip_next_is_script = True
+            continue
+        return bare
+    return None
+
+
+def missing_tool(command: str) -> str | None:
+    """The tool this command needs and cannot find on PATH, or None when it resolves.
+
+    Never raises: a config that cannot be parsed simply yields no warning.
+    """
+    name = tool_of(command)
+    if not name:
+        return None
+    try:
+        if shutil.which(name):
+            return None
+        # A declared path rather than a name on PATH — `./node_modules/.bin/biome`, `C:\t\b.exe`.
+        if (os.sep in name or "/" in name) and Path(name).exists():
+            return None
+    except Exception:
+        return None
+    return name
 
 
 # ── Autonomy ─────────────────────────────────────────────────────────────────

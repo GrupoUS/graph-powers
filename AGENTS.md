@@ -66,7 +66,7 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 154 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 173 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
@@ -152,8 +152,9 @@ This machine runs the Graph Powers harness, installed once and shared by every p
 
 Two files carry everything else:
 
-- `~/.codex/graph-powers/shared-context.md` — config loader, quality gates, complexity routing, agent
-  matrix, spawn patterns. Read it before acting on any non-trivial task.
+- `~/.codex/graph-powers/shared-context.md` — an index of the shared patterns, one file each under
+  `~/.codex/graph-powers/shared/`: config loader, quality gates, complexity routing, agent matrix,
+  spawn patterns, and the rest. Read the index, then only the fragments the task needs.
 - `~/.codex/graph-powers/safety-floor.md` — the invariants that hold regardless of the task: git and
   outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,
   scope, completion claims, accessibility.

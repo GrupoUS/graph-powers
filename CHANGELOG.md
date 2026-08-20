@@ -1,5 +1,274 @@
 # Changelog
 
+## 1.3.1 — the Codex install stops accumulating
+
+### Fixed — the Codex escalation path named an agent that does not exist
+
+Eleven citations of `codex:rescue`, in the escalation path of `/debug` (six), `/implement` (two)
+and three shared fragments. The plugin that provides it ships `agents/codex-rescue.md`, so the
+address is `codex:codex-rescue`; `codex:rescue` resolves to nothing. Two of the eleven called it a
+*skill*, and that plugin's skills are `codex-cli-runtime`, `codex-result-handling` and
+`gpt-5-4-prompting` — no `rescue` among them either. So `/debug`'s documented route out of a stuck
+fix, and `/implement --codex`, pointed at nothing, and the failure is the quiet kind: the model
+reads the instruction, finds no such agent, and continues with less than it thinks it has.
+
+Eight of the eleven predate this release. The other three were created *by* it — the bare-to-
+namespaced migration corrected every `graph-powers:` name and copied the wrong `codex:` one into
+three new `references/shared/` fragments. A migration that fixes one namespace and propagates
+another is worse than none, because the corrected neighbours make the wrong one look reviewed.
+
+Alongside it, `agent-handoff-contracts.md:89` listed `code-reviewer` among the reviewer agents.
+This plugin has never shipped one. It now names `graph-powers:evaluator` and
+`graph-powers:security-reviewer`, which it does ship.
+
+**The gate that should have caught it now does.** `check_wiring.py` skipped every namespaced
+reference on the stated principle that another plugin's tree cannot be opened in CI. True, and it
+does not follow that nothing can be checked: the fix is not to verify the dependency but to
+**declare** it. `EXTERNAL_ROUTES` lists every external agent and skill this harness routes to, each
+checked by hand against the plugin that ships it, and a namespaced name outside the set fails.
+
+Two details decide whether a gate like this survives. It matches only namespaces already declared,
+not the shape `<word>:<word>` — the shape alone flagged `path:line`, `file:line`,
+`client:visible`, `main:main` and `skipped:true`, sixty-eight of them, which is how a check ends up
+with `|| true` after it. And four superpowers skills were nearly declared from memory —
+`condition-based-waiting`, `defense-in-depth`, `root-cause-tracing`, `webapp-testing` — none of
+which exists in superpowers 6.3.0. A declaration is worth something only if somebody opened the
+other plugin before writing the line.
+
+### Verified — every agent this harness routes to actually runs
+
+Not inferred from frontmatter. Each of the twelve was spawned with a probe that forces a real tool
+call and returns evidence, plus `codex:codex-rescue` at its corrected address. Twelve of twelve
+returned; the Codex side generates twelve TOMLs that all parse. Two observations worth keeping:
+`explorer` and `performance-optimizer` answered with Bash rather than Glob/Grep, because a
+session-level directive to prefer shell tools reaches subagents too — which silently defeats the
+Windows-safe path `/debug § 2.2` prescribes, where `find` is a different program. And
+`mobile-developer` has no call site in any command or skill; it is reachable only through
+`workflows/*.js`, and only when `paths.mobileRoot` is set.
+
+### Fixed — the spawn ceiling had become a session-lifetime quota
+
+Found the way these are supposed to be found: by the guardrail firing on work that was not what it
+guards. A `/pr-review` fan-out of three review agents got one through and two denied. The command
+then ran one path where it declares three, and nothing in its output would have said so — a
+skipped path reading as a passed path is the exact failure `/pr-review § 8` promises not to have.
+
+G2 counted `Agent` spawns from the start of the session and never let go of one. Its own docstring
+says what it is for — *"a runaway fan-out burns a budget in one afternoon"* — and a runaway fan-out
+is a burst. A session that lives all day is not one. Counted cumulatively the ceiling stopped
+measuring bursts and started measuring session age: once a long session crossed 25, it refused the
+**first** spawn of every unrelated later task for the rest of the day. Both ceilings now count
+inside `graphGuardrails.spawnWindowMinutes` (default 60).
+
+Two smaller defects fell out of the same file:
+
+**A refused spawn was charged for.** `bump()` incremented, then compared, so a denial consumed a
+slot it never used and every retry pushed the number higher. The message read `27 agent spawns` in
+a session where 25 ran and 2 were refused. The old behaviour had a comment defending it — *without
+it a caller retries forever at no cost* — which does not hold: a refused retry never ran, and the
+spawns that did run are still inside the window, so the refusal repeats on its own. All the charge
+bought was a number that described nothing.
+
+**One specialist, two counters.** G3 keyed on the `subagent_type` verbatim, so a plugin agent and
+the same agent named without its prefix were counted separately and the ceiling granted double the
+rounds. This repository's own session log carried `agent:evaluator: 1` beside the prefixed key at
+3 while the namespacing migration was in flight. The key is now normalised on the last segment.
+
+`hooks/test_hooks.py` goes from 166 checks to 173: the window (aged events do not count, fresh ones
+do), the migration (a counter written before timestamps existed cannot be placed in a window, so it
+stands down rather than denying on evidence that is not there), the uncharged refusal, and the two
+spellings sharing one counter.
+
+
+### Fixed — every guardrail on the Codex side was registered twice
+
+Found by updating a real machine rather than a fixture. `~/.codex/hooks.json` pointed all twelve
+hooks at a scratch clone under `/tmp`, left by a session weeks earlier — a directory that survives
+until the next reboot clears it, at which point every Codex guardrail silently stops existing.
+
+Re-installing from a stable plugin root did not repair it, it doubled it. `mergeHooks` recognised
+its own previous entries by exact command string, and the string contains the plugin root, so the
+same hook installed from a different directory read as a stranger's and was kept. The result was
+twenty-four registrations: each guardrail running once from the current code and once from a
+version-old copy in a doomed directory.
+
+The merge now recognises a command by the manifest template with the root wildcarded, so a hook
+this plugin wrote is replaced wherever it was written from, and a third party's hook — which never
+matches a template of ours — still survives untouched.
+
+### Fixed — the diagnosis, twice, and then the actual cause
+
+Every `graph-powers:*` spawn was refused for most of this release's development, and the first two
+explanations here were wrong. Recording both, because the wrong ones looked exactly as convincing.
+
+**First wrong answer: a stale session.** The message `Unknown subagent_type 'graph-powers:explorer'.
+Valid: … explorer …` was read as a registry snapshot older than the running plugin, and a restart
+was prescribed in three files. One command falsified it: the same spawn in a fresh process —
+`claude -p "spawn subagent_type 'graph-powers:explorer' …"` — returned the identical refusal. A
+fresh process carries a fresh registry, so nothing was stale.
+
+**Second wrong answer: frontmatter.** `security-reviewer` and `skill-improver` were missing from
+that refusal's list, and a YAML block sequence in their `disallowedTools` was blamed. The CLI's own
+registry listed both while they still carried the block form. They were missing from the *other*
+list, which is not the CLI's.
+
+**The cause.** A `PreToolUse` hook matching `Agent`, holding its own allowlist, denying before the
+call reached the registry. The allowlist was built by scanning `.claude/agents/` plus a hardcoded
+baseline — and a plugin's agents are in neither, because they live in the plugin and are addressed
+`<plugin>:<agent>`. Two validators in series, opposite verdicts, no name satisfying both. The
+phantom entries in that list — `explorer-agent`, `orchestrator`, `general` — were the tell: names
+that exist in no file anywhere on the machine.
+
+`README.md` now carries both failures under **When something refuses and it is not this plugin**,
+with the evidence that separates a hook denial from a CLI one — the CLI says `Agent type 'X' not
+found. Available agents: …` and lists plugin agents namespaced; a `Valid:` phrasing listing bare
+names is somebody's hook. It includes the discovery snippet a hook needs to see plugin agents, and
+the second failure of the same family: a linter handed a JSON-only batch, exiting non-zero with
+"No files found to lint", counted as a lint error and blocking every stop.
+
+Nothing in the plugin was at fault for either. It is documented here because the plugin is what gets
+blamed, and because the fix is three lines in a file most people have never opened.
+
+### Added — an agent name that does not resolve is a route, not the end of the work
+
+`/plan` has always treated an unresolved *workflow* name as a route: it says which of three things
+happened and runs the phases by hand. Agents had no equivalent, so a spawn that failed to resolve
+ended the work instead of redirecting it — measured in this session, where every
+`graph-powers:*` spawn was refused and each attempt simply stopped.
+
+`030-agent-assignment-matrix.md` now carries the rule, and it distinguishes the two failures because
+they have opposite causes: a bare name is a defect in the caller, and `Unknown subagent_type
+'graph-powers:explorer'` does not come from the CLI at all. Neither is a reason to stop. Fall back to `general-purpose` with the plugin agent's contract restated in the
+prompt, or to the main thread when the subagent bought only isolation — then say which happened.
+
+The fallback is deliberately not offered for write-capable agents. `graph-powers:debugger` and
+`graph-powers:frontend-specialist` edit files, and standing in for them with a general agent
+discards the disjoint-file ownership the wave grouping depends on. And when a read-only agent is
+replaced this way, the report has to say so: the read-only promise moved from frontmatter into a
+prompt, which is weaker, and the reader needs to know.
+
+### Fixed — every agent this plugin prescribed was named in a way the registry rejects
+
+`references/shared/030-agent-assignment-matrix.md` closed with `Use subagent_type: "explorer"`, and
+the twelve commands and the planning skills copied it. The agents ship inside a plugin, so the
+registry knows them as `graph-powers:explorer`. The bare name does not resolve, and the failure says
+so in a sentence that contains the answer:
+
+    Agent type 'explorer' not found. Available agents: ... graph-powers:explorer ...
+
+Twenty-one literal prescriptions carried the bare form, plus the `subagent_type` column of
+`references/audit-agent-prompts.md` — and an audit that decompiled the CLI's own loader found 175
+more the literal check could never see: role labels in fenced blocks, table cells, and prose reading
+"spawn `explorer`". Thirty-four files in all; every one is namespaced now, and the gate checks both
+shapes. It skips the root specs, the rubrics, the prompt-engineering references and `workflows/*.js`,
+where a bare name is the artefact's own name rather than a dispatch — `PLUGIN_AGENTS` holds bare
+names precisely so `AG()` can add the namespace.
+
+Two more from that audit. `agents/mobile-developer.md` carried `triggers:` as a YAML flow sequence,
+the only one in the tree, which `codex/lib.mjs` comma-splits without stripping brackets or quotes —
+every element arrived corrupted on the Codex install path. Nothing read the field, so it is gone.
+And `commands/implement.md` listed `librarian` under skill routing; there is no `skills/librarian/`,
+so a model obeying the heading called `Skill("librarian")` and got nothing. This was the cause of the workflow
+spawn failure recorded in 1.3.0 as unexplained: `ultra-plan` used the bare name because this matrix
+told it to.
+
+`check_wiring.py` did not catch it, and could not: `agents/explorer.md` exists and the reference
+resolved. The path was right and the name was wrong, which is the one combination a path check
+cannot see. It now refuses a bare plugin-agent name in any prescribed `subagent_type` — a name that
+is not one of ours still passes, because a project may route to its own agent.
+
+The mirrored failure has a different cause, so `AGENT_SETUP.md` Step 10 now carries both:
+
+    Unknown subagent_type 'graph-powers:explorer'. Valid: ... explorer ...
+
+is **not the CLI**. Its own refusal reads `Agent type 'X' not found. Available agents: ...`. A
+`Valid:` phrasing listing bare names is a `PreToolUse` hook matching `Agent`, denying from an
+allowlist built by scanning `.claude/agents/` — which never contains a plugin's agents, because
+those live in the plugin and are addressed `<plugin>:<agent>`.
+
+This release first shipped the wrong diagnosis for that message: a stale session, fixed by
+restarting. It is not, and restarting does not help. The evidence that settles it costs one command
+— run the same spawn in a fresh process, `claude -p "spawn subagent_type 'graph-powers:explorer' …"`.
+A fresh process carries a fresh registry, so the same refusal means nothing was stale. That check is
+now in Step 10 rather than the guess.
+
+### Added — a declared linter that is not installed says so, instead of doing nothing
+
+`ultracite.py` runs `tooling.commands.format` after every edit and `tooling.commands.lint` at every
+stop. It runs the command the project declared and nothing more — deliberately, because an earlier
+version shelled out to `biome` and `oxlint` unconditionally and rewrote files in repositories that
+had chosen Prettier.
+
+What that left behind: if the declared command names a tool that is not on PATH, the run raised
+`FileNotFoundError` into an `except` that swallowed it. A session could edit files for hours
+believing they were being formatted. The session tag printed `gates: lint+test` either way, which is
+the exact failure `session_context.py` already had a comment about — *a line that reads as covered
+and never runs* — one level further down.
+
+So the question is now answered once, in `_config.py`, for every caller:
+
+    | NOT INSTALLED: lint needs `oxlint`, format needs `biome` — install globally or these never run
+
+A gate whose tool is absent is dropped from the gate list rather than listed as if it ran.
+`ultracite.py` checks before running instead of catching afterwards, and still never blocks a stop
+over a missing tool. The install is global on purpose — a session follows you into repositories that
+do not carry these as dependencies:
+
+    bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
+
+A command routed through the package manager (`bun run lint`) is never reported: the tool is named
+in the project's manifest rather than in the command, and a warning that guesses is worse than
+none. The requirement is now written where somebody configuring this will meet it — the schema
+descriptions, `README.md`, `AGENT_SETUP.md` Steps 3 and 10, and the guardrails index.
+
+### Fixed — under Codex, the session tag described the wrong repository
+
+`session_context.py` read the payload and then resolved the project without it. Codex CLI does not
+export `CLAUDE_PROJECT_DIR`; it puts the working directory in the payload, so the hook fell through
+to the git root of wherever its process started. The project name, the branch and the gate list all
+belonged to somebody else's checkout. `.claude/rules/hooks.md` has required passing the payload
+since it was written; this was the one hook that did not, and the suite now asserts it.
+
+`hooks/test_hooks.py` goes from 154 checks to 166.
+
+### Fixed — the portability gate read one line at a time, and calls are not one line
+
+`subprocess.run(...)` is routinely written across four lines. Every check in
+`.github/check_portability.py` matched a single line, so a call with the opening paren on one line
+and `text=True` on the next was invisible: the gate reported zero while three real instances sat in
+the tree — `.github/check_clone.py`, and two in `skills/debugger/scripts/fetch_logs.py`. Each
+decodes subprocess output with the machine's locale code page, which is how a non-ASCII filename
+stops matching on a Windows checkout. The scanner now reads a call whole, however many lines it
+spans, and the three are fixed.
+
+### Fixed — `strip()` used as if it removed a suffix, for the second time
+
+`fetch_logs.py` resolved the repository slug with `.rstrip(".git")`. `strip` takes a **set of
+characters**, so it keeps eating: `owner/my-agent.git` becomes `owner/my-agen`, and every log
+lookup for that repository silently queries one that does not exist. `owner/digit.git` becomes
+`owner/d`.
+
+This is the same defect that made `protect_files.py` use `.lstrip("./")` and quietly unprotect every
+declared dotfile. Twice is a pattern, so the gate now refuses it — but only for a literal shaped
+like an affix: `"\n"` and `"> "` are genuine character sets, and a gate that reports those is a gate
+somebody switches off.
+
+### Fixed — `--force` did nothing
+
+`install()` and `installGlobal()` have honoured a `force` option since they were written. The argv
+parser never set it, so `--force` on the command line was ignored, including in the CI fixture whose
+second install was proving an idempotence it had not exercised. `README.md` has documented the flag
+the whole time.
+
+It matters beyond tidiness: a global install whose plugin root moved is skipped as "already at this
+version", so without `--force` there was no way to repair one short of a version bump.
+
+### Added — a CI step for the scenario that produced both
+
+`.github/workflows/ci.yml` installs from one root, then from a second root at a higher version, then
+again with `--force` at the same version, and asserts three things: no command points at the old
+root, no guardrail is registered more than once, and the third party's hook is still there.
+
 ## 1.3.0 — the chain ships, and the bash gate asks about the right things
 
 ### Added — the plan → build → verify chain

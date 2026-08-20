@@ -337,11 +337,38 @@ One file per project, with a safe default for everything. The full contract is
 |---|---|
 | `git.workBranch` · `git.protectedBranches` | Where work happens, and what no agent touches without approval |
 | `git.optInPrefix` | Prefix of the keys that release a risky action |
-| `tooling.commands.*` | The literal command behind each gate |
+| `tooling.commands.*` | The literal command behind each gate — **and the tool it names has to be installed**, see below |
 | `paths.*` | Where code lives. An empty field means the project has no such layer, and plans must not invent one |
 | `project.stack` | Turns on the stack-gated skills |
 | `codex.*` | Model and reasoning effort for generated Codex subagents |
 | `autonomy.*` | How much runs without asking — see below |
+
+### The tools you declare have to exist
+
+`tooling.commands.format` runs after every edit and `tooling.commands.lint` runs at every stop, both
+through `ultracite.py`. The plugin runs the command you wrote and nothing more — it does not install
+anything, and it does not fall back to a formatter of its own choosing. That was deliberate: an
+earlier version shelled out to `biome` and `oxlint` unconditionally and rewrote files in projects
+that had chosen Prettier.
+
+The consequence is that a declared command whose tool is missing simply never runs. So install them,
+globally — a session visits repositories that do not carry these as dependencies:
+
+```bash
+bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
+biome --version && oxlint --version   # both must answer
+```
+
+You do not have to guess whether they resolved. Every session start prints what it found, and names
+what it did not:
+
+```
+[ACMEWEB] Bun | branch:dev-test | gates: test | NOT INSTALLED: lint needs `oxlint`, format needs `biome` — install globally or these never run
+```
+
+A command routed through the package manager — `bun run lint` — is not checked and never reported:
+the tool is named in the project's manifest rather than in the command, and a warning that guesses
+is worse than no warning.
 
 **Use a different `optInPrefix` per project.** With the same key in two repositories, a commit
 approval given in one starts counting in the other. The versioned test covers exactly that case.
@@ -424,7 +451,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 154 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 166 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,
@@ -508,6 +535,69 @@ grows carries assumptions that expired.
 Contributions: read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a PR.
 
 ---
+
+## When something refuses and it is not this plugin
+
+Two failures look like plugin defects and are not. Both come from a hook of your own, and both were
+diagnosed wrong here first — the wrong diagnosis cost several hours, so the evidence that separates
+them is written down rather than the conclusion.
+
+### An agent will not spawn
+
+    Unknown subagent_type 'graph-powers:explorer'. Valid: explorer, debugger, evaluator, ...
+
+Claude Code's own refusal never reads like that. Its wording is `Agent type 'X' not found. Available
+agents: ...`, and its list shows plugin agents **namespaced**. A `Valid:` phrasing listing **bare**
+names is a `PreToolUse` hook matching `Agent`, denying the call before the CLI ever sees it.
+
+Why a hook gets this wrong: an allowlist is usually built by scanning `.claude/agents/`, and a
+plugin's agents are not there. They live in the plugin and are addressed `<plugin>:<agent>`, so
+every one of them is unknown to that list — including agents added after the list was written.
+
+Two checks, in order:
+
+```bash
+claude plugin details graph-powers@graph-powers    # what the plugin actually ships
+grep -rn "subagent_type" ~/.claude/hooks/*.py      # who else is validating it
+```
+
+Then fix the hook. It must not deny a name containing `:` — the runtime registry validates plugin
+agents itself and rejects an invalid one with its own clear error, so a second opinion from a local
+list can only produce false denials. Better still, teach the discovery to read plugin agents:
+
+```python
+for base in (Path.home() / ".claude/plugins/marketplaces",
+             Path.home() / ".claude/plugins/cache"):
+    for md in base.glob("*/**/agents/*.md"):
+        plugin = md.parts[md.parts.index(base.name) + 1]
+        known.add(f"{plugin}:{md.stem}")     # and md.stem, for callers still using the short name
+```
+
+**Restarting does not help**, whatever it looks like. The hook runs on every call and rebuilds its
+list each time. The one-command test that settles it: run the same spawn in a fresh process —
+`claude -p "spawn subagent_type 'graph-powers:explorer' ..."`. A fresh process carries a fresh
+registry, so an identical refusal means nothing about your session was stale.
+
+### A stop is blocked by a linter with nothing to lint
+
+    Lint found 1 error(s) after safe auto-fix.
+    No files found to lint. Please check your paths and ignore patterns.
+
+Oxlint reads JavaScript and TypeScript. Handed a batch that is JSON alone it exits non-zero with
+that line, and a hook counting exit codes reports it as a lint error — on a change whose only
+matching file was a config or a schema. Biome does read JSON, so the fix is not to stop linting
+JSON but to stop sending it to the wrong tool:
+
+```python
+OXLINT_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}   # no .json
+```
+
+and treat `No files found to lint` as zero errors, the way a well-built hook already treats Biome's
+`No files were processed`.
+
+This plugin's own `hooks/ultracite.py` runs only `tooling.commands.format` and
+`tooling.commands.lint` as the project declared them, and never chooses a linter for you — so if the
+message names a tool your config does not, it is not coming from here.
 
 ## Compatibility notes
 

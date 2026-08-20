@@ -55,8 +55,8 @@ If `${rulesDir}/routing-supplements.md` exists, note it for stage 2 deep loading
 If `$ARGUMENTS` contains `--no-auto-research` → skip. Otherwise on **L3+ intent** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` — Complexity Routing`), spawn discovery agents BEFORE returning prime output:
 
 ```ts
-Agent({ subagent_type: "explorer",  run_in_background: true, prompt: "<scoped repo discovery>" })
-Agent({ subagent_type: "librarian", run_in_background: true, prompt: "<external doc lookup>" })
+Agent({ subagent_type: "graph-powers:explorer",  run_in_background: true, prompt: "<scoped repo discovery>" })
+Agent({ subagent_type: "graph-powers:librarian", run_in_background: true, prompt: "<external doc lookup>" })
 ```
 
 Both calls go in the SAME assistant turn (parallel). Non-blocking — return prime output while they run; their results merge on the next user turn.
@@ -90,7 +90,7 @@ Read user task description from `$ARGUMENTS` (after the mode token, if any). Cla
 | External provider / webhook / payment / email / monitoring | integration-heavy | § 3 (load the project's integration rule first, if it has one) |
 | UI + API + schema | fullstack | § 5 |
 | Vague / exploratory | partial — see § 2.1 | — |
-| L3+ (any non-trivial) | spawn `explorer` + `librarian` in parallel before § 3/4/5 dispatch | — |
+| L3+ (any non-trivial) | spawn `graph-powers:explorer` + `graph-powers:librarian` in parallel before § 3/4/5 dispatch | — |
 
 ### 2.1 Vague task
 
@@ -125,7 +125,7 @@ Do NOT yet read deep references or subdirectory `AGENTS.md` files.
 |---|---|---|
 | API/handler | route, validator, auth guard, response shape | `${paths.backendRoot}/AGENTS.md` if present |
 | Schema/data | columns, relations, indexes, enum alignment | `${paths.schemaRoot}/AGENTS.md` if present + project schema reference doc |
-| Service/integration | webhooks, external APIs, third-party providers | the project's integration rule, if it has one; provider docs via `librarian` |
+| Service/integration | webhooks, external APIs, third-party providers | the project's integration rule, if it has one; provider docs via `graph-powers:librarian` |
 | Runtime/env | env vars, deploy config, runtime behavior | the project's architecture notes, if any; otherwise `Skill("senior-architect")` |
 | Schema-domain orientation | which domain owns which table | schema-reference doc |
 | Historical bug pattern | tenant resolution, aggregation, date boundary | backend-learnings doc |

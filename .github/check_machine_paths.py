@@ -29,23 +29,43 @@ from __future__ import annotations
 
 import glob
 import re
+import subprocess
 import sys
 
 # The lookbehind keeps `https://` and any other `<word>:/` out. Anchoring on the `Users` segment is
 # what separates a home directory from a drive root.
 PATTERN = re.compile(r"(/home/|/Users/|(?<![A-Za-z])[A-Za-z]:[\\/]+Users[\\/])")
 
-SUFFIXES = ("*.md", "*.py", "*.json", "*.mjs", "*.js", "*.yml", "*.yaml")
+SUFFIXES = (".md", ".py", ".json", ".mjs", ".js", ".yml", ".yaml")
 
 # This file states the pattern in prose and in code; scanning it would report itself.
 EXEMPT_FILES = {".github/check_machine_paths.py"}
 
 
 def files() -> list[str]:
+    """Tracked files only — which is what the error message has always claimed.
+
+    Globbing the working tree instead reported files git never carries. `.graph-powers/installed.json`
+    is the case that surfaced it: the installer writes the resolved plugin root into it, absolute by
+    necessity, and `.gitignore` already keeps it out of every clone. A gate that fails on a file
+    nobody can commit teaches people that its failures are noise.
+    """
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], capture_output=True, encoding="utf-8",
+                             errors="replace", timeout=20, check=False)
+        if out.returncode == 0:
+            tracked = [f for f in (out.stdout or "").split("\0") if f]
+            if tracked:
+                return sorted(f for f in tracked
+                              if f.endswith(SUFFIXES) and "node_modules" not in f)
+    except Exception:
+        pass
+    # Outside a checkout there is nothing authoritative to ask, so fall back to the tree and say so.
+    print("note: not a git checkout — scanning the working tree instead of the index")
     found: list[str] = []
     for suffix in SUFFIXES:
-        found += glob.glob(f"**/{suffix}", recursive=True)
-        found += glob.glob(f".*/{suffix}")
+        found += glob.glob(f"**/*{suffix}", recursive=True)
+        found += glob.glob(f".*/*{suffix}")
     return sorted({f.replace("\\", "/") for f in found if "node_modules" not in f})
 
 

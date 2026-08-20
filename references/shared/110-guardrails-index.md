@@ -40,6 +40,12 @@ and then fails to run, which looks like the guardrail misbehaving and is not.
 Advisory, same registration, no denial: `auto_update.py`, `branch_session_notice.py`,
 `session_context.py` (SessionStart), `ultracite.py` (PostToolUse), `notify.py` (Notification).
 
+`ultracite.py` runs `tooling.commands.format` after an edit and `tooling.commands.lint` at a stop.
+Both need the tool they name to be installed and on PATH — the plugin runs the command and nothing
+more. A missing tool is skipped rather than swallowed, and `session_context.py` names it in the
+session tag (`NOT INSTALLED: lint needs \`oxlint\``); install globally so it works in every
+repository a session visits.
+
 ### Convention — rules the project writes, and nobody enforces but you
 
 | Guardrail | Canonical location | Trigger |

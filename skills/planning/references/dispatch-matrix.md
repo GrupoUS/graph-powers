@@ -8,8 +8,8 @@
 ## Hard rules (planning-unique)
 
 1. **Disjoint-file rule.** Two write-capable agents NEVER edit overlapping paths in parallel. Phase B self-review enforces it (`phase-b-writing-plans.md § Step 3`). Split by directory, route, or component family.
-2. **Read-only agents background.** `explorer`, `librarian` MUST run `run_in_background: true`; `verification` too when alongside write-capable agents.
-3. **Caps.** 5-spawn cap per `/implement` invocation (beyond 5 → checkpoint with user); 3-attempt cap per hypothesis (same failure 3× → escalate to `evaluator` Mode 3).
+2. **Read-only agents background.** `graph-powers:explorer`, `graph-powers:librarian` MUST run `run_in_background: true`; `graph-powers:verification` too when alongside write-capable agents.
+3. **Caps.** 5-spawn cap per `/implement` invocation (beyond 5 → checkpoint with user); 3-attempt cap per hypothesis (same failure 3× → escalate to `graph-powers:evaluator` Mode 3).
 4. **Return budget < 2000 tokens.** Detail to `.claude/agent-memory/<agent>/`, summary index returned to main.
 5. **Subagent non-inheritance.** Agents do NOT auto-load project `CLAUDE.md` — embed critical rules in the agent prompt body or task block.
 
@@ -32,8 +32,8 @@ Pick the agent and skill from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent
 | Perf / bundle / Lighthouse / CWV | Generally no |
 | Staging E2E / agent-browser | **NEVER parallel** (single browser session) |
 | Plan / PRD synthesis · adversarial review · architecture analysis | No |
-| Codebase lookup (`explorer`) · external research (`librarian`) | **YES — and always background** |
-| Phase A research dispatch (every L4+) | **ALWAYS parallel** (`explorer` + `librarian`, background) |
+| Codebase lookup (`graph-powers:explorer`) · external research (`graph-powers:librarian`) | **YES — and always background** |
+| Phase A research dispatch (every L4+) | **ALWAYS parallel** (`graph-powers:explorer` + `graph-powers:librarian`, background) |
 
 > **Ambiguous (task touches 2+ domains):** `mcp__sequential-thinking__sequentialthinking` to rank agent fit by primary impact area before filling `Agent:` (L5+ MUST · L4 SHOULD).
 

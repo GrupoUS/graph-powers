@@ -99,8 +99,8 @@ Fallback / confirmation order:
 5. The project's script directory — automation frequently already exists (audits, schema checks, generators).
 6. An existing handler/procedure on the same domain router before adding a new one.
 
-At **L3+** dispatch this in ONE message, background: `Agent({ subagent_type: "explorer", run_in_background: true })`
-for the codebase inventory + `Agent({ subagent_type: "librarian", run_in_background: true })` only when an external
+At **L3+** dispatch this in ONE message, background: `Agent({ subagent_type: "graph-powers:explorer", run_in_background: true })`
+for the codebase inventory + `Agent({ subagent_type: "graph-powers:librarian", run_in_background: true })` only when an external
 API/version fact is actually in doubt.
 
 ### 0.3 Reuse ledger (mandatory output)
@@ -178,7 +178,7 @@ of an unmade decision is invented detail. List them before routing:
 
 | # | Decision (name it, do not number-only) | Type | Mode | Resolver | Blocks |
 |---|---|---|---|---|---|
-| D1 | … | research | AFK | `explorer` / `librarian`, background | N2, N3 |
+| D1 | … | research | AFK | `graph-powers:explorer` / `graph-powers:librarian`, background | N2, N3 |
 | D2 | … | grilling | HITL | `AskUserQuestion`, one topic at a time | N4 |
 
 Types and their resolvers are canonical in `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md § Decision types` — `research` (AFK),
@@ -187,7 +187,7 @@ prerequisite that unblocks a decision and delivers nothing by itself).
 
 Two rules, both cheap and both violated constantly:
 
-- **AFK first.** Never open a HITL decision that a `Grep`, the code graph, or a background `explorer` closes.
+- **AFK first.** Never open a HITL decision that a `Grep`, the code graph, or a background `graph-powers:explorer` closes.
   Research is parallel and free of the user's attention; grilling is the scarcest resource in the chain.
 - **HITL floor.** The agent never stands in for the human side. A HITL decision auto-answered to keep moving is
   labeled `[ASSUMED]` **and** surfaced in the same turn — the unlabeled auto-answer is the defect, not the
@@ -276,11 +276,11 @@ SURFACES TOUCHED: database=<y/n> backend=<y/n> frontend=<y/n> ux-flows=<list>
 ```
 
 `OUT OF SCOPE` travels for the same reason it does in issue mode (`issue-triage.md § FF-6`): the
-fan-out explorers, both approach agents and the `evaluator` never see this thread — the string is all they get,
+fan-out explorers, both approach agents and the `graph-powers:evaluator` never see this thread — the string is all they get,
 and one approach agent runs a `robustness-first` lens, which is a scope-re-expansion engine by construction. In
 issue mode the two lists are the same list (`CUT`/`DEFER` rows are the out-of-scope rows) — emit it once.
 
-Any risk surface other than `none` (`auth|payment|PII|schema|env|ci`) floors the level at **L4**: `ultra-plan` derives `isL6` from the surfaces, not from the level, and that is what switches on the pre-mortem, the ADR and the `evaluator` Mode 3 pass.
+Any risk surface other than `none` (`auth|payment|PII|schema|env|ci`) floors the level at **L4**: `ultra-plan` derives `isL6` from the surfaces, not from the level, and that is what switches on the pre-mortem, the ADR and the `graph-powers:evaluator` Mode 3 pass.
 
 **Fallbacks — three different failures, one way out.** The L4+ row above is an attempt, never an
 assumption, because a plugin cannot guarantee the workflow is registered in the session that is
@@ -347,7 +347,7 @@ Three rules that keep the graph honest:
   system — payments, messages to users, any third-party mutation. A gate on a reversible edit buys nothing and spends the one thing the human
   chain is short on. `git revert` is the undo everywhere else.
 - **Verification nodes never write.** They report; the merge has a single owner. That is structural after
-  the frontmatter closure — `evaluator`, `explorer`, `librarian` and `ui-ux-designer` resolve without
+  the frontmatter closure — `graph-powers:evaluator`, `graph-powers:explorer`, `graph-powers:librarian` and `graph-powers:ui-ux-designer` resolve without
   `Write`/`Edit` — but the plan still says which node owns the merge.
 
 At **L4+** this section is what `graph-powers:ultra-plan` turns into `[SEQUENTIAL]`/`[PARALLEL-SAFE]`
@@ -457,8 +457,8 @@ template literal is a `ReferenceError`, not a path.
 
 ## The chain the skill loads
 
-- **Phase A — Brainstorm** → `Skill("superpowers:brainstorming")` + harness deltas (`explorer`/`librarian` parallel research, `AskUserQuestion`, GATE 1 `project-planner`).
-- **Phase B — Writing-plans** → `Skill("superpowers:writing-plans")` + harness deltas (`dispatch-matrix`, layer-map ordering, disjoint-file, GATE 2 `evaluator` Mode 1).
+- **Phase A — Brainstorm** → `Skill("superpowers:brainstorming")` + harness deltas (`graph-powers:explorer`/`graph-powers:librarian` parallel research, `AskUserQuestion`, GATE 1 `graph-powers:project-planner`).
+- **Phase B — Writing-plans** → `Skill("superpowers:writing-plans")` + harness deltas (`dispatch-matrix`, layer-map ordering, disjoint-file, GATE 2 `graph-powers:evaluator` Mode 1).
 - **Phase C — Executing-plans** → `Skill("superpowers:subagent-driven-development")` via `/implement` + two-stage review gate, branch policy, `/verify quick`, `/evolve auto`.
 - **Map mode (out of band)** → `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md`. Not a phase: it runs *instead of* Phase A+B when the fog check trips, and feeds the map back into this routing once its frontier is empty.
 

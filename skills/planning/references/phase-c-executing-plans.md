@@ -62,7 +62,7 @@ Agent({
 
 ```ts
 Agent({
-  subagent_type: "evaluator",
+  subagent_type: "graph-powers:evaluator",
   prompt: <filled § Subagent prompt templates → Spec reviewer — paste spec excerpt + implementer's diff>,
 })
 ```
@@ -73,7 +73,7 @@ Agent({
 
 ```ts
 Agent({
-  subagent_type: "evaluator",
+  subagent_type: "graph-powers:evaluator",
   prompt: <filled § Subagent prompt templates → Code-quality reviewer — paste implementer's diff>,
 })
 ```
@@ -141,7 +141,7 @@ Phase C complete.
 | BLOCKED from implementer or reviewer | Halt task, escalate, do not retry |
 | `/verify quick` FAIL after task PASS | Halt, investigate (likely cross-task interaction); do NOT auto-fix in `/implement` loop |
 | Parallel batch returns mixed PASS/FAIL | Integrate PASS diffs, re-dispatch FAIL only |
-| Same hypothesis fails 3× | Escalate to `evaluator` Mode 3 |
+| Same hypothesis fails 3× | Escalate to `graph-powers:evaluator` Mode 3 |
 | User typed "stop" or "wait" | Halt immediately, do not finish current task |
 
 ## Parallel dispatch contract (single-message rule)

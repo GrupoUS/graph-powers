@@ -246,6 +246,47 @@ jobs:
           print("uninstall removed exactly what it added, and nothing else")
           PY
 
+      - name: The Codex install survives its plugin root moving
+        # Found on a real machine: the hooks file pointed twelve guardrails at a scratch clone in
+        # /tmp from a session weeks earlier. Re-installing from the marketplace root did not repair
+        # it — the merge matched commands as strings, so a different root read as a different tool,
+        # and every guardrail ended up registered twice, one copy of each executing code from a
+        # directory with no reason to exist. This is that scenario, both halves of it.
+        run: |
+          fakehome=$(mktemp -d); fixture=$(mktemp -d)
+          rootA=$(mktemp -d)/A; rootB=$(mktemp -d)/B
+          git -C "$fixture" init -q
+          mkdir -p "$fakehome/.codex"
+          third='{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"node /other/tool.mjs"}]}]}}'
+          printf '%s\n' "$third" > "$fakehome/.codex/hooks.json"
+          cp -r "$PWD" "$rootA"; cp -r "$PWD" "$rootB"
+          python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['version']='0.0.1';json.dump(d,open(p,'w'),indent=2)" \
+            "$rootA/.claude-plugin/plugin.json"
+
+          HOME="$fakehome" node "$rootA/codex/install.mjs" --project "$fixture" --plugin "$rootA" > /dev/null
+          echo "── version bump from a moved root ──"
+          HOME="$fakehome" node "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" > /dev/null
+          echo "── same version, moved root, --force (the repair path) ──"
+          HOME="$fakehome" node "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" --force > /dev/null
+          python3 - "$fakehome" "$rootA" "$rootB" <<'PY'
+          import collections, json, re, sys
+          home, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+          data = json.load(open(f"{home}/.codex/hooks.json", encoding="utf-8"))
+          raw = json.dumps(data)
+          assert raw.count(old) == 0, f"{raw.count(old)} command(s) still point at the old plugin root"
+          assert raw.count(new) > 0, "no command points at the current plugin root"
+          seen = collections.Counter()
+          for groups in data["hooks"].values():
+              for group in groups:
+                  for hook in group.get("hooks", []):
+                      for name in re.findall(r"/hooks/([a-z_]+)\.py", hook["command"]):
+                          seen[name] += 1
+          dupes = {k: v for k, v in seen.items() if v > 1}
+          assert not dupes, f"a guardrail is registered more than once: {dupes}"
+          assert "node /other/tool.mjs" in raw, "a third party's hook was dropped"
+          print(f"{len(seen)} guardrails, each registered once, old root gone, third party intact")
+          PY
+
   clone:
     runs-on: ubuntu-latest
     steps:

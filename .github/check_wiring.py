@@ -9,13 +9,16 @@ the model reads the instruction, finds nothing, and carries on with less than it
 The audit that motivated this found ten of them in a repository whose CI was already green,
 including an agent that has never existed and three phases of `/verify` that were never written.
 
-Five checks, and each one exists because a real reference was wrong in exactly that way:
+Six checks, and each one exists because a real reference was wrong in exactly that way:
 
     subagent_type   an agent the plugin does not ship
     Workflow(name)  a workflow the plugin does not ship
     Skill(name)     a skill the plugin does not ship
     § N / Phase N   a section of another file that is not in it
     ${rulesDir}/x   a rule template the plugin does not ship
+    plugin:name     an artefact of ANOTHER plugin that nobody declared — the one class this gate
+                    used to skip on principle, until eleven citations of `codex:rescue` proved
+                    that "cannot verify" had been read as "do not look"
 
 The hard part of a gate like this is not finding misses, it is not crying wolf: a gate with false
 positives gets `|| true` appended to it within a week. So every check is deliberately narrow, every
@@ -29,9 +32,45 @@ import os
 import re
 import sys
 
-# Namespaced references belong to somebody else's plugin. `superpowers:brainstorming` is a real
-# dependency, declared in the README, and this repository cannot check it — nor should it try.
+# Namespaced references belong to somebody else's plugin. This repository cannot open that plugin's
+# tree in CI — but "cannot verify" was read as "do not look", and a name nobody looked at stayed
+# wrong for two releases: eleven citations of `codex:rescue`, in the escalation path of `/debug` and
+# `/implement`, naming an agent that does not exist. The plugin ships `codex-rescue`, so the address
+# is `codex:codex-rescue`; `codex:rescue` resolved to nothing and the escalation silently did not
+# happen.
+#
+# So the rule is not "verify the other plugin", it is **declare the dependency**. A name in this set
+# was checked by hand against the plugin that ships it, with the evidence in the comment. A
+# namespaced name that is NOT in this set fails the gate — not because it is wrong, but because
+# nobody has said it is right.
 OWN_NAMESPACE = "graph-powers"
+
+EXTERNAL_ROUTES = {
+    # openai-codex, agents/codex-rescue.md — the agent, addressed <plugin>:<agent>.
+    "codex:codex-rescue",
+    # openai-codex, skills/: codex-cli-runtime, codex-result-handling, gpt-5-4-prompting.
+    "codex:codex-cli-runtime",
+    "codex:codex-result-handling",
+    "codex:gpt-5-4-prompting",
+    # superpowers — the method layer this harness bootstraps from. Declared in README.md.
+    # Each one checked against superpowers 6.3.0 `skills/`. Four more were nearly added here from
+    # memory — condition-based-waiting, defense-in-depth, root-cause-tracing, webapp-testing — and
+    # none of the four exists in that tree. That is the whole point of the set: a declaration is
+    # only worth anything if somebody opened the other plugin before writing the line.
+    "superpowers:using-superpowers", "superpowers:brainstorming",
+    "superpowers:systematic-debugging", "superpowers:test-driven-development",
+    "superpowers:verification-before-completion", "superpowers:dispatching-parallel-agents",
+    "superpowers:requesting-code-review", "superpowers:receiving-code-review",
+    "superpowers:writing-plans", "superpowers:subagent-driven-development",
+    "superpowers:executing-plans", "superpowers:using-git-worktrees",
+    "superpowers:writing-skills",
+    # code-review — bundled with the CLI, best-effort by design (`/pr-review § 3C`).
+    "code-review:code-review",
+}
+
+# `plugin:skill` is the shape itself, written out in prose that explains the shape. It is not a
+# route and there is nothing to declare.
+PLACEHOLDER_ROUTES = {"plugin:skill", "plugin:agent", "plugin:command"}
 
 # Names that are roles in prose, not routing targets. Each one was checked by hand once; the
 # rubric at references/rubrics/skill-improver-rubric.md warns about exactly this class.
@@ -41,6 +80,12 @@ ROLE_LABELS = {
 }
 
 SCAN = ["agents", "commands", "skills", "references", "templates", "hooks", "workflows"]
+
+
+def external_problem(path: str, line: int, name: str, kind: str) -> str:
+    return (f"{path}:{line}: routes to `{name}`, a {kind} of another plugin that is not declared "
+            f"in EXTERNAL_ROUTES — check the name against that plugin's tree and add it there, or "
+            f"fix the spelling")
 
 
 def scan_files() -> list[str]:
@@ -115,23 +160,19 @@ def resolve(cited: str, base: str) -> str | None:
 
 
 def agent_frontmatter() -> list[str]:
-    """An agent file that exists but never registers is worse than one that is missing.
+    """The frontmatter contract from `.claude/rules/artifacts.md`, checked rather than trusted.
 
-    `agents/security-reviewer.md` and `agents/skill-improver.md` shipped for two releases and could
-    not be spawned once. Both wrote `disallowedTools` as a YAML block sequence:
+    The name that must match the filename, the `tools:` field without which an agent silently
+    inherits `Write` and `Edit` whatever its body promises, and `disallowedTools` in the inline
+    comma-separated shape the plugin reference documents.
 
-        disallowedTools:
-          - Write
-          - Edit
-
-    The ten agents that did register wrote it inline (`disallowedTools: Write, Edit`), and those two
-    were the only two absent from the CLI's agent list. `tools:` accepts either form — `evaluator`
-    ships a block list and loads — so the two keys are not interchangeable and the difference is
-    invisible unless you go looking. `claude plugin validate .` passes on both.
-
-    Everything else here is the frontmatter contract from `.claude/rules/artifacts.md`, checked
-    rather than trusted: the name that must match the filename, and the `tools:` field without
-    which an agent silently inherits `Write` and `Edit` no matter what its body promises.
+    On that last one, an honest note. It was introduced believing a YAML block sequence there kept
+    `security-reviewer` and `skill-improver` out of the registry for two releases. That was wrong:
+    the CLI listed both while they still carried the block form, and what did not list them was a
+    third-party `PreToolUse` hook whose allowlist predated them. The check stays because the
+    documented shape is the inline one and uniformity across twelve files is worth holding — but it
+    enforces a convention, not a known failure, and the difference matters if it ever has to be
+    argued with.
     """
     problems: list[str] = []
     for path in sorted(glob.glob("agents/*.md")):
@@ -157,6 +198,93 @@ def agent_frontmatter() -> list[str]:
             problems.append(
                 f"{path}: no `tools:` field — the agent inherits every tool, `Write` and `Edit` included"
             )
+    return problems
+
+
+def namespaced_spawns() -> list[str]:
+    """A prescribed `subagent_type` names this plugin's agent the way the registry does.
+
+    The agents ship inside the plugin, so the registry knows them as `graph-powers:<agent>`. Until
+    1.3.1 every command and skill prescribed the bare name, copied from the assignment matrix, and
+    the spawn failed with
+
+        Agent type 'explorer' not found. Available agents: ... graph-powers:explorer ...
+
+    an error that named the working string in its own list. `check_wiring.py` did not catch it
+    because the file `agents/explorer.md` exists and the reference resolved — the path was right
+    and the name was wrong, which is the combination a path check cannot see.
+
+    A name that is not one of ours passes through untouched: a project may route to its own agent.
+    """
+    problems: list[str] = []
+    ours = have_agents()
+    if not ours:
+        return problems
+    literal = re.compile(r"""subagent_type\s*[:=]\s*["']?(?!graph-powers:)("""
+                         + "|".join(sorted(ours)) + r""")\b""")
+    # A backticked bare name in a routing file is a dispatch instruction too, and it is the shape
+    # the literal check above cannot see: an audit found 129 of them across fifteen files —
+    # role labels in fenced blocks, table cells, and prose reading "spawn `explorer`". They hand
+    # the reader the form that does not resolve.
+    backticked = re.compile(r"`(?!graph-powers:)(" + "|".join(sorted(ours)) + r")`")
+    for path in scan_files():
+        if os.path.dirname(path) == "agents":
+            continue          # an agent describing itself is not prescribing a spawn
+        text = read(path)
+        for m in literal.finditer(text):
+            problems.append(
+                f"{path}:{lineno(text, m.start())}: prescribes `subagent_type: {m.group(1)}` — "
+                f"the registry knows it as `graph-powers:{m.group(1)}`, and the bare name does not resolve"
+            )
+        # Where a bare name is the artefact's own name rather than a dispatch: the root specs
+        # describe the host project, the rubrics describe what an auditor checks, the
+        # prompt-engineering references discuss how agents are written, and `workflows/*.js` holds
+        # bare names in `PLUGIN_AGENTS` precisely so `AG()` can add the namespace.
+        rel = path.replace(os.sep, "/")
+        if (rel in ("REVIEW.md", "DESIGN.md", "PRODUCT.md", "AGENTS.md")
+                or rel.startswith(("references/rubrics/", "skills/senior-prompt-engineer/",
+                                   "workflows/"))):
+            continue
+        for m in backticked.finditer(text):
+            line = text[text.rfind("\n", 0, m.start()) + 1:text.find("\n", m.start())]
+            # A quoted CLI error message has to keep the bare name it actually prints.
+            if "not found" in line or "Valid:" in line or "Unknown subagent_type" in line:
+                continue
+            problems.append(
+                f"{path}:{lineno(text, m.start())}: names the agent `{m.group(1)}` without its "
+                f"namespace — write `graph-powers:{m.group(1)}`"
+            )
+    return problems
+
+
+def external_routes() -> list[str]:
+    """A `<plugin>:<name>` written in prose is an address, and it has to be one that exists.
+
+    The `Skill()` and `subagent_type` checks only see call syntax. Every one of the eleven
+    `codex:rescue` citations was ordinary prose — "escalate to `codex:codex-rescue`", a table cell,
+    a mode list — so nothing looked at them, and the escalation path of `/debug` and `/implement`
+    pointed at an agent no plugin ships. The correct address is `codex:codex-rescue`.
+
+    Anchored on the namespaces this repository has declared, not on the shape `<word>:<word>`. The
+    shape alone matches `path:line`, `file:line`, `client:visible`, `main:main` and `skipped:true`,
+    all of which are ordinary notation here — 68 of them on the first run, which is how a gate
+    ends up with `|| true` after it. The cost of the narrower rule is that a typo in the namespace
+    itself (`codexx:rescue`) reads as a plugin nobody declared and passes; the name half, which is
+    where the real defect was, is checked.
+    """
+    problems: list[str] = []
+    namespaces = {n.split(":", 1)[0] for n in EXTERNAL_ROUTES}
+    if not namespaces:
+        return problems
+    ref = re.compile(r"`(" + "|".join(sorted(map(re.escape, namespaces)))
+                     + r"):([a-z0-9][a-z0-9-]*)`")
+    for path in scan_files():
+        text = read(path)
+        for m in ref.finditer(text):
+            name = f"{m.group(1)}:{m.group(2)}"
+            if name in EXTERNAL_ROUTES or name in PLACEHOLDER_ROUTES:
+                continue
+            problems.append(external_problem(path, lineno(text, m.start()), name, "route"))
     return problems
 
 
@@ -195,7 +323,10 @@ def main() -> int:
                 continue
             bare = name.split(":", 1)[1] if name.startswith(OWN_NAMESPACE + ":") else name
             if ":" in bare:
-                continue                      # another plugin's agent, not ours to verify
+                checked += 1
+                if name not in EXTERNAL_ROUTES and name not in PLACEHOLDER_ROUTES:
+                    problems.append(external_problem(path, lineno(text, m.start()), name, "agent"))
+                continue
             checked += 1
             if bare not in agents:
                 problems.append(f"{path}:{lineno(text, m.start())}: subagent_type \"{name}\" — no agents/{bare}.md")
@@ -203,7 +334,12 @@ def main() -> int:
         for m in skill_re.finditer(text):
             name = m.group(1).strip()
             bare = name.split(":", 1)[1] if name.startswith(OWN_NAMESPACE + ":") else name
-            if ":" in bare or "$" in bare or "<" in bare:
+            if "$" in bare or "<" in bare:
+                continue
+            if ":" in bare:
+                checked += 1
+                if name not in EXTERNAL_ROUTES and name not in PLACEHOLDER_ROUTES:
+                    problems.append(external_problem(path, lineno(text, m.start()), name, "skill"))
                 continue
             checked += 1
             if bare not in skills:
@@ -257,7 +393,8 @@ def main() -> int:
                     f"{path}:{lineno(text, m.start())}: cites {target} § {sec}, which has no such section"
                 )
 
-    frontmatter = agent_frontmatter()
+    problems += external_routes()
+    frontmatter = agent_frontmatter() + namespaced_spawns()
     for p in frontmatter:
         print(f"AGENT:   {p}")
     for p in problems:

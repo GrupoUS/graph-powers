@@ -20,11 +20,16 @@ Applies to everything that travels to the projects: `agents/`, `skills/`, `comma
   once did not parse at all, and nothing noticed because CI only validated agents.
 - `tools:` explicit in every agent. **Without that field the agent inherits the entire toolset,
   including `Write` and `Edit`** — and the read-only promise written in the body becomes decoration.
-- `disallowedTools: Write, Edit` in every agent that judges or researches. **Inline, comma-separated
-  — never a YAML block sequence.** `tools:` accepts either form; `disallowedTools` does not, and an
-  agent that writes it as a list is dropped from the registry without a word. `security-reviewer`
-  and `skill-improver` shipped that way and could not be spawned once; `claude plugin validate .`
-  passed on both. `python3 .github/check_wiring.py` now refuses the block form.
+- `disallowedTools: Write, Edit` in every agent that judges or researches. **Inline,
+  comma-separated** — that is the shape the plugin reference documents, and `python3
+  .github/check_wiring.py` holds the twelve to it so the set stays uniform.
+
+  A caveat about why, because the first version of this line was wrong: a YAML block sequence was
+  blamed for `security-reviewer` and `skill-improver` being unspawnable. They were not. The CLI's
+  own registry listed both while they still carried the block form; what did not list them was a
+  third-party `PreToolUse` hook with a hardcoded allowlist written before either agent existed. The
+  inline form is required by documentation, not by an observed failure — do not cite an incident
+  that did not happen.
 - `model:` declared in whoever judges. Never `inherit` in an evaluator.
 
 ## The `memory:` trap

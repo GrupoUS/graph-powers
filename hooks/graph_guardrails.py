@@ -17,13 +17,23 @@ G1  kill switch      - while `AGENT_STOP` exists at the repo root, every tool
                        is a human pressing Esc in an interactive session; this is
                        the file-based equivalent that also works when nobody is
                        watching.
-G2  spawn ceiling    - total `Agent` spawns per session. A runaway fan-out burns
-                       a budget in one afternoon and the first sign of it is the
-                       bill.
-G3  round ceiling    - spawns of the SAME `subagent_type` per session. This is
+G2  spawn ceiling    - `Agent` spawns inside a rolling window
+                       (`graphGuardrails.spawnWindowMinutes`, default 60). A
+                       runaway fan-out burns a budget in one afternoon and the
+                       first sign of it is the bill. The window is what makes
+                       that the measured thing: counted from session start
+                       instead, the ceiling became a session-lifetime quota, and
+                       a long working session hit it on the FIRST spawn of an
+                       unrelated later task and then refused every spawn for the
+                       rest of the day. Observed here — a `/pr-review` fan-out of
+                       three agents got one through and two denied, and the
+                       review silently ran one path instead of three.
+G3  round ceiling    - spawns of the SAME agent inside that same window. This is
                        "max rounds per loop" in the only shape a hook can see: a
                        loop that is not converging keeps re-spawning the same
-                       specialist.
+                       specialist. The name is normalised, so a plugin agent and the
+                       same agent named without its prefix share one counter
+                       instead of granting double the rounds.
 G4  write lease      - when `.graph-powers/logs/write-lease.json` exists, `Write`/`Edit`
                        outside the declared paths is denied. That file is how the
                        orchestrator declares file ownership before a parallel
@@ -62,6 +72,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path, PurePath
 from typing import Any
 
@@ -110,24 +121,63 @@ def deny(reason: str) -> None:
     print()  # the hook payload must be newline-terminated
 
 
-def bump(root: Path, session: str, key: str) -> int:
-    """Per-session counters on disk. Session id keys the file, so a fresh session
-    starts from zero without anyone cleaning up."""
-    path = root / COUNTER_DIR / f"{session or 'unknown'}-guardrails.json"
+def counter_path(root: Path, session: str) -> Path:
+    """Session id keys the file, so a fresh session starts from zero with no cleanup."""
+    return root / COUNTER_DIR / f"{session or 'unknown'}-guardrails.json"
+
+
+def read_state(path: Path) -> dict[str, Any]:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
         state = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except Exception:
         state = {}
-    if not isinstance(state, dict):
-        state = {}
-    count = int(state.get(key, 0)) + 1
-    state[key] = count
+    return state if isinstance(state, dict) else {}
+
+
+def write_state(path: Path, state: dict[str, Any]) -> None:
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(state), encoding="utf-8")
     except Exception:
         pass  # counting is best-effort; never break the session over telemetry
-    return count
+
+
+def agent_key(subagent_type: str) -> str:
+    """One specialist, one counter — whichever way the caller spelled the name.
+
+    A plugin agent is addressed `<plugin>:<agent>`, and the same agent is still reachable by its
+    unprefixed name from a project that has not migrated. Counted verbatim, the two spellings were
+    two counters for one specialist, so a session that alternated them got double the rounds the
+    ceiling grants — which is exactly the shape of the non-converging loop G3 exists to catch.
+    Observed in this repository's own session log while that migration was in flight.
+
+    Folding on the last segment can merge two different plugins that ship the same bare name. That
+    errs toward firing early, which is the safe direction for a ceiling, and it is the same
+    normalisation the CLI's own registry applies when a bare name resolves to a plugin agent.
+    """
+    return subagent_type.rsplit(":", 1)[-1].strip()
+
+
+def recent_spawns(state: dict[str, Any], now: float, window_seconds: int) -> list[list[Any]]:
+    """The spawn log, pruned to the window. Each entry is `[epoch_seconds, agent_key]`.
+
+    Entries without a usable timestamp are dropped rather than placed at `now`: a counter written
+    before this file kept timestamps cannot be located in time, and pretending it happened this
+    second would deny work on evidence that does not exist.
+    """
+    raw = state.get("spawnEvents")
+    if not isinstance(raw, list):
+        return []
+    out: list[list[Any]] = []
+    for entry in raw:
+        if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+            continue
+        stamp, key = entry
+        if isinstance(stamp, bool) or not isinstance(stamp, (int, float)):
+            continue
+        if 0 <= now - float(stamp) < window_seconds:
+            out.append([float(stamp), str(key)])
+    return out
 
 
 def lease_paths(root: Path) -> list[str] | None:
@@ -182,30 +232,56 @@ def main() -> int:
 
     if tool == "Agent":
         lim = limits(root)
-        total = bump(root, session, "spawns")
-        if total > lim["maxSpawnsPerSession"] and not opted_in(OPT_IN_SPAWN, payload):
-            deny(
-                f"SPAWN CEILING: {total} agent spawns this session, over the limit of "
-                f"{lim['maxSpawnsPerSession']}. A fan-out this wide usually means the work is being "
-                "re-delegated instead of finished — check in with the user, or narrow the task. "
-                f"To proceed deliberately, set {OPT_IN_SPAWN}=1 in the environment."
-            )
-            return 0
+        window_minutes = lim["spawnWindowMinutes"]
+        now = time.time()
+        path = counter_path(root, session)
+        state = read_state(path)
+        events = recent_spawns(state, now, window_minutes * 60)
 
         tool_input = payload.get("tool_input")
         agent_type = ""
         if isinstance(tool_input, dict):
             agent_type = str(tool_input.get("subagent_type") or "")
-        if agent_type:
-            rounds = bump(root, session, f"agent:{agent_type}")
-            if rounds > lim["maxRoundsPerAgent"] and not opted_in(OPT_IN_SPAWN, payload):
-                deny(
-                    f"ROUND CEILING: `{agent_type}` has been spawned {rounds} times this session, over "
-                    f"the limit of {lim['maxRoundsPerAgent']}. Re-spawning the same specialist this "
-                    "often is the signature of a loop that is not converging — the fix is a different "
-                    f"hypothesis, not another round. To proceed deliberately, set {OPT_IN_SPAWN}=1."
-                )
-                return 0
+        key = agent_key(agent_type)
+
+        total = len(events) + 1
+        rounds = sum(1 for _, k in events if k == key) + 1 if key else 0
+        override = opted_in(OPT_IN_SPAWN, payload)
+
+        refusal = ""
+        if total > lim["maxSpawnsPerSession"] and not override:
+            refusal = (
+                f"SPAWN CEILING: {len(events)} agent spawns in the last {window_minutes} minutes, "
+                f"at the limit of {lim['maxSpawnsPerSession']}. A fan-out this wide in one window "
+                "usually means the work is being re-delegated instead of finished — check in with "
+                f"the user, or narrow the task. To proceed deliberately, set {OPT_IN_SPAWN}=1 in "
+                "the environment."
+            )
+        elif key and rounds > lim["maxRoundsPerAgent"] and not override:
+            refusal = (
+                f"ROUND CEILING: `{key}` has been spawned {rounds - 1} times in the last "
+                f"{window_minutes} minutes, at the limit of {lim['maxRoundsPerAgent']}. Re-spawning "
+                "the same specialist this often is the signature of a loop that is not converging — "
+                "the fix is a different hypothesis, not another round. To proceed deliberately, set "
+                f"{OPT_IN_SPAWN}=1."
+            )
+
+        # A refused spawn never ran, so it is not recorded. Charging for it made the number in the
+        # message grow with every retry until it described nothing that had happened: the ceiling
+        # reported 27 spawns in a session where 25 ran and 2 were denied.
+        if not refusal:
+            events.append([now, key])
+        state["spawnEvents"] = events
+        state["spawnsInWindow"] = len(events)
+        state["spawnsTotal"] = int(state.get("spawnsTotal") or 0) + (0 if refusal else 1)
+        # Counters from the version that kept no timestamps cannot be placed in a window; leaving
+        # them in the file would make it read as if they still counted.
+        for stale in [k for k in state if k == "spawns" or k.startswith("agent:")]:
+            del state[stale]
+        write_state(path, state)
+
+        if refusal:
+            deny(refusal)
         return 0
 
     if tool in {"Write", "Edit", "NotebookEdit"}:

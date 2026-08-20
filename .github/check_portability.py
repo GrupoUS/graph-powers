@@ -134,19 +134,81 @@ def scan_python() -> list[str]:
          "text=True without encoding decodes with the locale code page — pass encoding='utf-8'"),
         (re.compile(r'shlex\.split\((?![^\n]*posix=)'),
          "shlex.split defaults to POSIX mode and eats Windows backslashes — pass posix="),
+        # `strip` takes a SET OF CHARACTERS, not a prefix or a suffix, and this repository has paid
+        # for that twice. `protect_files.py` used `.lstrip("./")`, which deletes the leading dot of
+        # every declared dotfile, so `.env` stopped being protected. `fetch_logs.py` used
+        # `.rstrip(".git")`, which turns `owner/my-agent.git` into `owner/my-agen` and sends every
+        # log lookup to a repository that does not exist. Neither raised.
+        #
+        # Only a literal shaped like a suffix or a prefix is flagged: `"\n"` and `"> "` are genuine
+        # character sets and a gate that reports them is a gate somebody switches off.
+        (re.compile(r'''\.[lr]?strip\(\s*['"](?:[./]{2,}|[./]?[A-Za-z0-9]{2,})['"]\s*\)'''),
+         "strip() takes a character set, not an affix — use removeprefix()/removesuffix()"),
     )
     for path in sorted(glob.glob("hooks/*.py") + glob.glob(".github/*.py")
                        + glob.glob("skills/**/*.py", recursive=True)):
         if path.replace(os.sep, "/") in EXEMPT_FILES:
             continue
         with open(path, encoding="utf-8", errors="replace") as fh:
-            for i, line in enumerate(fh, 1):
-                if line.lstrip().startswith("#"):
-                    continue
-                for pattern, why in checks:
-                    if pattern.search(line):
-                        problems.append(f"PATH  {path}:{i}: {why}")
+            source = fh.read()
+        lines = source.splitlines()
+        for i, line in enumerate(lines, 1):
+            if line.lstrip().startswith("#"):
+                continue
+            for pattern, why in checks:
+                if pattern.search(line):
+                    problems.append(f"PATH  {path}:{i}: {why}")
+        problems += scan_calls(path, source)
     return problems
+
+
+# `subprocess.run(...)` is routinely written across four lines, and every check above reads one
+# line at a time. Three real instances sat in the tree while the gate reported zero — the opening
+# paren on one line, `text=True` on the next, so nothing ever saw both at once. These checks read
+# the whole call instead, so formatting stops deciding whether a defect is visible.
+CALL_CHECKS = (
+    ("subprocess.run", lambda a: "text=True" in a and "encoding=" not in a,
+     "text=True without encoding decodes with the locale code page — pass encoding='utf-8'"),
+    ("shlex.split", lambda a: "posix=" not in a,
+     "shlex.split defaults to POSIX mode and eats Windows backslashes — pass posix="),
+)
+
+
+def scan_calls(path: str, source: str) -> list[str]:
+    """Every call to a named function, read whole however many lines it spans."""
+    problems: list[str] = []
+    for name, is_bad, why in CALL_CHECKS:
+        start = 0
+        while True:
+            at = source.find(f"{name}(", start)
+            if at == -1:
+                break
+            start = at + 1
+            line_no = source.count("\n", 0, at) + 1
+            if source.splitlines()[line_no - 1].lstrip().startswith("#"):
+                continue
+            args = balanced(source, at + len(name))
+            if args is None:
+                continue
+            # The single-line pass already reported anything that fits on one line; reporting it
+            # twice would make the count wrong and the fix look incomplete.
+            if "\n" in args and is_bad(args):
+                problems.append(f"PATH  {path}:{line_no}: {why}")
+    return problems
+
+
+def balanced(source: str, open_paren: int) -> str | None:
+    """The text between `(` at `open_paren` and its matching `)`, or None if unbalanced."""
+    depth = 0
+    for i in range(open_paren, len(source)):
+        c = source[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return source[open_paren + 1:i]
+    return None
 
 
 def main() -> int:

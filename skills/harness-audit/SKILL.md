@@ -15,14 +15,14 @@ allowed-tools:
 ## Overview
 
 Phases 0-4 gather evidence; Phase 5 hands the judgement to an isolated subagent
-(`skill-improver`), because **whoever gathers does not judge**; Phase 6 synthesises and **stops**.
+(`graph-powers:skill-improver`), because **whoever gathers does not judge**; Phase 6 synthesises and **stops**.
 
 Default scope is the project's `.claude/`; `--all` includes `~/.claude/` (the repository wins on a
 conflict). Marketplace plugins are reported, never edited.
 
 What this skill does **not** do: write or rewrite a skill (`skill-creator`), design an agent's
 prompt (`senior-prompt-engineer`), decide which agents to use for a task (`agent-orchestration`), or
-review production code (`/pr-review`, `evaluator`).
+review production code (`/pr-review`, `graph-powers:evaluator`).
 
 ## Hard rules
 
@@ -102,7 +102,7 @@ You do **not** judge your own gathering. Dispatch the auditor with the inventory
 
 ```ts
 Agent({
-  subagent_type: "skill-improver",
+  subagent_type: "graph-powers:skill-improver",
   prompt: `TASK: audit <scope> against ../../references/rubrics/skill-improver-rubric.md.
 EXPECTED OUTCOME: a PASS|NEEDS_WORK verdict plus P0-P3 findings with path:line, confidence and patch.
 MANDATORY CONTEXT: inventory and graph in .claude/audit/*.json.

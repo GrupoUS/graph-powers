@@ -96,9 +96,26 @@ export function readHooksFile(path, log = () => {}) {
 }
 
 /** Union of an existing hooks file and ours, keyed by (event, matcher, command). */
-export function mergeHooks(existing, ours) {
+/**
+ * A command this plugin wrote, recognised whatever root it was written with.
+ *
+ * The manifest command is a template — `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"` — so the
+ * same hook installed from two different plugin roots produces two different strings. Matching on
+ * the string alone therefore treats our own previous block as a stranger's and keeps it: measured
+ * on a real machine, re-pointing the plugin root left every guardrail registered twice, one copy
+ * of each running code from a directory that no longer had a reason to exist. Comparing against
+ * the template with the root wildcarded is what makes the merge idempotent across a move.
+ */
+function ourCommandPattern(template) {
+  const escaped = template.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped.replaceAll("\\$\\{CLAUDE_PLUGIN_ROOT\\}", ".+")}$`);
+}
+
+export function mergeHooks(existing, ours, templates = []) {
   const merged = JSON.parse(JSON.stringify(existing?.hooks ? existing : { hooks: {} }));
   merged.hooks ??= {};
+  const mine = templates.map(ourCommandPattern);
+  const isMine = (command) => mine.some((re) => re.test(command));
 
   for (const [event, groups] of Object.entries(ours)) {
     merged.hooks[event] ??= [];
@@ -110,12 +127,21 @@ export function mergeHooks(existing, ours) {
         continue;
       }
       slot.hooks ??= [];
+      // Drop our own earlier copies first — the ones about to be replaced by the same hook under
+      // the current root. A third party's hook never matches a template of ours and stays.
+      const fresh = new Set(group.hooks.map((h) => h.command));
+      slot.hooks = slot.hooks.filter((h) => !(isMine(h.command) && !fresh.has(h.command)));
       for (const hook of group.hooks) {
         if (!slot.hooks.some((h) => h.command === hook.command)) {
           slot.hooks.push({ ...hook });
         }
       }
     }
+  }
+  // An entry we emptied of everything says nothing and should not survive as `{"hooks": []}`.
+  for (const [event, groups] of Object.entries(merged.hooks)) {
+    merged.hooks[event] = groups.filter((g) => (g.hooks ?? []).length > 0);
+    if (merged.hooks[event].length === 0) delete merged.hooks[event];
   }
   return merged;
 }
@@ -371,7 +397,12 @@ function openInstall({ paths, pluginJson, pluginRoot, manifestBody, extraPlanned
   // rewrite is not a no-op: it costs the user a `/hooks` re-approval, and until they give it the
   // guardrails are inert. An update that quietly disarms the thing it updated is worse than none.
   const { hooks, added } = buildHooks(pluginJson, pluginRoot);
-  emitHooks(paths.hooks, mergeHooks(readHooksFile(paths.hooks, log), hooks), { dryRun, log, written });
+  // The manifest's own command templates, root still unresolved: what lets the merge recognise a
+  // block this plugin wrote from somewhere else and replace it instead of doubling it.
+  const templates = Object.values(pluginJson.hooks ?? {})
+    .flat().flatMap((g) => (g.hooks ?? []).map((h) => h.command));
+  emitHooks(paths.hooks, mergeHooks(readHooksFile(paths.hooks, log), hooks, templates),
+            { dryRun, log, written });
   return { planned, added };
 }
 
@@ -704,6 +735,11 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
     pluginRoot: resolve(value("--plugin", join(fileURLToPath(new URL(".", import.meta.url)), ".."))),
     scope: value("--scope", "user"),
     dryRun: argv.includes("--dry-run"),
+    // `install()` and `installGlobal()` have honoured `force` since they were written; the argv
+    // parser never set it, so `--force` on the command line did nothing at all — including in the
+    // CI fixture, whose second install was proving idempotence it had not actually exercised.
+    // It is the only way to repair a global install whose plugin root moved without a version bump.
+    force: argv.includes("--force"),
     log: (p) => console.log(`  ${p}`),
   };
   if (argv.includes("--uninstall")) {

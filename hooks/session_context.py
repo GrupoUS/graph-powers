@@ -69,8 +69,16 @@ def get_git_branch(project_dir: str) -> str:
         return "unknown"
 
 
-def get_project_dir() -> str:
-    return str(gp.project_dir())
+def get_project_dir(payload: dict[str, object] | None = None) -> str:
+    """The repository this session is in — resolved from the payload first.
+
+    Codex CLI does not export `CLAUDE_PROJECT_DIR`; it puts the working directory in the payload,
+    and `.claude/rules/hooks.md` requires every hook that reads the payload to pass it in. This one
+    read the payload and then asked without it, so under Codex the tag named whatever repository
+    the hook process happened to start in — the project name, the branch and the gate list all
+    belonged to somebody else's checkout.
+    """
+    return str(gp.project_dir(payload))
 
 
 def load_project_config(project_dir: str) -> dict[str, object]:
@@ -81,7 +89,7 @@ def main() -> None:
     data: dict[str, object] = read_input()
     source = str(data.get("source", "startup"))
 
-    project_dir = get_project_dir()
+    project_dir = get_project_dir(data)
     branch = get_git_branch(project_dir)
 
     config = load_project_config(project_dir)
@@ -95,9 +103,28 @@ def main() -> None:
 
     # The gate list is whatever the project declared. Naming a gate the project does not
     # have would be worse than naming none: a line that reads as covered and never runs.
+    #
+    # Declaring one whose tool is not installed has exactly the same effect, one level down, and
+    # for longer — the tag said `lint` while `oxlint` was absent from PATH, the Stop hook caught
+    # `FileNotFoundError` and returned, and nothing ever said so. `format` is listed here too
+    # although it is not a gate: `ultracite.py` runs it after every edit, so a missing formatter
+    # means a session silently stops being formatted.
     commands = typing.cast(dict[str, object], tooling.get("commands", {}))
-    gates = "+".join(k for k in ("typeCheck", "lint", "test", "build") if commands.get(k))
+    declared = [k for k in ("typeCheck", "lint", "test", "build") if commands.get(k)]
+    absent: list[tuple[str, str]] = []
+    for key in ("typeCheck", "lint", "test", "build", "format"):
+        value = commands.get(key)
+        if not value:
+            continue
+        tool = gp.missing_tool(str(value))
+        if tool:
+            absent.append((key, tool))
+    unusable = {k for k, _ in absent}
+    gates = "+".join(k for k in declared if k not in unusable)
     gate_tag = f" | gates: {gates}" if gates else ""
+    if absent:
+        detail = ", ".join(f"{key} needs `{tool}`" for key, tool in absent)
+        gate_tag += f" | NOT INSTALLED: {detail} — install globally or these never run"
 
     base_tag = f"[{project_name}]" + (f" {pkg_tag}" if pkg_tag else "")
     prefixes = {

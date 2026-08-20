@@ -75,9 +75,16 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
         return "??", r.returncode
 
 
-def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None):
+def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
+             harness: str = "claude"):
     """Same call, but the whole stdout — for hooks that emit context rather than a decision."""
-    env_full = {**os.environ, **(env or {}), "CLAUDE_PROJECT_DIR": str(proj)}
+    env_full = {**os.environ, **(env or {})}
+    payload = dict(payload)
+    if harness == "claude":
+        env_full["CLAUDE_PROJECT_DIR"] = str(proj)
+    else:
+        env_full.pop("CLAUDE_PROJECT_DIR", None)
+        payload["cwd"] = str(proj)
     r = subprocess.run(
         [sys.executable, str(HOOKS / f"{hook}.py")],
         input=json.dumps(payload), capture_output=True, encoding="utf-8", errors="replace",
@@ -347,12 +354,34 @@ def main() -> int:
           call("graph_guardrails", {**spawn("debugger"), **sess}, ceil,
                env={"CEIL_ALLOW_SPAWN_OVER": "1"})[0], None)
 
-    # A denied spawn still counts. `bump` increments before the check, so once a session is over
-    # the ceiling it stays over — a refusal does not hand the budget back. That is the right
-    # behaviour (the alternative lets a caller retry forever at no cost) and it is worth an
-    # assertion, because it is invisible from the code that reads the limit.
-    check("a spawn refused by the ceiling still consumed its slot",
+    # A refused spawn is NOT charged, and the ceiling holds anyway. Charging for it was the older
+    # behaviour, defended as "otherwise a caller retries forever at no cost" — but a retry that is
+    # refused never ran, so there is nothing to charge, and the refusal repeats regardless because
+    # the spawns that DID run are still inside the window. All the charge bought was a number that
+    # grew with every retry until it described nothing that happened: this repository's own log
+    # read `27 agent spawns` in a session where 25 ran and 2 were denied.
+    counter = ceil / ".graph-powers" / "logs" / "sessions" / "ceil-g2-guardrails.json"
+    charged = json.loads(counter.read_text(encoding="utf-8"))["spawnsInWindow"]
+    check("a refused spawn is still refused on retry",
           call("graph_guardrails", {**spawn("explorer"), **sess}, ceil)[0], "deny")
+    check("...and was not charged to the window",
+          json.loads(counter.read_text(encoding="utf-8"))["spawnsInWindow"], charged)
+
+    # The window is what the ceiling counts over. Twenty-five spawns in an hour is a runaway
+    # fan-out; the same twenty-five across a day of work is a day of work. Counted from session
+    # start the ceiling became a session-lifetime quota that, once reached, refused the FIRST
+    # spawn of every unrelated later task for the rest of the session.
+    aged = {"spawnEvents": [[time.time() - 7200, k] for k in ("explorer", "librarian", "evaluator")]}
+    counter.write_text(json.dumps(aged), encoding="utf-8")
+    check("spawns older than the window do not count against it",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], None)
+    fresh = {"spawnEvents": [[time.time(), k] for k in ("explorer", "librarian", "evaluator")]}
+    counter.write_text(json.dumps(fresh), encoding="utf-8")
+    check("...and spawns inside it still do",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], "deny")
+    counter.write_text(json.dumps({"spawns": 99, "agent:debugger": 99}), encoding="utf-8")
+    check("a counter with no timestamps cannot be windowed, so it does not deny",
+          call("graph_guardrails", {**spawn("debugger"), **sess}, ceil)[0], None)
 
     # G3 — round ceiling, isolated from G2 so the total is not what trips it. Same specialist over
     # and over is the signature of a loop that is not converging.
@@ -369,6 +398,19 @@ def main() -> int:
     check("...and the opt-in key releases the round ceiling too",
           call("graph_guardrails", {**spawn("debugger"), **sess}, rounds,
                env={"ROUNDS_ALLOW_SPAWN_OVER": "1"})[0], None)
+
+    # One specialist, one counter, whichever way the caller spelled the name. A plugin agent is
+    # addressed `<plugin>:<agent>`, and the bare form still reaches the same agent, so counted
+    # verbatim the two spellings were two counters and the ceiling granted double the rounds —
+    # seen in this repository's own log as `agent:evaluator: 1` beside
+    # `agent:graph-powers:evaluator: 3` during the bare-to-namespaced migration.
+    ns = {"session_id": "ceil-namespaced"}
+    check("round 1 under the namespaced name",
+          call("graph_guardrails", {**spawn("graph-powers:debugger"), **ns}, rounds)[0], None)
+    check("round 2 under the bare name — same specialist",
+          call("graph_guardrails", {**spawn("debugger"), **ns}, rounds)[0], None)
+    check("...so the 3rd, whichever spelling, is refused",
+          call("graph_guardrails", {**spawn("graph-powers:debugger"), **ns}, rounds)[0], "deny")
 
     # G4 — write lease. The half that IS implementable: "touch only the files you declared".
     check("with no lease on disk the check stands down",
@@ -507,7 +549,69 @@ def main() -> int:
     check("declared path denied", call("protect_files", declared, guarded)[0], "deny")
     check("an ordinary file is not denied", call("protect_files", ordinary, guarded)[0], None)
 
-    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun):
+    print("### Declared is not installed — the session says so instead of pretending")
+    # `ABSENT` cannot resolve on any machine; `sys.executable` resolves on every machine the
+    # suite runs on, which is what makes the mirrored case meaningful rather than decorative.
+    ABSENT = "gp-no-such-formatter-xyz"
+    here = Path(sys.executable).name
+    installed = mkproj({"project": {"name": "demo"},
+                        "tooling": {"commands": {"lint": f"{here} -c pass", "test": "echo t"}}})
+    absent = mkproj({"project": {"name": "demo"},
+                     "tooling": {"commands": {"lint": f"{ABSENT} .", "test": "echo t"}}})
+    indirect = mkproj({"project": {"name": "demo"},
+                       "tooling": {"commands": {"lint": "npm run lint", "test": "echo t"}}})
+    start = {"hook_event_name": "SessionStart", "source": "startup"}
+
+    def tag(proj: Path, harness: str = "claude") -> str:
+        out, _ = call_raw("session_context", start, proj, harness=harness)
+        try:
+            return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        except Exception:
+            return out.strip()
+
+    check("an installed linter is listed as a gate", "lint" in tag(installed).split("gates: ")[-1], True)
+    check("...and nothing is reported missing", "NOT INSTALLED" in tag(installed), False)
+    check("an absent linter is dropped from the gate list",
+          "lint" in tag(absent).split("gates: ")[-1].split(" |")[0], False)
+    check("...and it is named, with the tool", ABSENT in tag(absent), True)
+    # `npm run lint` hides the tool in the project's manifest. Guessing it would produce a
+    # confident wrong warning, which is worse than the silence.
+    check("a package-manager command makes no claim either way",
+          "NOT INSTALLED" in tag(indirect), False)
+    check("...and still counts as a declared gate", "lint" in tag(indirect), True)
+
+    # Codex passes `cwd` in the payload and exports no CLAUDE_PROJECT_DIR. This hook read the
+    # payload and then resolved the project without it, so the tag described whatever repository
+    # the hook process started in.
+    check("codex resolves the project from the payload", "DEMO" in tag(absent, harness="codex"), True)
+
+    print("### ultracite — a tool that is not installed skips, and never blocks")
+    marker = absent / "formatted.txt"
+    writer = absent / "fmt.py"
+    writer.write_text("import sys,pathlib\n"
+                      "pathlib.Path(sys.argv[0]).with_name('formatted.txt').write_text('ran')\n",
+                      encoding="utf-8")
+    target = absent / "src.ts"
+    target.write_text("const x=1\n", encoding="utf-8")
+    edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
+            "tool_input": {"file_path": str(target)}}
+
+    fmt_absent = mkproj({"tooling": {"commands": {"format": f"{ABSENT} --write"}}})
+    _, rc = call_raw("ultracite", edit, fmt_absent)
+    check("a missing formatter exits 0", rc, 0)
+    check("...and formats nothing", marker.exists(), False)
+
+    fmt_real = mkproj({"tooling": {"commands": {"format": f"{here} {writer}"}}})
+    call_raw("ultracite", edit, fmt_real)
+    check("an installed formatter is actually invoked", marker.exists(), True)
+
+    stop_absent = mkproj({"tooling": {"commands": {"lint": f"{ABSENT} ."}}})
+    out, rc = call_raw("ultracite", {"hook_event_name": "Stop"}, stop_absent)
+    check("a missing linter exits 0 at Stop", rc, 0)
+    check("...and does not block the stop", "block" in out, False)
+
+    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun,
+              installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
         shutil.rmtree(d, ignore_errors=True)
 
     print("\n" + ("FAILURES: " + ", ".join(FAILS) if FAILS else "EVERY GUARANTEE HELD"))

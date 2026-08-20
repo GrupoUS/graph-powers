@@ -24,8 +24,8 @@
 > Phase B is a goal-gated loop. Model: `references/loop-engineering.md`.
 
 - **trigger:** Phase A complete (spec GATE-1-approved + user-approved), tier L4+.
-- **goal (binary):** plan file exists **AND** GATE 2 `evaluator` Mode 1 meets the calibration anchors (Completeness ≥ 8 · Atomicity ≥ 7 · Risk Coverage ≥ 7 · Dependency Order ≥ 8, `loop-engineering.md § Calibration anchors`) **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved.
-- **body:** `superpowers:writing-plans` generates the plan → `evaluator` Mode 1 scores vs anchors (Step 7) → revise inline.
+- **goal (binary):** plan file exists **AND** GATE 2 `graph-powers:evaluator` Mode 1 meets the calibration anchors (Completeness ≥ 8 · Atomicity ≥ 7 · Risk Coverage ≥ 7 · Dependency Order ≥ 8, `loop-engineering.md § Calibration anchors`) **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved.
+- **body:** `superpowers:writing-plans` generates the plan → `graph-powers:evaluator` Mode 1 scores vs anchors (Step 7) → revise inline.
 - **guards:** HARD-STOP 3 plan revisions → escalate · COST-GUARD spawn cap 5 per phase · CTX-GUARD on a large plan (`loop-engineering.md § Context Reset Protocol`).
 - **terminal:** goal PASS → Phase C. Any guard trips → escalate to user.
 
@@ -37,7 +37,7 @@
 
 | The engine owns | the harness wraps (the deltas below) |
 |---|---|
-| bite-sized 2-5 min TDD task granularity · mandatory plan header · exact file paths · no-placeholders rule · file-structure mapping · plan self-review · save to `${paths.planDir}/` · execution-handoff offer | per-task `Agent:`/`Skill load:` from `dispatch-matrix.md` (Step 1) · `[SEQUENTIAL]`/`[PARALLEL-SAFE]` envelopes by `layer-map.md` order (Step 2) · disjoint-file enforcement (Step 3) · dispatch matrix table at top (Step 4) · GATE 2 `evaluator` Mode 1 (Step 7) · **intercept the engine's execution-handoff** → Phase C via `/implement`, no user re-prompt (Step 9) |
+| bite-sized 2-5 min TDD task granularity · mandatory plan header · exact file paths · no-placeholders rule · file-structure mapping · plan self-review · save to `${paths.planDir}/` · execution-handoff offer | per-task `Agent:`/`Skill load:` from `dispatch-matrix.md` (Step 1) · `[SEQUENTIAL]`/`[PARALLEL-SAFE]` envelopes by `layer-map.md` order (Step 2) · disjoint-file enforcement (Step 3) · dispatch matrix table at top (Step 4) · GATE 2 `graph-powers:evaluator` Mode 1 (Step 7) · **intercept the engine's execution-handoff** → Phase C via `/implement`, no user re-prompt (Step 9) |
 
 The numbered steps are the **harness deltas in execution order** — interleave with the engine.
 
@@ -159,7 +159,7 @@ Scan before GATE 2 (fix inline, re-review after each fix):
 
 ```ts
 Agent({
-  subagent_type: "evaluator",
+  subagent_type: "graph-powers:evaluator",
   prompt: "Mode 1 Plan Review. Plan at <path>. Critique: ambiguities, missing edge cases, layer-ordering violations, parallel-safety violations, gate placement, agent assignment fitness, atomic-task granularity, acceptance-criterion testability, dispatch matrix correctness. Return: PASS / FAIL+specifics / BLOCKED. < 2000 tokens.",
 })
 ```
