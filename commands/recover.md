@@ -3,79 +3,60 @@ description: Failure recovery protocol for post-failure handling. Use after 2+ f
 workflow_type: routing
 ---
 
-# /recover - Structured Failure Recovery
+# /recover — structured failure recovery
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+**ARGUMENTS**: $ARGUMENTS
 
-**ARGUMENTS**:$ARGUMENTS
+The protocol is one file, and this command runs it:
 
-<command-instruction>
-Execute Phase 2C Failure Recovery protocol:
-
-## Step 1: STOP
-
-- Halt all current fix attempts immediately
-- Do not make any more changes
-
-## Step 2: DOCUMENT
-
-Output a structured failure report:
-
-- What was the original bug/error?
-- What fixes were attempted? (list each)
-- Why did each fail?
-- Current state of the codebase
-
-## Step 3: REVERT (if applicable)
-
-- If changes made the codebase worse, revert to last clean state
-- Run `git diff HEAD` to show what changed
-- Confirm with user before reverting if uncertain
-
-## Step 3.5: CLEAR CACHES
-
-Before retrying, clear stale state that may cause phantom errors:
-
-```bash
-rm -rf <build-tool-cache> <output-dir>   # e.g. node_modules/.vite, dist, .astro, .next
-${tooling.packageManager} install         # Reinstall deps
-${tooling.commands.typeCheck} && ${tooling.commands.build}   # Verify clean state
+```
+Read ${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md and execute its five steps in order.
 ```
 
-Then consult the framework skill the project declares for its own recovery patterns. Example, for an
-Astro project:
-- **Content Collection not found** → Check `src/content/<name>/` exists with at least one file
-- **Hydration mismatch** → Guard browser-only APIs with `typeof window !== 'undefined'`
-- **Tailwind classes not working** → Verify `@import "tailwindcss"` in global.css + `@tailwindcss/vite` in astro.config.mjs
-- **Transition-router error** → Remove `ClientRouter` / `ViewTransitions` when the project is a static MPA
-- **config.ts errors** → Astro 5+ reads `src/content.config.ts`; remove accidental `src/content/config.ts` files
+That file is the only copy. This command used to carry a second version of the same five steps —
+different steps, under the same numbers, ending at an agent that does not exist — while `/debug
+recover` pointed at the real one. Two protocols is worse than none: whichever the agent happened to
+read, it could cite the other as its authority.
 
-## Step 4: CONSULT oracle
+## What this command adds
 
-- Delegate the failure report to oracle agent
-- Prompt format:
-  "Here is a failure I cannot resolve: [DOCUMENT output]. Analyze root cause and recommend approach."
+Nothing to the protocol. Two things around it:
 
-## Step 5: REPORT TO USER
+**Before Step 1, clear stale state.** A phantom error that survives a correct fix is usually a
+cache, and a recovery protocol run against a stale build reaches confident wrong conclusions:
 
-- Present oracle analysis
-- Present options with effort estimates
-- Reference the relevant framework skill sections when the failure is framework-related
-- Ask user how to proceed
+```bash
+# Only what this project declares, and one command per line: `&&` is not a statement
+# separator in Windows PowerShell 5.1, and a cache path this plugin guessed would be wrong
+# somewhere. Check each exit code before running the next.
+${tooling.packageManager} install
+${tooling.commands.typeCheck}
+${tooling.commands.build}
+```
 
-## Recovery checklist
+If the project's build tool keeps a cache directory, it is named in `${rulesDir}/` — this plugin
+does not know where it is, and inventing a path is how a recovery step deletes the wrong directory.
 
-Before declaring unrecoverable, verify:
-- [ ] Build-tool cache cleared
-- [ ] `${tooling.commands.typeCheck}` passes
-- [ ] `${tooling.commands.build}` succeeds
-- [ ] `${tooling.commands.lint}` passes
-- [ ] The framework invariants in `${rulesDir}/` still hold for the touched paths
+**After Step 5, before declaring it unrecoverable**, every declared gate has run in this session
+and its exit code is on screen:
 
-Where the project's stack adds its own invariants, they belong in `${rulesDir}/`, not here. For an
-Astro project that list typically reads: content collections declared in `src/content.config.ts`
-with explicit schemas, island props passed as plain objects, `client:*` directives only on
-component files, no router component in a static MPA.
-  </command-instruction>
+- [ ] `${tooling.commands.typeCheck}` — ran here, exit code shown
+- [ ] `${tooling.commands.build}` — ran here, exit code shown
+- [ ] `${tooling.commands.lint}` — ran here, exit code shown
+- [ ] The invariants in `${rulesDir}/` matching the touched paths still hold
+
+A remembered pass is not a pass. That is the same rule `/verify` enforces, and it matters more
+here: recovery exists precisely because the previous attempts were confident and wrong.
+
+## Where the stack-specific patterns live
+
+They do not live here. A recovery hint about a framework's hydration, its router or its content
+loader belongs in that project's `${rulesDir}/`, or in the framework skill the project declares —
+never in a command that ships to every repository. This file carried a list of Astro fixes for long
+enough that they read as general advice; they were general to one project.
+
+## Related
+
+- `/debug recover` — the same protocol, reached from the debugging chain.
+- `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` — the protocol itself, and the only place
+  its steps are written down.

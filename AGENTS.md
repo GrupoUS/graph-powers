@@ -37,6 +37,28 @@ be made in two files of this repository, the repository is reproducing the probl
    already exist for Claude Code (`codex/install.mjs`). A second hand-maintained list is the
    divergence this repository exists to end.
 
+8. **It runs on Linux, macOS and Windows.** The Bash tool maps to whatever shell the user has —
+   PowerShell and cmd.exe included — so a POSIX-only construct in a command an agent executes is a
+   command that does not run for a third of the people who install this.
+
+   Banned in anything an agent is told to execute: `rm`, `ls`, `cat`, `grep`, `sed`, `awk`, `find`,
+   `wc`, `which`, `jq`, `time` and the rest of coreutils · `$(…)` · `/dev/null` · `/tmp` · `~/` ·
+   `export VAR=` · inline `VAR=value command` · a trailing `\` continuation. The substitutes are
+   the agent's own tools (`Grep`, `Glob`, `Read`) and `python -X utf8 -c`, which the plugin already
+   requires and which behaves the same everywhere.
+
+   In Python, the silent half: `glob` returns the platform separator, so `path.startswith("a/")` is
+   False on Windows while `os.path.exists` keeps working. Compare with `PurePath(...).as_posix()`,
+   never with a string. `HOME` is `USERPROFILE` there; `select.select` takes only sockets;
+   `subprocess` without `encoding="utf-8"` decodes with the locale code page; `shlex.split` eats
+   backslashes unless you pass `posix=`.
+
+   Why this is a cardinal and not advice: every one of those was live in this repository, and none
+   of them raised. The frontmatter reader did not match CRLF, so a Windows clone installed zero
+   agents and reported success. The guard on a recursive delete only knew `/`, so `~/.agents/skills`
+   was in scope for `rmSync`. The bash approver spoke only POSIX, so the destructive floor did not
+   exist under PowerShell. `python3 .github/check_portability.py` is what keeps them gone.
+
 ## Gates
 
 There is no build and no type check: the repository is markdown, JSON and standard-library Python.
@@ -44,20 +66,37 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 71 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 154 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
+node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
+python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
+python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
+python3 .github/check_context_budget.py     # what each command costs before it does anything
+python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 node bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 ```
 
-Before opening a PR, also run the sweep that protects cardinal 2 — it must come back empty:
+On Windows the interpreter is `python` or `py -3`, not `python3` — there is a Microsoft Store
+stub by that name which opens the Store and exits non-zero, so the gates above look like they
+ran and did not.
 
-```bash
-grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --include='*.json' \
-  --include='*.mjs' . | grep -v node_modules | grep -v 'grep -rnE'
-```
+### The linter configuration is not a gate
+
+`ruff.toml`, `pyrightconfig.json`, `.oxlintrc.json` and `biome.json` exist so that the tools a
+contributor's editor launches say the same thing on every machine. Left unconfigured they resolve
+whatever that machine carries: the same tree reported 190 ruff findings and 737 basedpyright
+warnings here while CI was green, almost all of them about code working exactly as designed —
+`Any` is the shape of a JSON payload read from stdin, and catching `Exception` is cardinal 3, not
+an oversight. Each file carries its reasoning; `pyrightconfig.json` cannot, because the JSON gate
+above parses it and comments would fail that parse, so its reasoning is here: `standard` mode, to
+keep the three findings worth keeping — an attribute that does not exist, an argument of the wrong
+type, a return that contradicts its own annotation.
+
+None of them run in CI. A gate has to be able to fail a pull request; these only stop the editor
+from inventing work.
 
 ## Where things live
 
@@ -66,8 +105,9 @@ grep -rnE '(/home/|/Users/|[A-Za-z]:[\\/])' --include='*.md' --include='*.py' --
 | `agents/` | subagents, one `.md` with frontmatter each | Claude Code by `subagent_type`; Codex via generated `.codex/agents/*.toml` |
 | `skills/` | skills, one folder with a `SKILL.md` each | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
 | `commands/` | commands, exposed as `/<name>` | the user; Codex gets them as generated skills |
-| `references/` | plugin-owned shared content: the safety floor, the shared context, audit prompts, the recovery protocol | agents and commands, by explicit read |
+| `references/` | plugin-owned shared content: the safety floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read |
 | `hooks/` | guardrails in Python plus `_config.py` | declared in `.claude-plugin/plugin.json`; generated into `.codex/hooks.json` |
+| `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
 | `codex/` | the generators for the Codex side | `bin/graph-powers.mjs` |
 | `schema/` | the contract for each project's config | editors, and the setup playbook |
 | `templates/` | starting points a project copies and adapts | the setup playbook |
@@ -104,3 +144,33 @@ detail — every value in the generated file traces back to that repository or t
 
 This plugin's own equivalents live in `docs/ARCHITECTURE.md`, `docs/AUDIENCE.md` and
 `CONTRIBUTING.md`.
+
+<!-- graph-powers:start -->
+## Graph Powers
+
+This machine runs the Graph Powers harness, installed once and shared by every project.
+
+Two files carry everything else:
+
+- `~/.codex/graph-powers/shared-context.md` — config loader, quality gates, complexity routing, agent
+  matrix, spawn patterns. Read it before acting on any non-trivial task.
+- `~/.codex/graph-powers/safety-floor.md` — the invariants that hold regardless of the task: git and
+  outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,
+  scope, completion claims, accessibility.
+
+**What is global and what is this project's.** The harness itself — skills, subagents,
+commands, guardrails — is installed once for the whole machine, because it is identical
+everywhere. What belongs to this repository and nothing else lives here:
+
+- `.graph-powers/config.json` — the branch, the gate commands, the paths, the opt-in prefix
+- `.codex/rules/` and `.claude/rules/` — this project's domain rules
+- `DESIGN.md`, `PRODUCT.md`, `REVIEW.md` — its design, product and review authorities
+
+The guardrails are what make one global copy correct rather than sloppy: they read **this**
+project's config at runtime, so the same files enforce a different work branch and a different
+opt-in key in every repository.
+
+Read the config; never assume it. A denied command is the rule working, not a bug to route
+around: it names the environment variable that releases it, and a person sets that variable,
+in the turn they approved it.
+<!-- graph-powers:end -->

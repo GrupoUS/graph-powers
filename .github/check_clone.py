@@ -18,13 +18,15 @@ REQUIRED = [
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENTS.md", "CONTRIBUTING.md",
     "docs/ARCHITECTURE.md", "docs/AUDIENCE.md",
 ]
-REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples"]
+REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows"]
 MAX_BYTES = 4 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]
 missing += [d + "/" for d in REQUIRED_DIRS if not os.path.isdir(d) or not os.listdir(d)]
 
-tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.splitlines()
+tracked = subprocess.run(
+    ["git", "ls-files"], capture_output=True, text=True, check=False
+).stdout.splitlines()
 
 # Compiled Python is gitignored, but an ignore rule is not proof that nothing was committed before
 # the rule existed.

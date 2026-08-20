@@ -65,6 +65,13 @@ For an L5+ task, or a third attempt on any task, invoke
 Then take the fastest-to-falsify path first, not the most likely one. A wrong hypothesis you can
 kill in a minute beats a probable one that takes an hour to test.
 
+If the decomposition keeps returning the same branch, the problem may be the session rather than
+the bug: by the third attempt the thread has spent many turns justifying one reading, and every
+further hypothesis is generated inside it. `${CLAUDE_PLUGIN_ROOT}/skills/second-opinion/SKILL.md`
+runs the question in a Claude session that never saw this conversation, bounded in dollars rather
+than in trust. It is slow and it costs money, which is why it belongs here — at the point where a
+fourth wrong attempt costs more.
+
 ---
 
 ## Step 5 — Stop and hand back

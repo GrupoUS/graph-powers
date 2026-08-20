@@ -171,9 +171,16 @@ translation, into TOML.
 **Refused:** a second hand-maintained list of hooks for Codex. That is the divergence problem again,
 now inside a single repository.
 
-**The one asymmetry worth knowing:** Codex has no per-tool denylist, so `disallowedTools: Write,
+**The asymmetries worth knowing.** Codex has no per-tool denylist, so `disallowedTools: Write,
 Edit` becomes `sandbox_mode = "read-only"`. Denying only `Edit` — as the planner does, to keep
 `Write` for its plan file — is therefore not expressible, and correctly does not become a sandbox.
+
+And `workflows/` does not cross at all: Codex has no equivalent of `Workflow({name})`, so the three
+orchestrations are Claude Code only. This is the one place the "one source" rule bends, and it bends
+in the safe direction — nothing is hand-maintained twice; a capability simply exists on one side.
+What matters is that the chain is an accelerator, not a floor: under Codex, `/plan`, `/implement` and
+`/verify` do the same work as commands, which is the same fallback Claude Code takes when the
+workflow name does not resolve.
 
 ---
 
@@ -183,7 +190,9 @@ Recorded so they do not come back as proposals:
 
 - **"Two writers on the same file", detected by agent identity.** Not implementable: a hook cannot
   tell a subagent from the main thread — same session identifier, same process. What can be done,
-  and is, is the actionable half: "only write to the files you declared".
+  and is, is the actionable half: "only write to the files you declared". That half was armed and
+  unarmed at the same time until 1.3.0 — the hook read a lease file nothing ever wrote. The producer
+  is now `/plan` Step 4.2, from the disjoint file sets `workflows/ultra-build.js` already computes.
 - **A spend ceiling in an interactive session.** The CLI exposes a dollar budget only in `--print`
   mode. The spawn and round ceilings are the substitute that is controllable inside the session.
 - **A turn limit per subagent.** The field exists in frontmatter, was tested both possible ways, and
@@ -195,7 +204,10 @@ Recorded so they do not come back as proposals:
 ## 10. What is still open
 
 - **The spawn ceiling does not cover agents launched by a workflow**, which do not pass the same
-  interception point. It holds for direct spawns.
+  interception point. It holds for direct spawns. This matters more since 1.3.0, because the plugin
+  now ships workflows: the ceilings that bound them are their own (`maxParallelWave`,
+  `maxTasksPerPlan`, `maxRepatch`, and the round limit), declared in the config and enforced in the
+  script rather than by the hook.
 - **The ceiling numbers** (25 spawns per session, 8 rounds per agent) are starting points chosen
   above the limits already present in the workflows, not measured values. Calibrating them needs
   real usage data.

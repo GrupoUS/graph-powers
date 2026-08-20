@@ -14,11 +14,18 @@ paths:
 of any task is: working tree ready, gates green, report written. The commit is the reviewer's
 decision.
 
-The plugin's guardrails enforce this with code. When the approval comes, the opt-in is inline:
+The plugin's guardrails enforce this with code. When the approval comes, the opt-in travels with
+the command — and the hook matches the key as **text**, not as shell syntax, so write whichever
+form your shell accepts:
 
-```bash
-{{OPT_IN_PREFIX}}_ALLOW_COMMIT=1 git commit -m "..."
-```
+| Shell | Form |
+|---|---|
+| bash, zsh, Git Bash | `{{OPT_IN_PREFIX}}_ALLOW_COMMIT=1 git commit -m "..."` |
+| PowerShell | `$env:{{OPT_IN_PREFIX}}_ALLOW_COMMIT=1; git commit -m "..."` |
+| cmd.exe | `set {{OPT_IN_PREFIX}}_ALLOW_COMMIT=1 && git commit -m "..."` |
+
+Only the first is also valid POSIX shell syntax. On Windows it releases the gate and then fails to
+run the command, which reads as a broken guardrail and is not.
 
 Format: Conventional Commits — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `perf:`,
 `build:`, `ci:`. The verb describes what the change does, not what you did.

@@ -1,7 +1,7 @@
 # Dispatch matrix — planning-specific routing rules
 
 > Lookup for **Phase B writing-plans**: how to fill each task's `Agent:` / `Skill load:` / `Mode:`.
-> **Canonical skill↔agent pairing lives in `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md § 3` (agent matrix) and `§ 6` (skill-to-domain matrix).** This file keeps only the planning-unique operational rules; it does not restate those tables.
+> **Canonical skill↔agent pairing lives in `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` (agent matrix) and `§ 6` (skill-to-domain matrix).** This file keeps only the planning-unique operational rules; it does not restate those tables.
 
 ---
 
@@ -13,13 +13,14 @@
 4. **Return budget < 2000 tokens.** Detail to `.claude/agent-memory/<agent>/`, summary index returned to main.
 5. **Subagent non-inheritance.** Agents do NOT auto-load project `CLAUDE.md` — embed critical rules in the agent prompt body or task block.
 
-> Full stopping-conditions table: `.claude/CLAUDE.md § Stopping conditions` + `phase-c-executing-plans.md § Stopping conditions`.
+> Full stopping-conditions table: `../SKILL.md § Stopping & red flags`, plus the phase-specific
+> rows in `phase-c-executing-plans.md § Stopping conditions`.
 
 ---
 
 ## Parallel-safety by path (the planning-unique decision)
 
-Pick the agent and skill from `shared-context.md § 3` and `§ 6`; this column is what writing-plans needs that those tables do not carry:
+Pick the agent and skill from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` and `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`; this column is what writing-plans needs that those tables do not carry:
 
 | Path / signal | Parallel-safe? |
 |---|---|

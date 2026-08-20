@@ -7,17 +7,17 @@ workflow_type: parallelization
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/050-tool-usage.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 
-> Triggers Phase 2A of the D.R.P.I.V methodology in **research-only** mode. No edits. No fixes.
+> Research-only mode: findings, no edits, no fixes. This is the discovery half of the planning
+> chain, usable on its own when the question is what exists rather than what to build.
 
 ---
 
 ## Agent routing (mandatory — choose by **where the answer lives**)
 
-> **`explorer` = custom agent at `.claude/agents/explorer.md`** — structured findings table with confidence scores (1-5), Knowledge Gaps, Librarian Requests.
+> **`explorer` = the plugin's agent, `${CLAUDE_PLUGIN_ROOT}/agents/explorer.md`** — structured findings table with confidence scores (1-5), Knowledge Gaps, Librarian Requests.
 > **NOT the built-in `Explore`.** Use `subagent_type: "explorer"` (exact case).
 
 | Question type | Agent | Why |
@@ -34,7 +34,7 @@ workflow_type: parallelization
 ## Setup
 
 ```typescript
-Skill("superpowers:using-superpowers");           // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers");           // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 Skill("superpowers:dispatching-parallel-agents"); // explorer + librarian = parallel batch with distinct scope
 ```
 
@@ -64,27 +64,31 @@ If the research scope is open-ended (user says "should we build X?" / "how shoul
 | Multi-page docs / changelog intake | **`tavily_crawl`** / **`tavily_map`** | Crawl/map a docs tree; `tavily_extract` for a known URL |
 | Exact hook/function signatures, schemas | **Context7** | Always prefer over training |
 
-### Tavily — web intelligence
+**Which tool for which question** is decided by `050-tool-usage.md`, loaded above — it is the one
+table, and this command does not carry a second opinion about it. What follows is only how to drive
+the ones this command reaches for, which that table does not cover.
 
-Default to **`mcp__tavily__tavily_research`** for any non-trivial research (best practices, comparisons, migration war stories): pass a full task description in `input`, `model: auto` (`pro` for broad multi-subtopic). It runs an agentic multi-source pass and returns a synthesized answer — one call replaces several `tavily_search` round-trips.
+### Tavily — writing the query
 
-Use **`mcp__tavily__tavily_search`** only for a single fast fact (one version, one CVE):
+- Two or three variations, not one: `"<lib> middleware order 2026"`, `"<lib> v<N> breaking changes"`.
+- **Always put the year and the version in the query.** Without them the top results are whichever
+  version was popular when the page was written, and they read as current.
+- `include_domains`: `github.com`, `npmjs.com`, `github.com/advisories`, `snyk.io`. For a CVE:
+  `<package> CVE GHSA`.
+- `search_depth: advanced` when thoroughness matters, `fast` when latency does.
+- For `tavily_research`, pass a full task description in `input` rather than keywords — it runs an
+  agentic multi-source pass, and a keyword string wastes that.
+- Scope `tavily_crawl` with `select_paths`; an unscoped crawl of a docs tree returns more than any
+  context window wants.
 
-- Formulate 2-3 query variations (`"<lib> middleware order 2026"`, `"<lib> v<N> breaking changes"`)
-- `include_domains`: `github.com`, `npmjs.com`, `github.com/advisories`, `snyk.io`; CVEs: `<package> CVE GHSA`
-- `search_depth: advanced` for thorough, `fast` for low latency
-- **Always add year + version** to queries — avoids stale results
+### Context7 — the two calls, in order
 
-For docs intake at scale: **`tavily_crawl`** (changelog/docs tree, scope with `select_paths`), **`tavily_map`** (site structure), **`tavily_extract`** (a known URL).
+1. `mcp__claude_ai_Context7__resolve-library-id` — package name to library ID.
+2. `mcp__claude_ai_Context7__query-docs` — with a specific topic (`"useQuery options"`,
+   `"insert returning"`), never the library name alone.
 
-### Context7 — documentation lookup
-
-For exact API signatures, config options, anything needing authoritative current docs.
-
-1. `mcp__claude_ai_Context7__resolve-library-id` — get library ID from package name
-2. `mcp__claude_ai_Context7__query-docs` — query with specific topic (`"useQuery options"`, `"insert returning"`)
-
-Always prefer Context7 over training knowledge for any library/framework where the API surface is non-trivial.
+Prefer it over recalled knowledge for any library whose API surface is non-trivial. Training data
+has a cutoff; the docs do not.
 
 ---
 

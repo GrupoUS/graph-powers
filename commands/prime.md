@@ -7,9 +7,9 @@ workflow_type: augmented-llm
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/110-guardrails-index.md`
 
 > First positional arg = scope. Examples:
 > ```
@@ -36,7 +36,7 @@ Plus optional project supplements under `${rulesDir}` (routing supplements, anti
 
 ## 0. Setup (every mode)
 
-`/prime` is a context loader — it does not mutate code, so it does NOT invoke the superpowers bootstrap itself. Instead, surface a one-line recommendation at the end of the output (per `shared-context.md` § 0.5): the **next** command should load `Skill("superpowers:using-superpowers")` as its first skill call.
+`/prime` is a context loader — it does not mutate code, so it does NOT invoke the superpowers bootstrap itself. Instead, surface a one-line recommendation at the end of the output (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`): the **next** command should load `Skill("superpowers:using-superpowers")` as its first skill call.
 
 Read `.graph-powers/config.json`. Note `${paths.*}` and `${rulesDir}` for later loading.
 
@@ -52,7 +52,7 @@ If `${rulesDir}/routing-supplements.md` exists, note it for stage 2 deep loading
 
 ### 0.1 Auto-research flag (default ON for L3+)
 
-If `$ARGUMENTS` contains `--no-auto-research` → skip. Otherwise on **L3+ intent** (per § Intent classification in `.claude/CLAUDE.md`), spawn discovery agents BEFORE returning prime output:
+If `$ARGUMENTS` contains `--no-auto-research` → skip. Otherwise on **L3+ intent** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` — Complexity Routing`), spawn discovery agents BEFORE returning prime output:
 
 ```ts
 Agent({ subagent_type: "explorer",  run_in_background: true, prompt: "<scoped repo discovery>" })

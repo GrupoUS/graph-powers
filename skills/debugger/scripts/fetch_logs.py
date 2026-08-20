@@ -23,7 +23,7 @@ def detect_repo() -> str:
     try:
         r = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True, text=True, timeout=3, check=False,
         )
         url = r.stdout.strip()
         if url.startswith("git@github.com:"):
@@ -41,7 +41,8 @@ DB_STATUS_COMMAND = os.environ.get("DB_STATUS_COMMAND", "")
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                          timeout=30, check=False)
 
 
 def has_command(cmd: str) -> bool:
@@ -101,7 +102,7 @@ def fetch_vps_status() -> None:
         ["ssh", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes",
          f"root@{VPS_HOST}",
          "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True, text=True, timeout=15, check=False,
     )
     if r.returncode == 0:
         print(r.stdout)
@@ -121,7 +122,8 @@ def fetch_db_status() -> None:
         print()
         return
 
-    argv = shlex.split(DB_STATUS_COMMAND)
+    # POSIX mode eats backslashes, so a Windows path in the declared command is mangled.
+    argv = shlex.split(DB_STATUS_COMMAND, posix=(os.name != "nt"))
     # shutil.which resolves PATHEXT on Windows (npm's .cmd shim); a subprocess "which" does not.
     binary = shutil.which(argv[0])
     if binary is None:

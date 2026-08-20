@@ -52,7 +52,7 @@ export function Island() {
 ## Validation
 
 ```bash
-grep -rn "client:load" src
+# Grep tool (not a shell `grep`, which Windows does not have): grep -rn "client:load" src
 ```
 
 Each hit needs a clear reason — a form that is the point of the page counts as one. Swap the path

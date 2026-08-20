@@ -7,19 +7,19 @@ workflow_type: orchestrator-workers
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
-> **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map.
-> **Plan files:** `${paths.planDir}/YYYY-MM-DD-<feature>-plan.md` (per `shared-context.md` § 0.7) or active conversation context. Legacy `docs/plans/*.md` accepted for back-compat.
+> **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map — both loaded only when no plan exists and this command has to write one first.
+> **Plan files:** `${paths.planDir}/YYYY-MM-DD-<feature>-plan.md` (per `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`) or active conversation context. Legacy `docs/plans/*.md` accepted for back-compat.
 
 ---
 
 ## 0. Pre-flight
 
 ```typescript
-Skill("superpowers:using-superpowers");   // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 ```
 
 Use the file-search tool to locate `${paths.planDir}/*.md` (preferred) and `docs/plans/*.md` (legacy). Do not rely on shell globbing or stderr redirection for this check.
@@ -48,7 +48,7 @@ Read `.graph-powers/config.json` for tooling + paths. If `${rulesDir}/routing-su
 
 ## 1. Skill routing
 
-Per `shared-context.md` § 6 (Skill-to-Domain Matrix), load the skill matching the task domain **before spawning any agent for that phase**.
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` (Skill-to-Domain Matrix), load the skill matching the task domain **before spawning any agent for that phase**.
 
 If the plan touches:
 - Schema / migrations / data → load `debugger` skill and any host database skill listed in `${rulesDir}/routing-supplements.md`
@@ -86,7 +86,7 @@ Background read-only agents (always `run_in_background: true`):
 
 ---
 
-## 3. Execution mode (per `shared-context.md` § 2)
+## 3. Execution mode (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`)
 
 | Complexity | Mode |
 |---|---|
@@ -101,7 +101,7 @@ Background read-only agents (always `run_in_background: true`):
 1. Load skill for the task domain
 2. Execute task directly in main agent
 3. Run verify command
-4. Gate per `shared-context.md` § 1 (type-check)
+4. Gate per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` (type-check)
 
 ---
 
@@ -130,7 +130,7 @@ If the explorer returns conflicting or ambiguous patterns (two conventions for t
 
 ### Sequential phase
 
-Per `shared-context.md` § 8 (Sequential Phase Gating).
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` (Sequential Phase Gating).
 
 **Hard TDD gate (L3+):** Before each task that writes code, invoke `Skill("superpowers:test-driven-development")`. The skill requires a failing test before the implementation lands. L1-L2 trivial tasks (single-line fix, exact existing pattern) are exempt — note the exemption in the task log.
 
@@ -143,7 +143,7 @@ Load domain skill
 
 ### Parallel phase
 
-Per `shared-context.md` § 7 (Parallel Agent Spawn). Spawn all independent tasks in **single message**:
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` (Parallel Agent Spawn). Spawn all independent tasks in **single message**:
 
 ```typescript
 // Write-capable → foreground:
@@ -229,7 +229,7 @@ Codex handles implementation. Main agent validates against the sprint contract w
 
 ## 8. Quality gates
 
-Per `shared-context.md` § 1.
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
 
 | When | Command |
 |---|---|

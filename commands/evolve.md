@@ -7,9 +7,8 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`
 
 ---
 
@@ -18,7 +17,7 @@ workflow_type: prompt-chaining
 | Token in `$ARGUMENTS` | Behavior |
 |---|---|
 | (none) | Manual capture flow (§ 1-5) |
-| `auto` | Skip § 1-5, run AutoResearch Loop per `shared-context.md` § 10. Target skill is second arg (e.g. `/evolve auto debugger`). Default: all skills with `evals.json`. |
+| `auto` | Skip § 1-5, run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`. Target skill is second arg (e.g. `/evolve auto debugger`). Default: all skills with `evals.json`. |
 | `handoff` | Write session state to `.graph-powers/HANDOFF.md` (§ 6) |
 
 ---
@@ -26,7 +25,7 @@ workflow_type: prompt-chaining
 ## 1. First action
 
 ```typescript
-Skill("superpowers:using-superpowers"); // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers"); // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 ```
 
 ---
@@ -71,7 +70,7 @@ read.
 
 ## 3. Skill selection
 
-Based on modified file paths + `shared-context.md` § 6 (Skill-to-Domain Matrix), identify affected skills.
+Based on modified file paths + `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` (Skill-to-Domain Matrix), identify affected skills.
 
 Generic mapping (the project overrides it in `${rulesDir}/` when it has its own routing):
 
@@ -192,4 +191,4 @@ AGENTS.md:  [list, or none]
 ## References
 
 - `skill-creator` skill — for any change to a SKILL.md body
-- AutoResearch Loop: `shared-context.md` § 10
+- AutoResearch Loop: `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`

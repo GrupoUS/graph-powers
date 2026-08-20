@@ -9,13 +9,23 @@ Project-specific protected paths come from the Graph Powers config via _config
 import json
 import sys
 import typing
-
 from pathlib import Path, PurePath
 
 # Project parameters come from _config, never hardcoded — this file is byte-for-byte
 # the same in every repository that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 # Generic exact filename matches — apply to every project
 PROTECTED_EXACT_DEFAULT = {
@@ -100,7 +110,7 @@ def main() -> None:
     posix = PurePath(str(file_path)).as_posix()
     name = PurePath(str(file_path)).name
     for entry in PROTECTED_EXACT:
-        e = str(entry).replace("\\", "/").lstrip("./")
+        e = str(entry).replace("\\", "/").removeprefix("./")
         hit = (posix == e or posix.endswith("/" + e)) if "/" in e else (name == e)
         if hit:
             deny(f"BLOCKED: '{file_path}' is a protected file")
@@ -114,7 +124,10 @@ def main() -> None:
 
     # Directory containment check for patterns that include separators
     for pattern in PROTECTED_CONTAINS:
-        if pattern in file_path:
+        # Compare separator-normalised, both sides. The default list carries `.git/` AND `.git\\`
+        # precisely because this comparison used to be raw; normalising here is what lets a
+        # project declare `config/secrets/` once and have it hold on every platform.
+        if str(pattern).replace("\\", "/") in posix:
             deny(f"BLOCKED: '{file_path}' matches protected pattern '{pattern}'")
             return
 

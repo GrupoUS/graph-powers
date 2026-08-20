@@ -13,9 +13,7 @@ tools:
   - Bash
 # Read-only is declared, not promised. This agent's own body says a read-only claim living
 # in prose is a P0 finding — it does not get to exempt itself.
-disallowedTools:
-  - Write
-  - Edit
+disallowedTools: Write, Edit
 ---
 
 # Skill Improver — Harness Auditor

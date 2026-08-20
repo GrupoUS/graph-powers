@@ -72,7 +72,9 @@ graph-powers/                        your project/
   skills/       12 skills              .claude/rules/             <- only your domain
   commands/     12 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
-  references/   safety floor, shared context
+  workflows/    3 orchestrations
+  references/   safety floor
+    shared/     17 shared patterns, loaded one at a time
   schema/       the config contract
   DESIGN.md     specs for the three authorities
   PRODUCT.md      the plugin installs into
@@ -94,7 +96,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 12 guardrails, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 12 skills, 12 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
@@ -422,7 +424,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 71 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 154 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,

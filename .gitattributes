@@ -1,0 +1,11 @@
+# Everything this plugin ships is parsed as text by something: the frontmatter reader in
+# `codex/lib.mjs`, the Python hooks, the gates. A clone with CRLF broke the first of those
+# silently — `^---\n` does not match `---\r\n`, so every agent and command-as-skill was dropped
+# and the installer still reported success. Git for Windows checks out CRLF by default, so the
+# repository has to say otherwise.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary

@@ -51,13 +51,7 @@ Pre-flight: `bunx agent-browser --version` — STOP and escalate if it fails.
 One `batch`, not six calls — each invocation pays the startup cost of both `bunx` and the CLI.
 
 ```bash
-bunx agent-browser batch --bail \
-  "open ${project.stagingUrl}/<route>" \
-  "snapshot -i -c" \
-  "screenshot .graph-powers/logs/<flow>.png" \
-  "console" \
-  "errors" \
-  "network requests --filter api-staging"
+bunx agent-browser batch --bail "open ${project.stagingUrl}/<route>" "snapshot -i -c" "screenshot .graph-powers/logs/<flow>.png" "console" "errors" "network requests --filter api-staging"
 bunx agent-browser close --all       # headless sessions ONLY — never over CDP
 ```
 

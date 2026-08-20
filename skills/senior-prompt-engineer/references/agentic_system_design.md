@@ -139,7 +139,7 @@ The third pattern is **not the default** here — keep skills as content (loaded
 | **Re-declared schemas** | Three agents define their own "Context Handoff" block | Single SSOT in this skill; agents link only |
 | **Auto-trigger on `disable-model-invocation: true`** | Skill listed in `skills:` preload silently skipped | Remove the flag; or invoke manually only |
 | **Subagent spawning subagent** | Doesn't work — Anthropic spec | Use coordinator + agent team for nested orchestration |
-| **Spawning eagerly when result not yet needed** | Wasted parallelism — agent finishes idle while parent works on something else | Use `run_in_background: true` for read-only agents per `shared-context.md § 7` |
+| **Spawning eagerly when result not yet needed** | Wasted parallelism — agent finishes idle while parent works on something else | Use `run_in_background: true` for read-only agents per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` |
 
 ---
 

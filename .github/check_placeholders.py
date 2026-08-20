@@ -52,7 +52,8 @@ def declared(schema: dict[str, Any], dotted: str) -> bool:
 
 
 def main() -> int:
-    schema = json.load(open("schema/config.schema.json", encoding="utf-8"))
+    with open("schema/config.schema.json", encoding="utf-8") as fh:
+        schema = json.load(fh)
 
     files: list[str] = []
     for root in ("skills", "commands", "agents", "references", "templates"):
@@ -60,7 +61,8 @@ def main() -> int:
 
     undeclared: dict[str, list[str]] = {}
     for path in sorted(files):
-        text = strip_code_blocks(open(path, encoding="utf-8", errors="replace").read())
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = strip_code_blocks(fh.read())
         for name in set(PLACEHOLDER.findall(text)):
             if name in EXEMPT or name.startswith("CLAUDE_") or name.isupper():
                 continue

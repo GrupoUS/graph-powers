@@ -273,12 +273,7 @@ Generate 20 eval queries — a mix of should-trigger and should-not-trigger — 
 Score the description against that set with the bundled runner:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/run_evals.py" \
-  --skill-path <path-to-skill> \
-  --evals-path <path-to-skill>/evals.json \
-  --response-file <captured-response>.txt \
-  --test-case <case-id> \
-  --threshold 1.0
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/skill-creator/scripts/run_evals.py" --skill-path <path-to-skill> --evals-path <path-to-skill>/evals.json --response-file <captured-response>.txt --test-case <case-id> --threshold 1.0
 ```
 
 Iterate the description, re-score, and report the before/after numbers. A description change with no

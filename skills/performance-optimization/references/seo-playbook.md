@@ -52,8 +52,7 @@ Source data: extract to pure data modules with no component imports, so the JSON
 ## 4. PSI SEO score
 
 ```bash
-curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.productionUrl}&strategy=mobile&category=seo&category=accessibility&locale=${project.locale}" \
-  | jq '{
+curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.productionUrl}&strategy=mobile&category=seo&category=accessibility&locale=${project.locale}" | jq '{
       seo: (.lighthouseResult.categories.seo.score * 100 | round),
       a11y: (.lighthouseResult.categories.accessibility.score * 100 | round)
     }'
@@ -65,7 +64,7 @@ Pass: the value configured at `.graph-powers/config.json::gates.lighthouse.seo`.
 
 | Check | Command / Pattern |
 |---|---|
-| All public routes return 200 | `for r in / /pricing /about; do curl -o /dev/null -w "%{http_code} $r\n" "${project.productionUrl}$r"; done` |
+| All public routes return 200 | `python -X utf8 -c "import urllib.request as u,sys;[print(u.urlopen(sys.argv[1]+r,timeout=10).status, r) for r in ('/','/pricing','/about')]" ${project.productionUrl}` |
 | `<title>` populated server-side | `curl -s ${project.productionUrl}/ \| grep -oP '<title>\K[^<]+'` (Vite SPA: empty until JS hydrates — relies on Vercel's bot rendering or pre-render plugin) |
 | Open Graph absolute URLs | `grep -rn 'property="og:image"' ${paths.frontendRoot}` — confirm absolute URLs, not relative |
 | H1 per page | Every route has exactly one `<h1>` |

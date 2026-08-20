@@ -50,7 +50,7 @@ For a repo not yet linked:
 ```bash
 cd <repo>
 bunx vercel link --yes --project <name> --scope <team-or-user>
-cat .vercel/project.json    # { "orgId": "team_xxx", "projectId": "prj_xxx", "projectName": "..." }
+# Read `.vercel/project.json` with the Read tool — `cat` is not on every platform    # { "orgId": "team_xxx", "projectId": "prj_xxx", "projectName": "..." }
 ```
 
 Then persist into `.graph-powers/config.json::vercel`:
@@ -70,7 +70,9 @@ Then persist into `.graph-powers/config.json::vercel`:
 Build directly from config:
 
 ```bash
-SCOPE="$(jq -r '.vercel.scope' .graph-powers/config.json)"
+# Read the value with the Read tool, or one Python line — `jq` is a separate install and
+# `$( )` is POSIX substitution that cmd.exe passes through as literal text:
+python -X utf8 -c "import json;print(json.load(open('.graph-powers/config.json',encoding='utf-8')).get('vercel',{}).get('scope',''))"
 PROJECT_NAME=<project>-web    # from .vercel/project.json::projectName
 
 echo "Speed Insights: https://vercel.com/${SCOPE}/${PROJECT_NAME}/speed-insights"
@@ -85,8 +87,7 @@ Dashboard → Speed Insights → "Export" button (top-right). CSV includes per-r
 
 ```bash
 # example, schema may evolve
-awk -F',' 'NR>1 { printf "%-40s LCP=%s INP=%s CLS=%s n=%s\n", $1, $2, $3, $4, $5 }' \
-  /tmp/vercel-cwv.csv
+python -X utf8 -c "import csv,sys;[print(f'{r[0]:<40} LCP={r[1]} INP={r[2]} CLS={r[3]} n={r[4]}') for i,r in enumerate(csv.reader(open(sys.argv[1],newline='',encoding='utf-8'))) if i]" <path-to-csv>
 ```
 
 Web Analytics dashboard also exports CSV (top pages, referrers, devices, countries).

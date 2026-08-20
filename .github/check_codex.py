@@ -16,7 +16,8 @@ root, project, scope = sys.argv[1], sys.argv[2], sys.argv[3]
 codex_home = os.path.join(root, ".codex")
 skills_dir = os.path.join(root, ".agents/skills")
 
-hooks = json.load(open(os.path.join(codex_home, "hooks.json"), encoding="utf-8"))
+with open(os.path.join(codex_home, "hooks.json"), encoding="utf-8") as fh:
+    hooks = json.load(fh)
 commands = [h["command"] for groups in hooks["hooks"].values() for g in groups for h in g["hooks"]]
 dupes = [c for c, n in collections.Counter(commands).items() if n > 1]
 assert not dupes, f"duplicate hook entries after a second install: {dupes}"
@@ -26,7 +27,8 @@ agents = sorted(glob.glob(os.path.join(codex_home, "agents/*.toml")))
 assert agents, f"no Codex subagents generated under {codex_home}"
 efforts = set()
 for path in agents:
-    d = tomllib.load(open(path, "rb"))
+    with open(path, "rb") as fh:
+        d = tomllib.load(fh)
     assert d.get("name") and d.get("description") and d.get("developer_instructions"), path
     # A description that stopped at the first comma is the signature of the frontmatter reader
     # treating every key as a list. It is invisible in the file and fatal to discovery.
@@ -41,19 +43,22 @@ for base in (skills_dir, codex_home):
     for path in glob.glob(os.path.join(base, "**/*"), recursive=True):
         if not os.path.isfile(path) or not path.endswith((".md", ".toml", ".json")):
             continue
-        if "CLAUDE_PLUGIN_ROOT" in open(path, encoding="utf-8", errors="replace").read():
-            leaked.append(path)
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            if "CLAUDE_PLUGIN_ROOT" in fh.read():
+                leaked.append(path)
 assert not leaked, f"unresolved plugin-root placeholder in {len(leaked)} file(s): {leaked[:3]}"
 
 manifest_path = (os.path.join(codex_home, "graph-powers-installed.json") if scope == "user"
                  else os.path.join(project, ".graph-powers/installed.json"))
-manifest = json.load(open(manifest_path, encoding="utf-8"))
+with open(manifest_path, encoding="utf-8") as fh:
+    manifest = json.load(fh)
 assert manifest.get("complete") is True, "the manifest does not record a finished install"
 assert manifest.get("paths"), "the manifest records no paths — removal would be a guess"
 assert not any(p.rstrip("/").endswith((".agents/skills", "skills")) for p in manifest["paths"]), \
     "the manifest records a shared parent directory; removal would delete other tools' skills"
 
-text = open(os.path.join(project, "AGENTS.md"), encoding="utf-8").read()
+with open(os.path.join(project, "AGENTS.md"), encoding="utf-8") as fh:
+    text = fh.read()
 assert text.count("graph-powers:start") == 1, "AGENTS.md block duplicated"
 
 print(f"{scope}: {len(agents)} subagents, {len(commands)} hook entries, "

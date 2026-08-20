@@ -76,7 +76,8 @@ def _git_root(start: Path) -> Path | None:
             ["git", "rev-parse", "--show-toplevel"],
             cwd=start,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=3,
             check=False,
         )
@@ -200,10 +201,12 @@ def graph_limits(cfg: dict[str, Any] | None = None) -> dict[str, int]:
 
 # ── Autonomy ─────────────────────────────────────────────────────────────────
 
-_AUTONOMOUS_DEFAULTS = {"bashDefault": "allow", "cleanup": "allow",
-                        "commit": "auto", "push": "auto", "protectedBranch": "ask"}
-_GUARDED_DEFAULTS = {"bashDefault": "ask", "cleanup": "ask",
-                     "commit": "ask", "push": "ask", "protectedBranch": "ask"}
+# Annotated rather than inferred: `autonomy()` adds `destructiveFloor` (a bool) and
+# `allowPackageManagers` (a list) to the copy it returns, so the value type is not `str`.
+_AUTONOMOUS_DEFAULTS: dict[str, Any] = {"bashDefault": "allow", "cleanup": "allow",
+                                        "commit": "auto", "push": "auto", "protectedBranch": "ask"}
+_GUARDED_DEFAULTS: dict[str, Any] = {"bashDefault": "ask", "cleanup": "ask",
+                                     "commit": "ask", "push": "ask", "protectedBranch": "ask"}
 
 
 def autonomy(cfg: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 # Structural Quality — Code Judo Review Standards
 
-> the project adaptation of the "thermo-nuclear code quality review" doctrine (cursor-team-kit, absorbed 2026-07-06). Single source of truth for structural-quality review. Consumers **reference** this file, never duplicate its tables: SKILL.md Step 5 (fix-shape check), `systematic-audit` pack (Code Archaeologist structural sweep, `references/pack-guides.md § 8d`), and `/pr-review` (structural overlay in § 3C; token `full` deep-loads this file integrally per pr-review.md § 0.4).
+> the project adaptation of the "thermo-nuclear code quality review" doctrine (cursor-team-kit, absorbed 2026-07-06). Single source of truth for structural-quality review. Consumers **reference** this file, never duplicate its tables: SKILL.md Step 5 (fix-shape check), `systematic-audit` pack (Code Archaeologist structural sweep, `references/pack-guides.md § 8d`), and `/pr-review` (structural overlay in § 3C; token `full` deep-loads this file integrally per pr-review.md § 0 (Pre-flight)).
 
 ## Code Judo Doctrine
 

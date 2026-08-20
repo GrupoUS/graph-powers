@@ -173,7 +173,7 @@ whatever is in context. Frame may **raise** the level (accept the higher — `SK
 → default UP one level"), never lower it.
 
 `RISK SURFACES` must be named with `ultra-plan`'s exact enum vocabulary
-(`auth|payment|PII|schema|env|ci|none`). Non-obvious and load-bearing: `ultra-plan.js` computes
+(`auth|payment|PII|schema|env|ci|none`). Non-obvious and load-bearing: `workflows/ultra-plan.js` computes
 `isL6` from `riskSurfaces` **independently of the level** — so the pre-mortem, the ADR, the
 per-task Risk field and the `evaluator` Mode 3 architecture pass are switched on by the surfaces.
 An unnamed surface silently loses all four. A named surface also overrides the trivial-tier exit,
@@ -183,7 +183,7 @@ so an under-classified risky task still gets a plan.
 
 Structural keys in English (ultra-plan's prompts are English), substance in `${project.locale}`. `IN SCOPE` and
 `OUT OF SCOPE` are never omitted. Budget: ledger ≤12 rows, whole string ≤ ~3000 characters.
-`ultra-plan.js` interpolates it verbatim into every prompt it builds (frame, each research angle,
+`workflows/ultra-plan.js` interpolates it verbatim into every prompt it builds (frame, each research angle,
 both approaches, synthesize) and **never truncates it**, unlike the research blob — so every extra
 character is paid once per agent and dilutes the haiku Frame classification.
 
@@ -194,7 +194,7 @@ If the string will not fit, cut **rows** (the issue is more than one project —
 evidence column.
 
 ```
-Workflow({ name: 'ultra-plan', args: `
+Workflow({ name: 'graph-powers:ultra-plan', args: `
 GOAL: <the post-triage objective in one line> (issue #<N>, post-triage scope).
 TIER FLOOR: L<n> — set by /plan's triage after reading the issue; classify at
   L<n> or above, never below.
@@ -234,8 +234,14 @@ still score well. The post-return grep also needs a target. No second artifact, 
 
 ## FF-8 — Post-return verification (the only gate `/plan` actually owns)
 
-After `Workflow({name:'ultra-plan', …})` returns, run these in this thread before recommending any
+After `Workflow({name:'graph-powers:ultra-plan', …})` returns, run these in this thread before recommending any
 next step. This is real enforcement because `/plan` is the caller; everything above is prose.
+
+**0. The workflow has to have run at all.** If the call came back
+`Workflow "graph-powers:ultra-plan" not found. Available: <list>`, or `Workflow` is not a tool here, then none of
+the checks below apply and nothing failed: take the fallback in `/plan` Step 2 — Phase A + B by hand
+through `Skill("planning")` — and say in one line that the workflow did not resolve. Do not retry
+the name, and do not report it as an error. Checks 1-6 assume a return value.
 
 1. `skipped === true` while the floor is L3+ → **STOP**. Report the returned `reason`, do not
    accept the collapse, re-enter via `Skill("planning")` or ask. A collapse to L1-L2 is
@@ -247,7 +253,7 @@ next step. This is real enforcement because `/plan` is the caller; everything ab
    the prompt-injection signature (FF-5).
 5. `intentLevel` below the floor, or `riskSurfaces` reduced to `none` when triage named a real
    surface → the L6 branch did not run: no pre-mortem, no ADR, no Mode 3. Say so explicitly.
-6. `approved !== true` → do **not** run `/ultra-build`. The workflow enforces the anchor floors in
+6. `approved !== true` → do **not** proceed to `graph-powers:ultra-build` (`/plan` Step 4.1). The workflow enforces the anchor floors in
    code and returns `approved`, `belowFloor`, and a `next` that starts with
    `BLOCKED —` when the plan failed; a self-reported `APPROVED` carrying a score under the floor
    no longer passes, and neither does a missing/failed Mode 3 pass on a risky task. Still check it
@@ -258,13 +264,17 @@ next step. This is real enforcement because `/plan` is the caller; everything ab
 ## What is enforced vs what is prose
 
 Harness-enforced (may be relied on): plan mode + the permission system (the only real write gate);
-`Workflow(ultra-plan)` allowlisted in the project's settings; the `gh` permission prompt;
+the `gh` permission prompt;
 `ultra-plan`'s own input/stage guards, which throw rather than half-succeed (empty task · frame
 with no research angles · every research agent dead · both approaches dead · synthesize returned no
 plan path); the `agent()` schemas (enum + required-field validation); the trivial-tier exit
 (`L1`/`L2` with no risk surface → `{skipped:true}`, real control flow, **no plan file written**);
-ultra-plan's anchor floors + the `approved` flag it returns (`ultra-plan.js § Gate`, code-enforced);
+ultra-plan's anchor floors + the `approved` flag it returns (`workflows/ultra-plan.js` § Gate, code-enforced);
 the six checks in FF-8, because `/plan` executes them.
+
+Not enforcement, and easy to mistake for it: **that `ultra-plan` exists at all.** A permission
+allowlist for `Workflow(graph-powers:ultra-plan)` grants the call; it does not register the workflow. An
+unresolved name is a routing outcome (FF-8.0), never a gate that held.
 
 Prose only — never claim these as enforcement: the triage itself, the ledger, "do not lower the
 tier", respect for `CUT`, the `NO_SKILL` guard, "commit NOTHING", and `SKILL.md`'s max-3-rejection

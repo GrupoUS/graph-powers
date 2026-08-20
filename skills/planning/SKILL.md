@@ -128,7 +128,8 @@ All gates: max 3 rejection iterations per artifact → escalate to user.
 | Any stage/commit/push without current-turn approval | STOP at reviewed working-tree changes. User decides Git actions. |
 | `--no-verify` to bypass `${tooling.linter}` | NEVER. Fix root cause, restart from gate 1. |
 
-Mirror of `.claude/CLAUDE.md § Stopping conditions` + `${rulesDir}/execution.md § Agents & Dispatch`.
+This table is the harness-side source. A project adds its own rows in
+`${rulesDir}/execution.md § Agents & Dispatch`; it does not restate these.
 
 ---
 

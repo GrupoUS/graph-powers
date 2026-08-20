@@ -67,7 +67,9 @@ git bisect reset
 When something shows up during a test run but you do not know which test creates the polluted state (file, env var, database row, lockfile):
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/skills/debugger/scripts/find_polluter.py '.git' '${paths.backendRoot}/**/*.test.ts'
-python ${CLAUDE_PLUGIN_ROOT}/skills/debugger/scripts/find_polluter.py '/tmp/lockfile' '${paths.frontendRoot}/**/*.test.tsx'
+python -X utf8 ${CLAUDE_PLUGIN_ROOT}/skills/debugger/scripts/find_polluter.py "<scratch>/lockfile" "${paths.frontendRoot}/**/*.test.tsx"
+# <scratch> is any writable directory — `python -X utf8 -c "import tempfile;print(tempfile.gettempdir())"`.
+# Double quotes, not single: cmd.exe does not treat `'` as a quote character.
 ```
 The script runs the tests one at a time, stops at the first that materialises the watched path, and reports the culprit file. **When to reach for it:** an intermittent test run plus a suspicion of cross-test pollution (shared state, missing `afterEach` cleanup, a leftover fixture).
 
@@ -164,7 +166,7 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 - [ ] Original Step 1 reproducer **no longer fires** (re-run 3×, all green)
 - [ ] Regression test passes in CI and exercises the **real production seam**
 - [ ] `grep -rn "DEBUG_BUG_<ID>" ${paths.backendRoot} ${paths.frontendRoot}` returns **0**
-- [ ] `grep -rn "console\.log\|debugger" $(git diff --name-only HEAD~1 HEAD | grep -E "\.(ts|tsx)$")` returns **0** in touched production paths
+- [ ] No `console.log` or `debugger` left in the touched production paths. Get the changed files from `git diff --name-only HEAD~1 HEAD`, then search them with the **Grep tool** — `$(...)` and a `grep` binary are POSIX-only, and this check silently passes when either is missing
 - [ ] No `as any`, no stub credentials, no test scaffolding left over
 
 ### Post-mortem (mandatory L6+, recommended for all)

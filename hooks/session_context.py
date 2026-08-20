@@ -14,27 +14,43 @@ Trigger: SessionStart (startup | resume | compact)
 import json
 import subprocess
 import sys
+import threading
 import typing
 from pathlib import Path
 
 # Project parameters come from _config, never hardcoded — this file is byte-for-byte
 # the same in every repository that installs the plugin.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 
 def read_input() -> dict[str, object]:
-    try:
-        import select
+    """Read the payload without assuming stdin is a POSIX pipe.
 
-        if select.select([sys.stdin], [], [], 0.2)[0]:
-            raw = sys.stdin.read()
-            return (
-                typing.cast(dict[str, object], json.loads(raw)) if raw.strip() else {}
-            )
+    `select.select` only accepts sockets on Windows — given a pipe it raises, the payload silently
+    becomes `{}`, and the `cwd` the Codex CLI sends is lost, so the hook resolves the wrong project.
+    A thread with a join timeout is the same non-blocking read everywhere.
+    """
+    box: list[str] = []
+    reader = threading.Thread(target=lambda: box.append(sys.stdin.read()), daemon=True)
+    reader.start()
+    reader.join(0.2)
+    try:
+        raw = box[0] if box else ""
+        return typing.cast(dict[str, object], json.loads(raw)) if raw.strip() else {}
     except Exception:
-        pass
-    return {}
+        return {}
 
 
 def get_git_branch(project_dir: str) -> str:
@@ -42,9 +58,11 @@ def get_git_branch(project_dir: str) -> str:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=3,
             cwd=project_dir,
+            check=False,
         )
         return result.stdout.strip() or "unknown"
     except Exception:

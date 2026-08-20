@@ -11,8 +11,8 @@ Examples:
     init_skill.py custom-skill --path /custom/location
 """
 
-import sys
 import re
+import sys
 from pathlib import Path
 
 

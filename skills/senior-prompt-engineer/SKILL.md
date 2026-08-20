@@ -141,7 +141,7 @@ Hard rules:
 
 ## 6. Parallel-batch shared contract
 
-When ≥2 agents spawn in one message (parallel pattern, `shared-context.md § 7`), every member returns the standard Context Handoff PLUS a shared **findings table** with these exact columns:
+When ≥2 agents spawn in one message (parallel pattern, `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`), every member returns the standard Context Handoff PLUS a shared **findings table** with these exact columns:
 
 ```markdown
 | # | Finding | Confidence (1-5) | Source | Impact (Low/Med/High) |
@@ -154,7 +154,9 @@ Full consolidation rules, severity scale, tool-precedence, max batch size: **`re
 Hard rules:
 1. Same column order across all batch members — consolidation must be mechanical.
 2. Each agent investigates a non-overlapping area (otherwise merge into one).
-3. Max 5 spawns per user request (per `CLAUDE.md § Stopping conditions`).
+3. Max `graphGuardrails.maxParallelWave` agents in one fan-out (default 5) — see
+   `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, which distinguishes the fan-out width from the
+   session total.
 
 ---
 
@@ -239,7 +241,7 @@ For migrating Claude API code or building new Anthropic SDK apps, prefer the `cl
 | `disable-model-invocation: true` on a skill listed in `skills:` preload | Silently skipped | Remove the flag (or invoke skill manually only) |
 | Subagent spawning subagent | Doesn't work — Anthropic spec | Use coordinator + agent team |
 | Coordinator without max-iteration | Infinite REVISION_REQUIRED loops | § 7 rule (max 2 resubmits) |
-| `confidence ≤ 2` proceeding without `[ASSUMED]` flag | Plans built on speculation | Per `CLAUDE.md § Stopping conditions` — flag and ask user |
+| `confidence ≤ 2` proceeding without `[ASSUMED]` flag | Plans built on speculation | Per `${CLAUDE_PLUGIN_ROOT}/skills/planning/SKILL.md § Stopping & red flags` — flag and ask user |
 | Parallel batch with ad-hoc per-agent table shape | Manual consolidation, missed findings | Single shared findings schema (§ 6) |
 
 ---

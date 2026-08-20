@@ -138,7 +138,9 @@ A project loading fonts through `<link>` should at least use preconnect and `dis
 
 ```bash
 # Check bundle sizes
-ANALYZE=true ${tooling.commands.build}
+# Set ANALYZE=true for this run only, in the form your shell takes: `ANALYZE=true <cmd>`
+# (bash), `$env:ANALYZE="true"; <cmd>` (PowerShell), `set ANALYZE=true && <cmd>` (cmd).
+${tooling.commands.build}
 
 # Lighthouse audit (with local preview running)
 bunx lighthouse http://localhost:4321 --preset=desktop

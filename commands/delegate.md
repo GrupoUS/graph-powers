@@ -7,16 +7,18 @@ workflow_type: routing
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read first:** `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` — config loader, quality
-> gates, complexity routing, agent matrix, spawn patterns. Every section this command cites by
-> number lives there. Read it before step 0; do not reconstruct it from memory.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
 
 <command-instruction>
 ```typescript
-Skill("superpowers:using-superpowers"); // meta — bootstrap (per shared-context.md § 0.5)
+Skill("superpowers:using-superpowers"); // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 ```
 
 If the task scope is ambiguous (user did not name the agent, multiple agents could plausibly own the work, or the deliverable is not a concrete file change), invoke `Skill("superpowers:brainstorming")` first to surface alternatives + tradeoffs before locking in the delegation. Skip when the user already named the agent or the routing matrix is unambiguous.
+
+**Which agent, and whether to use one at all**, is `Skill("agent-orchestration")` — it routes; this
+command executes. It also fires on its own when a request asks for agents in so many words, in which
+case it hands the chosen agent here and the contract below is what runs.
 
 Before delegating, you MUST complete the Pre-Delegation Declaration:
 
@@ -48,11 +50,7 @@ After delegation completes, VERIFY:
 
 ## Research Agent Selection
 
-When delegating research tasks, choose based on **where the answer lives**:
-
-| Need                                        | Agent      |
-| ------------------------------------------- | ---------- |
-| Find patterns / files / conventions in repo | `explorer` |
-| Check docs / packages / best practices      | `librarian` |
-| Both needed?                                | Delegate to **both in the same message** (parallel) |
+Choose by **where the answer lives** — the Explorer-vs-Librarian table in
+`${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`, which this command loads.
+When both are needed, delegate to both **in the same message**, so they run in parallel.
   </command-instruction>

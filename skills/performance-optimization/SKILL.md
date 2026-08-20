@@ -32,7 +32,11 @@ Pick one pack per run:
 bun run type-check
 bun run lint:check
 bun run build
-ANALYZE=true bun run build
+# Set ANALYZE=true for this one run, in the form your shell accepts:
+#   bash/zsh   ANALYZE=true <pm> run build
+#   PowerShell $env:ANALYZE="true"; <pm> run build
+#   cmd        set ANALYZE=true && <pm> run build
+# Inline assignment before a command is POSIX-only syntax.
 ```
 
 ## Live Docs Lookup (Context7)
@@ -72,10 +76,12 @@ Report as findings if any of `max`, `idleTimeoutMillis`, or `connectionTimeoutMi
 
 ```bash
 # SELECT * (missing column specification)
-grep -rn "db\.select()\.from" ${paths.backendRoot} --include="*.ts"
+# Grep tool: pattern `db\.select\(\)\.from`, path ${paths.backendRoot}, glob *.ts
 
 # N+1 pattern: look for await db. inside a for/while loop
-grep -A5 "for (const\|for (let\|for (var\|while (" ${paths.backendRoot} -rn --include="*.ts" | grep "await db\."
+# Grep tool: pattern `for \(|while \(` under ${paths.backendRoot}, glob *.ts, with -A 5,
+# then look for `await db.` in the surrounding lines. A shell `grep | grep` needs a
+# binary Windows does not have, and the pipe would filter an error message instead.
 ```
 
 | Severity | Pattern | Fix |
@@ -90,8 +96,7 @@ grep -A5 "for (const\|for (let\|for (var\|while (" ${paths.backendRoot} -rn --in
 For every FK column (`.references(() => table.id)`), confirm a corresponding `index("...").on(table.fkCol)` exists in the same table definition.
 
 ```bash
-grep -n "\.references(" ${paths.schemaRoot} -r --include="*.ts"
-grep -n "index(" ${paths.schemaRoot} -r --include="*.ts"
+# Grep tool: pattern `\.references\(`, then `index\(`, path ${paths.schemaRoot}, glob *.ts
 ```
 
 **Step 4: Prepared Statement Candidates**
@@ -175,13 +180,13 @@ Sequential queries → wrap independent queries in Promise.all
 
 ```bash
 # Mobile audit
-curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.stagingUrl}&strategy=mobile&category=performance&category=accessibility&category=best-practices&category=seo&locale=${project.locale}" -o /tmp/psi-mobile.json
+curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.stagingUrl}&strategy=mobile&category=performance&category=accessibility&category=best-practices&category=seo&locale=${project.locale}" -o <scratch>/psi-mobile.json
 
 # Desktop audit
-curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.stagingUrl}&strategy=desktop&category=performance&category=accessibility&category=best-practices&category=seo&locale=${project.locale}" -o /tmp/psi-desktop.json
+curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${project.stagingUrl}&strategy=desktop&category=performance&category=accessibility&category=best-practices&category=seo&locale=${project.locale}" -o <scratch>/psi-desktop.json
 
 # Parse scores
-jq '{perf: (.lighthouseResult.categories.performance.score * 100 | round), a11y: (.lighthouseResult.categories.accessibility.score * 100 | round), bp: (.lighthouseResult.categories["best-practices"].score * 100 | round), seo: (.lighthouseResult.categories.seo.score * 100 | round)}' /tmp/psi-mobile.json
+python -X utf8 -c "import json,sys;c=json.load(open(sys.argv[1],encoding='utf-8'))['lighthouseResult']['categories'];print({k:round(v['score']*100) for k,v in c.items()})" <scratch>/psi-mobile.json
 ```
 
 **Step 2: Local Lighthouse (for auth pages or deeper analysis)**
@@ -269,8 +274,9 @@ If empty → fail with: "Run `bunx vercel link --yes --project <name> --scope <t
 **Step 1: Print dashboard URLs**
 
 ```bash
-SCOPE="$(jq -r '.vercel.scope' .graph-powers/config.json)"
-PROJECT_NAME=$(jq -r '.projectName' .vercel/project.json)
+# Read both JSON files with the Read tool, or one Python line — `jq` is a separate install
+# with no Windows story, and `$( )` is POSIX substitution that cmd.exe passes through literally.
+python -X utf8 -c "import json;print(json.load(open('.graph-powers/config.json',encoding='utf-8')).get('vercel',{}).get('scope',''), json.load(open('.vercel/project.json',encoding='utf-8')).get('projectName',''))"
 
 echo "Speed Insights: https://vercel.com/${SCOPE}/${PROJECT_NAME}/speed-insights"
 echo "Web Analytics:  https://vercel.com/${SCOPE}/${PROJECT_NAME}/analytics"
@@ -284,9 +290,7 @@ Speed Insights dashboard → "Export" (top-right) → CSV → `/tmp/vercel-cwv.c
 
 ```bash
 # Flag routes failing thresholds
-awk -F',' 'NR>1 && ($2+0>2500 || $3+0>200 || $4+0>0.1) {
-  printf "FAIL %-40s LCP=%s INP=%s CLS=%s n=%s\n", $1, $2, $3, $4, $5
-}' /tmp/vercel-cwv.csv
+python -X utf8 -c "import csv,sys;[print(f'FAIL {r[0]:<40} LCP={r[1]} INP={r[2]} CLS={r[3]} n={r[4]}') for i,r in enumerate(csv.reader(open(sys.argv[1],newline='',encoding='utf-8'))) if i and (float(r[1])>2500 or float(r[2])>200 or float(r[3])>0.1)]" <path-to-csv>
 ```
 
 (Schema: column order may vary. Check header row first; map columns route/lcp/inp/cls/samples accordingly.)

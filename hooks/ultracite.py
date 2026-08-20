@@ -33,15 +33,28 @@ Always fails open: any internal error → exit 0 (never wedge a session).
 """
 
 import json
+import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import typing
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
+# then raises `UnicodeDecodeError`, every hook here falls open, and `protect_files` permits a
+# write it was meant to refuse. Reconfiguring costs nothing and is guarded because a stdin that
+# is already detached has no `reconfigure`.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 FORMATTABLE_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".astro", ".vue", ".svelte", ".py", ".go", ".rs"}
 LINT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
@@ -82,10 +95,11 @@ def run_format(data: dict[str, object]) -> None:
 
     try:
         subprocess.run(
-            [*shlex.split(str(command)), file_path],
+            [*argv_for(command), file_path],
             capture_output=True,
             timeout=FORMAT_TIMEOUT_S,
             cwd=str(gp.project_dir(data)),
+            check=False,
         )
     except Exception:
         pass
@@ -93,14 +107,37 @@ def run_format(data: dict[str, object]) -> None:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stop — run the declared linter over git-modified files; block on errors
+def argv_for(command: str) -> list[str]:
+    """A declared command string, split into argv that starts on every platform.
+
+    Three things go wrong without this, and all three are silent — the caller swallows the
+    exception and the formatter simply never runs again:
+
+    - `shlex.split` in POSIX mode treats `\\` as an escape, so a Windows path in
+      `tooling.commands.format` (`C:\\tools\\biome.exe format`) splits into `C:toolsbiome.exe`.
+    - `CreateProcess` only completes `.exe`, and the npm/bun/pnpm shims are `.cmd`. `shutil.which`
+      resolves them because it honours `PATHEXT`; a bare `"bunx"` raises `FileNotFoundError`.
+    - A quoted first token survives POSIX splitting but not the Windows one, so it is unwrapped
+      here rather than handed to the OS with its quotes on.
+    """
+    parts = shlex.split(str(command), posix=(os.name != "nt"))
+    parts = [p[1:-1] if len(p) > 1 and p[0] == p[-1] == '"' else p for p in parts]
+    if parts:
+        parts[0] = shutil.which(parts[0]) or parts[0]
+    return parts
+
+
 # ─────────────────────────────────────────────────────────────────────────────
-def get_modified_files() -> list[str]:
+def get_modified_files(cwd: str | None = None) -> list[str]:
     try:
         result = subprocess.run(
             ["git", "diff", "--name-only", "--diff-filter=ACM"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=GIT_DIFF_TIMEOUT_S,
+            cwd=cwd,          # the project, not wherever this hook happens to have been started
+            check=False,
         )
         files = result.stdout.strip().splitlines()
         return [f for f in files if f.endswith(LINT_EXTENSIONS)][:MAX_LINT_FILES]
@@ -124,11 +161,13 @@ def run_check(data: dict[str, object]) -> None:
 
     try:
         result = subprocess.run(
-            [*shlex.split(str(lint_command)), *modified],
+            [*argv_for(lint_command), *modified],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=LINT_TIMEOUT_S,
             cwd=str(gp.project_dir(data)),
+            check=False,
         )
         raw_output = result.stdout + result.stderr
     except Exception:

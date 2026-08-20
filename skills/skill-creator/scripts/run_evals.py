@@ -81,13 +81,13 @@ def normalize_evals(doc: dict) -> dict:
 
 def load_json(path: str) -> dict:
     """Load and parse a JSON file."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return normalize_evals(json.load(f))
 
 
 def load_response(path: str) -> str:
     """Load the agent response text file."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -151,7 +151,7 @@ def run_assertion(assertion: dict, response: str) -> dict:
         options = json.loads(raw_value)
         found = [opt for opt in options if opt in response]
         passed = len(found) > 0
-        detail = f"Looking for one of {options}: found {found if found else 'NONE'}"
+        detail = f"Looking for one of {options}: found {found or 'NONE'}"
 
     elif check_type == "regex":
         pattern = strip_quotes(raw_value)
@@ -239,10 +239,7 @@ def print_results(summary: dict) -> None:
     print(f"{'=' * 60}\n")
 
     for r in summary["results"]:
-        if r.get("manual"):
-            status = "◻ MANUAL"
-        else:
-            status = "✅ PASS" if r["passed"] else "❌ FAIL"
+        status = "◻ MANUAL" if r.get("manual") else "✅ PASS" if r["passed"] else "❌ FAIL"
         critical_tag = " [CRITICAL]" if r["critical"] and not r["passed"] else ""
         print(f"  {status}  {r['id']}: {r['description']}{critical_tag}")
         print(f"         {r['detail']}")

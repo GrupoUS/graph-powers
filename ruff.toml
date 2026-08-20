@@ -1,0 +1,49 @@
+# The Python bar for this repository, declared here rather than inherited.
+#
+# Without this file ruff resolves whatever ruleset the machine happens to carry, so the same tree
+# reported 190 findings in one editor and nothing in CI. A gate that changes with the workstation
+# is not a gate.
+#
+# The shape of the code decides the ignores: `hooks/` are standard-library scripts that read
+# untrusted JSON from stdin and must never take a session down (AGENTS.md, cardinal 3). Catching
+# `Exception` and carrying on is the invariant, not an oversight — so the rules that forbid it are
+# off here and the fail-open behaviour is covered by `hooks/test_hooks.py` instead.
+
+target-version = "py312"
+line-length = 100
+extend-exclude = ["__pycache__"]
+
+[lint]
+select = [
+  "E", "W", # pycodestyle — E402 stays on; the hooks waive it per import, with a reason
+  "F", # pyflakes
+  "I", # import order
+  "UP", # pyupgrade
+  "B", # bugbear
+  "C4", # comprehensions
+  "SIM", # simplify
+  "PL", # pylint
+  "RUF", # ruff's own
+  "DTZ", # naive datetimes
+  "EXE", # shebang and executable bit agree
+  "FLY", "FURB", # small modernisations
+  "TID", # tidy imports
+]
+
+ignore = [
+  "E501", # the line length above is a target for humans, not a failure
+  "PLR0911", "PLR0912", "PLR0913", "PLR0915", # a gate that enumerates cases is long on purpose
+  "PLR2004", # a magic number in a one-file script is clearer than a constant defined once
+  "PLW2901", # rebinding a loop variable while normalising it is the local idiom here
+  "SIM105", # `contextlib.suppress` reads worse than `except: pass` in a fail-open hook
+  "RUF001", "RUF002", "RUF003", # the prose in these files is deliberate typography, not a homoglyph
+]
+
+[lint.per-file-ignores]
+# Skills ship runnable examples. They are read as much as executed, so the didactic form wins.
+"skills/*/examples/*.py" = ["T201"]
+
+[lint.flake8-tidy-imports]
+# `hooks/` is not a package: every hook is executed as a top-level script by the harness, and
+# `_config` is imported after a `sys.path` insert. A relative import would break that.
+ban-relative-imports = "all"

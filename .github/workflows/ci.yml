@@ -8,6 +8,13 @@ on:
     branches: [main]
   pull_request:
 
+# `check_workflows.mjs` executes the scripts in `workflows/` to dry-run them — that is the gate, not
+# an accident — so a pull request adding a file there runs its code on the runner. GitHub already
+# withholds secrets and forces a read-only token for a fork's `pull_request`, but a branch inside
+# this repository gets whatever the repository default grants. Naming the permission caps that.
+permissions:
+  contents: read
+
 jobs:
   gates:
     runs-on: ubuntu-latest
@@ -27,6 +34,13 @@ jobs:
 
       - name: Hook syntax
         run: python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
+
+      - name: Workflow syntax
+        # `node --check` refuses these files: they use a top-level `return`, legal only because the
+        # runtime wraps the body. The script wraps them the same way, and also asserts that each
+        # meta.name matches its filename — a mismatch registers the workflow under a name nobody
+        # calls, and nothing else would notice.
+        run: node .github/check_workflows.mjs
 
       - name: Valid JSON everywhere
         # glob() skips hidden directories, so .claude-plugin/*.json needs its own pattern —
@@ -110,29 +124,10 @@ jobs:
           PYTHONIOENCODING: utf-8
 
       - name: No machine paths
-        # A previous version of this gate used a shell regex that matched every `https://` URL
-        # (single letter, colon, slash) and the very lines documenting the gate itself. It failed
-        # on a repository containing no absolute path at all. Python, with a lookbehind.
-        run: |
-          python3 - <<'PY'
-          import glob, re, sys
-          pat = re.compile(r"(/home/|/Users/|(?<![A-Za-z])[A-Za-z]:[\\/])")
-          hits = []
-          for f in glob.glob("**/*.md", recursive=True) + glob.glob("**/*.py", recursive=True) \
-                 + glob.glob("**/*.json", recursive=True) + glob.glob("**/*.mjs", recursive=True) \
-                 + glob.glob(".*/*.json"):
-              if "node_modules" in f:
-                  continue
-              for i, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
-                  if "/home/|/Users/" in line:      # the gate's own pattern, in prose
-                      continue
-                  if pat.search(line):
-                      hits.append(f"{f}:{i}: {line.strip()[:120]}")
-          print("\n".join(hits) or "no absolute paths")
-          if hits:
-              print("::error::absolute path found — the plugin has to work on every machine")
-          sys.exit(1 if hits else 0)
-          PY
+        # Inline no longer: three copies of this pattern existed — here, in AGENTS.md and in
+        # CONTRIBUTING.md — and the moment one was corrected the other two were wrong. One script,
+        # cited by the other two. It also states which paths it deliberately lets through.
+        run: python3 .github/check_machine_paths.py
 
       - name: No broken symlinks
         run: |
@@ -161,13 +156,26 @@ jobs:
       - name: Every placeholder is a declared config key
         run: python3 .github/check_placeholders.py
 
+      - name: Nothing POSIX-only in what an agent executes
+        # The plugin installs on Linux, macOS and Windows. Every pattern this catches was a
+        # live defect here, and none of them raised — they returned the wrong answer quietly.
+        run: python3 .github/check_portability.py
+
+      - name: Every routing reference resolves
+        # The path gate below checks files. This one checks the routing: the agent a command
+        # spawns, the workflow it invokes, the skill it loads, the section of another file it
+        # tells the reader to apply. Those break silently — the model reads the instruction,
+        # finds nothing, and continues with less than it thinks it has. Ten of them were live
+        # in this repository while CI was green.
+        run: python3 .github/check_wiring.py
+
       - name: No dangling file references
         run: |
           python3 - <<'PY'
           import glob, os, re, sys
           pat = re.compile(
-              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex)'
-              r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|txt)'
+              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|workflows)'
+              r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)'
           )
           missing = {}
           for f in glob.glob("**/*.md", recursive=True):

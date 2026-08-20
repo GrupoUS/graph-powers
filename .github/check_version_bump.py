@@ -18,25 +18,28 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
+from typing import cast
 
 # What a user actually receives. Docs, CI config and the repository's own rules are excluded:
 # nobody's installed harness behaves differently because CONTRIBUTING.md gained a paragraph.
 SHIPPED = (
-    "agents/", "skills/", "commands/", "hooks/", "references/", "templates/",
+    "agents/", "skills/", "commands/", "hooks/", "references/", "templates/", "workflows/",
     "schema/", "codex/", "bin/", ".claude-plugin/", "examples/",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENT_SETUP.md",
 )
 
 
 def run(*args: str) -> str:
-    return subprocess.run(args, capture_output=True, text=True, check=False).stdout.strip()
+    return subprocess.run(args, capture_output=True, encoding="utf-8", errors="replace",
+                          check=False).stdout.strip()
 
 
 def base_ref() -> str:
     """What to compare against: the PR's base, or the previous commit on a push."""
     if os.environ.get("GITHUB_BASE_REF"):
         base = f"origin/{os.environ['GITHUB_BASE_REF']}"
-        run("git", "fetch", "--quiet", "--depth", "50", "origin", os.environ["GITHUB_BASE_REF"])
+        _ = run("git", "fetch", "--quiet", "--depth", "50", "origin", os.environ["GITHUB_BASE_REF"])
         return base
     before = os.environ.get("GITHUB_EVENT_BEFORE") or ""
     if before and not set(before) <= {"0"} and run("git", "cat-file", "-t", before) == "commit":
@@ -45,19 +48,27 @@ def base_ref() -> str:
 
 
 def version_at(ref: str, path: str) -> str:
+    """The version recorded at a git ref, or "" when the file is absent or unreadable there."""
     raw = run("git", "show", f"{ref}:{path}")
     if not raw:
         return ""
     try:
-        return str(json.loads(raw).get("version") or "")
-    except Exception:
+        data = cast("dict[str, object]", json.loads(raw))
+        return str(data.get("version") or "")
+    except (ValueError, AttributeError):
         return ""
+
+
+def version_on_disk(path: str) -> str:
+    """The version of a manifest in the checkout. Malformed JSON still raises, as it must."""
+    data = cast("dict[str, object]", json.loads(Path(path).read_text(encoding="utf-8")))
+    return str(data.get("version") or "")
 
 
 def main() -> int:
     manifest = ".claude-plugin/plugin.json"
-    here = json.load(open(manifest, encoding="utf-8")).get("version") or ""
-    pkg = json.load(open("package.json", encoding="utf-8")).get("version") or ""
+    here = version_on_disk(manifest)
+    pkg = version_on_disk("package.json")
 
     if here != pkg:
         print(f"::error::plugin.json says {here} and package.json says {pkg} — they must match")
@@ -79,9 +90,11 @@ def main() -> int:
         print("\n".join(f"  shipped: {f}" for f in shipped[:10]))
         if len(shipped) > 10:
             print(f"  ... and {len(shipped) - 10} more")
-        print(f"::error::{len(shipped)} shipped file(s) changed and the version is still {here}. "
-              "Installed machines compare versions, not commits — without a bump this change "
-              "reaches nobody. Bump plugin.json and package.json together.")
+        print(" ".join([
+            f"::error::{len(shipped)} shipped file(s) changed and the version is still {here}.",
+            "Installed machines compare versions, not commits — without a bump this change",
+            "reaches nobody. Bump plugin.json and package.json together.",
+        ]))
         return 1
 
     print(f"{len(shipped)} shipped file(s) changed, version {before or '?'} -> {here}")

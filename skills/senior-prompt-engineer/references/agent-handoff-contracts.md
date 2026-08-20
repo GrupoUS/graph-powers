@@ -1,7 +1,9 @@
 # Agent Handoff Contracts
 
 > Canonical structured handoff schema returned by every Claude Code subagent.
-> Loaded by `senior-prompt-engineer` skill. Cited by `references/shared-context.md § 7.5`.
+> Loaded by the `senior-prompt-engineer` skill, by `skills/planning/SKILL.md`, by
+> `skills/agent-orchestration/SKILL.md`, and read by all twelve agents in `agents/` for the
+> canonical Context Handoff.
 
 ---
 
@@ -87,7 +89,8 @@ Every agent returns this block at the end of its response. Single canonical shap
 | `REVISION_REQUIRED` | Returned by reviewer agents (`evaluator`, `code-reviewer`, `codex:rescue`) when output fails its rubric. | `decisions[]` lists each failed criterion + the threshold it missed |
 
 **Invariants:**
-1. `confidence < 3` on a **critical** finding → status MUST be `BLOCKED` (per `CLAUDE.md § Stopping conditions`).
+1. `confidence < 3` on a **critical** finding → status MUST be `BLOCKED` (per
+   `${CLAUDE_PLUGIN_ROOT}/skills/planning/SKILL.md § Stopping & red flags`).
 2. `BLOCKED` cannot omit `risks[].mitigation`. A blocker without an escalation path is a defect.
 3. `REVISION_REQUIRED` is reviewer-only. Implementer agents return `BLOCKED` instead.
 4. `nextAgent: NONE` is valid only when `status: COMPLETED` and the task is terminal in its phase.
@@ -114,7 +117,7 @@ When an agent-team coordinator (`/implement § 6`) receives `REVISION_REQUIRED` 
 
 ## 5. Parallel batch override
 
-When ≥2 agents run in a single message (parallel spawn pattern, `shared-context.md § 7`), each agent returns the standard Context Handoff PLUS the shared findings table from `parallel-batch-contracts.md`. The parent consolidates by:
+When ≥2 agents run in a single message (parallel spawn pattern, `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md § 7`), each agent returns the standard Context Handoff PLUS the shared findings table from `parallel-batch-contracts.md`. The parent consolidates by:
 
 1. Concatenating all `artifacts[]` entries (deduped by `path`).
 2. Merging `qualityGates[]` — a single FAIL across batch members → batch FAIL.

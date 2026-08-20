@@ -36,11 +36,19 @@ import json
 import re
 import subprocess
 import sys
-import typing
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _config as gp  # noqa: E402
+import _config as gp
+
+# The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
+# told otherwise — cp1252 on a Windows machine. A branch name or path outside that page then
+# raises `UnicodeDecodeError`, the hook falls open, and a gate that should have denied releases.
+try:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
 
 GIT_WRITE_RE = re.compile(r"(^|[\s;|&()])git\s+(commit|push)(\s|$)")
 DEFAULT_TIMEOUT = 120
@@ -86,7 +94,8 @@ def main() -> int:
             audit_command,
             shell=True,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             cwd=str(gp.project_dir(payload)),
             check=False,
@@ -100,11 +109,14 @@ def main() -> int:
     if proc.returncode == 0:
         return 0
 
-    # 127 is the shell saying the command does not exist. That is a fact about the machine, not a
-    # verdict about the changeset — the same class as the exception above, and it fails open for
-    # the same reason. Blocking every commit because a tool was never installed is how a project
-    # deletes the hook instead of installing the tool.
-    if proc.returncode == 127:
+    # The shell saying "that command does not exist". POSIX shells answer 127; cmd.exe answers
+    # 9009, and this hook only knew the first — so on Windows a tool nobody installed came back as
+    # a real audit failure and BLOCKED every commit. That is fail-open inverted into fail-closed,
+    # on the platform least likely to have the tool installed.
+    #
+    # It is a fact about the machine, not a verdict about the changeset. Blocking every commit
+    # because a tool was never installed is how a project deletes the hook instead of the problem.
+    if proc.returncode in (127, 9009):
         print(f"commit-audit: `{audit_command.split()[0]}` is not on PATH; skipping.",
               file=sys.stderr)
         return 0
@@ -113,8 +125,11 @@ def main() -> int:
           f"{proc.returncode}.", file=sys.stderr)
     print((proc.stdout or "").strip()[:4000], file=sys.stderr)
     print((proc.stderr or "").strip()[:2000], file=sys.stderr)
-    print(f"Fix the findings, or prefix the command with {gp.opt_in('AUDIT', cfg)}=1 to pass "
-          "this one.", file=sys.stderr)
+    key = gp.opt_in("AUDIT", cfg)
+    print(f"Fix the findings, or release this one call by putting {key}=1 in the command: "
+          f"`{key}=1 <cmd>` in a POSIX shell, `$env:{key}=1; <cmd>` in PowerShell, "
+          f"`set {key}=1 && <cmd>` in cmd. The hook matches the key as text, not as syntax.",
+          file=sys.stderr)
     return 2  # PreToolUse: exit 2 blocks the tool call
 
 
