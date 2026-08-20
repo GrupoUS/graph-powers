@@ -78,6 +78,13 @@ const PLUGIN_AGENTS = new Set([
   'performance-optimizer', 'mobile-developer', 'ui-ux-designer', 'security-reviewer',
   'verification', 'skill-improver',
 ])
+// Naming, and an unresolved contradiction worth writing down rather than re-deriving.
+// Measured 2026-08-20 on CLI 2.1.235: the Agent tool rejects `graph-powers:evaluator` with a valid
+// list of BARE names, and rejects bare `evaluator` with an available list of PREFIXED ones. Two
+// validators in series, disagreeing — so in that session no agent of this plugin could be spawned
+// at all. The prefixed form is kept because it is the list that names all twelve agents and matches
+// what the session advertises; if a future session proves otherwise, this helper is the only line
+// to change, and `.github/check_workflows.mjs` asserts the set it draws from.
 const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 
 // ── Config ───────────────────────────────────────────────────────────────────

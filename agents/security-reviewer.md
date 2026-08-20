@@ -12,9 +12,7 @@ tools:
   - Bash
 # Report-only is a permission, not a promise. The `memory:` field would inject
 # Read/Write/Edit over the `tools:` allowlist, so the denial is stated explicitly.
-disallowedTools:
-  - Write
-  - Edit
+disallowedTools: Write, Edit
 ---
 
 # Security Reviewer — Exploitability-First

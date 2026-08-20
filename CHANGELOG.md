@@ -30,8 +30,9 @@ that was 88 % of everything it loaded.
 
 Each `## Section N` is now its own file under `references/shared/`, extracted byte for byte with its
 heading, so the words a citation lands on are unchanged. Each command's header names only what it
-acts on. **The shared layer went from 272,676 bytes across the twelve commands to 76,303 — 72 %
-less**. Against a worktree of the pre-split tree measured with the same script, what the twelve
+acts on. **The shared layer went from 267,816 bytes across the twelve commands to 80,940 — 69.8 %
+less** — the sum, per command, of the `references/shared*` files it cites, on a worktree of
+`750d2ea` and on this tree. Against a worktree of the pre-split tree measured with the same script, what the twelve
 commands load on **every** invocation fell from 523,746 bytes to 289,512 — **44.7 % less** — and the
 worst case, every conditional branch taken at once, fell 31 %.
 

@@ -114,6 +114,52 @@ def resolve(cited: str, base: str) -> str | None:
     return None
 
 
+def agent_frontmatter() -> list[str]:
+    """An agent file that exists but never registers is worse than one that is missing.
+
+    `agents/security-reviewer.md` and `agents/skill-improver.md` shipped for two releases and could
+    not be spawned once. Both wrote `disallowedTools` as a YAML block sequence:
+
+        disallowedTools:
+          - Write
+          - Edit
+
+    The ten agents that did register wrote it inline (`disallowedTools: Write, Edit`), and those two
+    were the only two absent from the CLI's agent list. `tools:` accepts either form — `evaluator`
+    ships a block list and loads — so the two keys are not interchangeable and the difference is
+    invisible unless you go looking. `claude plugin validate .` passes on both.
+
+    Everything else here is the frontmatter contract from `.claude/rules/artifacts.md`, checked
+    rather than trusted: the name that must match the filename, and the `tools:` field without
+    which an agent silently inherits `Write` and `Edit` no matter what its body promises.
+    """
+    problems: list[str] = []
+    for path in sorted(glob.glob("agents/*.md")):
+        stem = os.path.basename(path)[:-3]
+        text = read(path)
+        parts = text.split("---")
+        if len(parts) < 3:
+            problems.append(f"{path}: no frontmatter block")
+            continue
+        block = parts[1]
+        for key in ("tools", "disallowedTools"):
+            m = re.search(rf"^{key}:[ \t]*$", block, re.MULTILINE)
+            if m and key == "disallowedTools":
+                problems.append(
+                    f"{path}: `disallowedTools` is a YAML block sequence — write it inline "
+                    f"(`disallowedTools: Write, Edit`) or the agent never registers"
+                )
+        name = re.search(r"^name:\s*(\S+)", block, re.MULTILINE)
+        if not name or name.group(1).strip("\"'") != stem:
+            got = name.group(1) if name else "(absent)"
+            problems.append(f"{path}: frontmatter name is {got}, the file is {stem}.md")
+        if not re.search(r"^tools:", block, re.MULTILINE):
+            problems.append(
+                f"{path}: no `tools:` field — the agent inherits every tool, `Write` and `Edit` included"
+            )
+    return problems
+
+
 def main() -> int:
     agents, skills, workflows, rules = have_agents(), have_skills(), have_workflows(), have_rule_templates()
     problems: list[str] = []
@@ -211,9 +257,14 @@ def main() -> int:
                     f"{path}:{lineno(text, m.start())}: cites {target} § {sec}, which has no such section"
                 )
 
+    frontmatter = agent_frontmatter()
+    for p in frontmatter:
+        print(f"AGENT:   {p}")
     for p in problems:
         print(f"WIRING: {p}")
-    print(f"\n{checked} routing references checked, {len(problems)} unresolved")
+    print(f"\n{checked} routing references checked, {len(problems)} unresolved; "
+          f"{len(glob.glob('agents/*.md'))} agents checked, {len(frontmatter)} that would not register")
+    problems += frontmatter
     if problems:
         print("::error::a routing reference does not resolve — the model reads it, finds nothing, and continues")
     return 1 if problems else 0

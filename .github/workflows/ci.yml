@@ -8,6 +8,13 @@ on:
     branches: [main]
   pull_request:
 
+# `check_workflows.mjs` executes the scripts in `workflows/` to dry-run them — that is the gate, not
+# an accident — so a pull request adding a file there runs its code on the runner. GitHub already
+# withholds secrets and forces a read-only token for a fork's `pull_request`, but a branch inside
+# this repository gets whatever the repository default grants. Naming the permission caps that.
+permissions:
+  contents: read
+
 jobs:
   gates:
     runs-on: ubuntu-latest

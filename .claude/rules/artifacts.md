@@ -20,7 +20,11 @@ Applies to everything that travels to the projects: `agents/`, `skills/`, `comma
   once did not parse at all, and nothing noticed because CI only validated agents.
 - `tools:` explicit in every agent. **Without that field the agent inherits the entire toolset,
   including `Write` and `Edit`** — and the read-only promise written in the body becomes decoration.
-- `disallowedTools: Write, Edit` in every agent that judges or researches.
+- `disallowedTools: Write, Edit` in every agent that judges or researches. **Inline, comma-separated
+  — never a YAML block sequence.** `tools:` accepts either form; `disallowedTools` does not, and an
+  agent that writes it as a list is dropped from the registry without a word. `security-reviewer`
+  and `skill-improver` shipped that way and could not be spawned once; `claude plugin validate .`
+  passed on both. `python3 .github/check_wiring.py` now refuses the block form.
 - `model:` declared in whoever judges. Never `inherit` in an evaluator.
 
 ## The `memory:` trap

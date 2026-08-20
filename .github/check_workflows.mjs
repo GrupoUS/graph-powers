@@ -64,6 +64,13 @@ function sampleFor(schema) {
   }
 }
 
+// Executing the script IS the check: a workflow that parses but throws on the first `agent()` call
+// is a workflow nobody can run, and only running it finds that. The cost is stated rather than
+// hidden: `new Function` gives the body the ambient globals — `process`, `fetch`, dynamic `import`
+// — and the scope below shadows six names rather than removing anything. `node:vm` would not change
+// that; the Node documentation is explicit that it is not a security boundary. What bounds this is
+// the CI job: `permissions: contents: read`, no secrets on a fork's pull request, and an ephemeral
+// runner. Do not run this gate against a workflow directory you did not review.
 async function dryRun(body, args) {
   const spawned = [];
   const scope = {
