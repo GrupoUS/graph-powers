@@ -75,8 +75,26 @@ or component family, or lift the shared thing out into its own task.
 
 ## §4 — The delegation contract
 
-Every spawned prompt carries these seven sections. Not six, and not a paraphrase — §7 consolidates
-mechanically, and it can only do that when every return has the same shape.
+**Before the prompt, four lines out loud.** They cost nothing to write and they catch the two
+failures that are invisible afterwards — the wrong specialist, and a skill left out by accident
+rather than by decision:
+
+```
+Agent selected:   <name>
+Why this one:     <the match between its speciality and this task>
+Skills:           <included> — and <omitted>, because <reason>
+Expected outcome: <the concrete deliverable>
+```
+
+The omission line is the one that earns its place. An included skill announces itself; a skill that
+should have been loaded and was not leaves no trace at all.
+
+When the scope is ambiguous — nobody named the agent, two could plausibly own the work, or the
+deliverable is not a concrete change — run `Skill("superpowers:brainstorming")` before locking the
+choice. Skip it when the agent is named or the matrix is unambiguous.
+
+Every spawned prompt then carries these seven sections. Not six, and not a paraphrase — §7
+consolidates mechanically, and it can only do that when every return has the same shape.
 
 ```markdown
 ## TASK
@@ -107,8 +125,9 @@ For a parallel batch: `| # | Finding | Confidence (1-5) | Source | Impact (Low/M
 plus a `Severity (P0-P3)` column when the batch is a review.
 ```
 
-`/delegate` is where this contract is executed for one named agent. This section is where it is
-defined; the command does not carry a second version of it.
+**After it returns, three questions.** Does it actually work; does it follow the patterns already in
+this codebase; and did the agent honour MUST DO and MUST NOT DO. A handoff that reads well is not
+evidence — `safety-floor.md § 7` is the standard the answer is held to.
 
 **Filling these seven sections needs no skill.** `Skill("senior-prompt-engineer")` is for *designing*
 the machinery, not for using it: a new `agents/*.md` file, a change to the handoff schema itself, or

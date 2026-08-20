@@ -1,172 +1,124 @@
-# Pack Execution Guides
+# Pack execution guides
 
-Detailed execution flows, key rules, and common patterns for each debug pack, plus the **Step 2 parallel-research templates** the packs dispatch.
+Per-pack deltas over the Step 0-6 chain, plus the Step 2 parallel-research templates.
 
-> **Step mapping:** each pack's numbered flow below maps onto the SKILL.md Step 0–6 chain — `Pre-flight (Step 0)` → `Diagnose: loop → reproduce & minimise → hypothesise (Steps 1–3, see references/diagnose.md)` → `Parallel sub-agents (Step 2, templates below)` → `Instrument (Step 4)` → `Fix + regression test (Step 5, mandatory Skill("superpowers:systematic-debugging") → Skill("superpowers:test-driven-development"))` → `Verify & cleanup + browser/DB evidence (Step 6)`. Always finish Step 1 (a runnable reproducer) before launching sub-agents.
+## Contents
 
----
-
-## 8a. `frontend-debug`
-
-**Scope:** React/UI regressions, hydration errors, interaction failures, visual glitches.
-
-**Execution flow:**
-1. Pre-flight (Step 0) + agent-browser check
-2. Build reproducer (Step 1) → launch 3 sub-agents: Evidence Collector + Code Archaeologist + Regression Hunter
-3. While agents work, run quality gates as baseline
-4. Consolidate findings → select hypothesis (Step 3)
-5. Apply minimal fix (Step 5)
-6. Verification gates (Step 6)
-7. Browser evidence: screenshot + console + network + responsive viewports
-8. Report
-
-**Key rules:**
-- NEVER fix without capturing the initial screenshot first
-- NEVER interact with the page without calling `agent-browser snapshot` first (refs invalidate after DOM changes)
-- Choose browser mode: headless for public pages, CDP for authenticated pages (see `Skill("webapp-testing")` → `../../webapp-testing/references/browser-setup.md`)
-- Default target: `${project.stagingUrl}` from `.graph-powers/config.json` (override with `url=` argument)
-- In CDP mode, do NOT call `agent-browser close` — it kills the user's Chrome session
-
-**Common frontend patterns:**
-- `Select controlled/uncontrolled` → `value={undefined}` transitioning to string
-- Hydration mismatch → dynamic values computed differently on server vs client
-- Infinite re-render → `useEffect` dep array includes an unstable reference (new object/array each render)
-- Loading skeleton stuck → query never resolves, check `staleTime` and `enabled` condition
+- [The flow, once](#the-flow-once) — identical for `frontend`, `backend` and `auth-db`
+- [Per-pack delta](#per-pack-delta) — evidence, sub-agents, focus
+- [`systematic-audit` runs differently](#systematic-audit-runs-differently) — inventory before any fix
+- [Parallel-research templates](#parallel-research-templates-step-2) — A, B, C, D
 
 ---
 
-## 8b. `backend-debug`
+## The flow, once
 
-**Scope:** Hono/tRPC procedure failures, service errors, mutation side effects.
+Three of the four packs run the same eight moves; only the columns in the next table differ.
 
-**Execution flow:**
-1. Pre-flight (Step 0)
-2. Build reproducer (Step 1) → launch 2 sub-agents: Code Archaeologist + Regression Hunter
-3. If mutation involved, also launch DB State Inspector
-4. Consolidate → hypothesis (Step 3)
-5. Minimal fix (Step 5)
-6. Verification gates (Step 6)
-7. Database validation (psql)
-8. Report
+1. Pre-flight (Step 0) — pack chosen, gates baselined, `bunx agent-browser --version` when the pack
+   needs browser evidence.
+2. Build the reproducer (Step 1). **Nothing below starts before this command exists.**
+3. Dispatch the pack's sub-agents (Step 2 templates below) while the baseline gates run.
+4. Consolidate findings, rank ≥3 falsifiable hypotheses (Step 3), instrument the survivors (Step 4).
+5. Minimal fix through `Skill("superpowers:systematic-debugging")` → RED first (Step 5).
+6. Verification gates, exit code read (Step 6).
+7. Capture the pack's evidence — browser, database, or both.
+8. Report: confirmed hypothesis, root cause, evidence, what was ruled out.
 
-**Key rules:**
-- Always verify procedure boundary: the generic authenticated procedure vs the admin one vs the tenant-scoped one
-- Check the Zod input schema matches what the frontend sends
-- Verify `Promise.all` vs sequential for batch operations
-- `db.transaction()` is the correct atomicity primitive whenever the driver supports it. A "never use transactions" rule in a project's docs usually applies to a serverless **HTTP** driver only — read the import in the connection module before citing it, and never de-atomize call sites to satisfy a rule you have not verified still applies.
-- Always guard `.returning()[0]` against empty arrays
+## Per-pack delta
 
-**Common backend patterns:**
-- `No transactions support in <driver>` → the connection module is on the HTTP-only driver; fix the driver import, do not de-atomize the callers
-- `Cannot read properties of undefined` after insert → unguarded `.returning()[0]`
-- HTTP 500 on mutation → same as above, or unhandled async rejection
-- `TRPCError UNAUTHORIZED` → procedure context not forwarding userId
+| Pack | Browser evidence | Database evidence | Sub-agents (Step 2) | Focus |
+|---|---|---|---|---|
+| `frontend-debug` | **required** — screenshot before any fix | — | A + B + C | React/UI regressions, hydration, interaction, visual |
+| `backend-debug` | — | **required** | B + C (+ D on any mutation) | procedure and service failures, mutation side effects |
+| `auth-db-debug` | — | **required** | B + C + D | authentication, roles, tenant isolation |
 
----
+**`frontend-debug` rules.** Screenshot before the fix or the "before" no longer exists. Never act on
+a `@ref` without a fresh `snapshot` — refs die on any DOM change. Browser mode, target URL and the
+`[HARD]` never-`close`-over-CDP rule all live in `Skill("webapp-testing")`; do not restate them here.
 
-## 8c. `auth-db-debug`
+**`backend-debug` rules.** Confirm which procedure boundary the call actually crosses — generic
+authenticated, admin, or tenant-scoped. Check the input schema against what the client sends.
+Guard every `.returning()` destructure. Before citing any "never use transactions here" rule, read
+the driver import in the connection module — the doctrine and why it matters are in
+`Skill("debugger") § Iron Law`.
 
-**Scope:** Authentication, role/permission mismatches, tenant isolation failures.
+**`auth-db-debug` rules.** Walk the whole tenant-resolution chain the context builder uses. Every
+`UPDATE` carries the tenant predicate — an ownership check read before the write is a TOCTOU gap.
+Verify the auth provider's webhook signing secret matches across environments, and that the
+middleware matcher covers the affected route.
 
-**Execution flow:**
-1. Pre-flight (Step 0)
-2. Build reproducer (Step 1) → launch 2 sub-agents: Code Archaeologist + Regression Hunter
-3. Launch DB State Inspector to verify user/tenant/role state
-4. Consolidate → hypothesis (Step 3)
-5. Minimal fix (Step 5)
-6. Verification gates (Step 6)
-7. Database validation: verify role assignments, tenant boundaries, FK integrity
-8. Report
+Symptom-to-cause lookups for all three: `Skill("debugger") § Common Root Causes` and
+`references/anti-patterns.md`.
 
-**Key rules:**
-- Verify the tenant-resolution chain the context builder uses: team membership → owner lookup → admin fallback
-- Every UPDATE must include the tenant predicate (`eq(table.tenantId, ctx.tenant.id)`) — TOCTOU ownership check
-- Verify the auth provider's webhook signing secret matches between environments
-- Check the auth middleware matcher covers the affected route
+## `systematic-audit` runs differently
 
-**Common auth patterns:**
-- `auth()` returns null → middleware matcher missing the route
-- Tenant record not found → a corrupted auto-created row; repair the broken link rather than deleting the row
-- Cross-tenant data leak → missing tenant filter in the WHERE clause
-- Webhook 400 → env mismatch between local `.env` and production/staging
+It is a sweep, not an incident, and the difference is that **nothing is fixed while it inventories.**
 
----
+1. Pre-flight + browser check.
+2. Dispatch four sub-agents at once: A (browser baseline of the critical flows), B (structural sweep
+   across the codebase), C (known-pattern cross-reference), D (foreign-key integrity, orphaned rows,
+   missing indexes).
+3. **Inventory only.** Classify every finding P0-P3. No edits in this phase.
+4. Present the findings table and let the user prioritize.
+5. Fix P0 one at a time, verifying after each; then P1, then P2.
+6. Full gates: `${tooling.commands.typeCheck}`, `${tooling.commands.lint}`, `${tooling.commands.test}`,
+   `${tooling.commands.build}` — one per line, each exit code read before the next.
+7. Browser evidence of the critical flows after the fixes.
+8. Report, with the remaining P3 items logged rather than silently dropped.
 
-## 8d. `systematic-audit`
-
-**Scope:** Full cross-layer stability sweep. Post-release hardening or periodic health check.
-
-**Execution flow:**
-1. Pre-flight (Step 0) + agent-browser check
-2. Launch 4 sub-agents:
-   - Evidence Collector (browser baseline of critical flows)
-   - Code Archaeologist (scan for unstable patterns across the codebase)
-   - Regression Hunter (cross-reference MEMORY.md for known issues)
-   - DB State Inspector (FK integrity, orphaned rows, missing indexes)
-3. **Inventory first, NO fixes** — classify all findings as P0/P1/P2/P3
-4. Present the findings table to the user for prioritization
-5. Fix P0 issues one at a time, verifying after each; then P1, then P2
-6. Final gates: `${tooling.commands.typeCheck} && ${tooling.commands.lint} && ${tooling.commands.test} && ${tooling.commands.build}`
-7. Browser evidence of critical flows post-fix
-8. Full report with remaining P3 items logged
-
-**Key rules:**
-- NEVER fix during the inventory phase
-- One fix at a time, validate after each
-- Track progress with TaskCreate/TaskUpdate
-- Cross-reference `${rulesDir}/stability.md` (Stability Audit Checklist A–L) + `references/methodology.md § Security checklist`
+Cross-reference `${rulesDir}/stability.md` and `references/methodology.md § Security checklist`.
 
 ---
 
 ## Parallel-research templates (Step 2)
 
-Dispatched after Step 1 produces a runnable reproducer + ≥3 falsifiable hypotheses. Invoke `Skill("superpowers:dispatching-parallel-agents")` first to enforce distinct scope + a shared return contract, then launch.
+Dispatched **after** Step 1 produced a runnable reproducer. Invoke
+`Skill("superpowers:dispatching-parallel-agents")` first — it enforces distinct scope, a shared
+return contract and single-message dispatch (`shared/070-parallel-agent-spawn.md`).
 
-**Shared dispatch contract (applies to every template below):** `run_in_background: true`; read-only
-**by frontmatter, never by instruction** — Code Archaeologist, Regression Hunter and DB State
-Inspector use `subagent_type: "graph-powers:explorer"` (Read/Glob/Grep/Bash, `disallowedTools: Write, Edit`),
-and Evidence Collector uses `subagent_type: "graph-powers:verification"`, which is the browser specialist and
-carries `Skill` so it can load `webapp-testing`. These were all `graph-powers:debugger` once, told in prose to
-"fix nothing" while holding `Write` and `Edit`; return < 2000 tokens; findings as a `| # | Finding | Confidence (1-5) | Source | Impact |` table where applicable; pass the bug symptom + failing URL/procedure + affected files in the prompt.
+**Shared contract for every template below.** `run_in_background: true`. Read-only **by frontmatter,
+never by instruction**: B, C and D use `subagent_type: "graph-powers:explorer"`
+(`disallowedTools: Write, Edit`), and A uses `subagent_type: "graph-powers:verification"`, the browser
+specialist, which carries `Skill` so it can load `webapp-testing`. All four were
+`graph-powers:debugger` once — told in prose to fix nothing while holding `Write` and `Edit`, which is
+the incident recorded in `references/anti-patterns.md`. Return under 2000 tokens, findings as
+`| # | Finding | Confidence (1-5) | Source | Impact |`, and pass the symptom, the failing
+URL or procedure, and the affected files in the prompt.
 
-**Which agents per pack:** all packs → B + C. `frontend-debug` / `systematic-audit` → add A. `backend-debug` / `auth-db-debug` → add D.
-
-### A — Evidence Collector (browser state; `frontend-debug` + `systematic-audit`)
-Browser mode: **public page → headless**; **authenticated page → `--cdp 9222` attach** (keeps the user's Chrome session — do NOT `close`).
+### A — Evidence Collector (`frontend-debug`, `systematic-audit`)
 ```
-MODE A (headless): bunx agent-browser open "[URL]" → snapshot -i -c → screenshot e2e-screenshots/debug/00-initial.png
-                   → eval "document.querySelector('#react-error-overlay')?.textContent || 'no overlay'" → get title/url → close
-MODE B (CDP):      bunx agent-browser --cdp 9222 open "[URL]" → snapshot -i -c → screenshot → eval(overlay) → console → errors  (NO close)
-RETURN: browser mode used · screenshot path · React error-overlay text if present · page URL + title. Fix nothing.
+Public page  → headless: open "[URL]" → snapshot -i -c → screenshot → eval overlay → get title/url → close
+Authenticated → --cdp attach, same sequence, plus console + errors, and NO close
+RETURN: mode used · screenshot path · framework error-overlay text if present · page URL + title. Fix nothing.
 ```
 
 ### B — Code Archaeologist (all packs)
 ```
-1. Search the codebase for the failing component / route / procedure; pin the EXACT file:line where the error originates.
-2. git log --oneline -10 -- <affected-files> for the last commits.
-3. Map the dependency chain: API handlers → data-layer queries → auth middleware → input validators.
-4. Flag recent changes that could have caused the regression.
-5. `systematic-audit` pack only — structural sweep per references/structural-quality.md: files > 1000 lines,
-   ad-hoc branching hotspots (one-off booleans / scattered special cases in shared flows), near-duplicate
-   helpers vs Canonical Homes. Inventory only — fix nothing; classify findings like any other (P0-P3).
-RETURN: findings table · affected file:line ranges · last 3 commits touching them · dependency chain · knowledge gaps.
+1. Find the failing component / route / procedure; pin the EXACT file:line where the error originates.
+2. git log --oneline -10 -- <affected-files>.
+3. Map the chain: handlers → data-layer queries → auth middleware → input validators.
+4. Flag the recent changes that could have caused the regression.
+5. `systematic-audit` only — structural sweep per references/structural-quality.md: files over 1000 lines,
+   ad-hoc branching hotspots, near-duplicate helpers against their Canonical Home. Inventory only.
+RETURN: findings table · affected file:line ranges · last 3 commits touching them · dependency chain · gaps.
 ```
 
 ### C — Regression Hunter (all packs)
 ```
-1. Scan references/anti-patterns.md (Negative Constraints index + bug catalog) and the Common Root Causes Catalog in SKILL.md.
-2. Search MEMORY.md for matching patterns (project auto-memory).
-3. Check ${rulesDir}/stability.md (Stability Audit Checklist A–L) for relevant rules.
-MATCH found  → return pattern name, root cause, recommended fix, file guidance.
-NO MATCH     → generate top-3 hypotheses ranked by probability, each with evidence for/against + an investigation step.
-RETURN: MATCHED / NO_MATCH; matched → pattern + fix guidance; not matched → ranked hypotheses with investigation plan.
+1. Scan references/anti-patterns.md and the Common Root Causes table in SKILL.md.
+2. Search the project auto-memory for matching patterns.
+3. Check ${rulesDir}/stability.md for rules that bear on the symptom.
+MATCH    → pattern name, root cause, recommended fix, file guidance.
+NO MATCH → top-3 hypotheses ranked by probability, each with evidence for and against plus a probe.
+RETURN: MATCHED / NO_MATCH, then whichever branch applies.
 ```
 
-### D — DB State Inspector (`backend-debug` + `auth-db-debug`; replaces A)
+### D — DB State Inspector (`backend-debug`, `auth-db-debug`)
 ```
-1. Read the schema definitions under ${paths.schemaRoot} to understand the table structure.
-2. Construct targeted SELECT queries to verify data state.
-3. Check for orphaned rows, missing FK references, tenant_id gaps; verify enum values match the schema; confirm indexes exist for all FK columns.
-IMPORTANT: do NOT run psql directly — return the queries you would run; the lead agent executes them after review.
-RETURN: table structure summary · diagnostic queries (ready to run) · suspected data inconsistencies.
+1. Read the schema under ${paths.schemaRoot} to learn the real table structure.
+2. Construct targeted SELECT queries that verify the suspected data state.
+3. Check orphaned rows, missing foreign-key references, tenant-key gaps, enum drift, and an index on every FK.
+IMPORTANT: do NOT execute them. Return the queries; the lead agent runs them after review.
+RETURN: table structure summary · diagnostic queries, ready to run · suspected inconsistencies.
 ```

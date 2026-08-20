@@ -12,6 +12,7 @@
 | Architecture consultation | `graph-powers:evaluator` (Mode 3) | Caller decides |
 | Plan synthesis / sprint breakdown | `graph-powers:project-planner` | Caller decides |
 | UI or user-flow verification, after the code lands | `graph-powers:verification` | No (drives a browser) |
+| Harness wiring verdict, dispatched by `skill-improve` Mode B | `graph-powers:skill-improver` | No (the caller gates the next phase on the verdict) |
 
 Read-only agents (`graph-powers:explorer`, `graph-powers:librarian`) **must** use `run_in_background: true`.
 

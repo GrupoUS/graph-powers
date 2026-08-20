@@ -1,114 +1,138 @@
-# Anti-Patterns + Negative Constraints
+# Anti-patterns — the bug catalogue
 
-> Project-specific bug patterns + consolidated "NEVER do" lookup. Loaded by `/debug` command and `graph-powers:debugger` skill.
-> Append on discovery — do NOT delete entries.
-> The catalogue below is generic. Each project adds its own entries under `${rulesDir}/` — an anti-pattern list that never names anything the project it is installed in actually did is decoration.
+> Loaded by `/debug` Step 0 as first-line triage, and by `graph-powers:debugger`.
+> **Append on discovery — never delete an entry.** A catalogue that only holds what is still
+> current is a catalogue nobody learned from.
 
----
+## Contents
 
-## Negative Constraints (NEVER do)
+- [Where the NEVER rules live](#where-the-never-rules-live) — this file is not their home
+- [Database / ORM](#database--orm) — 1-5
+- [Backend / API layer](#backend--api-layer) — 6-13
+- [Frontend](#frontend) — 14-22
+- [Integrations](#integrations) — 23-29
+- [Build, CI and delivery](#build-ci-and-delivery) — 30-36
 
-Each constraint points to canonical source — this section is a lookup aid.
-
-### Design / UI
-
-- **NEVER** use hardcoded hex colors → the project's own rules in `${rulesDir}/`, `${rulesDir}/design.md`
-- **NEVER** introduce a colour outside the project's declared tokens → `${rulesDir}/design.md`
-- **NEVER** center all text by default → root `DESIGN.md` §11/§15
-- **NEVER** use emoji as design elements → root `DESIGN.md` §15
-- **NEVER** exceed `--text-xl` for body text → root `DESIGN.md` §5
-- **NEVER** place custom product composites in the design-system primitives folder (`${paths.componentsRoot}/ui/`) → `${paths.frontendRoot}/AGENTS.md`
-
-### Code Quality
-
-- **NEVER** invoke the type-checker binary directly (`tsc --noEmit` and friends) — use the project's declared gate, `${tooling.commands.typeCheck}` → the project's own rules in `${rulesDir}/`
-- **NEVER** use a package manager other than the one the project declares (`${tooling.packageManager}`) — a second lockfile is a second dependency graph → the project's own rules in `${rulesDir}/`
-- **NEVER** add a scripting language the repository does not already use — a new runtime in `scripts/` is a dependency nobody agreed to
-- **NEVER** commit without running `${tooling.commands.format}` on edited files → `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`
-- **NEVER** use `localStorage` / `sessionStorage` → `${paths.frontendRoot}/AGENTS.md`
-- **NEVER** mark a task done without verification evidence → root `AGENTS.md § Cardinal Rule 2`
-- **NEVER** use `console.log` / `graph-powers:debugger` in production code → `${rulesDir}/stability.md § H`
-- **NEVER** use `as any` — narrow types or use `unknown` → `${rulesDir}/backend.md`
-- **NEVER** use non-null assertion `!` on optional data → `${rulesDir}/stability.md § B`
-- **NEVER** use `href="#"` for actions — use `<button>` → `${rulesDir}/stability.md § K`
-
-### Architecture
-
-- **NEVER** create new files when enhancing existing ones suffices → extension beats addition, every time
-- **NEVER** add a dependency without checking monorepo first → the project's own rules in `${rulesDir}/`
-- **NEVER** bypass the WISC tier loading protocol → root `AGENTS.md § WISC`
-- **NEVER** write raw SQL outside Drizzle for schema ops → `${rulesDir}/database.md`
-- **NEVER** add an FK column without a matching index → `${rulesDir}/database.md`
-- **NEVER** invoke a database MCP server the project has disabled — use the vendor CLI its rules name → the project's own rules in `${rulesDir}/`
-- **NEVER** use `SELECT *` in ORM queries — specify columns → `${paths.backendRoot}/routers/AGENTS.md`
-- **NEVER** hand-roll auth/admin checks when a narrower procedure already exists (the admin or tenant-scoped procedure) → `${paths.backendRoot}/routers/AGENTS.md`
-
-### Agents & Workflows
-
-- **NEVER** spawn >5 sub-agents per user request without a checkpoint → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
-- **NEVER** attempt >3 fixes on the same hypothesis — escalate to evaluator → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
-- **NEVER** stack multi-agent patterns without justification → `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md`
-- **NEVER** hand a review task to a write-capable subagent. Observed failure: a review agent with Bash and write tools "partitioned ownership" of a diff, classified in-flight uncommitted work as unrelated, and reverted it to HEAD — roughly 80 lines of the file under review, destroyed by the reviewer. Reviews go to read-only agents (`graph-powers:evaluator`, `graph-powers:security-reviewer`) or read-only slash commands
-- **NEVER** commit CRLF line endings → the project's own rules in `${rulesDir}/`
-- **NEVER** skip hooks with `--no-verify` / `--no-gpg-sign` unless user explicitly asks → `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`
-- **NEVER** use destructive git operations (`reset --hard`, `push --force`, branch deletion) without confirmation → root `AGENTS.md § Executing actions with care`
+The catalogue is generic. A project adds its own entries under `${rulesDir}/` — a list that never
+names anything the project it is installed in actually did is decoration.
 
 ---
 
-## Database / ORM (Drizzle + Postgres)
+## Where the NEVER rules live
 
-1. **Drizzle `.returning()` empty-array trap.** Empty `[]` is truthy. ALWAYS destructure first then null-check: `const [row] = await db...returning(); if (!row) throw ...`.
-2. **Drizzle `onConflictDoNothing` misses partial unique indexes.** When a unique index has a `WHERE` clause, must add `targetWhere` to `onConflictDoNothing` — else conflict not detected.
-3. **Schema drift → tRPC 500.** Drizzle `db.select().from(table)` enumerates ALL schema columns. Missing DB columns → Postgres error → tRPC 500. Recover with a script that runs the migration through the pool driver (`drizzle-kit push --force` blocks on a TTY).
-4. **Stale prepared-statement cache.** After a schema migration the running container may still hold the old plan. Restart it if the 500 persists post-migration.
-5. **The runtime's bare test subcommand instead of the project's test script.** Bun's native runner, for one, does not implement vitest's `vi.mocked`/`vi.hoisted`. Always go through `${tooling.commands.test}`.
+They are not restated here. One index, one canonical source per rule:
 
-## Backend (tRPC + Hono)
+| Class of rule | Canonical source |
+|---|---|
+| Git, secrets, irreversible operations, tooling substitution, scope, completion claims | `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md` §1-§7 |
+| What a hook actually denies, and how to release it | `${CLAUDE_PLUGIN_ROOT}/references/shared/110-guardrails-index.md` |
+| Fan-out width, spawn ceilings, escalation after failed attempts | `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` · `shared/070-parallel-agent-spawn.md` |
+| Design tokens, stability, execution and UX floors | `${rulesDir}/` — the project's own rules |
 
-6. **Hand-rolled admin checks inside the generic authenticated procedure.** Use the narrower admin procedure — never re-implement role checks manually.
-7. **Per-request provider client construction.** Always reuse the shared singletons the backend core module (`${paths.backendRoot}/_core/`) already exports — AI client, orchestrator, `db`, logger factory.
-8. **Localized error messages as contract.** Frontend must branch on `error.data.appCode`, never on substrings. Surface code via `cause: { code }` so tRPC error formatter exposes `appCode`.
-9. **Date.now() race in tests.** Use `vi.useFakeTimers()` for timing-sensitive boundary tests.
-10. **`Number.isFinite` over `typeof === 'number'` for stored numerics.** DB may return strings/Decimal; explicit numeric guards prevent drift.
-11. **Tenant defense-in-depth on child fetches.** Even when parent rows already filtered by `tenantId` and child FK references parent, fetching the child via `inArray(child.id, parentIds)` WITHOUT a tenant filter leaks cross-tenant data on corrupted rows. PostgreSQL FK constraints check the referenced PK exists, NOT that ownership chains agree. Always add `eq(child.tenantId, input.tenantId)` to the child WHERE. Observed shape: a list procedure joined a child table through a join-table's id column only, and one corrupted join row was enough to return another tenant's records.
-12. **4-layer persistence bug pattern (stateful UI).** When "saved visual state lost on reload" symptom appears, audit ALL FOUR layers before claiming a root cause — fixing only one leaves the bug:
-    - Schema column missing → can't persist
-    - Mutation payload omits the field → schema column always NULL
-    - Component state is `useState` internal-only → no payload to send
-    - Render path ignores the prop → re-load shows default even when DB has the data
-    The fix REQUIRES all four to align. Each layer's "evidence" is independent: schema row in DB, network tab payload, React DevTools state, computed styles in inspector.
+One entry is kept here rather than indexed, because it is an incident and not a policy:
 
-## Frontend (React 19 + Vite)
+**Never hand a review task to a write-capable subagent.** Observed: a review agent holding `Bash`
+plus write tools "partitioned ownership" of a diff, classified in-flight uncommitted work as
+unrelated, and reverted it to HEAD — roughly 80 lines of the file under review, destroyed by its
+reviewer. Reviews go to read-only agents (`graph-powers:evaluator`, `graph-powers:security-reviewer`)
+or to read-only commands.
 
-13. **Inline object/array prop = new ref every render.** Wrap in `useMemo`, hoist to module scope, or use stable selector. Especially in `useRouterState` selectors that `.map()` — defeats `useMemo` structural sharing.
-14. **`staleTime !== refetchInterval`.** Causes double-fetch storms. Set them equal.
-15. **`gcTime < staleTime`.** Causes re-fetch on remount. Always `gcTime ≥ staleTime`.
-16. **`href="#"` for actions.** Use `<button>`. Real `<a href="…">` only for navigation.
-17. **Animating `width`/`height`/`top`/`left`.** Layout-thrashing. Use `transform` + `opacity` only. Accordions: `grid-template-rows: 0fr ↔ 1fr`.
-18. **DialogFooter without `flex-shrink-0`.** Disappears in scrollable flex-column dialogs.
-19. **Inline arrow on memoized child = breaks memo.** `onDelete={(id) => setX(id)}` is a fresh fn every parent render; child `memo()` wrapper compares it by reference and re-renders. Pass `setX` directly when its signature matches (`useState` setters are stable), or wrap in `useCallback`. Especially hot when parent state changes at 60 fps (e.g. slider drag).
-20. **Multi-touch gesture without `pointerId` discrimination.** A `PointerEvent` handler that tracks a single `panStateRef.active` flag can be hijacked by a second simultaneous touch / mouse, which overwrites the gesture origin mid-drag and terminates it prematurely on the second pointer's release. Store the gesture's `pointerId` in the ref and reject events whose `e.pointerId` doesn't match.
-21. **Compare-style "uncontrolled" props that read initial value via `useState(prop)` only.** `useState(initialFoo)` reads `initialFoo` once on mount; later changes to the prop don't update internal state. If the prop is allowed to act as a "reset to" signal (e.g. data refetch updates it), add `useEffect(() => setFoo(initialFoo), [initialFoo])` guarded by `!isControlled` — otherwise stale state persists indefinitely across data refreshes.
+---
 
-## Integrations (messaging sockets, ad platforms, webhooks)
+## Database / ORM
 
-17. **A connect-time presence flag can kill inbound routing.** Several long-lived messaging socket clients stop delivering inbound events when the socket is opened with `markOnlineOnConnect: true`. Open it offline and send explicit presence updates instead.
-18. **Webhook without idempotency.** Always `INSERT … ON CONFLICT … DO NOTHING RETURNING id`. If id null → already processed.
-19. **Tight reconnect loops after a socket disconnect.** Use an explicit state machine + exponential backoff. Different disconnect reasons need different recovery.
-20. **OAuth token expiry not pre-checked.** Check before using stored credentials, refresh proactively.
-21. **Webhook acks slow.** Always 200 first, process async.
-22. **`await` on external API inside webhook handler.** Even when service has a 10s timeout, awaiting Meta CAPI / Resend / Slack from `handleCheckoutCompleted` (or any `handle<Provider>Event`) gates the provider's ack on the third-party latency. Provider redelivers → handler runs again → cascade. Pattern: extract the dispatch into `async function dispatchX(...)`, call it as `void dispatchX(...)` after the DB writes. The dispatch function must have a never-throws contract (returns `{ ok, status, reason }`) so the `void` is safe without a wrapping try/catch. Counter-case: if the dispatch result writes back to the DB (e.g. a `capi_status` column on the lead row), then it IS part of the request — await it inside a `try/catch` with explicit error logging.
-23. **Pixel/CAPI deduplication needs `eventID` as the 4th `fbq` arg, NOT inside the `data` payload.** Meta's contract is `fbq('track', eventName, data, { eventID })`. If you pass `eventID` as a key in `data`, the Pixel still fires but Meta does NOT deduplicate it against the matching server-side Conversions API event with the same id — you get double-counted conversions. Server-side CAPI must reuse the same `event_id` value (string, typically UUID generated server-side and returned to the client on the mutation that triggers the Pixel event).
+1. **`.returning()` empty-array trap.** An empty `[]` is truthy. Destructure first, then null-check:
+   `const [row] = await db…returning(); if (!row) throw …`.
+2. **`onConflictDoNothing` misses partial unique indexes.** When the unique index carries a `WHERE`
+   clause, the conflict target needs the same predicate (`targetWhere`) or the conflict is never
+   detected.
+3. **Schema drift → 500 on a procedure that used to work.** A `select().from(table)` enumerates
+   every column the schema declares; a column missing in the database is a driver error surfaced as
+   a 500. Recover by running the migration through the pool driver — the push subcommand blocks on a
+   TTY.
+4. **Stale prepared-statement cache.** After a migration the running container may still hold the
+   old plan. Restart it if the 500 survives a correct migration.
+5. **The runtime's bare test subcommand instead of the project's test script.** Native runners do
+   not implement every mocking primitive the project's test framework exposes. Always go through
+   `${tooling.commands.test}`.
 
-## Build / Performance
+## Backend / API layer
 
-22. **Static imports of shared data inside lazy-split modules defeat Rollup splitting.** Extract data into pure module imported separately.
-23. **GHA secrets in job-level `if:` forbidden.** Causes "workflow file issue" 0s failures. Use `continue-on-error: true` or `vars.*`.
-24. **Vite build OOM on GHA.** Set `NODE_OPTIONS: --max-old-space-size=4096` in build env.
-25. **Concurrent backend deploys can OOM a small VPS.** Serialize them with a CI job-concurrency group so a second deploy queues instead of building alongside the first.
+6. **Hand-rolled role checks inside the generic authenticated procedure.** Use the narrower
+   admin or tenant-scoped procedure the router already exposes.
+7. **Per-request provider client construction.** Reuse the singletons the backend core module
+   already exports — client, orchestrator, `db`, logger factory.
+8. **Localized error text used as contract.** The client branches on an error *code*, never on a
+   substring. Surface it via `cause: { code }` so the error formatter exposes it.
+9. **Wall-clock race in tests.** Freeze time for boundary tests instead of reading the clock twice.
+10. **`typeof === 'number'` on stored numerics.** The driver may return a string or a decimal type;
+    guard with an explicit finite-number check.
+11. **Tenant defense-in-depth missing on child fetches.** Even when the parent rows are already
+    scoped by tenant and the child has a foreign key to the parent, fetching children by
+    `inArray(child.id, parentIds)` **without** a tenant filter leaks across tenants on a corrupted
+    row: a foreign key proves the referenced row exists, never that the ownership chain agrees.
+    Observed shape — a list procedure joined a child table through a join table's id column only,
+    and one corrupted join row returned another tenant's records.
+12. **Awaiting a third-party API inside a webhook handler.** It gates the provider's ack on someone
+    else's latency; the provider redelivers, the handler runs again, and the cascade begins. Extract
+    the call and fire it after the database writes, with a never-throws contract so it needs no
+    wrapping try/catch. Counter-case: if the result writes back to the database, it *is* part of the
+    request — await it inside a try/catch with explicit logging.
+13. **Webhook without idempotency.** `INSERT … ON CONFLICT … DO NOTHING RETURNING id`; a null id
+    means it was already processed.
 
-## CI / DX
+## Frontend
 
-26. **CRLF in commits blocks CI.** Enforce LF via `.gitattributes`. Recover: `${tooling.commands.format} && git add --renormalize .`.
-27. **Direct push to a protected branch.** All work via `${git.workBranch}` → PR → protected branch. Even `[skip ci]` direct pushes break the policy.
-28. **Untrusted ADR claim.** When memory cites a "removed file" or "deprecated flag", ALWAYS verify with grep before recommending action — memory may be stale.
+14. **Inline object or array prop = a new reference every render.** Memoize, hoist to module scope,
+    or use a stable selector — especially in router-state selectors that `.map()`, which defeats
+    structural sharing.
+15. **`staleTime` different from `refetchInterval`.** Double-fetch storms. Set them equal.
+16. **`gcTime` below `staleTime`.** Refetch on every remount. Keep `gcTime >= staleTime`.
+17. **`href="#"` for an action.** Use a button. A real anchor is for navigation.
+18. **Animating `width` / `height` / `top` / `left`.** Layout thrash. Use `transform` and `opacity`;
+    for an accordion, `grid-template-rows: 0fr` to `1fr`.
+19. **A dialog footer without `flex-shrink-0`.** It disappears inside a scrollable flex column.
+20. **Inline arrow on a memoized child.** A fresh function every parent render, compared by
+    reference, so the memo never holds. Pass the stable setter directly, or wrap it. Hottest when
+    parent state changes at 60 fps.
+21. **Multi-touch gesture without pointer discrimination.** A handler tracking a single "active"
+    flag is hijacked by a second simultaneous pointer, which overwrites the gesture origin mid-drag
+    and ends it on the wrong release. Store the gesture's pointer id and reject the others.
+22. **"Uncontrolled" prop read once through initial state.** Later changes to the prop never reach
+    internal state. If the prop doubles as a reset signal — a refetch updates it — sync it in an
+    effect guarded by "not controlled", or stale state persists across every refresh.
+
+## Integrations
+
+23. **A connect-time presence flag can kill inbound routing.** Several long-lived messaging socket
+    clients stop delivering inbound events when the socket is opened announcing presence. Open it
+    silent and send presence explicitly afterwards.
+24. **Tight reconnect loop after a disconnect.** An explicit state machine plus exponential backoff;
+    different disconnect reasons need different recovery.
+25. **OAuth expiry not pre-checked.** Check before using stored credentials and refresh proactively.
+26. **Slow webhook acks.** Answer 200 first, process after.
+27. **Pixel and server-side deduplication needs the event id in the options argument**, not inside
+    the data payload. Put it in `data` and the pixel still fires while the vendor does *not*
+    deduplicate it against the matching server-side event — double-counted conversions. The
+    server-side call reuses the same id value.
+28. **Untrusted claim from memory or an ADR.** When a note cites a removed file or a deprecated
+    flag, verify with grep before acting. Memory ages; the tree does not lie.
+29. **A "never use transactions here" rule that outlived its driver.** See
+    `Skill("debugger") § Iron Law` — the doctrine is there because it is load-bearing enough to sit
+    in the skill body.
+
+## Build, CI and delivery
+
+30. **Static imports of shared data inside lazy-split modules defeat code splitting.** Extract the
+    data into a pure module imported separately.
+31. **CI secrets in a job-level `if:`.** Produces a "workflow file issue" that fails in zero
+    seconds. Use `continue-on-error` or a non-secret variable.
+32. **Build OOM on the CI runner.** Raise the runtime's old-space size in the build environment.
+33. **Concurrent backend deploys can exhaust a small host.** Serialize with a job-concurrency group
+    so the second deploy queues instead of building alongside the first.
+34. **CRLF in commits blocks CI.** Enforce LF through `.gitattributes`; recover with
+    `${tooling.commands.format}` then `git add --renormalize .`.
+35. **Direct push to a protected branch.** Work goes through `${git.workBranch}` and a pull request,
+    `[skip ci]` included.
+36. **A schema file that compiles but was never applied.** It fails on the next deploy, not in
+    review. Name who applies it and when.

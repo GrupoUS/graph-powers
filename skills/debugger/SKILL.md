@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: "Root-cause discipline for a defect already under investigation: reproduce, isolate, prove the cause, then fix. Wraps superpowers systematic-debugging, test-driven-development and verification-before-completion, adding this harness's anti-pattern catalogue and evidence gates. Loaded by /debug and /recover. Not for choosing what to build."
+description: "Root-cause discipline for a defect already under investigation: reproduce, isolate, prove the cause, then fix. Wraps superpowers systematic-debugging, test-driven-development and verification-before-completion, adding this harness's anti-pattern catalogue and evidence gates. Loaded by /debug. Not for choosing what to build."
 
 ---
 
@@ -18,17 +18,18 @@ Production-grade debugging — root-cause rigor, parallel sub-agent research, ag
 
 **Guardrails (NEVER):** cite a `file:line` without `Read` (lines drift) · click/fill before `agent-browser snapshot -i -c` (`@eN` refs stale) · `as any` to patch a type (hides the contract bug) · ship `console.log`/`graph-powers:debugger` (Step 6 grep must be 0).
 
-> **Never de-atomize a transaction you have not proven is unsupported.** Serverless Postgres
-> vendors ship two drivers: an HTTP one that rejects `db.transaction()`, and a pool/WebSocket one
-> that supports it. A "never use transactions here" rule written for the first driver outlives the
-> migration to the second — it sits in the docs long after it stopped being true. An agent obeying
-> the stale rule rewrites working atomic writes (a ledger mirror plus a stock deduction, a payment
-> plus its receipt) into independent statements, producing exactly the half-applied state the rule
-> was written to prevent. **Read the driver import in the project's connection module first**, and
-> never swap `db.transaction()` for a batch of independent writes to silence an error you have not
-> reproduced.
+> **Never de-atomize a transaction you have not proven is unsupported.** Serverless Postgres vendors
+> ship two drivers: an HTTP one that rejects `db.transaction()` and a pool/WebSocket one that
+> supports it. A "never use transactions here" rule written for the first outlives the migration to
+> the second, and an agent obeying the stale rule rewrites working atomic writes into independent
+> statements — producing exactly the half-applied state the rule existed to prevent. **Read the
+> driver import in the connection module first**, and never swap `db.transaction()` for a batch of
+> independent writes to silence an error you have not reproduced.
 
-## Engine — superpowers debug chain
+## Engine
+
+The superpowers debug chain is the motor of each Step; this skill wraps it. **Every artefact in this
+harness cites the pairing from here — do not restate it elsewhere.**
 
 | Engine skill | Invoked at | the project wrap |
 |---|---|---|
@@ -44,7 +45,7 @@ Production-grade debugging — root-cause rigor, parallel sub-agent research, ag
 - Pick the pack via **Pack selector** (default / frontend / backend / auth-db / audit).
 - Resolve tooling from `.graph-powers/config.json` (`tooling.packageManager/typeChecker/linter/testRunner`); the project scripts are the source of truth.
 - Pre-load `references/anti-patterns.md` (Negative Constraints index + bug catalog) as first-line triage.
-- Baseline gates: `${tooling.commands.typeCheck} && ${tooling.commands.lint} && ${tooling.commands.test}`. Frontend/audit packs: `bunx agent-browser --version`; auth/cookie-bound pages → `--cdp PORT` attach (`Skill("webapp-testing")`).
+- Baseline gates: `${tooling.commands.typeCheck} && ${tooling.commands.lint} && ${tooling.commands.test}`. Frontend/audit packs: `bunx agent-browser --version`, then `Skill("webapp-testing")` for session, mode and verdict rules.
 - **Exit:** pack chosen + baseline result known (so later breakage is attributable).
 
 ## Step 1 — Build feedback loop (P1) → `references/diagnose.md`
@@ -121,9 +122,8 @@ Quick lookup; full Negative Constraints index + bug catalog → `references/anti
 |--------|------|
 | [`scripts/fetch_logs.py`](scripts/fetch_logs.py) | Aggregate CI, VPS and database hints for errors (`GITHUB_REPO`, `PROJECT_VPS_HOST`, `DB_STATUS_COMMAND`) |
 | [`scripts/find_polluter.py`](scripts/find_polluter.py) | Bisection — which test pollutes a shared path (`.git`, lockfile, tmp dir) |
-| [`scripts/run_tests.py`](scripts/run_tests.py) | `bun run check` then `bun run test` |
 
-> Frontend browser smoke is `bunx agent-browser` (`Skill("webapp-testing")` → `../webapp-testing/references/browser-setup.md`), not a bundled script.
+> Frontend browser smoke is `bunx agent-browser` via `Skill("webapp-testing")`, not a bundled script.
 
 ## References
 
@@ -134,7 +134,7 @@ Quick lookup; full Negative Constraints index + bug catalog → `references/anti
 | `references/pack-guides.md` | Per-pack execution (8a–8d) + Step-2 parallel-research templates |
 | `references/anti-patterns.md` | First-line triage: project NEVER rules + ORM / API-layer / auth pitfalls index |
 | `references/structural-quality.md` | Step 5 fix-shape check · `systematic-audit` structural sweep · `/pr-review` structural lens (§ 3C): code-judo doctrine, smells table, canonical homes, output discipline, presumptive blockers |
-| `Skill("webapp-testing")` → `../webapp-testing/references/browser-setup.md` | agent-browser install, headless vs `--cdp`, snapshots, troubleshooting |
+| `Skill("webapp-testing")` | browser evidence: install floor, named session, headless vs `--cdp` attach, verdict rules |
 
 ## Configuration
 

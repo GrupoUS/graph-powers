@@ -34,7 +34,7 @@ Kept separate by decision, and that separation is what the rewrite exploits:
 
 | Surface | What its description is for | Budget posture |
 |---|---|---|
-| `commands/*.md` — 12 | **The intent surface.** What a person says when they want this to happen. Carries trigger phrases and a "Do not use for…" clause | spend here |
+| `commands/*.md` — 11 | **The intent surface.** What a person says when they want this to happen. Carries trigger phrases and a "Do not use for…" clause | spend here |
 | `skills/*/SKILL.md` — 12 | **The knowledge surface.** Loaded by a command that already decided, or by the model once it is working in that domain. Rarely the thing a sentence names | recover here |
 
 `paths:` is ignored inside a command file, so command precision comes from wording alone; the 12
@@ -127,13 +127,18 @@ what actually gets typed.
 | N1 | where is the login handler? | research, not prime |
 | N2 | document the conventions | direct edit, no command |
 
-### `/graph-powers:recover`
+### Recovery triggers — now `/debug recover`
+
+> The standalone `/graph-powers:recover` command was removed in 1.7.0: it was a second entry point
+> into the same `references/recovery-protocol.md` that `/debug recover` already opens. These
+> triggers moved into the `/debug` description; the expectations below did not change.
+
 | # | Prompt | Expect |
 |---|---|---|
-| T1 | we've tried three fixes and it's still broken | recover |
-| T2 | back out and start over, this isn't working | recover |
-| T3 | stop, we're going in circles | recover |
-| N1 | this is broken (first report) | debug, not recover |
+| T1 | we've tried three fixes and it's still broken | debug (recover mode) |
+| T2 | back out and start over, this isn't working | debug (recover mode) |
+| T3 | stop, we're going in circles | debug (recover mode) |
+| N1 | this is broken (first report) | debug, default mode |
 | N2 | revert the last commit | direct git, no command |
 
 ### `/graph-powers:evolve`

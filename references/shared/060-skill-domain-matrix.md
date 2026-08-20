@@ -6,7 +6,7 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 |---|---|---|
 | Bug fix / runtime error / regression | `graph-powers:debugger` | `second-opinion` when a fix keeps not sticking |
 | Plan / decompose / architecture decision | `planning` (via `/plan`) | `senior-architect`, `senior-prompt-engineer` when the feature is an LLM feature |
-| Delegation / who runs what | none — `references/execution-floor.md` is always in force | `/delegate` for the contract of one handoff |
+| Delegation / who runs what | none — `references/execution-floor.md` is always in force, §4 carries the contract | — |
 | UI / component / page / design system | the project's design rule, plus the external `impeccable` plugin | `uxmaster` for the direction, `graph-powers:debugger` if mid-fix |
 | UX direction / conversion / onboarding | `uxmaster` | — |
 | Performance / SEO / security baseline / Core Web Vitals / bundle | `performance-optimization` | `graph-powers:librarian` for external tool docs |

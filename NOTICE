@@ -41,7 +41,11 @@ Modifications by GrupoUS, as required by section 4(b) of that License:
                            merged skill, whose scope is broader than either original.
   skills/webapp-testing/   Retargeted from a hardcoded URL to `project.stagingUrl` read from
                            `.graph-powers/config.json`; the browser stack documented as the
-                           `agent-browser` CLI with Playwright as the fallback.
+                           `agent-browser` CLI with Playwright as the fallback. The upstream
+                           `examples/` Playwright snippets were removed, and the command
+                           reference was delegated to the skill the `agent-browser` CLI ships
+                           with its binary rather than mirrored here; what remains documents
+                           only the decisions this harness owns.
 
 ================================================================================
 MIT — adapted material, not redistributed verbatim

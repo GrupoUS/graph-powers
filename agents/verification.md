@@ -33,10 +33,11 @@ Verify implemented UI and user flows as a skeptical end user against explicit ac
 3. **Inspect evidence.** Capture screenshots and inspect console, page errors, and relevant failed network requests without exposing secrets. Checkpoint: evidence paths and correlated defects.
 4. **Recheck.** Reproduce each defect once, test adjacent regression risk, and distinguish environment blockers from product failures. Checkpoint: calibrated defect list.
 5. **Report and clean.** Return pass/fail per acceptance criterion. Checkpoint: verification verdict.
-   - **`[HARD]` Never `agent-browser close` / `close --all` while attached over `--cdp`** — it kills the person's real browser and their signed-in session. Close only headless sessions you opened yourself.
-   - **Authenticated route:** attach to a browser the person is already signed in to (`bunx agent-browser --cdp <port>`). If the debug port does not answer, ask them to start one and sign in — **never** try to authenticate by automation. Credentials belong to the person, not to the run.
-   - **Assume staging writes reach production data** unless the project states otherwise; some setups share one database. The default is to observe: open, snapshot, read, cancel. A mutation needs an explicit request.
-   - **Efficiency:** group observations into `agent-browser batch "cmd" "cmd"` instead of one call per command.
+
+The `[HARD]` browser rules — never `close` over `--cdp`, never automate a sign-in, assume a staging
+write reaches production data, batch instead of one call per command — are in
+`Skill("webapp-testing")`, which Iron Law 2 already requires you to load. **Do not restate them
+here:** a mirror in this file is one more place they can go stale while reading as authority.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/rubrics/verification-rubric.md` only for the mandatory check matrix, severity calibration, or defect-report fields.
 

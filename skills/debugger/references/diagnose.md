@@ -4,9 +4,12 @@
 
 ---
 
-## Iron Law of diagnosis
+## Why the loop comes first
 
-**If you can't run it on demand, you can't fix it.** A bug that only happens "sometimes in prod" is a bug whose feedback loop you haven't built yet. Build the loop *before* opening source files. Per SKILL.md Iron Law: **no Step 3 (hypotheses) without a reproducer; no Step 5 (fix) without a RED test on the real seam.** *Build the right feedback loop and the bug is 90% fixed — this is the skill, everything else is mechanical.*
+**If you can't run it on demand, you can't fix it.** A bug that only happens "sometimes in prod" is
+a bug whose feedback loop nobody has built yet — build it *before* opening source files. Get the
+loop right and the bug is 90% fixed; the rest is mechanical. The gates this enforces are in
+`Skill("debugger") § Iron Law`.
 
 ---
 
@@ -19,7 +22,7 @@ Construct a deterministic, agent-runnable pass/fail signal. Pick the highest-ran
 | **1** | Failing **vitest** test | `${tooling.commands.test} -t "<bug-name>"`, run from the workspace that owns the seam | Pure code logic; any API procedure or UI component bug |
 | **2** | **HTTP fixture** (curl) | `curl -sS -X POST ${project.stagingUrl}/api/<endpoint> -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '<json>' \| jq` | tRPC 500 / UNAUTHORIZED / payload edge case |
 | **3** | **CLI fixture** (Python stdlib, per cardinal rule #3) | `python scripts/<repro>.py --param ...` | Multi-step external API repro (payment provider, messaging platform, ad platform) |
-| **4** | **Browser smoke** | `bunx agent-browser open ${project.stagingUrl}/<route> && bunx agent-browser snapshot -i -c && bunx agent-browser console` | UI regressions, hydration mismatch, auth redirect; auth pages use `--cdp` attach (see `Skill("webapp-testing")` → `../../webapp-testing/references/browser-setup.md`) |
+| **4** | **Browser smoke** | `bunx agent-browser open ${project.stagingUrl}/<route> && bunx agent-browser snapshot -i -c && bunx agent-browser console` | UI regressions, hydration mismatch, auth redirect; auth pages use `--cdp` attach — `Skill("webapp-testing")` |
 | **5** | **Replay harness** | Recorded webhook JSON re-posted to the local API → expected DB delta | Webhook idempotency / signature / partial-failure bugs |
 | **6** | **Fuzz / differential** | Two-driver diff (HTTP vs WebSocket database driver), property test via `fast-check` | Driver-edge bugs, transaction semantics, race conditions |
 | **7** | **Log parse** | `python scripts/fetch_logs.py --filter "<error>"` against the project's CI and host log sources | Bug visible only via observability, no live trigger available |
@@ -82,9 +85,7 @@ curl -N "${project.stagingUrl}/api/<stream-endpoint>" -H "authorization: Bearer 
 2. What ACTUALLY happens? (observed behavior, exact values)
 3. WHERE do they diverge? (specific point)
 ```
-
-### Read error messages completely
-Don't skip past errors. Read stack traces **completely** — line numbers, file paths, error codes. They often contain the exact solution.
+Read the stack trace to the end first — line numbers, paths and error codes often carry the answer.
 
 ### Reproduce consistently — run the loop 3×
 Acceptance:
@@ -192,20 +193,18 @@ Pick a unique tag, e.g., `DEBUG_BUG_C500` (≤24 chars, no spaces, ALL_CAPS). Ev
 
 ---
 
-## Hand-off to the Superpowers chain (Steps 4–5)
+## Hand-off (Steps 4–6)
 
-Once Steps 1→3 are done (minimised reproducer + ≥3 ranked hypotheses + research) and Step 3 selects the leading hypothesis, **Step 4 must invoke the Superpowers chain**:
-1. `Skill("superpowers:systematic-debugging")` — Iron Law: **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.** It mandates the TDD chain.
-2. `Skill("superpowers:test-driven-development")` — Iron Law: **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Cycle RED → Verify RED → GREEN → Verify GREEN → REFACTOR. The RED test must exercise the **real production seam** (see `references/methodology.md § Fix Verification Criteria #2`).
-
-Techniques for Steps 4–6 (instrument, root-cause trace, bisect, defense-in-depth, postmortem): `references/methodology.md`.
+With the reproducer minimised and the leading hypothesis chosen, Step 4 hands over to
+`references/methodology.md` — instrument, root-cause trace, bisect, defense-in-depth, postmortem.
+Which superpowers skill opens which Step is in `Skill("debugger") § Engine`; the RED test exercises
+the **real production seam** (`references/methodology.md § Fix Verification Criteria`).
 
 ---
 
-## Step 3 Exit Checklist (gate to Step 4)
-- [ ] Feedback loop chosen (rank 1–4 strongly preferred; rank 5–8 acceptable with rationale)
-- [ ] Reproducer saved + minimised + 3 consecutive runs identical OR variance captured
-- [ ] ≥3 falsifiable hypotheses written, each with a disproving probe named, ranked, user-checkpointed
-- [ ] Step 4 tag prefix chosen
+## Gate to Step 4
 
-When all boxes are checked: enter Step 4 (Instrument) with the reproducer + hypotheses handed to the sub-agents (Step 2 parallel research → `references/pack-guides.md § Parallel-research templates`).
+On top of the Step 2 exit criteria above: the loop is rank 1–4 (5–8 needs a stated reason), ≥3
+falsifiable hypotheses are written and ranked with a disproving probe each, the user has seen the
+ranking, and the tag prefix is chosen. Then enter Step 4 with the reproducer and the hypotheses
+handed to the sub-agents (`references/pack-guides.md § Parallel-research templates`).

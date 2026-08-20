@@ -1,5 +1,79 @@
 # Changelog
 
+## 1.7.0 — the browser reference that shipped with the binary, and nobody read it
+
+`skills/webapp-testing/references/browser-setup.md` was 465 lines of hand-written `agent-browser` command reference. The CLI ships its own usage skill — `bunx agent-browser skills get core --full`, 432 lines, versioned with the binary and therefore never stale. The file already knew: it recommended that command twice, at `:309-318` and `:382-392`, in two byte-identical blocks, and the second one stated the thesis out loud — *"This file covers what a project has to decide … everything else is upstream."* It then kept mirroring upstream for another 250 lines. This release makes the file obey the sentence it was already carrying.
+
+### Added — Step 1 now installs the binaries too, not just the plugins
+
+`AGENT_SETUP.md` documented two plugin dependencies and none of the tools the skills actually shell out to. Nothing said that `/pr-review` needs `gh`, that `/debug frontend` needs a browser CLI, that `/perf security-baseline` runs `gitleaks`, or that two agents declare MCP tools that resolve only when the server carries an exact name. A missing one of those does not fail at startup; it fails mid-task as `command not found`, after the agent has already promised evidence it can no longer produce. Step 1 is retitled and carries a second half: the three dependency classes, a table of every tool with its level and its install line, the MCP naming rule, and one preflight block that reads the whole list and installs nothing. Step numbers did not move — `PRODUCT.md`, `DESIGN.md`, `REVIEW.md` and `AGENTS.md:117` cite `AGENT_SETUP.md § 5` and `§ 6`, and `check_wiring.py` resolves those.
+
+### Fixed — the interpreter is named `python3`, and nothing said so
+
+All twelve hook registrations in `.claude-plugin/plugin.json` spell it `python3`, with no fallback to `python` or `py -3`. Where the interpreter does not answer to that name — the common case on Windows — every guardrail fails to start, and because cardinal 3 makes hooks fail open, nothing reports it: the session looks normal and has no commit gate, no push gate, no branch gate, no destructive floor and no write lease. Now stated in Step 1 as a prerequisite with that consequence attached, rather than left as an inference from a JSON file nobody reads.
+
+### Fixed — the librarian's MCP servers were graded as optional, and they are not
+
+The first draft of the section above called Tavily `RECOMMENDED` on the reasoning that the agent
+lists `WebFetch` and so degrades rather than breaks. Reading `agents/librarian.md:4` disproves it:
+the allowlist holds exactly one non-MCP tool, `WebFetch`, with no `WebSearch`, no `Grep` and no
+`Glob`. `WebFetch` retrieves a URL you already have and cannot discover one, so without the MCP
+servers that agent cannot do the job its own description promises. The sentence was true of
+`agents/evaluator.md`, which does carry `WebSearch` — two agents, two answers, and the frontmatter is
+what separates them. Tavily is now `REQUIRED` for the librarian in both the table and the preflight.
+
+### Changed — `agent-browser` is a global install, not a `bunx` call
+
+The skills spell it `bunx agent-browser` in twenty-five places. In a project that declares `autonomy.allowPackageManagers` without bun, this plugin's own guardrail refuses `bunx` — correctly, and it is the same trap Step 1 already documents for impeccable. A global `npm install -g agent-browser` makes every one of those twenty-five call sites work as a plain binary regardless of the project's package manager. Two more places hardcode bun the same way and are named in the section: `skills/debugger/scripts/find_polluter.py:92` runs `["bun", "run", "test", …]`, whose failure is worse than a missing command because the bisect then reports no polluter, and `skills/performance-optimization/SKILL.md:215` opens `security-baseline` with `bun audit`. The verification is `agent-browser doctor`, which checks the CLI, the state directory, disk, an available Chrome, the CDN and a real headless launch; `agent-browser install` is only needed when it reports a Chrome failure, since a machine that already has Chrome, Chromium, Brave or Edge passes without it.
+
+### Changed — `webapp-testing` delegates the command reference upstream
+
+`browser-setup.md` went 20,073 B to 8,024 B (-60%) and now documents only what the CLI cannot know: which environment to point at, the CDP path for authenticated routes with its three non-optional traps, the staging-write policy, the verdict rules, and when Playwright earns its place. `SKILL.md` went 83 to 77 lines. Its `description` also stopped advertising a call site that never existed: it claimed to be loaded by `/verify`, and `commands/verify.md` has never contained a line of browser content, never loaded this skill, and never spawned `graph-powers:verification`.
+
+### Added — named sessions, which were missing and mattered
+
+The default `agent-browser` session is a single browser shared by every agent on the machine, and it persists across conversations: working in it navigates over whatever page another agent left open. `export AGENT_BROWSER_SESSION="$(bunx agent-browser session id --scope worktree --prefix task)"` is now the second thing the skill tells you to do. This is upstream guidance the mirrored reference had never picked up — the cost of maintaining a copy, paid in a missing feature rather than in a wrong one.
+
+### Removed — `skills/webapp-testing/examples/` (3 files, 109 lines)
+
+No prose referenced them, `pyrightconfig.json` excluded them from type checking, and they hardcoded `localhost:5173`, `/tmp/page_discovery.png` and `/mnt/user-data/outputs/`. That last path exists only on claude.ai: it violates the portability cardinal and passed CI solely because `check_portability.py` does not scan `/tmp` and `~/` inside `.py`. The one capability that was theirs alone — `file://` automation of a local HTML file — is one line in `browser-setup.md` now. `NOTICE` § 4(b) records the removal, as Apache-2.0 requires.
+
+### Changed — `/debug` stopped carrying a second copy of two skills
+
+`commands/debug.md` went 530 to 436 lines and its context floor went 67,315 B to 54,679 B — from 2,685 B under the 70,000 B per-command cap to 15,321 B under it. What left: ~60 lines mirroring `browser-setup.md` in a file that already pointed at it; the Iron Law, in this repository's fourth copy of it; a "Hard STOP signs" list that repeated the stopping conditions printed 480 lines earlier in the same file; two parallel-research prompts weaker than the ones `pack-guides.md` already held, without the return cap or the read-only-by-frontmatter contract; and the agent/mode matrix, folded into the dispatch table it duplicated. Total command-set floor: 313,200 B to 298,442 B.
+
+### Fixed — a TDD exemption that contradicted the Iron Law it cited
+
+`commands/debug.md` granted L1-L2 fixes an exemption from the failing-test-first rule. `Skill("debugger")` Iron Law #3 grants none. One of them had to be wrong, and it was the command — this was the only place in the harness where "too small to test" was an argument. Removed; if the exemption is ever wanted, it belongs in the skill as an explicit exception, not hidden in a mode file.
+
+### Fixed — the debugger agent could not run the gates it was told to run
+
+`agents/debugger.md` declared `tools: Read, Write, Edit, Bash, Glob, Grep` — no `Skill`. The skill it preloads instructs it to invoke `superpowers:systematic-debugging`, `test-driven-development` and `verification-before-completion` at Steps 5 and 6. Inside that agent all three resolved to nothing, silently, and `workflows/ultra-verify.js:34` had recorded the defect without anyone acting on it. `Skill` is now in the toolset, with a comment saying why it cannot be removed.
+
+### Fixed — one process, three numbering schemes
+
+`SKILL.md` said Steps 0-6, `agents/debugger.md` said Phases 1-4, `commands/debug.md` said Phases 0-7. Three names for the same seven moves, which makes every cross-citation unverifiable. Steps 0-6 is now the only scheme, and the agent and the command cite it instead of restating it.
+
+### Removed — `commands/recover.md`
+
+A second entry point into `references/recovery-protocol.md`, which `/debug recover` already opened. The file documented that hazard about itself, at `:14-20`, and kept existing anyway. Its two genuinely unique blocks moved into the protocol where they belong: the stale-state pre-step is now Step 0 (a recovery run against a stale build reaches confident wrong conclusions), and the post-Step-5 gate checklist closes the file. The trigger phrases it owned — "we've tried three fixes", "we're going in circles", "back out and start over" — moved into the `/debug` description, so the intent still routes.
+
+### Removed — `skills/debugger/scripts/run_tests.py`
+
+Nineteen lines hardcoding `bun run check` and `bun run test`, in a plugin whose safety floor § 5 forbids substituting a different tool for the one the project declared. Its whole job is `references/shared/010-quality-gates.md`, which resolves the command from `config.json`.
+
+### Fixed — the debugger evals were unrunnable where they sat
+
+`skills/debugger/evals.json` moved to `skills/debugger/evals/evals.json`. Nothing executed it before: `run_evals.py` resolves `<skill-path>/evals/evals.json`, and the flat file matched no consumer. Same 14 assertions and 5 cases, now reachable by the runner that already ships.
+
+### Changed — the bug catalogue keeps the bugs, and stops re-indexing the rules
+
+`references/anti-patterns.md` went 12,699 B to 8,860 B. The 28-entry catalogue survives whole and was renumbered — it had two runs of duplicate numbers, 17-21 appearing in both the frontend and integrations sections. What left is the Negative Constraints index: git, secrets and tooling rules already stated verbatim in `safety-floor.md` §1/§5, plus entries naming a specific ORM, a specific storage API and a project-internal protocol, which cardinal 1 says are parameters and not content. One entry stayed uncompressed because it is an incident and not a policy: the review agent that held `Write` and reverted 80 lines of the diff it was reviewing.
+
+### Changed — `pack-guides.md` had one flow written four times
+
+`10,205 B` to `7,199 B`. The `frontend`, `backend` and `auth-db` execution flows were the same eight numbered steps differing by two lines each, and all three were already `SKILL.md`'s Steps 0-6. They are one flow and a delta table now. `systematic-audit` keeps its own flow, because inventory-before-any-fix is a real difference and not a formatting one. The four parallel-research templates were untouched — they are the strong copy, and `/debug` now dispatches them instead of its own.
+
 ## 1.6.0 — the two skills that policed a border neither could hold
 
 `skill-creator` and `harness-audit` covered one territory between them: what a skill should say, and how skills resolve to each other. Keeping them apart cost 677 characters of the shared listing budget, two eval cases, five statements of prose and two routing-table rows — and the border still leaked. The repository had already measured that. The eval case `neg-skill-does-not-fire` carried a note recording that "my skill does not fire" was the exact prompt where the two collided and that no eval covered it; the response at the time was to add a case defending the border. The border was the defect. They are now one skill, `skill-improve`, paired with the `skill-improver` agent that already existed and whose self-audit clause had been pointing at `skills/skill-improve/` — a path that dangled until this change made it real.
@@ -224,6 +298,42 @@ was written.
   `references/rubrics/evaluator-rubric.md`. Also removed: two `${rulesDir}/execution.md § Agents &
   Dispatch → …` sub-anchors pointing at headings the shipped template does not contain, and the
   lineage prose citing `orchestrator.md`, a file this repository does not have.
+
+### Removed — `/delegate`, whose subject is now the floor
+
+The command had no caller. Nothing in the plugin invoked it; the only three mentions were a matrix
+row, a historical note about context budget, and the sentence the execution floor had just added to
+give it an edge. Everything it did was already defined a level up — the seven sections were a mirror
+of `execution-floor.md` §4, and which agent to pick was a pointer to `030`.
+
+What was genuinely its own moved into §4 rather than being dropped:
+
+- **The pre-delegation declaration** — agent, why that one, skills included **and the ones omitted,
+  with the reason**, expected deliverable. The omission line is the half that earns its place: an
+  included skill announces itself, and a skill that should have been loaded and was not leaves no
+  trace at all.
+- **The three questions after it returns** — does it work, does it follow the patterns already here,
+  did it honour MUST DO and MUST NOT DO.
+- **The brainstorming escape** for a delegation whose scope nobody has pinned down.
+
+Ten commands now, and the floor answers the question the eleventh was asking.
+
+### Changed — `/prime` stopped paying for what it never read
+
+The context loader was the second most expensive command in the set: 27,924 B before it did
+anything, of which its header ordered six shared fragments and the body acted on three. The agent
+matrix, the spawn rules and the guardrail index — 11,285 B — were loaded on every invocation and used
+on none. `shared-context.md` has stated the rule the whole time: *"A command's header names what it
+reads, and nothing else… if it does not, the line is wrong."*
+
+They are also exactly what the execution floor now carries without being read, so the header is three
+fragments and the body says why.
+
+The per-domain staging then moved out of the command and into
+`references/shared/045-context-staging.md`, one section per domain, read only for the mode that was
+dispatched. Floor **27,924 → 11,765 B (−58 %)**, worst case 34,512 → 16,576. The pointer carries a
+load verb on purpose, so the moved bytes still show up in the ceiling rather than disappearing from
+the measurement.
 
 ## 1.4.1 — the approver stops vouching for what nobody owns
 

@@ -134,7 +134,7 @@ With the verdict in hand, write the default-FAIL contract: one criterion per rub
 5. The three concrete next steps.
 6. **STOP.** Apply nothing. Record the round in `../learning.md`
    (hypothesis, change, measurement, verdict) with measured numbers, never estimates. Anything the
-   auditor returned under `PADRAO RECORRENTE` goes into
+   auditor returned under `RECURRING PATTERN` goes into
    `.claude/agent-memory/skill-improver/MEMORY.md`, after approval — you are the only possible
    writer, because the agent has no `Write` tool. Keep that file under 200 lines and 25 KB; past
    those limits the injection truncates and the oldest patterns fall off silently.

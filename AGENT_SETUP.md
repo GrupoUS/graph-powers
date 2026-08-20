@@ -187,14 +187,18 @@ BACKUP
 
 ---
 
-## Step 1 — Install the required external plugins
+## Step 1 — Install what the harness depends on
 
-Graph Powers builds on two external plugins and vendors neither. A copied snapshot of somebody
-else's work goes stale and cannot be updated — which is the exact failure this harness exists to
-end, one level up.
+Two kinds of dependency, and this step installs both: the **plugins** the commands call into, and
+the **binaries** the skills shell out to. Neither is vendored. A copied snapshot of somebody else's
+work goes stale and cannot be updated — which is the exact failure this harness exists to end, one
+level up.
 
-**Both are required.** Ten of the twelve commands call superpowers skills; without it `/plan`,
-`/debug` and `/implement` stop mid-run. `/design` delegates every craft pass to impeccable.
+Start by running the preflight at the end of this step. It prints one line per prerequisite and is
+the fastest way to know which halves of this step you can skip.
+
+**The two plugins are required.** Nine of the ten commands call superpowers skills; without it
+`/plan`, `/debug` and `/implement` stop mid-run. `/design` delegates every craft pass to impeccable.
 
 ### superpowers — the method layer
 
@@ -264,7 +268,268 @@ claude plugin update graph-powers
 # superpowers updates through the plugin marketplace it was installed from
 ```
 
-**Report back:** which plugins were already present, which you installed, and the version of each.
+### The other two plugins, both conditional
+
+| Plugin | Reached from | Without it |
+|---|---|---|
+| `codex@openai-codex` | `/debug` escalation (`commands/debug.md` § 1.3, § 1.6, § 1.7) and `/implement --codex` | escalation falls through to `/debug recover`; nothing hangs |
+| `code-review@claude-plugins-official` | `/pr-review` § 3C, already labelled best-effort | one of four review paths is missing; the other three still run |
+
+The `codex` plugin needs the `codex` binary as well — the plugin routes to it, and the agent it
+ships cannot run a CLI that is not installed. Install both or neither.
+
+### The binaries the skills shell out to
+
+Nothing here is bundled, and a missing one does not fail at startup. It fails mid-task, as
+`command not found`, after the agent has already promised evidence it can no longer produce.
+
+**The plugin's own code needs no packages.** Every `hooks/*.py`, `.github/*.py` and
+`skills/**/*.py` imports only the Python standard library; every `workflows/*.js`, `codex/*.mjs`
+and `bin/*.mjs` imports only Node builtins. PyYAML appears in `.github/workflows/ci.yml` and is a
+*contributor's* dependency, not a user's — `check_listing_budget.py` deliberately parses frontmatter
+by hand rather than assume it. So what follows are tools the documented **workflows** invoke, never
+packages this code depends on.
+
+#### Three classes, and only one of them needs installing
+
+| Class | What it means | Members |
+|---|---|---|
+| **On PATH** | cannot be fetched on demand | `python3`, `git`, `node`, `claude`, `gh`, `gitleaks`, `psql`, a browser |
+| **Fetched per call** | the package manager downloads it each invocation; a runner plus network is the whole requirement | `lighthouse`, `unlighthouse`, `vercel`, `playwright` |
+| **Works either way, better global** | resolves through a runner, but re-downloads every call and keeps state between them | `agent-browser`, `biome`, `oxlint` |
+
+That distinction is the point of this section. Most of what you will see in fenced blocks across the
+skills is the middle class, so the real prerequisite list is far shorter than the list of tool names.
+
+#### `python3` is the name, and 3.10 is the floor
+
+All twelve hook registrations in `.claude-plugin/plugin.json` spell the interpreter `python3`, with
+no fallback. Where it answers to `python` or `py -3` and not to `python3` — the common case on
+Windows — every guardrail fails to start. **Cardinal 3 makes hooks fail open**, so nothing reports
+it: the session looks normal while the commit gate, the push gate, the branch gate, the destructive
+floor and the write lease are all absent.
+
+**The floor is 3.10, not 3.9.** Several hooks annotate with `X | None` and have no
+`from __future__ import annotations`, so the annotation is evaluated at import time and an older
+interpreter raises before the hook runs — `hooks/smart_bash_approver.py:426` and
+`hooks/ultracite.py:156` are two. `bin/graph-powers.mjs:536-546` is where that floor is enforced and
+is canonical for it; this section does not restate the check, only its consequence.
+
+**One Windows trap worth knowing before you conclude "missing":** there is a Microsoft Store stub
+literally named `python3.exe` that opens the Store and exits non-zero, so probing `python3` reports
+absent on a machine that has Python 3.12. Probe `python3`, then `python`, then `py -3`
+(`bin/graph-powers.mjs:160-165`), and make whichever answers available under the name the hooks
+use.
+
+#### `agent-browser`, and why global rather than `bunx`
+
+`/debug frontend`, the `graph-powers:verification` agent and `Skill("webapp-testing")` drive a real browser
+through it. The skills spell it `bunx agent-browser` in twenty-five places, and that spelling is a
+liability in any project that does not use bun: a project declaring `autonomy.allowPackageManagers`
+has this plugin's own guardrail refuse `bunx`, correctly — the same trap the impeccable half of this
+step warns about, with the same runner table as its answer. A global install sidesteps the runner
+question entirely — every `bunx agent-browser …` in the skills then works as plain `agent-browser …`.
+
+Two more places hardcode bun the same way. `skills/debugger/scripts/find_polluter.py:92` runs
+`["bun", "run", "test", …]`, and its failure is worse than a missing command: in a non-bun project
+the bisect runs nothing and reports no polluter, which reads as a clean result.
+`skills/performance-optimization/SKILL.md:215` opens the `security-baseline` block with `bun audit`.
+All three are defects against this repository's own runner-resolution rule; installing bun globally
+hides the symptom without fixing any of them.
+
+```bash
+npm install -g agent-browser
+agent-browser doctor
+```
+
+`doctor` is the verification, and read its summary rather than assuming: it checks the CLI, the
+state directory, disk, an available Chrome, the CDN and a real headless launch. Only if it reports a
+Chrome failure do you also need `agent-browser install`, which downloads Chrome for Testing — on a
+machine that already has Chrome, Chromium, Brave or Edge, `doctor` passes without it.
+
+#### Everything else, in one table
+
+Package names and the binary each one exposes were read from the registries, not from memory.
+
+| Tool | Level | Who needs it | Install |
+|---|---|---|---|
+| `python3` | REQUIRED | every hook, gate and bundled script | your OS package manager; **3.10 or newer** |
+| `git` | REQUIRED | every command; the guardrails read the worktree | your OS package manager |
+| `node` | REQUIRED | workflows, `bin/`, the Codex installer | nodejs.org, 18 or newer |
+| a package manager | REQUIRED | every per-call fetch above | whatever `tooling.packageManager` declares. `hooks/_config.py:373` already recognises `npm`, `bun`, `pnpm`, `yarn`, `deno`, `uv`, `uvx`, `pipx` and `poetry` as runners, so a Python project on `uv` is a first-class case |
+| `claude` | REQUIRED | the harness; `second-opinion` runs it headless | `npm install -g @anthropic-ai/claude-code` |
+| `gh` | CONDITIONAL — required the moment a PR or an issue is involved | `gh pr checkout`, `gh issue view` | cli.github.com — then `gh auth login`, because `gh auth status` failing is its own stop |
+| `agent-browser` | RECOMMENDED | `/debug frontend`, `webapp-testing`, the `graph-powers:verification` agent | `npm install -g agent-browser` |
+| a Chrome-family browser | RECOMMENDED | what `agent-browser` drives | already present on most machines; otherwise `agent-browser install` |
+| `gitleaks` | OPTIONAL | `/perf security-baseline` secret scan | github.com/gitleaks/gitleaks |
+| `psql` | OPTIONAL | database evidence in `/debug auth-db` and `/debug backend` | your OS package manager |
+| `codex` | OPTIONAL | the Codex half, and `codex:codex-rescue` escalation | `npm install -g @openai/codex` |
+| `code-review-graph` | OPTIONAL | `/plan` Step 0 structural search | `python3 -m pip install code-review-graph` |
+| `timeout` | OPTIONAL, and unavailable on Windows | `second-opinion` wraps its headless `claude` call in it | GNU coreutils: present on Linux; macOS needs `brew install coreutils` and the binary is `gtimeout`. Windows has an unrelated `timeout.exe` that pauses — there, drop the wrapper and watch the run yourself |
+
+`code-review-graph` is the one whose absence is designed for: `references/shared/115-code-graph.md`
+says the graph steps are **SKIPPED, never blocking**, and `/plan` falls back to grep. Install it for
+speed, not for correctness.
+
+`biome` and `oxlint` are not in this table on purpose — they are gate tooling, they depend on what
+the project declares, and Step 3 installs them where that decision is made.
+
+**Five environment variables behave like optional prerequisites**, in that whatever reads them does
+nothing at all when they are unset and says so nowhere: `VERCEL_TOKEN`
+(`skills/performance-optimization/references/vercel-data.md`), `CHROME_PATH` and `HTTPS_PROXY` for
+the browser stack, and `GITHUB_REPO`, `PROJECT_VPS_HOST` plus `DB_STATUS_COMMAND`, which
+`skills/debugger/scripts/fetch_logs.py:21-41` reads to know where to look for logs. Set the ones the
+project actually uses, and name in your report the ones you left unset.
+
+#### MCP servers, and why the name matters
+
+Two agents declare MCP tools in their frontmatter. A tool name is built from the **server name**,
+with `.` and spaces replaced by `_` and hyphens left alone — so `claude.ai Context7` yields
+`mcp__claude_ai_Context7__query-docs`. Add that server under any other name and the slug changes,
+`agents/librarian.md` stops resolving them, and that agent registers silently without them.
+
+| Server name, exactly | Slug it must produce | Declared by | Level |
+|---|---|---|---|
+| `tavily` | `tavily` | `graph-powers:librarian`, `graph-powers:evaluator` | REQUIRED for `graph-powers:librarian` |
+| `claude.ai Context7` | `claude_ai_Context7` | `graph-powers:librarian` | RECOMMENDED |
+| `sequential-thinking` | `sequential-thinking` | `graph-powers:librarian` | OPTIONAL |
+
+**Why `graph-powers:librarian` cannot degrade and `graph-powers:evaluator` can.** Check the
+frontmatter rather than assuming. `agents/librarian.md:4` grants exactly one non-MCP tool,
+`WebFetch` — no `WebSearch`, no `Grep`, no `Glob`. `WebFetch` retrieves a URL you already hold; it
+cannot find one. Strip the MCP servers and that agent can no longer do the job its own description
+promises, so `/research` and the external half of `/plan` return nothing useful. `agents/evaluator.md`
+carries `WebSearch` alongside Tavily and really does degrade rather than break. Two agents, two
+different answers, and the frontmatter is what separates them.
+
+```bash
+claude mcp add --transport http tavily "https://mcp.tavily.com/mcp/?tavilyApiKey=${TAVILY_API_KEY}" -s user
+claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking
+```
+
+Context7 is enabled as a **claude.ai connector**, not with `claude mcp add` — that is what produces
+the `claude.ai ` prefix the slug depends on.
+
+#### The preflight
+
+One block, every prerequisite above, run from the project root. It reads state and installs nothing.
+
+```bash
+python3 - <<'PREFLIGHT'
+import json, os, re, shutil, subprocess, sys
+
+def run(exe, *args, timeout=30):
+    try:
+        r = subprocess.run([exe, *args], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=timeout, check=False)
+        return (r.stdout or r.stderr).strip()
+    except Exception as exc:
+        return f"<{exc.__class__.__name__}>"
+
+def first(text):
+    lines = [l for l in text.splitlines() if l.strip()]
+    return lines[0][:38] if lines else "installed"
+
+def row(name, state, level, who):
+    print(f"  {name:19} {state:<40} {level:12} {who}")
+
+print("-- runner: at least one package manager --")
+managers = [m for m in ("bun", "npm", "pnpm", "yarn") if shutil.which(m)]
+row("package manager", ", ".join(managers) or "NONE", "REQUIRED", "every per-call fetch")
+
+print("-- on PATH --")
+for name, level, who in (
+    ("python3",       "REQUIRED",    "the literal name all 12 hooks register; see below"),
+    ("git",           "REQUIRED",    "every command; the guardrails read the worktree"),
+    ("node",          "REQUIRED",    "workflows, bin/, the Codex installer, 18+"),
+    ("claude",        "REQUIRED",    "the harness; second-opinion runs it headless"),
+    ("gh",            "CONDITIONAL", "/pr-review, and /plan in issue mode"),
+    ("agent-browser", "RECOMMENDED", "/debug frontend and the browser QA agent"),
+    ("gitleaks",      "OPTIONAL",    "/perf security-baseline"),
+    ("psql",          "OPTIONAL",    "database evidence in /debug auth-db"),
+    ("codex",         "OPTIONAL",    "the Codex half and codex:codex-rescue"),
+):
+    exe = shutil.which(name)
+    row(name, first(run(exe, "--version")) if exe else "MISSING", level, who)
+
+print("-- a browser for agent-browser to drive --")
+found = [b for b in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
+                     "brave-browser", "microsoft-edge") if shutil.which(b)]
+row("chrome family", ", ".join(found) or "none on PATH", "RECOMMENDED",
+    "absent is fine: `agent-browser install` downloads one")
+
+print("-- python --")
+found_py = []
+for name, extra in (("python3", []), ("python", []), ("py", ["-3"])):
+    exe = shutil.which(name)
+    if exe:
+        found_py.append(f"{name} {first(run(exe, *extra, '--version'))}")
+row("spellings present", "; ".join(found_py) or "NONE", "REQUIRED",
+    "the hooks register the literal name `python3`")
+floor = "ok" if sys.version_info >= (3, 10) else "TOO OLD"
+row("running interpreter", f"{sys.version.split()[0]} ({floor})", "REQUIRED",
+    "floor 3.10 — bin/graph-powers.mjs:536 enforces it")
+try:
+    __import__("code_review_graph")
+    row("code_review_graph", "present", "OPTIONAL", "/plan structural search")
+except ImportError:
+    row("code_review_graph", "MISSING", "OPTIONAL", "/plan falls back to grep, never blocks")
+
+print("-- plugins and skills --")
+home = os.path.expanduser("~")
+pf = os.path.join(home, ".claude/plugins/installed_plugins.json")
+names = set(json.load(open(pf, encoding="utf-8")).get("plugins", {})) if os.path.isfile(pf) else set()
+for want, level, who in (("graph-powers", "REQUIRED",    "this harness"),
+                         ("superpowers",  "REQUIRED",    "nine of the ten commands call it"),
+                         ("codex",        "OPTIONAL",    "codex:codex-rescue escalation"),
+                         ("code-review",  "OPTIONAL",    "one of /pr-review's four paths")):
+    hit = [n for n in names if n.startswith(want + "@")]
+    row(want, hit[0] if hit else "MISSING", level, who)
+row("impeccable", "present" if os.path.isdir(os.path.join(home, ".claude/skills/impeccable"))
+    else "MISSING", "REQUIRED", "/design delegates every craft pass to it")
+
+print("-- MCP servers, matched by the slug the tool names need --")
+listing = run(shutil.which("claude") or "claude", "mcp", "list", timeout=120)
+servers = [m.group(1) for m in (re.match(r"^(\S.*?): ", l) for l in listing.splitlines())
+           if m and "Checking" not in m.group(0)]
+slugs = {re.sub(r"[ .]", "_", s) for s in servers}
+for want, level, who in (("tavily",              "REQUIRED",    "the librarian has no other way to search"),
+                         ("claude_ai_Context7",  "RECOMMENDED", "live library docs; claude.ai connector"),
+                         ("sequential-thinking", "OPTIONAL",    "long-chain reasoning")):
+    row(want, "configured" if want in slugs else "MISSING", level, who)
+
+print("-- the gates this project declared --")
+cfg = ".graph-powers/config.json"
+declared = {}
+commands = {}
+if os.path.isfile(cfg):
+    declared = json.load(open(cfg, encoding="utf-8"))
+    commands = declared.get("tooling", {}).get("commands", {})
+if not declared:
+    row("config", "no .graph-powers/config.json here", "INFO", "re-run from a project root")
+audit = (declared.get("gates") or {}).get("preCommitAudit")
+if isinstance(audit, str):
+    audit = {"command": audit}
+if isinstance(audit, dict) and str(audit.get("command", "")).strip():
+    commands["preCommitAudit"] = audit["command"]
+for key, value in commands.items():
+    parts = [p for p in str(value).split() if not p.startswith("-")]
+    tool = parts[0] if parts else ""
+    if tool in ("bun", "npm", "pnpm", "yarn", "npx", "bunx") and len(parts) > 1:
+        tool = parts[2] if len(parts) > 2 and parts[1] in ("run", "exec", "dlx") else parts[1]
+    row(key, "ok" if (not tool or shutil.which(tool)) else f"MISSING `{tool}`",
+        "REQUIRED" if key in ("typeCheck", "lint", "test") else "OPTIONAL", str(value)[:36])
+PREFLIGHT
+```
+
+The last block covers anything the project itself declared and this plugin then runs: the
+`tooling.commands.*` gates, plus `gates.preCommitAudit`, which `hooks/commit_audit_gate.py` executes
+before every commit. It is the same question `hooks/session_context.py` answers in the session tag
+(`NOT INSTALLED: lint needs \`oxlint\``). It is repeated here because the tag only prints at session
+start, and a setup run wants the answer while it is still installing things.
+
+**Report back:** which plugins and binaries were already present, which you installed, the version
+of each, and — naming them — anything you left `MISSING` on purpose.
 
 ---
 

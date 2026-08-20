@@ -9,6 +9,25 @@ a reset.
 
 ---
 
+## Step 0 — Clear stale state, before anything else
+
+A phantom error that survives a correct fix is usually a cache, and a recovery protocol run against
+a stale build reaches confident wrong conclusions.
+
+```bash
+# Only what this project declares, and one command per line: `&&` is not a statement
+# separator in Windows PowerShell 5.1, and a cache path this plugin guessed would be wrong
+# somewhere. Check each exit code before running the next.
+${tooling.packageManager} install
+${tooling.commands.typeCheck}
+${tooling.commands.build}
+```
+
+If the project's build tool keeps a cache directory, it is named in `${rulesDir}/` — this plugin
+does not know where it is, and inventing a path is how a recovery step deletes the wrong directory.
+
+---
+
 ## Step 1 — Stop and state the loop
 
 Before anything else, write down:
@@ -93,3 +112,21 @@ Write it to `.graph-powers/HANDOFF.md` and say it out loud in the response.
 
 A `BLOCKED` handoff is a successful outcome of this protocol. Burning the spawn ceiling on retries
 that share a hypothesis is not.
+
+**Before declaring anything unrecoverable**, every declared gate has run in this session and its
+exit code is on screen:
+
+- [ ] `${tooling.commands.typeCheck}` — ran here, exit code shown
+- [ ] `${tooling.commands.build}` — ran here, exit code shown
+- [ ] `${tooling.commands.lint}` — ran here, exit code shown
+- [ ] The invariants in `${rulesDir}/` matching the touched paths still hold
+
+A remembered pass is not a pass. It is the same rule `/verify` enforces, and it matters more here:
+recovery exists precisely because the previous attempts were confident and wrong.
+
+Anti-patterns this protocol exists against: looping past two attempts · skipping the write-up in
+Step 1 · reverting without showing the diff · escalating with a question too vague to answer.
+
+Stack-specific hints do not live here. A recovery hint about a framework's hydration, its router or
+its content loader belongs in the project's `${rulesDir}/`, or in the framework skill the project
+declares — never in a protocol that ships to every repository.

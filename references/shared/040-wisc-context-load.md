@@ -9,6 +9,10 @@ Before any task, load the right tier:
 | Full-stack / multi-domain | `/prime` (auto) or `/prime fullstack` | Intent-based Tier 2 + exact Tier 3 only when justified |
 | Continuing prior session | Read `.graph-powers/HANDOFF.md` first | — |
 
+The staged loads behind each row — how far into a tier to go and when to stop — are
+`045-context-staging.md`, one section per domain. Read the section for the mode dispatched, not
+the file.
+
 **Tier 3 (read on demand only):**
 - `Skill("senior-architect")` — runtime and environment shape, architecture decisions, trade-off analysis
 - `Skill("uxmaster")` — UX judgement: conversion, onboarding, hierarchy, retention

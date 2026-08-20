@@ -69,8 +69,8 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 ```
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
-  skills/       11 skills              .claude/rules/             <- only your domain
-  commands/     12 commands            .claude/agents/            <- only what is yours alone
+  skills/       10 skills              .claude/rules/             <- only your domain
+  commands/     10 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
   workflows/    3 orchestrations
   references/   safety + execution floors
@@ -96,7 +96,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 11 skills, 12 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 10 skills, 10 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
 | Codex subagents | `~/.codex/agents/*.toml` |
 | Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
@@ -164,7 +164,7 @@ The setup playbook installs both.
 
 | Plugin | What it brings | Why it stays external |
 |---|---|---|
-| [superpowers](https://github.com/obra/superpowers) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Ten of the twelve commands call it | Actively maintained upstream, ships for both harnesses |
+| [superpowers](https://github.com/obra/superpowers) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Nine of the ten commands call it | Actively maintained upstream, ships for both harnesses |
 | [impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) | The design layer: `/design` delegates every craft pass to it | Ships its own installer for Claude, Codex, Cursor and more |
 
 ```bash

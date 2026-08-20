@@ -17,7 +17,7 @@ workflow_type: prompt-chaining
 | Token in `$ARGUMENTS` | Behavior |
 |---|---|
 | (none) | Manual capture flow (§ 1-5) |
-| `auto` | Skip § 1-5, run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`. Target skill is second arg (e.g. `/evolve auto debugger`). Default: all skills with `evals.json`. |
+| `auto` | Skip § 1-5, run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`. Target skill is second arg (e.g. `/evolve auto debugger`). Default: all skills carrying `evals/evals.json`. |
 | `handoff` | Write session state to `.graph-powers/HANDOFF.md` (§ 6) |
 
 ---
