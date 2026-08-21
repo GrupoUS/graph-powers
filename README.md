@@ -12,11 +12,11 @@ file.
 /plugin install graph-powers@graph-powers
 ```
 
-**Codex CLI**, or a clone on either harness:
+**Codex CLI** — two commands, then restart and approve the hooks in `/hooks`:
 
 ```bash
-git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
-node ~/.graph-powers/src/bin/graph-powers.mjs
+codex plugin marketplace add GrupoUS/graph-powers
+codex plugin add graph-powers@graph-powers
 ```
 
 Then one prompt, pasted into an agent session opened in your project:
@@ -96,10 +96,9 @@ differs per project stays in that project.
 | Installed once, globally | Where it lands |
 |---|---|
 | The Claude Code plugin — 12 agents, 10 skills, 10 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
-| Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
-| Codex subagents | `~/.codex/agents/*.toml` |
-| Codex guardrails | `~/.codex/hooks.json` (merged, never overwritten) |
-| Shared references — the safety floor, the execution floor, the shared context | `~/.codex/graph-powers/` |
+| Codex native plugin: skills, commands-as-skills, subagents, guardrails and references | the versioned plugin cache shown by `codex plugin list --json` |
+| Codex clone fallback: skills and commands-as-skills | `~/.agents/skills/` |
+| Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
 
 | Stays in the project | Why it cannot be global |
 |---|---|
@@ -141,7 +140,7 @@ twice.
 
 | Surface | Claude Code | Codex CLI | Shared? |
 |---|---|---|---|
-| Guardrails | `.claude-plugin/plugin.json` | `.codex/hooks.json` | **The same Python files.** Identical event names, identical stdin payload, identical deny semantics |
+| Guardrails | `hooks/hooks.json` | `hooks/hooks.json` | **The same declaration and Python files.** Native plugins resolve `${CLAUDE_PLUGIN_ROOT}`; the clone installer resolves it while merging `.codex/hooks.json` |
 | Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | **The same files.** Identical frontmatter |
 | Subagents | `agents/*.md` | `.codex/agents/*.toml` | Generated from the same source |
 | Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | Generated from the same source |
@@ -224,16 +223,29 @@ registry in between would add an account, a token and a release for every fix, a
 Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
 unless you also use Codex.
 
-### Codex CLI, or installing from a clone
+### Codex CLI — native plugin (recommended)
+
+```bash
+codex plugin marketplace add GrupoUS/graph-powers
+codex plugin add graph-powers@graph-powers
+```
+
+Restart Codex, open `/hooks`, and approve the thirteen Graph Powers registrations (twelve scripts;
+the Bash approver is registered for two events). Installation makes the hooks discoverable;
+approval makes them executable. Then run the setup playbook in the project so
+its config, rules and authorities are established.
+
+### Clone installer — fallback and project-scoped installs
 
 ```bash
 git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
 node ~/.graph-powers/src/bin/graph-powers.mjs
 ```
 
-It detects which CLIs are present, registers the marketplace for Claude Code if that CLI is there,
-writes the Codex artefacts — global half then project half — and verifies. If the global half is
-already present at this version, it says so and skips it.
+Use this route when the Codex marketplace is unavailable or the repository must carry a
+project-scoped copy. It detects which CLIs are present, writes the Codex artefacts — global half
+then project half — and verifies. Do not combine it with the native plugin: both registrations run,
+so an older clone install must be removed before switching routes.
 
 Clone anywhere you like; `~/.graph-powers/src` is only a suggestion, and the installer records
 wherever it actually ran from so updates find it again.
@@ -263,7 +275,8 @@ its own path:
 | Harness | What runs | Applies |
 |---|---|---|
 | Claude Code | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers` | Next session start |
-| Codex CLI | `git pull --ff-only` on the clone it was installed from, then a regenerate — only if the clone moved | Next session start |
+| Codex CLI native plugin | `codex plugin marketplace upgrade graph-powers` | Next session start |
+| Codex CLI clone fallback | `git pull --ff-only` on the clone, then regenerate — only if it moved | Next session start |
 
 Nothing waits on the network, and nothing inside your project is touched. The session after an
 update opens with one line saying what changed, printed once.
@@ -271,11 +284,11 @@ update opens with one line saying what changed, printed once.
 `--ff-only` is deliberate: a merge commit created by a background process is a state nobody chose,
 and a clone you have edited locally refuses to update and says so rather than rewriting itself.
 
-On Codex the artefacts are regenerated **only when the clone actually moved**. Codex trusts a
-hooks file by its content, so an identical rewrite would cost you a `/hooks` re-approval and leave
-the guardrails inert until you gave it.
+On the clone fallback, artefacts are regenerated **only when the clone actually moved**. Codex
+trusts a hook definition by its content, so an identical rewrite would cost a `/hooks` re-approval
+and leave the guardrails inert until you gave it.
 
-To update by hand, at any moment:
+To update the clone fallback by hand, at any moment:
 
 ```bash
 node ~/.graph-powers/src/bin/graph-powers.mjs --update
@@ -416,6 +429,24 @@ Override any single action without leaving the level:
 "autonomy": { "level": "autonomous", "git": { "push": "ask" } }
 ```
 
+To make routine Bash autonomy a machine-wide operator choice, say so explicitly in the user file:
+
+```jsonc
+// ~/.graph-powers/config.json
+{
+  "autonomy": {
+    "machineWide": true,
+    "level": "autonomous",
+    "destructiveFloor": true,
+    "git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" }
+  }
+}
+```
+
+Without `machineWide: true`, user scope may tighten a repository but cannot loosen one the operator
+has not reviewed. Even with it, git automation and disabling the destructive floor do not cross
+from the home directory; those remain project-scoped decisions.
+
 ### The floor that holds at either level
 
 `destructiveFloor` keeps refusing the operations **git cannot give back**:
@@ -439,14 +470,22 @@ cannot mix them — a lockfile that must not fork — declares its own:
 "autonomy": { "allowPackageManagers": ["bun", "bunx"] }
 ```
 
+Declaring only a manager keeps its runner in the same lockfile family. Guarded mode asks before the
+runner downloads and executes an unnamed package; autonomous mode proceeds. A runner from another
+manager family is still denied.
+
 ---
 
 ## The guardrails
 
-Twelve hooks, declared in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) and therefore
-live the moment the plugin is installed, with no manual wiring. That closes one of the audit's
-findings: two of the projects had **nine hooks each, written and never connected**. They existed on
-disk and never ran once.
+Twelve hook scripts, wired through thirteen registrations in
+[`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code and Codex when the plugin is
+installed. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
+Codex `PermissionRequest` to approve an escalation that the same classifier already allowed. A
+guarded `ask` is left to the normal approval flow; an autonomous allow never reaches the user.
+Codex still requires explicit trust in `/hooks` before the registrations execute. That closes one
+of the audit's findings: two of the projects had **nine hooks each, written and never connected**.
+They existed on disk and never ran once.
 
 | Guardrail | What it does | How to release it |
 |---|---|---|
@@ -462,7 +501,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 166 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 295 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,

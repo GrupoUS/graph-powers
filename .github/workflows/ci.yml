@@ -143,13 +143,21 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, sys
-          d = json.load(open(".claude-plugin/plugin.json"))
+          plugin = json.load(open(".claude-plugin/plugin.json"))
+          d = json.load(open("hooks/hooks.json"))
+          assert "hooks" not in plugin, "plugin.json duplicates the canonical hooks/hooks.json"
+          commands = [h["command"] for arr in d.get("hooks", {}).values()
+                      for m in arr for h in m["hooks"]]
+          assert len(commands) == 13, f"expected 13 native hook registrations, found {len(commands)}"
+          assert len(set(commands)) == 12, \
+              f"expected 12 scripts with the Bash approver registered twice, found {len(set(commands))}"
           missing = [
               h["command"].split("/hooks/")[1].rstrip('"')
               for arr in d.get("hooks", {}).values() for m in arr for h in m["hooks"]
               if not os.path.exists("hooks/" + h["command"].split("/hooks/")[1].rstrip('"'))
           ]
-          print("\n".join(f"MISSING: {m}" for m in missing) or "every declared hook exists")
+          print("\n".join(f"MISSING: {m}" for m in missing)
+                or "13 native registrations cover 12 hook scripts; every target exists")
           sys.exit(1 if missing else 0)
           PY
 

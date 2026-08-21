@@ -141,6 +141,10 @@ a project pinned to an old copy of the guardrails is the exact failure this repo
 end. Anyone who does need a pin can check out a tag; the update refuses to fast-forward a clone
 that is not on a tracking branch.
 
+Hook wiring follows the same one-source rule: `hooks/hooks.json` is the declaration both native
+plugin loaders discover. The clone-based Codex installer reads that file and resolves its
+`${CLAUDE_PLUGIN_ROOT}` placeholders only while merging the legacy `.codex/hooks.json` surface.
+
 ---
 
 ## 7. External plugins stay external
@@ -163,10 +167,13 @@ versions, and tells the user how to keep them current.
 **Decided:** everything Codex needs is *generated* from the artefacts that already exist for Claude
 Code.
 
-It turned out to be cheaper than expected: Codex hooks use the same event names, the same stdin
-payload and the same deny semantics, so the twelve Python files run unchanged. Skills use the same
-`SKILL.md` frontmatter, so they are copied rather than converted. Only subagents needed a real
-translation, into TOML.
+It turned out to be cheaper than expected: Codex hooks use the same event names and stdin payload,
+so the twelve Python files run unchanged. One script is registered twice:
+`smart_bash_approver.py` blocks at `PreToolUse`, then reuses the same classification at
+`PermissionRequest` to approve safe escalations without surfacing a prompt. The event response
+shapes differ, and the script emits each client's supported vocabulary from that one decision.
+Skills use the same `SKILL.md` frontmatter, so they are copied rather than converted. Only
+subagents needed a real translation, into TOML.
 
 **Refused:** a second hand-maintained list of hooks for Codex. That is the divergence problem again,
 now inside a single repository.

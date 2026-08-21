@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """smart_bash_approver.py - how much runs without stopping to ask.
 
-Trigger: PreToolUse (Bash). Reads a JSON payload on stdin, writes a decision.
+Triggers: PreToolUse and PermissionRequest (Bash). Reads a JSON payload on stdin, writes the
+decision shape that event accepts.
 
 One question sorts every command: **does git undo it?**
 
@@ -508,45 +509,72 @@ def read_input() -> dict[str, object]:
         return {}
 
 
-def _allow() -> None:
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "allow",
+def _emit_decision(
+    decision: str,
+    reason: str | None = None,
+    *,
+    event: str = "PreToolUse",
+    codex_turn: bool = False,
+) -> None:
+    """Emit the decision vocabulary accepted by this event and harness.
+
+    Plain PreToolUse `ask` and `allow` decisions are valid in Claude Code but deliberately
+    unsupported by Codex (`allow` is accepted there only alongside an input rewrite). Codex marks
+    either hook run failed and then continues, creating noise without changing the outcome. A Codex
+    payload carries the Codex-specific `turn_id`, so on that path we emit only denials here and let
+    the PermissionRequest registration own approval.
+
+    PermissionRequest has a different response shape. Silence means "use the normal approval
+    flow"; an allow means Codex proceeds without surfacing the prompt. Keeping classification in
+    this one script is the repository's one-thing-one-place rule applied to permissions.
+    """
+    if event == "PermissionRequest":
+        if decision == "ask":
+            return
+        body: dict[str, object] = {"behavior": decision}
+        if reason and decision == "deny":
+            body["message"] = reason
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": event,
+                        "decision": body,
+                    }
                 }
-            }
+            )
         )
-    )
+        return
 
+    if decision != "deny" and codex_turn:
+        return
 
-def _deny(reason: str) -> None:
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            }
-        )
-    )
-
-
-def _ask(reason: str | None = None) -> None:
-    payload: dict[str, object] = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "ask",
-        }
+    specific: dict[str, object] = {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": decision,
     }
     if reason:
-        typing.cast(dict[str, object], payload["hookSpecificOutput"])[
-            "permissionDecisionReason"
-        ] = reason
-    print(json.dumps(payload))
+        specific["permissionDecisionReason"] = reason
+    print(json.dumps({"hookSpecificOutput": specific}))
+
+
+def _allow(*, event: str = "PreToolUse", codex_turn: bool = False) -> None:
+    _emit_decision("allow", event=event, codex_turn=codex_turn)
+
+
+def _deny(
+    reason: str, *, event: str = "PreToolUse", codex_turn: bool = False
+) -> None:
+    _emit_decision("deny", reason, event=event, codex_turn=codex_turn)
+
+
+def _ask(
+    reason: str | None = None,
+    *,
+    event: str = "PreToolUse",
+    codex_turn: bool = False,
+) -> None:
+    _emit_decision("ask", reason, event=event, codex_turn=codex_turn)
 
 
 def _matches(patterns: list[re.Pattern[str]], command: str) -> bool:
@@ -645,6 +673,8 @@ def _package_manager_verdict(
         return None
     family = PACKAGE_MANAGER_FAMILY.get(name)
     if family in allowed:
+        if policy.get("bashDefault") == "allow":
+            return "allow", None
         return "ask", (
             f"`{name}` is {family}'s package runner and {family} is declared, so the lockfile is "
             f"safe — but a runner fetches and executes a package this project never named. "
@@ -724,6 +754,8 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
 
 def main() -> None:
     data: dict[str, object] = read_input()
+    event = str(data.get("hook_event_name") or "PreToolUse")
+    codex_turn = bool(data.get("turn_id"))
     command: str = normalize_command(
         str(
             data.get("command")
@@ -734,7 +766,7 @@ def main() -> None:
     )
 
     if not command:
-        _ask()
+        _ask(event=event, codex_turn=codex_turn)
         return
 
     policy = gp.autonomy(gp.load(payload=data))
@@ -749,20 +781,24 @@ def main() -> None:
     for segment in segments or [command]:
         decision, reason = _classify(segment, policy)
         if decision == "deny":
-            _deny(reason or "BLOCKED: Dangerous command")
+            _deny(
+                reason or "BLOCKED: Dangerous command",
+                event=event,
+                codex_turn=codex_turn,
+            )
             return
         if decision == "ask":
             final_decision = "ask"
             ask_reason = ask_reason or reason
 
     if final_decision == "allow":
-        _allow()
+        _allow(event=event, codex_turn=codex_turn)
         return
 
     # Unknown or state-changing commands require user approval. Never fall
     # through to allow — unknown commands may be destructive tools, typos, or
     # untrusted invocations.
-    _ask(ask_reason)
+    _ask(ask_reason, event=event, codex_turn=codex_turn)
 
 
 if __name__ == "__main__":

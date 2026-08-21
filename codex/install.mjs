@@ -7,7 +7,7 @@
  * Codex reads four surfaces, and this writes all four from the artefacts that already exist
  * for Claude Code:
  *
- *   .codex/hooks.json          <- .claude-plugin/plugin.json   (identical event names and schema)
+ *   .codex/hooks.json          <- hooks/hooks.json             (identical event names and schema)
  *   .agents/skills/<name>/     <- skills/ and commands/        (identical SKILL.md frontmatter)
  *   .codex/agents/<name>.toml  <- agents/*.md                  (translated)
  *   AGENTS.md                  <- a delimited, idempotent block
@@ -51,10 +51,10 @@ const MANIFEST = ".graph-powers/installed.json";
  * files run unchanged. Only the wiring is regenerated, and only the plugin-root placeholder
  * has to be resolved — Codex does not export CLAUDE_PLUGIN_ROOT.
  */
-export function buildHooks(pluginJson, pluginRoot) {
+export function buildHooks(hookManifest, pluginRoot) {
   const out = {};
   const added = [];
-  for (const [event, matchers] of Object.entries(pluginJson.hooks ?? {})) {
+  for (const [event, matchers] of Object.entries(hookManifest.hooks ?? {})) {
     out[event] = matchers.map((group) => {
       const entry = {};
       if (group.matcher) entry.matcher = group.matcher;
@@ -441,7 +441,7 @@ function manifestBuilder({
  */
 function openInstall({
   paths,
-  pluginJson,
+  hookManifest,
   pluginRoot,
   manifestBody,
   extraPlanned,
@@ -463,10 +463,10 @@ function openInstall({
   // Written only when the bytes change. Codex trusts a hooks file by its content, so an identical
   // rewrite is not a no-op: it costs the user a `/hooks` re-approval, and until they give it the
   // guardrails are inert. An update that quietly disarms the thing it updated is worse than none.
-  const { hooks, added } = buildHooks(pluginJson, pluginRoot);
+  const { hooks, added } = buildHooks(hookManifest, pluginRoot);
   // The manifest's own command templates, root still unresolved: what lets the merge recognise a
   // block this plugin wrote from somewhere else and replace it instead of doubling it.
-  const templates = Object.values(pluginJson.hooks ?? {})
+  const templates = Object.values(hookManifest.hooks ?? {})
     .flat()
     .flatMap((g) => (g.hooks ?? []).map((h) => h.command));
   // What the previous install left behind, read from its own manifest: the exact command strings
@@ -590,6 +590,8 @@ export function installGlobal({
   const paths = codexPaths("user", process.cwd());
   const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
   if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
+  const hookManifest = readJson(join(pluginRoot, "hooks/hooks.json"));
+  if (!hookManifest) throw new Error(`hooks/hooks.json not found under ${pluginRoot}`);
 
   const state = globallyInstalled(pluginRoot);
   if (state.installed && state.sameVersion && !force) {
@@ -608,11 +610,11 @@ export function installGlobal({
     version: pluginJson.version,
     pluginRoot,
     scope: "user",
-    hookCommands: buildHooks(pluginJson, pluginRoot).added.map((a) => a.command),
+    hookCommands: buildHooks(hookManifest, pluginRoot).added.map((a) => a.command),
   });
   const { planned } = openInstall({
     paths,
-    pluginJson,
+    hookManifest,
     pluginRoot,
     manifestBody,
     extraPlanned: [paths.hooks, paths.instructions, paths.references],
@@ -729,6 +731,8 @@ function installProjectOnlyLegacy({
   const paths = codexPaths("project", projectDir);
   const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json"));
   if (!pluginJson) throw new Error(`plugin.json not found under ${pluginRoot}`);
+  const hookManifest = readJson(join(pluginRoot, "hooks/hooks.json"));
+  if (!hookManifest) throw new Error(`hooks/hooks.json not found under ${pluginRoot}`);
 
   const { written, emit } = recorder({ dryRun, log });
   const agentsPath = join(projectDir, "AGENTS.md");
@@ -739,13 +743,13 @@ function installProjectOnlyLegacy({
     version: pluginJson.version,
     pluginRoot,
     scope: "project",
-    hookCommands: buildHooks(pluginJson, pluginRoot).added.map((a) => a.command),
+    hookCommands: buildHooks(hookManifest, pluginRoot).added.map((a) => a.command),
     adopted: [rulesDst],
     extra: { machineSpecific: [".codex/hooks.json", ".codex/agents/", ".agents/skills/"] },
   });
   const { planned } = openInstall({
     paths,
-    pluginJson,
+    hookManifest,
     pluginRoot,
     manifestBody,
     extraPlanned: [paths.hooks, agentsPath, paths.references],

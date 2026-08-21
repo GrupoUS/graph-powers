@@ -299,8 +299,12 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     — the whole thing the paragraph above refuses, spelled in one word, and the suite certified it
     because it only ever tested the `git: {commit: auto}` spelling. `destructiveFloor: false` turns
     off the one list in this plugin that is unconditional, and a loose `bashDefault`/`cleanup` is
-    the same release written out longhand. All four are stripped; `level: "guarded"` is a
-    tightening and stays, as does `allowPackageManagers`, which only ever narrows.
+    the same release written out longhand. All four are stripped unless the same block carries
+    `machineWide: true`, the operator's explicit acknowledgement that routine Bash and cleanup
+    autonomy will apply to repositories they have not reviewed yet. Even with that opt-in, git
+    `auto` and `destructiveFloor: false` never cross from home: publication and irreversibility
+    remain repository-local decisions. `level: "guarded"` is a tightening and stays without the
+    opt-in, as does `allowPackageManagers`, which only ever narrows.
 
     **`protectedFiles`.** Lists replace on merge, so `{"segments": []}` at home deleted the
     defaults everywhere, and — unlike `autonomy` — a project declaring its own `protectedFiles`
@@ -319,15 +323,23 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     autonomy = out.get("autonomy")
     if isinstance(autonomy, dict):
         autonomy = dict(autonomy)
-        # A preset that releases four decisions at once. `guarded` is a tightening and survives.
-        if autonomy.get("level") != "guarded":
+        machine_wide = autonomy.get("machineWide") is True
+        # A preset that releases routine Bash decisions across every repository needs an explicit
+        # machine-wide opt-in. `guarded` is a tightening and always survives.
+        if autonomy.get("level") != "guarded" and not (
+            machine_wide and autonomy.get("level") == "autonomous"
+        ):
             autonomy.pop("level", None)
+        if not machine_wide:
+            autonomy.pop("machineWide", None)
         # The floor is unconditional or it is not a floor.
         if autonomy.get("destructiveFloor") is not True:
             autonomy.pop("destructiveFloor", None)
         # `level: autonomous` written out one field at a time.
         for key in ("bashDefault", "cleanup"):
-            if autonomy.get(key) != "ask":
+            if autonomy.get(key) != "ask" and not (
+                machine_wide and autonomy.get(key) == "allow"
+            ):
                 autonomy.pop(key, None)
         if isinstance(autonomy.get("git"), dict):
             held = {k: v for k, v in autonomy["git"].items() if v == "ask"}

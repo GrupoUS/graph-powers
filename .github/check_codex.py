@@ -18,10 +18,25 @@ skills_dir = os.path.join(root, ".agents/skills")
 
 with open(os.path.join(codex_home, "hooks.json"), encoding="utf-8") as fh:
     hooks = json.load(fh)
-commands = [h["command"] for groups in hooks["hooks"].values() for g in groups for h in g["hooks"]]
-dupes = [c for c, n in collections.Counter(commands).items() if n > 1]
+entries = [
+    (event, g.get("matcher"), h["command"])
+    for event, groups in hooks["hooks"].items()
+    for g in groups
+    for h in g["hooks"]
+]
+commands = [command for _, _, command in entries]
+dupes = [entry for entry, n in collections.Counter(entries).items() if n > 1]
 assert not dupes, f"duplicate hook entries after a second install: {dupes}"
 assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clobbered"
+hook_names = {
+    "auto_update", "branch_session_notice", "commit_audit_gate", "git_branch_gate",
+    "git_commit_gate", "git_push_gate", "graph_guardrails", "notify", "protect_files",
+    "session_context", "smart_bash_approver", "ultracite",
+}
+ours = [c for c in commands if any(f"/hooks/{name}.py" in c for name in hook_names)]
+assert len(ours) == 13, f"expected 13 Graph Powers registrations, found {len(ours)}"
+assert {name for name in hook_names if any(f"/hooks/{name}.py" in c for c in ours)} == hook_names, \
+    "one of the 12 Graph Powers hook scripts is not registered"
 
 agents = sorted(glob.glob(os.path.join(codex_home, "agents/*.toml")))
 assert agents, f"no Codex subagents generated under {codex_home}"

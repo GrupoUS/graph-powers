@@ -567,8 +567,13 @@
     },
     "autonomy": {
       "type": "object",
-      "description": "How much the agent does without stopping to ask. This is the field that decides whether a session feels like work or like clicking Approve. Read by smart_bash_approver and the three git gates, and used by the installer to write a matching permissions allowlist. Also readable from ~/.graph-powers/config.json, which is where it belongs when the answer is the same in every repository — the level is a property of the operator, not of the checkout. A project that declares its own autonomy block overrides the user's.",
+      "description": "How much the agent does without stopping to ask. This is the field that decides whether a session feels like work or like clicking Approve. Read by smart_bash_approver and the three git gates, and used by the installer to write a matching permissions allowlist. Also readable from ~/.graph-powers/config.json. A user-scope policy may always tighten; loosening routine Bash policy machine-wide requires machineWide=true, and never carries git auto or destructiveFloor=false across repositories. A project that declares its own autonomy block overrides the user's.",
       "properties": {
+        "machineWide": {
+          "type": "boolean",
+          "default": false,
+          "description": "User-scope opt-in only. In ~/.graph-powers/config.json, true allows level=autonomous (or bashDefault/cleanup=allow) to apply to repositories that declare no autonomy block. It never makes git auto and never disables the destructive floor. Without it, user scope may tighten policy but may not loosen it machine-wide. A project-scoped value has no effect."
+        },
         "level": {
           "type": "string",
           "enum": [

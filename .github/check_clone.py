@@ -11,7 +11,7 @@ import sys
 REQUIRED = [
     "bin/graph-powers.mjs", "bin/audit-settings.mjs",
     "codex/install.mjs", "codex/lib.mjs",
-    "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",
+    "hooks/hooks.json", "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",
     "schema/config.schema.json",
     ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
     "AGENT_SETUP.md", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md",
