@@ -1355,6 +1355,120 @@ releases.
 
 ## Step 9 — Wire Codex, if the project uses it
 
+Read this before running the installer, because it is the one step where getting it wrong does not
+degrade the harness — it takes the CLI down.
+
+**Codex reads a hook's exit code as a decision, not as a status.** `0` succeeds. `2` denies, with
+whatever the hook wrote to stderr as the reason: the prompt on `UserPromptSubmit`, the tool call on
+`PreToolUse`, the result on `PostToolUse`. Any other code is an error Codex reports and steps over.
+
+Which is why a wrong path is not a broken guardrail but a locked session. A hook that reads
+`python "C:/…/hooks/agent_hooks.py"` on a Linux machine does not fail to start: `python` starts,
+cannot open the file, and exits **2**. Codex reads a deny. Every prompt is refused, the message
+names a path rather than a cause, and a fresh session behaves identically — the hook lives in
+`~/.codex/hooks.json`, which is read before the session accepts anything. Nothing distinguishes
+that from a hook simply being strict.
+
+### 9a — Prove the Codex home is sane, before you install anything
+
+Most of what is in `~/.codex/hooks.json` was written by something other than this plugin, and the
+installer **merges rather than overwrites** — deliberately, so it never destroys another tool's
+work. The consequence is that a broken entry already sitting there survives the install and gets
+blamed on it. Find it first, and report every line this prints:
+
+```bash
+python3 - <<'CODEX'
+import glob, json, os, re, shutil, sys
+
+home = os.path.expanduser("~")
+codex = os.path.join(home, ".codex")
+if not os.path.isdir(codex):
+    print("codex home: absent — nothing to check")
+    sys.exit(0)
+
+hooks_file = os.path.join(codex, "hooks.json")
+try:
+    doc = json.load(open(hooks_file, encoding="utf-8")) if os.path.exists(hooks_file) else {"hooks": {}}
+except (OSError, ValueError) as exc:
+    print(f"BLOCKS  {hooks_file} does not parse: {exc}")
+    sys.exit(1)
+
+# A path counts only where the command names it literally. The lookbehind drops the `%VAR%` and
+# `$VAR` forms, which the shell resolves and this process cannot.
+PATHS = re.compile(r"""(?<![\w%$])((?:[A-Za-z]:)?[\\/][^\s"';|&()]*\.(?:py|mjs|js|sh|ps1|exe|cmd|bat))""")
+DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
+KEYWORDS = {"if", "for", "while", "case", "test", "[", "{", "command", "then", "else", "do", ":"}
+windows_here = os.name == "nt"
+
+entries = [(event, h) for event, groups in doc.get("hooks", {}).items()
+           for g in groups for h in g.get("hooks", [])]
+blocks, risks, no_windows = [], [], []
+
+for event, hook in entries:
+    posix, windows = hook.get("command", ""), hook.get("commandWindows", "")
+    native, other = (windows or posix, posix) if windows_here else (posix, windows)
+    first = re.match(r"\s*([^\s]+)", native)
+    if first and first.group(1) not in KEYWORDS:
+        exe = first.group(1)
+        if not shutil.which(exe) and not os.path.exists(exe):
+            blocks.append(f"{event}: interpreter {exe!r} is not on PATH")
+    for path in set(PATHS.findall(native)):
+        if bool(DRIVE.match(path)) != windows_here:
+            blocks.append(f"{event}: the command this machine runs carries the other platform's path — {path}")
+        elif not os.path.exists(path):
+            blocks.append(f"{event}: command points at a file that is not here — {path}")
+    for path in set(PATHS.findall(other)):
+        if bool(DRIVE.match(path)) == windows_here:
+            risks.append(f"{event}: the other platform's command carries this platform's path — {path}")
+    if posix and not windows and PATHS.search(posix):
+        no_windows.append(event)
+
+config = os.path.join(codex, "config.toml")
+if os.path.exists(config):
+    text = open(config, encoding="utf-8", errors="replace").read()
+    notify = re.search(r"^notify\s*=\s*\[([^\]]*)\]", text, re.M)
+    if notify:
+        quoted = re.findall(r'"((?:[^"\\]|\\.)*)"', notify.group(1))
+        target = quoted[0].replace("\\\\", "\\") if quoted else ""
+        if target and not shutil.which(target) and not os.path.exists(target):
+            risks.append(f"notify names a command that is absent on this machine — {target}")
+    if re.search(r"^\[\[?hooks\.(?!state)[A-Za-z]", text, re.M):
+        risks.append("config.toml declares hooks as well as hooks.json — Codex loads both and warns")
+
+conflicts = [p for d in (codex, os.path.join(home, ".claude"))
+             for pattern in ("*conflicted*", "*sync-conflict*", "*conflicted copy*")
+             for p in glob.glob(os.path.join(d, pattern))]
+
+print(f"hooks.json: {len(entries)} entries")
+for line in blocks:
+    print(f"BLOCKS  {line}")
+for line in risks:
+    print(f"RISK    {line}")
+if no_windows:
+    print(f"NOTE    {len(no_windows)} hook(s) have no commandWindows and stay silent on Windows")
+if conflicts:
+    print(f"NOTE    {len(conflicts)} conflict cop(ies) from a file-sync tool in the Codex or Claude home")
+if not (blocks or risks):
+    print("every hook resolves on this machine")
+CODEX
+```
+
+| Severity | What it found | What you do about it |
+|---|---|---|
+| `BLOCKS` | a command **this** machine runs names an interpreter or a file that is not here | fix it before installing. On Codex this is a deny, not a warning, and it will be blamed on whatever was installed last |
+| `RISK` | the hook works here and is wrong on the machine this home syncs to; or `notify` names an absent binary; or hooks are declared twice | fix it now if the user works on two machines, and say so either way |
+| `NOTE` | hooks with no `commandWindows`, or conflict copies left by a file-sync tool | report it. Neither breaks this machine; both are how the next break arrives |
+
+**Do not install over a `BLOCKS` line, and do not delete the entry that produced it** — it belongs
+to another tool and the user may want it. Repair it, which is almost always one of two edits:
+
+- the script exists here under a different root — point `command` at the local absolute path and
+  move the foreign one into `commandWindows`, which is the field Codex provides for exactly this;
+- the script does not exist here at all — set `enabled = false` for that entry under
+  `[hooks.state]` in `~/.codex/config.toml`, and tell the user which tool it came from.
+
+### 9b — Install
+
 ```bash
 node "$PLUGIN/bin/graph-powers.mjs" --target codex          # global half + project half
 ```
@@ -1376,14 +1490,56 @@ with whatever is already there, `~/.agents/skills/`, `~/.codex/agents/*.toml`,
 points at `~/.codex/graph-powers/` — a path that is identical on every machine, so the file stays
 portable when it is committed.
 
-Then tell the user two things:
+Then run 9a again. It should say the same thing it said before, plus the entries this plugin added.
+A new `BLOCKS` line means the install found something the preflight did not, and the fix is the
+same: repair the entry, do not delete it.
 
-1. **Open `/hooks` in Codex and approve the hooks.** Codex tracks trust by hook definition, so a
-   change to the file needs approval again. Until they approve, those guardrails do not run — say
-   that plainly rather than letting them assume they are covered. The installer will not rewrite
-   an unchanged `hooks.json` for exactly this reason, so a routine update costs no re-approval;
-   a genuine change to the guardrails does, and it should.
-2. **What to gitignore.** Far less than before, because the harness is global now:
+### 9c — Why a hook that works here can be dead on the machine this home syncs to
+
+`~/.codex` is a directory people sync. Dropbox, pCloud, OneDrive, Syncthing and Resilio all get
+pointed at it, because it holds the agent setup somebody spent a weekend on. What they also do is
+carry one machine's absolute paths onto another, and Codex has no way to tell an imported path from
+an intended one — it runs it, the interpreter exits 2, and the session denies everything.
+
+Two things keep that from happening, and both belong in the report you leave:
+
+**Hooks are written for both platforms in one file.** `command` is what Codex runs on Linux and
+macOS; `commandWindows` is what it runs on Windows, and it wins there when it is present. A hook
+carrying both is safe to sync. A hook carrying only `command` with an absolute path is a hook that
+does nothing on the other machine — silently, which is worse than failing.
+
+**Some files must never be synced at all**, because they describe the machine rather than the
+setup. Say these by name:
+
+| Never sync | Why |
+|---|---|
+| `config.toml` | absolute paths, `notify`, marketplace roots, and the per-hook trust hashes |
+| `auth.json` | credentials, in the clear |
+| `models_cache.json` | written by one CLI version; a mismatched one fails to load at every start |
+| `.codex-global-state.json` · `sessions/` · `rollouts/` | this machine's history, and the bulk of the directory |
+
+The tell that this has already happened is conflict copies — `config [conflicted].toml`,
+`hooks.sync-conflict-….json` — which is why 9a counts them. They are inert; what they prove is that
+two machines are writing the same file, and that the next import will land the same way.
+
+### 9d — Then tell the user three things
+
+1. **Open `/hooks` in Codex and approve the hooks.** Codex tracks trust by the hash of each hook
+   definition, so a change to the file needs approval again, and until it is given **those
+   guardrails do not run** — say that plainly rather than letting them assume they are covered. The
+   installer will not rewrite an unchanged `hooks.json` for exactly this reason, so a routine update
+   costs no re-approval; a genuine change to the guardrails does, and it should.
+2. **How to tell whether they are actually running.** `codex doctor` reports the installation,
+   config, auth and sandbox in one pass and is the fastest evidence that nothing else is broken.
+   For the hooks themselves, one non-interactive turn prints a line per hook:
+
+   ```bash
+   codex exec --skip-git-repo-check "responda apenas: ok"
+   ```
+
+   `Completed` is a hook that ran. `Failed` is a hook that errored and was stepped over. `Blocked`
+   is a hook that denied — and if a prompt never reaches the model, that is what to look for.
+3. **What to gitignore.** Far less than before, because the harness is global now:
 
    ```gitignore
    .graph-powers/logs/
@@ -1391,6 +1547,27 @@ Then tell the user two things:
    ```
 
    `.codex/rules/` and the `AGENTS.md` block are the project's own and **should** be committed.
+
+### 9e — If Codex is already refusing every prompt
+
+Recover in this order, and do not skip to reinstalling — a reinstall merges into the file that is
+denying and changes nothing.
+
+1. **Read the hooks without obeying them.** The trust flag runs every hook, including ones not yet
+   approved, which is what tells you whether the problem is trust or the hook itself:
+
+   ```bash
+   codex exec --dangerously-bypass-hook-trust --skip-git-repo-check "responda apenas: ok"
+   ```
+
+   All `Completed` and a normal answer means the hooks are fine and unapproved — go to `/hooks`.
+   A `Blocked` or `Failed` line names the event; 9a names the entry.
+2. **Run 9a.** Every failure of this kind that has been seen so far shows up there as `BLOCKS`.
+3. **If `hooks.json` itself does not parse**, Codex loads no hooks at all rather than some — move it
+   aside, confirm the CLI answers, then repair it from the copy.
+4. **If the CLI fails before the first turn** with `failed to load models cache`, the cache was
+   written by a different version. It is a cache: move `~/.codex/models_cache.json` aside and let
+   Codex refetch it.
 
 ## Step 10 — Verify, with output
 
@@ -1453,6 +1630,14 @@ git commit --allow-empty -m "guardrail check"     # expected: denied, naming <PR
 # 7. the agents resolve, by the name the registry uses
 #    Spawn one, in the new session, and read the error rather than guessing:
 #      Agent({ subagent_type: "graph-powers:explorer", prompt: "list the files in agents/" })
+
+# 8. Codex answers, and its hooks run — only if Step 9 ran
+codex doctor                                      # expected: 0 fail
+codex exec --skip-git-repo-check "reply with: ok" # one line per hook, then the answer
+#    Every hook line must read `Completed`. `Blocked` means a hook denied the turn — Codex reads
+#    exit 2 as a decision, so this is what a wrong path looks like — and `Failed` means one errored
+#    and was stepped over. Neither is a finished state; § 9a names the entry behind either. A hook
+#    that appears in `hooks.json` and in no line at all is unapproved: send the user to `/hooks`.
 ```
 
 **When an agent will not spawn**, the error names which of the two problems you have. They have
@@ -1492,6 +1677,7 @@ silent: the agent reads it, finds nothing, and carries on with less context than
 **settings.json:** <n> duplicate hooks removed · other keys untouched
 **Global:** <installed | already present at version X, skipped> — Claude plugin scope, Codex skills/agents/hooks
 **Project:** <what was written here, and nothing else>
+**Codex health:** <§ 9a before: n BLOCKS / n RISK> → <after: same, and what was repaired>
 **Codex hooks:** <approved by the user in /hooks | pending — guardrails inert until then>
 **Verification:** <each check, with its result>
 **Backup:** <path> — restore with `rm -rf .claude && mv <backup> .claude`

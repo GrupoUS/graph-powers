@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.8.1 — the Codex step assumed the Codex home was empty
+
+`AGENT_SETUP.md § 9` was thirty-seven lines: run the installer, approve `/hooks`, gitignore two
+paths. It described what the plugin writes and said nothing about what is already there — which is
+where the failure lives, because the installer merges rather than overwrites and a broken entry it
+inherited survives the install and gets blamed on it.
+
+### Added — § 9a, a preflight that reads the Codex home before anything is written
+
+Codex reads a hook's exit code as a decision: `0` succeeds, `2` denies — the prompt on
+`UserPromptSubmit`, the tool call on `PreToolUse` — and anything else is an error it steps over.
+So a hook whose script is not on this machine does not degrade the harness, it locks the CLI:
+`python` starts, fails to open the file, exits **2**, and Codex reads a deny. Every prompt is
+refused, the message names a path rather than a cause, and a fresh session behaves identically.
+
+The preflight reports three severities against `~/.codex/hooks.json` and `~/.codex/config.toml`:
+`BLOCKS` for a command this machine cannot run — a foreign-platform absolute path, a missing script,
+an interpreter not on `PATH`; `RISK` for one that works here and is wrong on the machine this home
+syncs to, plus a `notify` naming an absent binary and hooks declared in both files at once; `NOTE`
+for hooks with no `commandWindows` and for conflict copies left by a file-sync tool. It runs again
+after the install, so a new `BLOCKS` line is attributable.
+
+### Added — § 9c, the sync hazard stated as a rule rather than discovered as a bug
+
+`~/.codex` is a directory people point Dropbox, pCloud, OneDrive, Syncthing and Resilio at, and
+what those carry between machines is one machine's absolute paths. The step now names the two
+things that prevent it: a hook is written for both platforms in one file — `command` for POSIX,
+`commandWindows` for Windows, which is the field Codex provides for exactly this — and the files
+that describe the machine rather than the setup are never synced at all. `config.toml`,
+`auth.json`, `models_cache.json`, `.codex-global-state.json`, `sessions/` and `rollouts/` are
+listed by name, each with the reason.
+
+### Added — § 9e, recovery for a CLI that is already refusing every prompt
+
+In order, because reinstalling first is the instinct and it changes nothing — the merge lands in
+the file that is denying. `codex exec --dangerously-bypass-hook-trust` runs every hook including
+the unapproved ones, which is what separates a trust problem from a broken hook; § 9a names the
+entry; a `hooks.json` that does not parse loads no hooks at all rather than some; and a CLI that
+dies before the first turn with `failed to load models cache` has a cache written by another
+version, which is a file to move aside rather than a fault to debug.
+
+### Added — Step 10 gets a Codex check, and the report a Codex health line
+
+`codex doctor` for the installation, then one `codex exec` turn, which prints a line per hook:
+`Completed` ran, `Failed` errored and was stepped over, `Blocked` denied the turn. A hook present
+in `hooks.json` and absent from every line is unapproved, and the fix for that is `/hooks`, not a
+reinstall. Step 11's report template gains `**Codex health:**`, carrying the before and after
+counts so a setup that repaired something says which entry and a setup that repaired nothing says
+that too.
+
 ## 1.8.0 — the multi-agent /verify the reference layer had already specified
 
 Four shipped files described a `/verify` that consolidates signals from parallel agents: `090-verdict-matrix.md:3` said it consolidates "gates + agents + reviews", `parallel-batch-contracts.md:19` listed a "Phase 8 — parallel codex review + adversarial review", `agent-handoff-contracts.md:58` described its "consolidator" reading handoff JSON, and `015-verification-gate.md:13` cited a "Phase 0". The command had five sections, zero agent spawns, and loaded none of the four. This release builds the command those files were describing, and deletes the two claims that were never true.
