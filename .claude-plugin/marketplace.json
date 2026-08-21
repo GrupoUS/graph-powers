@@ -1,5 +1,4 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "graph-powers",
   "description": "Graph Powers — a shared Claude Code and Codex CLI harness: agents, skills, commands and guardrails, parameterised per project.",
   "owner": {
