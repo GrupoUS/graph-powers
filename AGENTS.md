@@ -108,7 +108,7 @@ from inventing work.
 | `skills/` | skills, one folder with a `SKILL.md` each | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
 | `commands/` | commands, exposed as `/<name>` | the user; Codex gets them as generated skills |
 | `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
-| `hooks/` | guardrails in Python plus `_config.py` | declared in `.claude-plugin/plugin.json`; generated into `.codex/hooks.json` |
+| `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
 | `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
 | `codex/` | the generators for the Codex side | `bin/graph-powers.mjs` |
 | `schema/` | the contract for each project's config | editors, and the setup playbook |

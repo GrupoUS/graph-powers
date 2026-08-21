@@ -7,7 +7,7 @@ The distinction that matters: the first table **denies**, in code, whether or no
 The second table is convention — real, but enforced by attention. An index that mixes them teaches
 people to expect a block that never comes, or to be surprised by one that does.
 
-### Enforced — hooks, declared in `.claude-plugin/plugin.json`
+### Enforced — hooks, declared in `hooks/hooks.json`
 
 | Guardrail | Hook | Fires on | Released by |
 |---|---|---|---|
@@ -15,7 +15,7 @@ people to expect a block that never comes, or to be surprised by one that does.
 | Commit without approval | `git_commit_gate.py` | `Bash` | `<PREFIX>_ALLOW_COMMIT=1` |
 | Push, and push to a protected branch | `git_push_gate.py` | `Bash` | `<PREFIX>_ALLOW_PUSH=1` (+ `_ALLOW_PUSH_MAIN=1`) |
 | Landing HEAD on a protected branch; deleting one | `git_branch_gate.py` | `Bash` | `<PREFIX>_ALLOW_MAIN_CHECKOUT=1` |
-| The destructive floor — what git cannot undo | `smart_bash_approver.py` | `Bash` | nothing; the floor holds under `autonomous` |
+| Bash autonomy and the destructive floor — what git cannot undo | `smart_bash_approver.py` | `Bash` at `PreToolUse` and `PermissionRequest` | `autonomy`; the floor still holds under `autonomous` |
 | The project's own pre-commit audit | `commit_audit_gate.py` | `Bash` | `<PREFIX>_ALLOW_AUDIT=1` |
 | Writes to `.env`, lockfiles, `.git/`, secrets, declared paths | `protect_files.py` | `Edit`/`Write` | nothing |
 

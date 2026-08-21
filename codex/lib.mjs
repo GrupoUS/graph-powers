@@ -2,7 +2,7 @@
  * Shared helpers for generating Codex CLI artefacts from the plugin's own files.
  *
  * The rule this module exists to hold: **there is one source of truth per artefact.**
- * Codex hooks are generated from `.claude-plugin/plugin.json`, Codex subagents from
+ * Codex hooks are generated from `hooks/hooks.json`, Codex subagents from
  * `agents/*.md`, Codex skills from `skills/` and `commands/`. Nothing is maintained twice —
  * a second hand-written list is exactly the divergence this plugin was built to end.
  */

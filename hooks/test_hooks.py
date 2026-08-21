@@ -70,6 +70,10 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
     else:
         env_full.pop("CLAUDE_PROJECT_DIR", None)
         body["cwd"] = str(proj)
+        # Codex identifies a turn-scoped hook payload with `turn_id`. The distinction matters for
+        # PreToolUse: Codex does not support `permissionDecision: ask`, so a hook that wants the
+        # normal approval flow has to decline to decide and let PermissionRequest own the answer.
+        body.setdefault("turn_id", "codex-test-turn")
 
     r = subprocess.run(
         [sys.executable, str(HOOKS / f"{hook}.py")],
@@ -80,7 +84,10 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
     if not out:
         return None, r.returncode
     try:
-        return json.loads(out)["hookSpecificOutput"]["permissionDecision"], r.returncode
+        specific = json.loads(out)["hookSpecificOutput"]
+        if "permissionDecision" in specific:
+            return specific["permissionDecision"], r.returncode
+        return specific["decision"]["behavior"], r.returncode
     except Exception:
         return "??", r.returncode
 
@@ -185,6 +192,21 @@ def main() -> int:
     check("the destructive floor holds even when autonomous",
           call("smart_bash_approver", nuke, auton)[0], "deny")
 
+    print("### Codex PermissionRequest — safe escalations do not reach the user")
+    codex_unknown = {**unknown, "hook_event_name": "PermissionRequest"}
+    codex_nuke = {**nuke, "hook_event_name": "PermissionRequest"}
+    check("guarded declines an unknown Codex approval request",
+          call("smart_bash_approver", codex_unknown, a, harness="codex")[0], None)
+    check("autonomous approves an unknown Codex approval request",
+          call("smart_bash_approver", codex_unknown, auton, harness="codex")[0], "allow")
+    check("the destructive floor denies at PermissionRequest too",
+          call("smart_bash_approver", codex_nuke, auton, harness="codex")[0], "deny")
+    codex_guarded_pre = {**unknown, "hook_event_name": "PreToolUse"}
+    check("Codex PreToolUse declines instead of returning its unsupported ask decision",
+          call("smart_bash_approver", codex_guarded_pre, a, harness="codex")[0], None)
+    check("Codex PreToolUse also declines a plain allow; PermissionRequest owns escalation",
+          call("smart_bash_approver", codex_guarded_pre, auton, harness="codex")[0], None)
+
     print("### Package managers — the plugin does not pick one for the project")
     pm_free = mkproj({"git": {"optInPrefix": "PMFREE"}})
     # `["bun"]` and not `["bun", "bunx"]`, deliberately. The fixture used to list the runner too,
@@ -216,6 +238,11 @@ def main() -> int:
           call("smart_bash_approver", bunx, pm_bun)[0] != "deny", True)
     check("...but it asks, because a runner executes a package the project never declared",
           call("smart_bash_approver", bunx, pm_bun)[0], "ask")
+    pm_bun_auto = mkproj({"git": {"optInPrefix": "PMBUNAUTO"},
+                          "autonomy": {"level": "autonomous",
+                                       "allowPackageManagers": ["bun"]}})
+    check("...and autonomous mode runs that in-family runner without prompting",
+          call("smart_bash_approver", bunx, pm_bun_auto)[0], "allow")
     check("...while npx is still refused there — it belongs to npm",
           call("smart_bash_approver", npx, pm_bun)[0], "deny")
 
@@ -622,9 +649,9 @@ def main() -> int:
     # The key in an argument position is not an approval. Nobody typed an assignment in any of
     # these; the model wrote the project's own opt-in key into the payload of the very command
     # the gate exists to stop.
-    in_message = " ".join(["git", "commit", "-m", '"PROJA_ALLOW_COMMIT=1 refactor"'])
-    after_flag = " ".join(["git", "commit", "-m", "x", '--author="PROJA_ALLOW_COMMIT=1 <a@b.c>"'])
-    in_comment = GIT_WRITE + " # PROJA_ALLOW_COMMIT=1"
+    in_message = 'git commit -m "PROJA_ALLOW_COMMIT=1 refactor"'
+    after_flag = 'git commit -m x --author="PROJA_ALLOW_COMMIT=1 <a@b.c>"'
+    in_comment = f"{GIT_WRITE} # PROJA_ALLOW_COMMIT=1"
     for label, cmd in [
         ("inside the commit message", in_message),
         ("inside another flag's value", after_flag),
@@ -1012,6 +1039,29 @@ def main() -> int:
     d, _ = call("smart_bash_approver", read_cmd, strict, env=as_home(home_auto))
     check("a project's guarded setting outranks user autonomy", d, "ask")
 
+    # A machine-wide release has to say that it is machine-wide. This is the operator's explicit
+    # opt-in for routine Bash and cleanup only; git auto and the destructive-floor switch still do
+    # not cross from the home directory.
+    home_machine = mkhome({"autonomy": {"machineWide": True,
+                                         "level": "autonomous",
+                                         "destructiveFloor": True,
+                                         "git": {"commit": "ask", "push": "ask",
+                                                 "protectedBranch": "ask"}}})
+    d, _ = call("smart_bash_approver", read_cmd, bare, env=as_home(home_machine))
+    check("an explicit machine-wide autonomous posture reaches a bare repository", d, "allow")
+    d, _ = call("smart_bash_approver", bash("rm -rf build"), bare, env=as_home(home_machine))
+    check("...and routine cleanup no longer prompts", d, "allow")
+    d, _ = call("smart_bash_approver", bash("rm -rf /"), bare, env=as_home(home_machine))
+    check("...while the destructive floor still holds", d, "deny")
+    for gate, cmd in [("git_commit_gate", GIT_WRITE),
+                      ("git_push_gate", "git push origin dev-test")]:
+        d, _ = call(gate, {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                           "tool_input": {"command": cmd}}, bare, env=as_home(home_machine))
+        check(f"...and {gate} stays at ask from user scope", d, "deny")
+
+    d, _ = call("smart_bash_approver", read_cmd, strict, env=as_home(home_machine))
+    check("a project's guarded block still outranks machine-wide autonomy", d, "ask")
+
     # The other two spellings of the same release. `destructiveFloor: false` turns off the floor —
     # the one list in this plugin that is unconditional — and a loose `bashDefault`/`cleanup` is
     # `level: autonomous` written out longhand, which is how a stripped `level` would otherwise be
@@ -1109,7 +1159,8 @@ def main() -> int:
                bare, strict, EMPTY_HOME):
         shutil.rmtree(d_, ignore_errors=True)
 
-    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_npx, pm_both,
+    for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_bun_auto,
+              pm_npx, pm_both,
               installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
         shutil.rmtree(d, ignore_errors=True)
 

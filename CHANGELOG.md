@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.8.2 — Codex plugin installs now carry their hooks
+
+The Codex marketplace installed Graph Powers skills and agents but showed no Graph Powers entries
+in `/hooks`. The twelve declarations lived inside `.claude-plugin/plugin.json`; native Codex plugin
+discovery reads `hooks/hooks.json`. Machines that appeared covered had received their hooks from a
+separate, older clone install recorded in `~/.codex/graph-powers-installed.json`.
+
+`hooks/hooks.json` is now the single declaration used by both native plugin loaders and by the
+clone-based Codex generator. The embedded copy was removed from `plugin.json`, the clone installer
+still merges and unmerges exact commands without touching third-party hooks, and CI asserts that
+all twelve scripts exist across thirteen event registrations. The setup playbook now separates installed,
+discovered, approved and executing states, recommends native Codex installation, and includes a
+manifest-backed migration that prevents native and legacy registrations from running twice.
+
+### Fixed — Codex asked again after the Bash hook had already allowed the command
+
+`smart_bash_approver` only ran at `PreToolUse`. That can block a command, but an `allow` does not
+approve a later sandbox or network escalation; Codex then opened its ordinary approval prompt.
+Worse, the hook returned plain `permissionDecision: ask` or `allow` at `PreToolUse`, values Codex
+does not support there without an input rewrite, so calls were reported as failed hook runs before
+continuing anyway.
+
+The same classifier is now also registered at `PermissionRequest`. Allowed commands return the
+event's `decision.behavior: allow` response and proceed without reaching the user; guarded asks
+decline to decide, and destructive denials keep winning. Codex `PreToolUse` payloads now emit only
+denials; ordinary allow/ask handling belongs to `PermissionRequest`. An in-family package runner
+such as `bunx` under a declared `bun` project follows the same rule: guarded asks, autonomous
+proceeds, another manager family is still denied.
+
+### Added — explicit machine-wide Bash autonomy
+
+The user config described `autonomy.level` as the operator's machine-wide posture, but the loader
+stripped `level: autonomous`, `bashDefault: allow` and `cleanup: allow` before they reached any
+repository. Users therefore configured autonomy once and kept receiving the guarded defaults.
+
+`autonomy.machineWide: true` is now the explicit acknowledgement that routine Bash and cleanup
+autonomy may reach repositories with no project autonomy block. It does not make git automatic and
+cannot disable the destructive floor from user scope. The setup playbook also documents Codex's
+`workspace-write` + `auto_review` posture and enables ordinary workspace network access, so
+remaining boundary crossings are reviewed automatically rather than becoming repeated prompts.
+
 ## 1.8.1 — the Codex step assumed the Codex home was empty
 
 `AGENT_SETUP.md § 9` was thirty-seven lines: run the installer, approve `/hooks`, gitignore two

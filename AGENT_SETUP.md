@@ -3,8 +3,9 @@
 > **You are the agent reading this.** This file is not documentation for a person to follow; it is
 > the procedure you execute, in order, in the repository the session is open in.
 >
-> A human is watching. **Stop for their approval before every write.** Nothing here is urgent
-> enough to justify overwriting something they wrote and cannot get back.
+> Scoped, reversible setup writes and their validation run without pausing. Stop only before a
+> destructive cleanup, a credential or secret change, an outward-facing action, or any write whose
+> target cannot be attributed safely. Autonomy is useful only while its boundary stays legible.
 
 ---
 
@@ -17,7 +18,8 @@ parameters, **improves the instruction files that already exist** rather than re
 removes the local copies that currently shadow the plugin.
 
 That last part is the step that decides whether any of this works, and it is the one that needs
-judgement. Which is why it is a procedure with approval gates, and not a script.
+judgement. Which is why it is a procedure with explicit destructive and outward-action gates, and
+not a blind cleanup script.
 
 ### The rule everything else follows
 
@@ -41,11 +43,10 @@ that project, and nothing else does.
 | Goes GLOBAL — installed once, serves everything | Where |
 |---|---|
 | The Claude Code plugin: agents, skills, commands, guardrails, workflows, shared references | `~/.claude/settings.json` (`--scope user`) — one install, no copies |
-| Codex skills, including the commands Codex reads as skills | `~/.agents/skills/` |
-| Codex subagents | `~/.codex/agents/*.toml` |
-| Codex guardrails | `~/.codex/hooks.json` |
-| Shared references (safety floor, shared context) | `~/.codex/graph-powers/` |
-| The machine-wide instruction block | `~/.codex/AGENTS.md` |
+| Codex native plugin: skills, subagents, guardrails and references | versioned cache reported by `codex plugin list --json` |
+| Codex clone fallback: skills | `~/.agents/skills/` |
+| Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
+| Clone fallback machine-wide instruction block | `~/.codex/AGENTS.md` |
 
 | Stays LOCAL — belongs to this repository and nothing else | Where |
 |---|---|
@@ -84,13 +85,18 @@ hits = [(k, i) for k, v in d.get("plugins", {}).items() if k.startswith("graph-p
 print("claude:", hits or "not installed globally")
 
 codex = os.path.expanduser("~/.codex/graph-powers-installed.json")
-print("codex: ", json.load(open(codex)) if os.path.exists(codex) else "not installed globally")
+print("codex clone install:",
+      json.load(open(codex)) if os.path.exists(codex) else "not installed")
 CHECK
+
+# The native Codex plugin is a different installation route from the clone manifest above.
+codex plugin list --json
 ```
 
-**If both say it is already installed at the current version, skip the global half entirely and do
-only the project steps.** Say so in your report; do not reinstall to be safe. If the versions
-differ, update the global install rather than adding a second copy beside it.
+In the JSON, `graph-powers@graph-powers` with `installed: true` and `enabled: true` is the preferred
+Codex route. If that entry and the clone manifest both exist, do not proceed as though one were a
+backup of the other: they register the same hooks from different roots and both run. Step 9c
+migrates that state before project setup continues.
 
 ---
 
@@ -138,10 +144,11 @@ claude plugin list
 Then locate the plugin on this machine, in this order, and **say which one you found**:
 
 1. `$GRAPH_POWERS`, if the variable is set;
-2. `~/.claude/plugins/cache/graph-powers/graph-powers/*/` — where Claude Code keeps installed
+2. the `path` for `graph-powers@graph-powers` in `codex plugin list --json` — the native Codex cache;
+3. `~/.claude/plugins/cache/graph-powers/graph-powers/*/` — where Claude Code keeps installed
    plugins. Prefer the highest version directory there;
-3. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
-4. if none exists, install it and say which route you took:
+4. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
+5. if none exists, install it and say which route you took:
 
    ```bash
    # Claude Code, inside a session:
@@ -303,8 +310,9 @@ skills is the middle class, so the real prerequisite list is far shorter than th
 
 #### `python3` is the name, and 3.10 is the floor
 
-All twelve hook registrations in `.claude-plugin/plugin.json` spell the interpreter `python3`, with
-no fallback. Where it answers to `python` or `py -3` and not to `python3` — the common case on
+All twelve hook scripts — thirteen event registrations because the Bash approver also handles
+`PermissionRequest` — spell the interpreter `python3`, with no fallback. Where it answers to
+`python` or `py -3` and not to `python3` — the common case on
 Windows — every guardrail fails to start. **Cardinal 3 makes hooks fail open**, so nothing reports
 it: the session looks normal while the commit gate, the push gate, the branch gate, the destructive
 floor and the write lease are all absent.
@@ -439,7 +447,7 @@ row("package manager", ", ".join(managers) or "NONE", "REQUIRED", "every per-cal
 
 print("-- on PATH --")
 for name, level, who in (
-    ("python3",       "REQUIRED",    "the literal name all 12 hooks register; see below"),
+    ("python3",       "REQUIRED",    "the literal name all 12 hook scripts register; see below"),
     ("git",           "REQUIRED",    "every command; the guardrails read the worktree"),
     ("node",          "REQUIRED",    "workflows, bin/, the Codex installer, 18+"),
     ("claude",        "REQUIRED",    "the harness; second-opinion runs it headless"),
@@ -590,6 +598,7 @@ you in the loop. If what you want is only for routine commands to stop prompting
 // ~/.graph-powers/config.json
 {
   "autonomy": {
+    "machineWide": true,             // explicitly applies routine Bash autonomy to every repo
     "level": "autonomous",          // unrecognised commands and cleanup run
     "destructiveFloor": true,       // what git cannot undo is still refused
     "git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" }
@@ -597,8 +606,11 @@ you in the loop. If what you want is only for routine commands to stop prompting
 }
 ```
 
-Undo is deleting the file. Prove it is being read with the snippet at the end of this step — from a
-repository that has no config of its own, `gp.autonomy()['bashDefault']` should print `allow`.
+Without `machineWide: true`, user scope may tighten policy but cannot loosen it for repositories
+the operator has not reviewed. Even with it, `git: auto` and `destructiveFloor: false` are stripped
+from user scope. Undo is deleting the file. Prove it is being read with the snippet at the end of
+this step — from a repository that has no config of its own,
+`gp.autonomy()['bashDefault']` should print `allow`.
 
 **Only declare a command whose tool is installed, and choose one owner for its version.**
 `tooling.commands.format` runs after every edit and `tooling.commands.lint` at every stop; the
@@ -1358,6 +1370,15 @@ releases.
 Read this before running the installer, because it is the one step where getting it wrong does not
 degrade the harness — it takes the CLI down.
 
+Four states are separate and each has its own proof:
+
+| State | Proof | If absent |
+|---|---|---|
+| Plugin installed and enabled | `codex plugin list --json` contains enabled `graph-powers@graph-powers` | install with 9c |
+| Hooks discovered | `/hooks` lists thirteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
+| Hooks approved | `/hooks` shows those entries enabled/trusted | approve them explicitly; installation never grants trust |
+| Hooks executing | `codex exec --skip-git-repo-check "reply with: ok"` reports `Completed` | use the diagnostic matrix in 9e |
+
 **Codex reads a hook's exit code as a decision, not as a status.** `0` succeeds. `2` denies, with
 whatever the hook wrote to stderr as the reason: the prompt on `UserPromptSubmit`, the tool call on
 `PreToolUse`, the result on `PostToolUse`. Any other code is an error Codex reports and steps over.
@@ -1369,12 +1390,40 @@ names a path rather than a cause, and a fresh session behaves identically — th
 `~/.codex/hooks.json`, which is read before the session accepts anything. Nothing distinguishes
 that from a hook simply being strict.
 
-### 9a — Prove the Codex home is sane, before you install anything
+### 9a — Set the Codex permission posture once
 
-Most of what is in `~/.codex/hooks.json` was written by something other than this plugin, and the
-installer **merges rather than overwrites** — deliberately, so it never destroys another tool's
-work. The consequence is that a broken entry already sitting there survives the install and gets
-blamed on it. Find it first, and report every line this prints:
+For maximum routine autonomy without removing the sandbox, put these top-level keys before the
+first TOML table in `~/.codex/config.toml`, and merge the network key into its existing table:
+
+```toml
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+```
+
+This makes workspace reads, edits, tests and ordinary network-backed tooling run directly. A call
+that still needs to cross the workspace boundary is sent to Codex's reviewer agent instead of
+stopping for a person. Do not use `approval_policy = "never"` for this purpose: it removes the
+prompt by rejecting escalations, so work fails instead of becoming autonomous. Do not use
+`danger-full-access` as a convenience setting; it removes the sandbox that makes automatic review
+meaningful.
+
+Graph Powers adds the second half: its `PermissionRequest` registration automatically approves a
+Bash escalation only when `smart_bash_approver` already classified the command as allowed, and
+declines to decide when guarded policy says to ask. Destructive-floor denials still win. Restart
+Codex after changing `config.toml`, then confirm the effective sandbox and reviewer with
+`codex doctor`.
+
+### 9b — Prove the Codex home is sane, before you install anything
+
+Native plugin hooks do not need to be copied into `~/.codex/hooks.json`. That file remains relevant
+because other tools and older Graph Powers clone installs write it. The clone installer **merges
+rather than overwrites** — deliberately, so it never destroys another tool's work. A broken legacy
+entry survives a native install and gets blamed on it. Find it first, and report every line this
+prints:
 
 ```bash
 python3 - <<'CODEX'
@@ -1467,16 +1516,29 @@ to another tool and the user may want it. Repair it, which is almost always one 
 - the script does not exist here at all — set `enabled = false` for that entry under
   `[hooks.state]` in `~/.codex/config.toml`, and tell the user which tool it came from.
 
-### 9b — Install
+### 9c — Choose one installation route, and migrate before combining them
+
+**Preferred — native Codex plugin:**
+
+```bash
+codex plugin marketplace add GrupoUS/graph-powers
+codex plugin add graph-powers@graph-powers
+```
+
+Then restart Codex and approve the thirteen registrations in `/hooks`. The native loader discovers
+`hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
+copy in `~/.codex/hooks.json` is involved.
+
+**Fallback — clone installer:** use this only when the marketplace is unavailable or a
+project-scoped copy is required.
 
 ```bash
 node "$PLUGIN/bin/graph-powers.mjs" --target codex          # global half + project half
 ```
 
-If `$PLUGIN` is a git clone, that same script takes `--update`: it fast-forwards the clone and
-reinstalls from it. If it is a Claude Code plugin cache, updates come from
-`claude plugin update graph-powers@graph-powers` instead — note the qualified form, because the
-bare name is not found and the command exits 0 either way.
+That same script takes `--update`: it fast-forwards the clone and reinstalls from it. Native Codex
+plugins update with `codex plugin marketplace upgrade graph-powers`; do not run the clone updater
+against a marketplace cache.
 
 It does the two halves in order, and **skips the global half when it is already there at this
 version** — so running it in a tenth project costs two files, not thirty.
@@ -1490,11 +1552,30 @@ with whatever is already there, `~/.agents/skills/`, `~/.codex/agents/*.toml`,
 points at `~/.codex/graph-powers/` — a path that is identical on every machine, so the file stays
 portable when it is committed.
 
-Then run 9a again. It should say the same thing it said before, plus the entries this plugin added.
+Then run 9b again. It should say the same thing it said before, plus the entries this plugin added.
 A new `BLOCKS` line means the install found something the preflight did not, and the fix is the
 same: repair the entry, do not delete it.
 
-### 9c — Why a hook that works here can be dead on the machine this home syncs to
+**Migration from a clone install to the native plugin.** If `codex plugin list --json` reports the
+native plugin and `~/.codex/graph-powers-installed.json` also exists, stop before the write and show
+the manifest's `pluginRoot` and `hookCommands`. After approval, run the recorded clone's installer:
+
+```bash
+python3 - <<'MIGRATE'
+import json, os, subprocess
+p = os.path.expanduser("~/.codex/graph-powers-installed.json")
+m = json.load(open(p, encoding="utf-8"))
+installer = os.path.join(m["pluginRoot"], "bin", "graph-powers.mjs")
+subprocess.run(["node", installer, "--uninstall"], check=True)
+MIGRATE
+```
+
+The manifest makes this subtraction exact: Graph Powers entries are removed from the shared hooks
+file, third-party hooks remain, and adapted rule templates are retained. Re-run the project steps
+afterwards to restore the local instruction block for the native route, then restart and approve
+the native hooks. Never delete `~/.codex/hooks.json` as a migration shortcut.
+
+### 9d — Why a hook that works here can be dead on the machine this home syncs to
 
 `~/.codex` is a directory people sync. Dropbox, pCloud, OneDrive, Syncthing and Resilio all get
 pointed at it, because it holds the agent setup somebody spent a weekend on. What they also do is
@@ -1519,10 +1600,20 @@ setup. Say these by name:
 | `.codex-global-state.json` · `sessions/` · `rollouts/` | this machine's history, and the bulk of the directory |
 
 The tell that this has already happened is conflict copies — `config [conflicted].toml`,
-`hooks.sync-conflict-….json` — which is why 9a counts them. They are inert; what they prove is that
+`hooks.sync-conflict-….json` — which is why 9b counts them. They are inert; what they prove is that
 two machines are writing the same file, and that the next import will land the same way.
 
-### 9d — Then tell the user three things
+### 9e — Diagnose the state, then tell the user three things
+
+| Symptom | Meaning | Action |
+|---|---|---|
+| Plugin absent from `codex plugin list --json` | not installed | run the native install commands in 9c |
+| Installed but `enabled: false` | installed, disabled | enable/reinstall it before inspecting hooks |
+| Enabled but no Graph Powers rows in `/hooks` | package not discovered or session predates install | restart; then verify `hooks/hooks.json` exists in the listed plugin path |
+| Listed in `/hooks` but absent from `codex exec` output | unapproved | approve in `/hooks` |
+| `Failed` | hook errored and Codex stepped over it | inspect the named command, interpreter and path with 9b |
+| `Blocked` | hook deliberately denied the event, or a wrong path exited 2 | read stderr; use 9b to distinguish policy from a broken command |
+| Each Graph Powers hook appears twice | native and clone routes coexist | perform the manifest-backed migration in 9c |
 
 1. **Open `/hooks` in Codex and approve the hooks.** Codex tracks trust by the hash of each hook
    definition, so a change to the file needs approval again, and until it is given **those
@@ -1548,7 +1639,7 @@ two machines are writing the same file, and that the next import will land the s
 
    `.codex/rules/` and the `AGENTS.md` block are the project's own and **should** be committed.
 
-### 9e — If Codex is already refusing every prompt
+### 9f — If Codex is already refusing every prompt
 
 Recover in this order, and do not skip to reinstalling — a reinstall merges into the file that is
 denying and changes nothing.
@@ -1561,8 +1652,8 @@ denying and changes nothing.
    ```
 
    All `Completed` and a normal answer means the hooks are fine and unapproved — go to `/hooks`.
-   A `Blocked` or `Failed` line names the event; 9a names the entry.
-2. **Run 9a.** Every failure of this kind that has been seen so far shows up there as `BLOCKS`.
+   A `Blocked` or `Failed` line names the event; 9b names the entry.
+2. **Run 9b.** Every failure of this kind that has been seen so far shows up there as `BLOCKS`.
 3. **If `hooks.json` itself does not parse**, Codex loads no hooks at all rather than some — move it
    aside, confirm the CLI answers, then repair it from the copy.
 4. **If the CLI fails before the first turn** with `failed to load models cache`, the cache was
@@ -1636,8 +1727,8 @@ codex doctor                                      # expected: 0 fail
 codex exec --skip-git-repo-check "reply with: ok" # one line per hook, then the answer
 #    Every hook line must read `Completed`. `Blocked` means a hook denied the turn — Codex reads
 #    exit 2 as a decision, so this is what a wrong path looks like — and `Failed` means one errored
-#    and was stepped over. Neither is a finished state; § 9a names the entry behind either. A hook
-#    that appears in `hooks.json` and in no line at all is unapproved: send the user to `/hooks`.
+#    and was stepped over. Neither is a finished state; § 9b names the entry behind either. A hook
+#    that appears in `/hooks` and in no output line is unapproved: approve it there.
 ```
 
 **When an agent will not spawn**, the error names which of the two problems you have. They have
@@ -1677,7 +1768,7 @@ silent: the agent reads it, finds nothing, and carries on with less context than
 **settings.json:** <n> duplicate hooks removed · other keys untouched
 **Global:** <installed | already present at version X, skipped> — Claude plugin scope, Codex skills/agents/hooks
 **Project:** <what was written here, and nothing else>
-**Codex health:** <§ 9a before: n BLOCKS / n RISK> → <after: same, and what was repaired>
+**Codex health:** <§ 9b before: n BLOCKS / n RISK> → <after: same, and what was repaired>
 **Codex hooks:** <approved by the user in /hooks | pending — guardrails inert until then>
 **Verification:** <each check, with its result>
 **Backup:** <path> — restore with `rm -rf .claude && mv <backup> .claude`
@@ -1690,7 +1781,8 @@ seen what changed.
 
 ## Rules that hold for this entire playbook
 
-1. **Stop before every write.** Show what changes, get approval, then write.
+1. **Run scoped, reversible writes and validation without pausing.** Stop for destructive cleanup,
+   credentials or secrets, outward-facing actions, and writes whose ownership cannot be proven.
 2. **Never delete without a `diff` on screen.** The one file that looks identical is the one that
    is not.
 3. **Never invent a value.** No path, no command, no domain, no branch name. Read it, or ask.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * graph-powers — one-command installer.
+ * graph-powers — clone fallback installer.
  *
  *   bunx graph-powers        npx graph-powers
  *
@@ -73,7 +73,7 @@ if (has("--agent-setup")) {
 
 if (has("-h", "--help")) {
   console.log(`
-${bold("graph-powers")} — install the shared Claude Code + Codex CLI harness in this repository.
+${bold("graph-powers")} — install the shared harness from a clone.
 
 ${bold("USAGE")}
   node <clone>/bin/graph-powers.mjs [options]
@@ -81,7 +81,11 @@ ${bold("USAGE")}
   On Claude Code you do not need this at all — the marketplace installs the plugin:
     /plugin marketplace add ${DEFAULT_REPO}
     /plugin install graph-powers@graph-powers
-  This script is what wires Codex CLI, and what installs from a clone on either harness.
+  Codex also has a native marketplace route:
+    codex plugin marketplace add ${DEFAULT_REPO}
+    codex plugin add graph-powers@graph-powers
+  Prefer that route. This script is the fallback for unavailable marketplaces and project-scoped
+  installs. Do not combine both routes: their hook registrations accumulate and run twice.
 
 ${bold("OPTIONS")}
   --target <claude|codex|both>   Which harness to wire. Default: autodetect from the CLIs present.

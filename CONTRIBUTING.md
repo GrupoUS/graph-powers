@@ -91,16 +91,16 @@ Codex passes `cwd` in the payload.
 `test_hooks.py` cover the change with `harness="codex"`? A guardrail that resolves the wrong project
 denies and permits against somebody else's rules.
 
-If the change touches `agents/`, `commands/` or `.claude-plugin/plugin.json`, run
+If the change touches `agents/`, `commands/`, `hooks/hooks.json` or `.claude-plugin/plugin.json`, run
 `node codex/install.mjs --project <scratch> --plugin . --dry-run` and read what it would generate.
 
 ### 6. What invokes this?
 
 A new artefact with no call site is dead weight in the context budget of every session, in every
 project. A skill needs routing; an agent needs something that dispatches it; a hook needs a
-declaration in `.claude-plugin/plugin.json`.
+declaration in `hooks/hooks.json`.
 
-**How to check:** `grep -rn "<name>" agents skills commands references .claude-plugin`. If it only
+**How to check:** use `rg "<name>" agents skills commands hooks references .claude-plugin`. If it only
 appears in its own file, it is an orphan.
 
 ### 7. Does this duplicate something?
