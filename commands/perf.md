@@ -320,7 +320,7 @@ command only routes to it and holds it to the same evidence rule as every other 
 
 | Mode | Pack | Depth | Minimum output |
 |---|---|---|---|
-| `seo` | `seo-geo-baseline` | `references/seo-playbook.md` (technical: robots, sitemap, metadata, indexability, JSON-LD) · `references/seo-content.md` (keywords, on-page, internal linking, local) | indexability + schema + CWV report, with an action list |
+| `seo` | `seo-geo-baseline` | `skills/performance-optimization/references/seo-playbook.md` (technical: robots, sitemap, metadata, indexability, JSON-LD) · `…/references/seo-content.md` (keywords, on-page, internal linking, local) | indexability + schema + CWV report, with an action list |
 | `sec` | `security-baseline` | the project's own security rules under `${rulesDir}/`, when it has them | findings by severity, each with its mitigation |
 
 `sec` reports; it does not patch. A dependency advisory with an exploit path is a finding for the
