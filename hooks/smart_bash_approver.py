@@ -217,8 +217,7 @@ def _is_build_artifact_delete(command: str) -> bool:
     if not tokens:
         return False
     verb = tokens[0].strip("\"'").replace("\\", "/").rsplit("/", 1)[-1].lower()
-    if verb.endswith(".exe"):
-        verb = verb[:-4]
+    verb = verb.removesuffix(".exe")
     if verb not in DELETE_VERBS:
         return False
     operands = [

@@ -649,9 +649,9 @@ def main() -> int:
     # The key in an argument position is not an approval. Nobody typed an assignment in any of
     # these; the model wrote the project's own opt-in key into the payload of the very command
     # the gate exists to stop.
-    in_message = " ".join(["git", "commit", "-m", '"PROJA_ALLOW_COMMIT=1 refactor"'])
-    after_flag = " ".join(["git", "commit", "-m", "x", '--author="PROJA_ALLOW_COMMIT=1 <a@b.c>"'])
-    in_comment = GIT_WRITE + " # PROJA_ALLOW_COMMIT=1"
+    in_message = 'git commit -m "PROJA_ALLOW_COMMIT=1 refactor"'
+    after_flag = 'git commit -m x --author="PROJA_ALLOW_COMMIT=1 <a@b.c>"'
+    in_comment = f"{GIT_WRITE} # PROJA_ALLOW_COMMIT=1"
     for label, cmd in [
         ("inside the commit message", in_message),
         ("inside another flag's value", after_flag),
