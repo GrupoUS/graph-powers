@@ -168,10 +168,12 @@ versions, and tells the user how to keep them current.
 Code.
 
 It turned out to be cheaper than expected: Codex hooks use the same event names and stdin payload,
-so the twelve Python files run unchanged. One script is registered twice:
+so the thirteen Python files run unchanged. One script is registered twice:
 `smart_bash_approver.py` blocks at `PreToolUse`, then reuses the same classification at
 `PermissionRequest` to approve safe escalations without surfacing a prompt. The event response
 shapes differ, and the script emits each client's supported vocabulary from that one decision.
+`tool_approver.py` is registered only on `PermissionRequest`, for every tool that is not `Bash`:
+the same `autonomy` posture, applied to the half of a session that a shell classifier cannot see.
 Skills use the same `SKILL.md` frontmatter, so they are copied rather than converted. Only
 subagents needed a real translation, into TOML.
 

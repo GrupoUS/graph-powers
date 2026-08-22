@@ -295,13 +295,15 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     That rule was written for `autonomy.git` and enforced only there, which left the same escalation
     reachable by three shorter routes. `level` is the sharpest: it is a preset, so
     `{"autonomy": {"level": "autonomous"}}` in a home file expanded to `commit: auto, push: auto,
-    bashDefault: allow, cleanup: allow` in every repository that declared no `autonomy` of its own
-    — the whole thing the paragraph above refuses, spelled in one word, and the suite certified it
-    because it only ever tested the `git: {commit: auto}` spelling. `destructiveFloor: false` turns
-    off the one list in this plugin that is unconditional, and a loose `bashDefault`/`cleanup` is
-    the same release written out longhand. All four are stripped unless the same block carries
-    `machineWide: true`, the operator's explicit acknowledgement that routine Bash and cleanup
-    autonomy will apply to repositories they have not reviewed yet. Even with that opt-in, git
+    bashDefault: allow, cleanup: allow, toolDefault: allow` in every repository that declared no
+    `autonomy` of its own — the whole thing the paragraph above refuses, spelled in one word, and
+    the suite certified it because it only ever tested the `git: {commit: auto}` spelling.
+    `destructiveFloor: false` turns off the one list in this plugin that is unconditional, and a
+    loose `bashDefault`/`cleanup`/`toolDefault` is the same release written out longhand. All five
+    are stripped unless the same block carries
+    `machineWide: true`, the operator's explicit acknowledgement that routine Bash, cleanup and
+    tool-approval autonomy will apply to repositories they have not reviewed yet. Even with that
+    opt-in, git
     `auto` and `destructiveFloor: false` never cross from home: publication and irreversibility
     remain repository-local decisions. `level: "guarded"` is a tightening and stays without the
     opt-in, as does `allowPackageManagers`, which only ever narrows.
@@ -336,7 +338,7 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
         if autonomy.get("destructiveFloor") is not True:
             autonomy.pop("destructiveFloor", None)
         # `level: autonomous` written out one field at a time.
-        for key in ("bashDefault", "cleanup"):
+        for key in ("bashDefault", "cleanup", "toolDefault"):
             if autonomy.get(key) != "ask" and not (
                 machine_wide and autonomy.get(key) == "allow"
             ):
@@ -530,8 +532,10 @@ def missing_tool(command: str) -> str | None:
 # Annotated rather than inferred: `autonomy()` adds `destructiveFloor` (a bool) and
 # `allowPackageManagers` (a list) to the copy it returns, so the value type is not `str`.
 _AUTONOMOUS_DEFAULTS: dict[str, Any] = {"bashDefault": "allow", "cleanup": "allow",
+                                        "toolDefault": "allow",
                                         "commit": "auto", "push": "auto", "protectedBranch": "ask"}
 _GUARDED_DEFAULTS: dict[str, Any] = {"bashDefault": "ask", "cleanup": "ask",
+                                     "toolDefault": "ask",
                                      "commit": "ask", "push": "ask", "protectedBranch": "ask"}
 
 
@@ -542,7 +546,7 @@ def autonomy(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         node = {}
     level = node.get("level", "guarded")
     base = dict(_AUTONOMOUS_DEFAULTS if level == "autonomous" else _GUARDED_DEFAULTS)
-    for key in ("bashDefault", "cleanup"):
+    for key in ("bashDefault", "cleanup", "toolDefault"):
         if node.get(key) in ("ask", "allow"):
             base[key] = node[key]
     git = node.get("git")

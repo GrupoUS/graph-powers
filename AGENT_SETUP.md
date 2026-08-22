@@ -1375,7 +1375,7 @@ Four states are separate and each has its own proof:
 | State | Proof | If absent |
 |---|---|---|
 | Plugin installed and enabled | `codex plugin list --json` contains enabled `graph-powers@graph-powers` | install with 9c |
-| Hooks discovered | `/hooks` lists thirteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
+| Hooks discovered | `/hooks` lists fourteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
 | Hooks approved | `/hooks` shows those entries enabled/trusted | approve them explicitly; installation never grants trust |
 | Hooks executing | `codex exec --skip-git-repo-check "reply with: ok"` reports `Completed` | use the diagnostic matrix in 9e |
 
@@ -1525,7 +1525,7 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
-Then restart Codex and approve the thirteen registrations in `/hooks`. The native loader discovers
+Then restart Codex and approve the fourteen registrations in `/hooks`. The native loader discovers
 `hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
 copy in `~/.codex/hooks.json` is involved.
 

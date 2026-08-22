@@ -207,6 +207,51 @@ def main() -> int:
     check("Codex PreToolUse also declines a plain allow; PermissionRequest owns escalation",
           call("smart_bash_approver", codex_guarded_pre, auton, harness="codex")[0], None)
 
+    print("### The Bash matcher is a regex — BashOutput and KillBash are not commands")
+    # Claude Code matches `Bash` by substring, so this hook is handed the two sibling tools too.
+    # Their payloads carry a shell id and no command line, and asking about one produced a
+    # confirmation prompt per poll of a background shell, citing a command that was never there.
+    for tool, payload in (("BashOutput", {"bash_id": "abc"}), ("KillBash", {"shell_id": "abc"})):
+        check(f"{tool} gets no verdict at all, not an ask",
+              call("smart_bash_approver", {"tool_name": tool, "tool_input": payload}, auton)[0],
+              None)
+        check(f"...and the same under guarded",
+              call("smart_bash_approver", {"tool_name": tool, "tool_input": payload}, a)[0], None)
+    check("an empty command line is silence too, at PermissionRequest",
+          call("smart_bash_approver",
+               {"tool_name": "Bash", "tool_input": {"command": ""},
+                "hook_event_name": "PermissionRequest"}, a)[0], None)
+    check("...while a real command is still classified",
+          call("smart_bash_approver", unknown, a)[0], "ask")
+
+    print("### tool_approver — the approval prompt for everything that is not Bash")
+    # The gap this closes: `bashDefault` only ever answered for shell commands, so a project on
+    # `autonomous` still stopped on a subagent spawn, an MCP call or a fetch.
+    spawn = {"tool_name": "Agent", "tool_input": {"subagent_type": "explorer"},
+             "hook_event_name": "PermissionRequest"}
+    mcp = {"tool_name": "mcp__tavily__tavily_search", "tool_input": {"query": "x"},
+           "hook_event_name": "PermissionRequest"}
+    check("guarded leaves a spawn to the normal approval flow",
+          call("tool_approver", spawn, a)[0], None)
+    check("autonomous approves a spawn without a prompt",
+          call("tool_approver", spawn, auton)[0], "allow")
+    check("...and an MCP call the same way",
+          call("tool_approver", mcp, auton)[0], "allow")
+    # One owner per decision. Answering Bash here would produce a second, looser verdict from a
+    # script that never saw the command — the destructive floor lives in smart_bash_approver.
+    check("it never answers for Bash, even when autonomous",
+          call("tool_approver", {**nuke, "hook_event_name": "PermissionRequest"}, auton)[0], None)
+    check("a per-field tightening is honoured under autonomous",
+          call("tool_approver", spawn,
+               mkproj({"git": {"optInPrefix": "TOOLASK"},
+                       "autonomy": {"level": "autonomous", "toolDefault": "ask"}}))[0], None)
+    check("a payload with no tool name is not an approval",
+          call("tool_approver", {"hook_event_name": "PermissionRequest"}, auton)[0], None)
+    check("...and neither is an empty payload",
+          call_raw("tool_approver", {}, auton)[0].strip(), "")
+    check("Codex resolves the project from the payload here too",
+          call("tool_approver", spawn, auton, harness="codex")[0], "allow")
+
     print("### Package managers — the plugin does not pick one for the project")
     pm_free = mkproj({"git": {"optInPrefix": "PMFREE"}})
     # `["bun"]` and not `["bun", "bunx"]`, deliberately. The fixture used to list the runner too,

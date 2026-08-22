@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.8.3 — Autonomy stopped at the shell prompt
+
+`autonomy.bashDefault` is described as the field that decides whether a session feels like work or
+like clicking Approve, and it was true of `Bash` only. `smart_bash_approver` was the sole hook
+registered at `PermissionRequest`, and it answers for shell commands. Every other tool call — a
+subagent spawn, an MCP call, a fetch, a workflow, a file tool — reached the user as a prompt in a
+repository that had already declared `level: autonomous`. The setting looked like it had stopped
+working; it had never covered that half of the session.
+
+`hooks/tool_approver.py` is that decision for everything that is not a shell command, registered at
+`PermissionRequest` with matcher `*` and driven by the new `autonomy.toolDefault` field —
+`allow` under `autonomous`, `ask` under `guarded`, overridable on its own like `bashDefault` and
+`cleanup`. Raising it machine-wide from `~/.graph-powers/config.json` needs the same
+`machineWide: true` acknowledgement the other two need.
+
+Two things it deliberately does not do. It never answers for `Bash`: one owner per decision, and
+the destructive floor and package-manager rules live in the classifier that reads the command line.
+And it never reaches a call a `PreToolUse` hook already denied — `protect_files`, `graph_guardrails`
+and the three git gates run first and short-circuit, so the floors are unchanged.
+
+### Fixed — every background shell poll asked for confirmation
+
+`hooks.json` matches the Bash lane with the string `Bash`, and the harness applies a matcher as a
+regex by substring. `BashOutput` and `KillBash` match it. Their payloads carry a shell id and no
+command line, so `smart_bash_approver` read an empty command and took the branch that asks —
+"Hook PreToolUse:Bash requires confirmation for this command. [plugin:graph-powers]", once per poll
+of a background shell, naming a command that was never in the payload. The branch existed to keep
+an *unclassified* command from falling through to allow; an absent one is a different case.
+
+A payload with no command line now produces no verdict at all. Nothing is granted that the harness
+would not have granted on its own — silence leaves the normal approval flow in charge — and a real
+command is still classified exactly as before.
+
 ## 1.8.2 — Codex plugin installs now carry their hooks
 
 The Codex marketplace installed Graph Powers skills and agents but showed no Graph Powers entries

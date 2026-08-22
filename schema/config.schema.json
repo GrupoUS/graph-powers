@@ -567,7 +567,7 @@
     },
     "autonomy": {
       "type": "object",
-      "description": "How much the agent does without stopping to ask. This is the field that decides whether a session feels like work or like clicking Approve. Read by smart_bash_approver and the three git gates, and used by the installer to write a matching permissions allowlist. Also readable from ~/.graph-powers/config.json. A user-scope policy may always tighten; loosening routine Bash policy machine-wide requires machineWide=true, and never carries git auto or destructiveFloor=false across repositories. A project that declares its own autonomy block overrides the user's.",
+      "description": "How much the agent does without stopping to ask. This is the field that decides whether a session feels like work or like clicking Approve. Read by smart_bash_approver, tool_approver and the three git gates, and used by the installer to write a matching permissions allowlist. Also readable from ~/.graph-powers/config.json. A user-scope policy may always tighten; loosening routine Bash policy machine-wide requires machineWide=true, and never carries git auto or destructiveFloor=false across repositories. A project that declares its own autonomy block overrides the user's.",
       "properties": {
         "machineWide": {
           "type": "boolean",
@@ -598,6 +598,14 @@
             "allow"
           ],
           "description": "Deleting build output, caches, __pycache__, logs. Defaults to ask under guarded and allow under autonomous."
+        },
+        "toolDefault": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "allow"
+          ],
+          "description": "Every tool that is not Bash: subagent spawns, MCP calls, fetches, workflows, file tools. Defaults to ask under guarded and allow under autonomous. bashDefault only ever answered for shell commands, so a project on autonomous still stopped on tool calls git undoes for free; this is that same decision for the rest of the session. Read by tool_approver at PermissionRequest, which never answers for Bash and never reaches a call the PreToolUse floors already denied."
         },
         "git": {
           "type": "object",

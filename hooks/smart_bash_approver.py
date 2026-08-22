@@ -765,7 +765,13 @@ def main() -> None:
     )
 
     if not command:
-        _ask(event=event, codex_turn=codex_turn)
+        # No opinion, not an approval request. The `Bash` matcher is a regex the harness applies by
+        # substring, so this hook is also handed `BashOutput` and `KillBash` — payloads that carry a
+        # shell id and no command line. Asking about them produced a confirmation prompt per poll of
+        # a background shell, attributed to this plugin and citing a command that was never there:
+        # "Hook PreToolUse:Bash requires confirmation for this command." Silence is the fail-open
+        # answer for a payload this classifier cannot read; the normal approval flow still owns it,
+        # and nothing is granted here that the harness would not have granted on its own.
         return
 
     policy = gp.autonomy(gp.load(payload=data))
