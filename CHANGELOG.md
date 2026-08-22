@@ -1,5 +1,73 @@
 # Changelog
 
+## 1.9.0 — Database verification is a gate, and apply is not
+
+`/verify` reports a **Database** row when the `schema` surface moved: `PASS` / `DRIFT` /
+`UNREACHABLE` / `NOT DECLARED` / `SKIPPED`. The command is `${database.commands.status}` from
+`.graph-powers/config.json`, never an ORM the harness guessed. Exit code alone does not name
+drift — common status tools exit 1 for a down database too — so classification is by output
+class (skill **Schema state**). `DRIFT` prints `${database.commands.apply}` and a rollback line
+and returns `NEEDS-WORK`. `/verify` never applies, under either `applyPolicy` value.
+
+Apply is `/implement` § 7.5: default `applyPolicy: never` prints and stops; `optIn` runs apply
+only after explicit current-turn approval, then re-runs status and refuses to claim success
+unless that re-run is `PASS`.
+
+The public contract is a new optional `database` block (`engine`, `commands.status|generate|apply`,
+`applyPolicy`). Setup fills it when the project has a `schemaRoot`; a static site still omits it.
+
+## 1.8.6 — Grok CLI is the fourth harness, and config.toml is the one that asks
+
+Grok Build reads Claude marketplaces, plugins and `hooks/hooks.json` already. That is not enough:
+the stdin payload is camelCase (`toolName`, `toolInput`) and the shell tool is
+`run_terminal_command`, so a gate that only looked at `tool_input.command` would fail open.
+
+`_config.py` now canonicalises Grok names onto the Claude ones the gates already branch on, and
+`emit_pretool_deny` writes both Grok's top-level `{ "decision": "deny" }` and Claude's
+`hookSpecificOutput`. There is no `hooks-grok.json`. `grok/install.mjs` emits `.grok-plugin/`
+and merges `~/.grok/config.toml` additively: `[ui] permission_mode = "always-approve"` (user
+file only), web_fetch, subagents, marketplace source, plugin enablement. It does not TOML-deny
+git commit. `--target grok|all` joins the installer; `both` stays Claude + Codex. Auto-update
+asks `grok plugin update` when the CLI is on PATH.
+
+## 1.8.5 — Cursor is the third harness, and the IDE file is the one that asks
+
+Cursor's confirmation flood was never `cli-config.json`. The Agent Run Mode lives in
+`~/.cursor/permissions.json` (`approvalMode: unrestricted` is Settings → Agents → Run Everything).
+The CLI file can already be unrestricted while every Shell call still waits on Auto-review.
+
+Cursor is now generated from the Claude Code artefacts, the same way Codex is. `cursor/install.mjs`
+translates `hooks/hooks.json` into `hooks/hooks-cursor.json` and `.cursor-plugin/plugin.json`.
+PermissionRequest and Notification are skipped — Cursor has no event for them — and `preToolUse`
+still runs the git gates and `smart_bash_approver`. The installer writes the IDE permission file
+additively, sets `autoAcceptWebSearch` on the CLI file, and does not remove either on `--uninstall`.
+`--target cursor|all` joins `claude|codex|both`. `both` stays Claude + Codex.
+
+## 1.8.4 — Installer writes Bash autonomy instead of documenting it
+
+`level: autonomous` with `bashDefault: ask` is a contradiction the schema allows and the hook
+honours: the per-field override wins, and every unclassified command becomes
+`Hook PreToolUse:Bash requires confirmation for this command. [plugin:graph-powers]`. The
+installer wrote only `level` and `destructiveFloor`, left `bashDefault` implied, never created
+`~/.graph-powers/config.json`, and never repaired a project file that already had the
+contradiction. The playbook documented the user file as something to know, not something to
+write. A person who installed the plugin and still clicked Yes on every `python3` heredoc was
+running the default.
+
+The installer now, on `--autonomy autonomous` (the default):
+
+- writes `~/.graph-powers/config.json` if it is missing (`machineWide`, `bashDefault: allow`,
+  git still `ask`)
+- writes `bashDefault` / `cleanup` / `toolDefault` explicitly in a new project config
+- repairs those three fields from `ask` → `allow` in an existing project config whose `level`
+  is already `autonomous`, without touching git, the destructive floor, or anything else
+- appends `"Bash"` to the Claude Code allowlist, and sets `permissions.defaultMode` to
+  `bypassPermissions` when it was missing / `auto` / `default`, plus
+  `skipAutoPermissionPrompt: true`
+
+`--autonomy guarded` writes none of that. `AGENT_SETUP.md` Step 3 is the same procedure for a
+session that did not run the installer, with a probe that has to print `allow` before Step 4.
+
 ## 1.8.3 — Autonomy stopped at the shell prompt
 
 `autonomy.bashDefault` is described as the field that decides whether a session feels like work or

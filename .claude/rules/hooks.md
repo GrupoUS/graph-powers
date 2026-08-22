@@ -2,7 +2,11 @@
 paths:
   - "hooks/**"
   - ".claude-plugin/plugin.json"
+  - ".cursor-plugin/plugin.json"
+  - ".grok-plugin/plugin.json"
   - "codex/**"
+  - "cursor/**"
+  - "grok/**"
 ---
 
 # The hook contract
@@ -26,12 +30,19 @@ config. No hook knows a project's name.
 The opt-in prefix is per project on purpose: with the same key in two repositories, an approval
 given in one starts counting in the other.
 
-## Both harnesses, same bytes
+## Every harness, same bytes
 
 Claude Code exports `CLAUDE_PROJECT_DIR`; Codex CLI does not, and passes `cwd` in the payload.
-`_config.project_dir()` resolves payload `cwd` → env var → git root → cwd, and every hook that reads
-the payload passes it in. A guardrail that resolves the wrong project denies and permits against
-somebody else's rules, which is worse than not running.
+Cursor is the same shape as Codex for project resolution. Grok sets `GROK_WORKSPACE_ROOT` and
+sends camelCase `toolName` / `toolInput` / `workspaceRoot`. `_config.project_dir()` resolves payload
+`cwd` / `workspaceRoot` → env var → git root → cwd, and every hook that reads the payload passes
+it in through `_config` helpers (`bash_command`, `canonical_tool`, `file_path_from_payload`).
+A guardrail that resolves the wrong project denies and permits against somebody else's rules, which
+is worse than not running.
+
+Cursor's native hook list is generated (`cursor/install.mjs`). Do not edit `hooks/hooks-cursor.json`
+by hand. Grok reads the same `hooks/hooks.json` Claude Code does; do not invent `hooks-grok.json`.
+`.grok-plugin/` is generated (`grok/install.mjs --emit-only`).
 
 ## Every prohibition has an escape
 

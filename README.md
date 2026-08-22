@@ -1,9 +1,9 @@
 # Graph Powers
 
-A shared harness for [Claude Code](https://claude.com/claude-code) and
-[Codex CLI](https://developers.openai.com/codex): agents, skills, commands and guardrails that work
-in any repository. Whatever changes from project to project leaves the code and enters one config
-file.
+A shared harness for [Claude Code](https://claude.com/claude-code),
+[Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com) and
+[Grok CLI](https://docs.x.ai/build): agents, skills, commands and guardrails that work in any
+repository. Whatever changes from project to project leaves the code and enters one config file.
 
 **Claude Code** — two lines in any session:
 
@@ -18,6 +18,26 @@ file.
 codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
+
+**Cursor** — install the plugin from the marketplace, then once per machine write the IDE Run Mode
+(this is the file Auto-review actually reads; `cli-config.json` is only `cursor-agent`):
+
+```bash
+node <clone>/bin/graph-powers.mjs --target cursor
+```
+
+Reload the window. Git commit and push still ask. `rm -rf /` still denies.
+
+**Grok CLI** — install the plugin, then once per machine write the user config (project
+`.grok/config.toml` cannot set `permission_mode`):
+
+```bash
+grok plugin marketplace add GrupoUS/graph-powers
+grok plugin install graph-powers --trust
+node <clone>/bin/graph-powers.mjs --target grok
+```
+
+Restart the Grok session. Git commit and push still ask. `rm -rf /` still denies.
 
 Then one prompt, pasted into an agent session opened in your project:
 
@@ -132,25 +152,25 @@ cost you are choosing.
 
 ---
 
-## Two harnesses, one source
+## Four harnesses, one source
 
-Codex CLI reads different files from Claude Code, but the shapes line up almost exactly. The
-installer generates the Codex side from the artefacts that already exist — nothing is maintained
-twice.
+Codex CLI, Cursor and Grok read different files from Claude Code, but the shapes line up. The
+installer generates those sides from the artefacts that already exist — nothing is maintained twice.
 
-| Surface | Claude Code | Codex CLI | Shared? |
-|---|---|---|---|
-| Guardrails | `hooks/hooks.json` | `hooks/hooks.json` | **The same declaration and Python files.** Native plugins resolve `${CLAUDE_PLUGIN_ROOT}`; the clone installer resolves it while merging `.codex/hooks.json` |
-| Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | **The same files.** Identical frontmatter |
-| Subagents | `agents/*.md` | `.codex/agents/*.toml` | Generated from the same source |
-| Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | Generated from the same source |
-| Instructions | `CLAUDE.md` | `AGENTS.md` | A delimited, idempotent block |
+| Surface | Claude Code | Codex CLI | Cursor | Grok CLI |
+|---|---|---|---|---|
+| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) |
+| Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` |
+| Subagents | `agents/*.md` | `.codex/agents/*.toml` | The same markdown files | The same markdown files |
+| Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files |
+| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) |
 
 The Codex hooks file is **merged, never overwritten**. Other tools write it too — impeccable's
 installer is one — and clobbering it would silently disable someone else's guardrails, which is this
 project's own failure mode pointed the other way. Every entry added is recorded, so
 `node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
-standing.
+standing. Cursor's permission file is operator posture and is not removed. Grok's `config.toml`
+is operator posture and is not removed.
 
 ---
 
@@ -203,7 +223,7 @@ Each skill states what it needs; none is required for the guardrails.
 
 ### Requirements
 
-- [Claude Code](https://claude.com/claude-code) or [Codex CLI](https://developers.openai.com/codex) — or both
+- [Claude Code](https://claude.com/claude-code), [Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com), or [Grok CLI](https://docs.x.ai/build) — any one of them, or all four
 - **Python 3.10 or newer** — the guardrails are standard library only, with no dependencies.
   The installer checks for it and says so if it is missing
 - Node 18+ (or Bun) — only to run the installer; nothing here has dependencies to fetch
@@ -221,7 +241,7 @@ registry in between would add an account, a token and a release for every fix, a
 ```
 
 Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
-unless you also use Codex.
+unless you also use Codex or Cursor.
 
 ### Codex CLI — native plugin (recommended)
 
@@ -234,6 +254,32 @@ Restart Codex, open `/hooks`, and approve the thirteen Graph Powers registration
 the Bash approver is registered for two events). Installation makes the hooks discoverable;
 approval makes them executable. Then run the setup playbook in the project so
 its config, rules and authorities are established.
+
+### Cursor
+
+Cursor marketplace installs the same repository through `.cursor-plugin/plugin.json`. That is the
+plugin. The confirmation flood is not: the IDE reads `~/.cursor/permissions.json`, and
+`~/.cursor/cli-config.json` only covers `cursor-agent`. After installing the plugin, run the clone
+installer once (or the setup playbook Step 9g) so `approvalMode` is `unrestricted`. Reload the
+window. If a team dashboard still forces Auto-review, set Settings → Agents → Approvals &
+Execution → **Run Everything**. Git commit/push still ask; `rm -rf /` still denies.
+
+```bash
+node ~/.graph-powers/src/bin/graph-powers.mjs --target cursor
+```
+
+### Grok CLI
+
+Grok marketplace installs the same repository through `.grok-plugin/plugin.json` and reads
+`hooks/hooks.json` directly. That is the plugin. The confirmation flood is
+`~/.grok/config.toml` `[ui] permission_mode = "always-approve"`. A project `.grok/config.toml`
+cannot set that key. After installing the plugin, run the clone installer once (or the setup
+playbook Step 9h). Restart the session. Do not write a user `~/.grok/hooks.json` that always
+allows. Git commit/push still ask; `rm -rf /` still denies.
+
+```bash
+node ~/.graph-powers/src/bin/graph-powers.mjs --target grok
+```
 
 ### Clone installer — fallback and project-scoped installs
 
@@ -252,7 +298,7 @@ wherever it actually ran from so updates find it again.
 
 | Option | What it does |
 |---|---|
-| `--target claude\|codex\|both` | Which harness to wire. Default: whatever it detects |
+| `--target claude\|codex\|cursor\|grok\|both\|all` | Which harness to wire. Default: whatever it detects. `both` is Claude + Codex; `all` is every harness |
 | `--scope user` | Writes to `~/.claude/settings.json`. **Default** — one install serves every project on the machine |
 | `--scope project` | Writes to `.claude/settings.json`, versioned. Use when the team must get the harness by cloning the repository |
 | `--scope local` | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team |
@@ -261,7 +307,7 @@ wherever it actually ran from so updates find it again.
 | `--prefix NAME` | Opt-in key prefix (with `--config`). Default: the directory name |
 | `--source <org/repo\|path>` | Where the marketplace comes from. Useful for a fork or a local clone |
 | `--update` | `git pull --ff-only` on the clone, then reinstall from it |
-| `--uninstall` | Removes exactly the Codex artefacts a previous run recorded |
+| `--uninstall` | Removes exactly the Codex artefacts a previous run recorded. Cursor permissions and Grok config.toml stay |
 
 ### Staying current
 
@@ -408,15 +454,23 @@ is still read, for projects that only ever run Claude Code.
 
 A harness that asks permission to run `git status` teaches people to approve without reading, and
 that habit is more dangerous than any command it was guarding. So the installer writes a permission
-allowlist covering everything the harness itself runs, and the guardrails take their default from
-one config field.
+allowlist covering everything the harness itself runs, writes `~/.graph-powers/config.json` if it
+is missing, repairs a project config whose `level: autonomous` is defeated by `bashDefault: ask`,
+and the guardrails take their default from one config field.
 
 ```json
 "autonomy": {
   "level": "autonomous",
+  "bashDefault": "allow",
+  "cleanup": "allow",
+  "toolDefault": "allow",
   "destructiveFloor": true
 }
 ```
+
+Do not write `"bashDefault": "ask"` under `"level": "autonomous"`. The per-field override wins,
+and that combination is `Hook PreToolUse:Bash requires confirmation for this command`. To keep
+asking, use `"level": "guarded"` (or `--autonomy guarded`).
 
 | Level | An unrecognised command | Cleanup (`rm -rf build`, caches) | Commit / push |
 |---|---|---|---|
@@ -429,7 +483,8 @@ Override any single action without leaving the level:
 "autonomy": { "level": "autonomous", "git": { "push": "ask" } }
 ```
 
-To make routine Bash autonomy a machine-wide operator choice, say so explicitly in the user file:
+The installer writes that user file if it is missing (git stays at `ask` there). To write it by
+hand:
 
 ```jsonc
 // ~/.graph-powers/config.json
@@ -479,8 +534,10 @@ manager family is still denied.
 ## The guardrails
 
 Thirteen hook scripts, wired through fourteen registrations in
-[`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code and Codex when the plugin is
-installed. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
+[`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code, Codex and Grok when the
+plugin is installed. Cursor loads the generated [`hooks/hooks-cursor.json`](hooks/hooks-cursor.json)
+(eleven registrations: PermissionRequest and Notification do not exist there). Grok uses the
+Claude file; `_config.py` adapts camelCase payloads and Grok tool names so the same gates run. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
 `PermissionRequest` to approve an escalation that the same classifier already allowed;
 `tool_approver` answers the same event for everything that is **not** a shell command. A
 guarded `ask` is left to the normal approval flow; an autonomous allow never reaches the user.

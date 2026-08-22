@@ -33,9 +33,12 @@ be made in two files of this repository, the repository is reproducing the probl
 6. **The node that judges runs on a strong model, declared.** Explicit `model:`, never inherited. A
    cheap evaluator produces a false positive other nodes "correct", and the origin of the error is
    lost.
-7. **Both harnesses, one source.** Anything Codex needs is *generated* from the artefacts that
-   already exist for Claude Code (`codex/install.mjs`). A second hand-maintained list is the
-   divergence this repository exists to end.
+7. **Four harnesses, one source.** Anything Codex, Cursor or Grok needs is *generated* from the
+   artefacts that already exist for Claude Code (`codex/install.mjs`, `cursor/install.mjs`,
+   `grok/install.mjs`). A second hand-maintained list is the divergence this repository exists
+   to end. Cursor has no PermissionRequest or Notification; those events are skipped, not
+   rewritten. Grok reads `hooks/hooks.json` unchanged — do not invent `hooks-grok.json`. Payload
+   shape differences (camelCase, `run_terminal_command`) are adapted in `_config.py`.
 
 8. **It runs on Linux, macOS and Windows.** The Bash tool maps to whatever shell the user has —
    PowerShell and cmd.exe included — so a POSIX-only construct in a command an agent executes is a

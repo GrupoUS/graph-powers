@@ -125,17 +125,7 @@ REASON_MAIN = (
 
 
 def deny(reason: str) -> None:
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        },
-        sys.stdout,
-    )
-    print()  # the hook payload must be newline-terminated
+    gp.emit_pretool_deny(reason)
 
 
 def current_branch(cwd: str | None) -> str | None:
@@ -172,11 +162,8 @@ def main() -> int:
     if not isinstance(payload, dict):
         return 0
     payload_dict = cast("dict[str, object]", payload)
-    tool_input = payload_dict.get("tool_input")
-    if not isinstance(tool_input, dict):
-        return 0
-    command = cast("dict[str, object]", tool_input).get("command")
-    if not isinstance(command, str) or not command.strip():
+    command = gp.bash_command(payload_dict)
+    if not command.strip():
         return 0
 
     if SAFE_RE.search(command):

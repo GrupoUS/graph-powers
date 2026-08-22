@@ -61,12 +61,27 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
 
     claude: CLAUDE_PROJECT_DIR in the environment, nothing in the payload.
     codex:  no CLAUDE_PROJECT_DIR at all, `cwd` in the payload — the Codex contract.
+    grok:   GROK_WORKSPACE_ROOT + camelCase toolName/toolInput — the Grok contract.
     """
     env_full = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
                 **(env or {})}
     body = dict(payload)
     if harness == "claude":
         env_full["CLAUDE_PROJECT_DIR"] = str(proj)
+    elif harness == "grok":
+        env_full.pop("CLAUDE_PROJECT_DIR", None)
+        env_full["GROK_WORKSPACE_ROOT"] = str(proj)
+        env_full["GROK_HOOK_EVENT"] = "pre_tool_use"
+        body["cwd"] = str(proj)
+        body["workspaceRoot"] = str(proj)
+        if "tool_name" in body and "toolName" not in body:
+            body["toolName"] = body.pop("tool_name")
+        if "tool_input" in body and "toolInput" not in body:
+            body["toolInput"] = body.pop("tool_input")
+        if "hook_event_name" in body and "hookEventName" not in body:
+            body["hookEventName"] = body.pop("hook_event_name")
+        if "session_id" in body and "sessionId" not in body:
+            body["sessionId"] = body.pop("session_id")
     else:
         env_full.pop("CLAUDE_PROJECT_DIR", None)
         body["cwd"] = str(proj)
@@ -100,6 +115,16 @@ def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
     payload = dict(payload)
     if harness == "claude":
         env_full["CLAUDE_PROJECT_DIR"] = str(proj)
+    elif harness == "grok":
+        env_full.pop("CLAUDE_PROJECT_DIR", None)
+        env_full["GROK_WORKSPACE_ROOT"] = str(proj)
+        env_full["GROK_HOOK_EVENT"] = "pre_tool_use"
+        payload["cwd"] = str(proj)
+        payload["workspaceRoot"] = str(proj)
+        if "tool_name" in payload and "toolName" not in payload:
+            payload["toolName"] = payload.pop("tool_name")
+        if "tool_input" in payload and "toolInput" not in payload:
+            payload["toolInput"] = payload.pop("tool_input")
     else:
         env_full.pop("CLAUDE_PROJECT_DIR", None)
         payload["cwd"] = str(proj)
@@ -147,6 +172,19 @@ def main() -> int:
           call("git_commit_gate", key_b, a, harness="codex")[0], "deny")
     check("B denies A's key (codex)", call("git_commit_gate", key_a, b, harness="codex")[0], "deny")
 
+    print("### Same bytes under Grok — camelCase payload and GROK_WORKSPACE_ROOT")
+    check("A denies (grok)", call("git_commit_gate", commit, a, harness="grok")[0], "deny")
+    check("A accepts its own key (grok)", call("git_commit_gate", key_a, a, harness="grok")[0], None)
+    check("B's key still does not count in A (grok)",
+          call("git_commit_gate", key_b, a, harness="grok")[0], "deny")
+    check("B denies A's key (grok)", call("git_commit_gate", key_a, b, harness="grok")[0], "deny")
+    grok_raw, _ = call_raw("git_commit_gate", commit, a, harness="grok")
+    grok_body = json.loads(grok_raw) if grok_raw.strip().startswith("{") else {}
+    check("Grok deny carries a top-level decision", grok_body.get("decision"), "deny")
+    native = {"toolName": "run_terminal_command", "toolInput": {"command": GIT_WRITE}}
+    check("Grok run_terminal_command still denies commit",
+          call("git_commit_gate", native, a, harness="grok")[0], "deny")
+
     print("### Protected branches — 'producao' exists only in project B")
     prod = {"tool_name": "Bash", "tool_input": {"command": "git switch producao"}}
     check("A allows it (not protected there)", call("git_branch_gate", prod, a)[0], None)
@@ -191,6 +229,8 @@ def main() -> int:
           call("smart_bash_approver", cleanup, auton)[0], "allow")
     check("the destructive floor holds even when autonomous",
           call("smart_bash_approver", nuke, auton)[0], "deny")
+    check("the destructive floor holds on Grok too",
+          call("smart_bash_approver", nuke, auton, harness="grok")[0], "deny")
 
     print("### Codex PermissionRequest — safe escalations do not reach the user")
     codex_unknown = {**unknown, "hook_event_name": "PermissionRequest"}
@@ -215,7 +255,7 @@ def main() -> int:
         check(f"{tool} gets no verdict at all, not an ask",
               call("smart_bash_approver", {"tool_name": tool, "tool_input": payload}, auton)[0],
               None)
-        check(f"...and the same under guarded",
+        check("...and the same under guarded",
               call("smart_bash_approver", {"tool_name": tool, "tool_input": payload}, a)[0], None)
     check("an empty command line is silence too, at PermissionRequest",
           call("smart_bash_approver",
@@ -227,14 +267,14 @@ def main() -> int:
     print("### tool_approver — the approval prompt for everything that is not Bash")
     # The gap this closes: `bashDefault` only ever answered for shell commands, so a project on
     # `autonomous` still stopped on a subagent spawn, an MCP call or a fetch.
-    spawn = {"tool_name": "Agent", "tool_input": {"subagent_type": "explorer"},
-             "hook_event_name": "PermissionRequest"}
+    spawn_request = {"tool_name": "Agent", "tool_input": {"subagent_type": "explorer"},
+                     "hook_event_name": "PermissionRequest"}
     mcp = {"tool_name": "mcp__tavily__tavily_search", "tool_input": {"query": "x"},
            "hook_event_name": "PermissionRequest"}
     check("guarded leaves a spawn to the normal approval flow",
-          call("tool_approver", spawn, a)[0], None)
+          call("tool_approver", spawn_request, a)[0], None)
     check("autonomous approves a spawn without a prompt",
-          call("tool_approver", spawn, auton)[0], "allow")
+          call("tool_approver", spawn_request, auton)[0], "allow")
     check("...and an MCP call the same way",
           call("tool_approver", mcp, auton)[0], "allow")
     # One owner per decision. Answering Bash here would produce a second, looser verdict from a
@@ -242,7 +282,7 @@ def main() -> int:
     check("it never answers for Bash, even when autonomous",
           call("tool_approver", {**nuke, "hook_event_name": "PermissionRequest"}, auton)[0], None)
     check("a per-field tightening is honoured under autonomous",
-          call("tool_approver", spawn,
+          call("tool_approver", spawn_request,
                mkproj({"git": {"optInPrefix": "TOOLASK"},
                        "autonomy": {"level": "autonomous", "toolDefault": "ask"}}))[0], None)
     check("a payload with no tool name is not an approval",
@@ -250,7 +290,7 @@ def main() -> int:
     check("...and neither is an empty payload",
           call_raw("tool_approver", {}, auton)[0].strip(), "")
     check("Codex resolves the project from the payload here too",
-          call("tool_approver", spawn, auton, harness="codex")[0], "allow")
+          call("tool_approver", spawn_request, auton, harness="codex")[0], "allow")
 
     print("### Package managers — the plugin does not pick one for the project")
     pm_free = mkproj({"git": {"optInPrefix": "PMFREE"}})
@@ -937,6 +977,9 @@ def main() -> int:
     check("generic default denies .env", call("protect_files", env_file, guarded)[0], "deny")
     check("declared path denied", call("protect_files", declared, guarded)[0], "deny")
     check("an ordinary file is not denied", call("protect_files", ordinary, guarded)[0], None)
+    grok_env = {"toolName": "search_replace", "toolInput": {"path": str(guarded / ".env")}}
+    check("Grok search_replace+path still denies .env",
+          call("protect_files", grok_env, guarded, harness="grok")[0], "deny")
 
     # A symlink is a path that names one file and writes another, and every list here matched the
     # string. `ln -s .env notes.md` then `Write notes.md` matched nothing and landed in `.env`.

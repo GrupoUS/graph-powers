@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "python3 \"hooks/graph_guardrails.py\"",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/git_commit_gate.py\"",
+        "matcher": "Shell",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/git_push_gate.py\"",
+        "matcher": "Shell",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/git_branch_gate.py\"",
+        "matcher": "Shell",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/smart_bash_approver.py\"",
+        "matcher": "Shell",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/commit_audit_gate.py\"",
+        "matcher": "Shell",
+        "timeout": 60
+      },
+      {
+        "command": "python3 \"hooks/protect_files.py\"",
+        "matcher": "Write|StrReplace|EditNotebook",
+        "timeout": 10
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "python3 \"hooks/auto_update.py\"",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/branch_session_notice.py\"",
+        "timeout": 10
+      },
+      {
+        "command": "python3 \"hooks/session_context.py\"",
+        "timeout": 10
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "python3 \"hooks/ultracite.py\"",
+        "matcher": "Write|StrReplace",
+        "timeout": 30
+      }
+    ]
+  }
+}

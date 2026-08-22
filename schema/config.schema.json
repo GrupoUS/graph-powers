@@ -226,6 +226,62 @@
         }
       }
     },
+    "database": {
+      "type": "object",
+      "description": "Optional. Schema-state commands and the irreversible apply edge. Absent means the project has no database, or has not declared one — /verify reports NOT DECLARED when the schema surface moved, never PASS. The harness never branches on engine.",
+      "properties": {
+        "engine": {
+          "type": "string",
+          "description": "Reporting only. The harness never branches on this value.",
+          "examples": [
+            "postgres",
+            "mysql",
+            "sqlite",
+            "sqlserver",
+            "mongodb"
+          ]
+        },
+        "commands": {
+          "type": "object",
+          "description": "The literal commands. status is read-only; generate writes the migration artefact in the repo; apply is the irreversible edge and /verify never runs it.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Read-only. Is the declared schema applied? Exit 0 means applied; non-zero is classified by output class, never by exit code alone.",
+              "examples": [
+                "uv run alembic current --check-heads",
+                "npx prisma migrate status"
+              ]
+            },
+            "generate": {
+              "type": "string",
+              "description": "Writes the migration artefact in the repository. Does not touch the database.",
+              "examples": [
+                "uv run alembic revision --autogenerate",
+                "npx prisma migrate dev --create-only"
+              ]
+            },
+            "apply": {
+              "type": "string",
+              "description": "The irreversible edge. /verify never runs this. /implement runs it only when applyPolicy is optIn and the user approved this turn, then re-runs status.",
+              "examples": [
+                "uv run alembic upgrade head",
+                "npx prisma migrate deploy"
+              ]
+            }
+          }
+        },
+        "applyPolicy": {
+          "type": "string",
+          "enum": [
+            "never",
+            "optIn"
+          ],
+          "default": "never",
+          "description": "never: print the apply command and stop. optIn: /implement may run apply after explicit current-turn approval. /verify never applies under either value."
+        }
+      }
+    },
     "codex": {
       "type": "object",
       "description": "Codex CLI specifics. Only read when generating .codex/ artefacts; ignored under Claude Code.",
@@ -682,6 +738,11 @@
           "type": "boolean",
           "default": true,
           "description": "Regenerate the Codex artefacts when the registry version moved. Skipped when it did not: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
+        },
+        "grok": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update the Grok CLI plugin (grok plugin marketplace update, then grok plugin update). The new version applies at the next session start."
         }
       },
       "additionalProperties": false

@@ -47,6 +47,11 @@ that project, and nothing else does.
 | Codex clone fallback: skills | `~/.agents/skills/` |
 | Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
 | Clone fallback machine-wide instruction block | `~/.codex/AGENTS.md` |
+| Cursor plugin: skills, agents, commands, native hooks | `.cursor-plugin/` in the marketplace cache |
+| Cursor IDE Run Mode (this is what stops the confirmation flood) | `~/.cursor/permissions.json` |
+| Cursor CLI (`cursor-agent`) | `~/.cursor/cli-config.json` |
+| Grok plugin: skills, agents, commands, Claude-shaped hooks | `.grok-plugin/` plus `hooks/hooks.json` |
+| Grok CLI approval (this is what stops the confirmation flood) | `~/.grok/config.toml` (`[ui] permission_mode`) |
 
 | Stays LOCAL — belongs to this repository and nothing else | Where |
 |---|---|
@@ -372,6 +377,8 @@ Package names and the binary each one exposes were read from the registries, not
 | `gitleaks` | OPTIONAL | `/perf security-baseline` secret scan | github.com/gitleaks/gitleaks |
 | `psql` | OPTIONAL | database evidence in `/debug auth-db` and `/debug backend` | your OS package manager |
 | `codex` | OPTIONAL | the Codex half, and `codex:codex-rescue` escalation | `npm install -g @openai/codex` |
+| `cursor` | OPTIONAL | the Cursor half; the IDE permission file is what stops Auto-review | cursor.com |
+| `grok` | OPTIONAL | the Grok CLI half; `~/.grok/config.toml` is what stops the confirmation flood | docs.x.ai/build |
 | `code-review-graph` | OPTIONAL | `/plan` Step 0 structural search | `python3 -m pip install code-review-graph` |
 | `timeout` | OPTIONAL, and unavailable on Windows | `second-opinion` wraps its headless `claude` call in it | GNU coreutils: present on Linux; macOS needs `brew install coreutils` and the binary is `gtimeout`. Windows has an unrelated `timeout.exe` that pauses — there, drop the wrapper and watch the run yourself |
 
@@ -456,6 +463,8 @@ for name, level, who in (
     ("gitleaks",      "OPTIONAL",    "/perf security-baseline"),
     ("psql",          "OPTIONAL",    "database evidence in /debug auth-db"),
     ("codex",         "OPTIONAL",    "the Codex half and codex:codex-rescue"),
+    ("cursor",        "OPTIONAL",    "the Cursor IDE half"),
+    ("grok",          "OPTIONAL",    "the Grok CLI half"),
 ):
     exe = shutil.which(name)
     row(name, first(run(exe, "--version")) if exe else "MISSING", level, who)
@@ -611,6 +620,118 @@ the operator has not reviewed. Even with it, `git: auto` and `destructiveFloor: 
 from user scope. Undo is deleting the file. Prove it is being read with the snippet at the end of
 this step — from a repository that has no config of its own,
 `gp.autonomy()['bashDefault']` should print `allow`.
+
+### Routine Bash must not ask under `autonomous`
+
+This is the step that stops
+`Hook PreToolUse:Bash requires confirmation for this command. [plugin:graph-powers]`.
+The hook `smart_bash_approver` returns `permissionDecision: ask` whenever
+`autonomy.bashDefault` is `ask`. A project that wrote `"level": "autonomous"` and then
+`"bashDefault": "ask"` (or `"cleanup": "ask"`, `"toolDefault": "ask"`) has defeated the
+level: the per-field override wins, and every unclassified command — a Python heredoc, a
+pipeline, a background `BashOutput` poll — becomes a Yes/No. Cursor loads the same plugin
+hooks, so the same file is what stops the prompt there.
+
+**Do this without pausing.** It is reversible (set the field back to `ask`) and it is the
+installer default.
+
+1. **Write the user file if it is missing.** `~/.graph-powers/config.json` is the operator's
+   posture for every repository that does not declare its own `autonomy` block. The installer
+   writes it; if you are running this playbook without the installer, write the block in the
+   previous section. Never overwrite a file that already exists.
+2. **When writing a new project config**, write the fields explicitly, matching the level.
+   Do not leave them implied:
+
+```json
+"autonomy": {
+  "level": "autonomous",
+  "bashDefault": "allow",
+  "cleanup": "allow",
+  "toolDefault": "allow",
+  "destructiveFloor": true
+}
+```
+
+   Pin git back if the project wants commits and pushes to keep asking:
+
+```json
+"git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" }
+```
+
+3. **When a project config already exists** at `.graph-powers/config.json` or
+   `.claude/config.json`: if `autonomy.level` is `"autonomous"` and any of
+   `bashDefault` / `cleanup` / `toolDefault` is `"ask"`, set that field to `"allow"`.
+   Show the diff. Do not touch `git`, `destructiveFloor`, `allowPackageManagers`, or
+   any other key. A `guarded` project is left alone. A file with no `autonomy` block is
+   left alone — inventing one would loosen a repository that never asked.
+4. **Claude Code permission mode.** Appenditively, in `~/.claude/settings.json` (user
+   install) or the project's settings file (project/local install): if
+   `permissions.defaultMode` is missing, `"auto"`, or `"default"`, set it to
+   `"bypassPermissions"`, and set `"skipAutoPermissionPrompt": true` if it is not
+   already true. The hook remains the gate — `deny` still blocks, the destructive
+   floor still holds. Do not replace the `permissions.allow` array; append `"Bash"`
+   if the level is autonomous and that entry is missing.
+5. **Cursor IDE Run Mode.** `~/.cursor/cli-config.json` is `cursor-agent`. The confirmation
+   flood lives in the IDE, which reads `~/.cursor/permissions.json`. Write, additively:
+   `"approvalMode": "unrestricted"`, `"mcpAllowlist"` including `"*:*"`, `"terminalAllowlist"`
+   including `"*"`. In `cli-config.json`, set `"approvalMode": "unrestricted"` and
+   `"autoAcceptWebSearch": true`, and append `Shell(*)`, `Write(*)`, `Read(*)`, `WebFetch(*)`,
+   `WebSearch`, `Mcp(*)` to `permissions.allow` if missing. Do **not** write a user
+   `~/.cursor/hooks.json` that always allows — that fights the plugin guardrails. The installer
+   does this on `--target cursor` / `--target all` / autodetect; if you are running the
+   playbook without it, write the file. If a team dashboard still forces Auto-review, the
+   person has to set Settings → Agents → Approvals & Execution → **Run Everything**.
+6. **Grok CLI approval.** Grok reads Claude plugins already; the confirmation flood lives in
+   `~/.grok/config.toml`, which is user config only — a project `.grok/config.toml` cannot set
+   `permission_mode`. Write, additively: `[ui] permission_mode = "always-approve"`,
+   `[features] web_fetch = true`, `[subagents] enabled = true`, enable the `graph-powers` plugin.
+   Do **not** write a user `~/.grok/hooks.json` that always allows, and do not TOML-deny
+   `git commit`. The installer does this on `--target grok` / `--target all` / autodetect.
+7. **Prove it**, from the project directory, and show the output:
+
+```bash
+python3 - <<'PROVE'
+import os, sys
+plugin = os.environ.get("PLUGIN")
+if not plugin:
+    sys.exit("PLUGIN is unset — set it from Step 0 before proving")
+sys.path.insert(0, os.path.join(plugin, "hooks"))
+import _config as gp
+from smart_bash_approver import _classify, command_segments, normalize_command
+policy = gp.autonomy(gp.load())
+print("config :", gp.config_path())
+print("level  :", policy["level"])
+print("bash   :", policy["bashDefault"])
+print("cleanup:", policy["cleanup"])
+print("tools  :", policy.get("toolDefault"))
+cmd = "python3 -c 'print(1)'"
+decisions = [_classify(s, policy) for s in command_segments(normalize_command(cmd))]
+print("probe  :", decisions)
+from pathlib import Path
+perm = Path.home() / ".cursor" / "permissions.json"
+if perm.exists():
+    import json
+    print("cursor :", json.loads(perm.read_text(encoding="utf-8")).get("approvalMode"))
+else:
+    print("cursor : (no permissions.json)")
+grok = Path.home() / ".grok" / "config.toml"
+if grok.exists():
+    mode = next((line.split("=", 1)[1].strip().strip('"') for line in grok.read_text(encoding="utf-8").splitlines()
+                 if line.strip().startswith("permission_mode")), "unset")
+    print("grok   :", mode)
+else:
+    print("grok   : (no config.toml)")
+PROVE
+```
+
+If `bash` is not `allow` under `autonomous`, the config is not being read or the repair
+did not land. Do not continue to Step 4 until it prints `allow`. If this machine has
+Cursor, `cursor` must print `unrestricted` — `cli-config.json` being unrestricted is not
+enough. If this machine has Grok, `grok` must print `always-approve`. Destructive commands must
+still deny (`rm -rf /` is the probe). Commit and push keep their own gates.
+
+To keep asking on every unclassified command, pass `--autonomy guarded` to the installer
+or set `"level": "guarded"`. Do not express that as `autonomous` plus `bashDefault: ask`.
 
 **Only declare a command whose tool is installed, and choose one owner for its version.**
 `tooling.commands.format` runs after every edit and `tooling.commands.lint` at every stop; the
@@ -1081,6 +1202,10 @@ it, so nothing it catches gets seen.
 merge field by field, show the diff, and keep every value the project already chose. Never
 overwrite a config — someone tuned it, and they will not remember which field.
 
+The one exception is the repair above: `level: autonomous` plus `bashDefault` / `cleanup` /
+`toolDefault`: `ask` is not a tuned value, it is the level defeating itself. Apply that repair,
+show the diff, leave everything else.
+
 **If it does not exist**, write one from what Step 2 found:
 
 ```json
@@ -1097,14 +1222,31 @@ overwrite a config — someone tuned it, and they will not remember which field.
     "testRunner": "<or null, deliberately>",
     "commands": { "typeCheck": "…", "lint": "…", "test": "…", "build": "…" }
   },
-  "paths": { "frontendRoot": "…", "backendRoot": "…", "schemaRoot": "…" }
+  "paths": { "frontendRoot": "…", "backendRoot": "…", "schemaRoot": "…" },
+  "database": {
+    "engine": "<reporting only — postgres, mysql, sqlite, …>",
+    "commands": {
+      "status": "<read-only: is the declared schema applied?>",
+      "generate": "<writes the migration artefact; does not touch the database>",
+      "apply": "<the irreversible edge — /verify never runs this>"
+    },
+    "applyPolicy": "never"
+  }
 }
 ```
 
-Set `autonomy` deliberately and say what you set:
+Set `autonomy` deliberately and say what you set. Write the fields, do not leave them implied —
+`bashDefault: ask` under `level: autonomous` is the confirmation flood, and the repair in
+"Routine Bash must not ask under autonomous" exists because that combination shipped:
 
 ```json
-"autonomy": { "level": "autonomous", "destructiveFloor": true }
+"autonomy": {
+  "level": "autonomous",
+  "bashDefault": "allow",
+  "cleanup": "allow",
+  "toolDefault": "allow",
+  "destructiveFloor": true
+}
 ```
 
 `autonomous` is what the installer writes: unrecognised commands run, cleanup runs, and commit and
@@ -1119,13 +1261,20 @@ sentence prevents.
 
 Three things to get right, because they are the ones that go wrong quietly:
 
-- **Write the permission allowlist too.** `node "$PLUGIN/bin/graph-powers.mjs" --target claude`
+- **Write the permission allowlist too.** `node "$PLUGIN/bin/graph-powers.mjs" --target all`
   adds it, additively — whatever the settings file already allowed stays. Without it the person
-  approves the harness's own gate commands several times an hour.
+  approves the harness's own gate commands several times an hour. On Cursor that file is
+  `~/.cursor/permissions.json`, not `cli-config.json`. On Grok that file is `~/.grok/config.toml`,
+  not a user `hooks.json`.
 - **`optInPrefix` must differ per project.** With the same prefix in two repositories, an approval
   given in one starts counting in the other. The versioned test covers exactly this case.
 - **Omit a path the project does not have.** An empty `schemaRoot` tells the planner there is no
   data layer. A guessed one makes it plan a phase for a repository that does not exist.
+- **`database` is the same kind of omission.** Fill it when the project has a `schemaRoot` and a
+  live engine to check against. Omit the whole block when there is no database — a static site,
+  this plugin, any repo whose schema never leaves the tree. Ask the operator for the three
+  commands; do not guess an ORM. `applyPolicy` defaults to `never` if they do not choose.
+  `drizzle-kit check` is not a status command: it never opens the database.
 - **`testRunner: null` is an answer.** It says the absence is deliberate. Omitting the field says
   nobody looked.
 
@@ -1317,8 +1466,12 @@ them into duplicated, overlapping and exclusive. It writes nothing.
 - **OVERLAPPING** — same file, different matcher. If the plugin's matcher covers the project's, the
   local one is redundant; if it covers less, removing it loses coverage. Read before deciding.
 - **Everything else** — `permissions`, `env`, `statusLine`, `enabledPlugins` and any other key
-  belong to the project. **Do not touch them.** If the audit suggests permissions, *append* to the
-  existing array; never replace the list.
+  belong to the project. **Do not replace them.** If the audit suggests permissions, *append* to the
+  existing array; never replace the list. Under `autonomous`, also append `"Bash"` if it is
+  missing, and if `permissions.defaultMode` is missing / `"auto"` / `"default"`, set it to
+  `"bypassPermissions"` and set `"skipAutoPermissionPrompt": true`. That is the same repair
+  the installer writes; without it a PreToolUse hook returning `ask` still prompts in `auto`
+  mode. Do not change a `defaultMode` the operator already set to something else.
 
 Validate afterwards: `python3 -c "import json;json.load(open('.claude/settings.json'))"`.
 
@@ -1660,6 +1813,53 @@ denying and changes nothing.
    written by a different version. It is a cache: move `~/.codex/models_cache.json` aside and let
    Codex refetch it.
 
+### 9g — Wire Cursor, if the project uses it
+
+Cursor marketplace installs `.cursor-plugin/` from this repository. That is the plugin, including
+the generated `hooks/hooks-cursor.json`. It is **not** the confirmation flood. The IDE Agent Run
+Mode is `~/.cursor/permissions.json`. `~/.cursor/cli-config.json` only covers `cursor-agent`.
+
+Four states, each with its own proof:
+
+| State | Proof | If absent |
+|---|---|---|
+| Plugin in the Cursor cache | `~/.cursor/plugins/` contains `graph-powers` | install from the Cursor marketplace, or clone-install with `--target cursor` |
+| Native hooks pointed at `hooks-cursor.json` | `.cursor-plugin/plugin.json` `"hooks"` is `./hooks/hooks-cursor.json`, never the Claude file | regenerate with `node "$PLUGIN/cursor/install.mjs" --emit-only` |
+| IDE Run Mode unrestricted | `~/.cursor/permissions.json` `"approvalMode"` is `"unrestricted"` | run `node "$PLUGIN/bin/graph-powers.mjs" --target cursor`, then reload the window |
+| Team dashboard not overriding | Settings → Agents → Approvals & Execution shows **Run Everything** | the person has to click it; a file cannot beat a dashboard policy |
+
+Do not write a user `~/.cursor/hooks.json` that always allows. The plugin hooks are the
+guardrails; unrestricted Run Mode is what stops the Yes/No on classified commands. Git commit
+and push still ask. `rm -rf /` still denies. PermissionRequest and Notification do not exist on
+Cursor — `tool_approver` and `notify` are skipped on purpose, and `smart_bash_approver` still
+runs at `preToolUse`.
+
+Reload the Cursor window, or start a new Agent chat. An already-open chat keeps the previous
+Run Mode.
+
+### 9h — Wire Grok CLI, if the project uses it
+
+Grok marketplace installs `.grok-plugin/` from this repository and reads `hooks/hooks.json`
+directly. That is the plugin, including Claude-shaped hooks. It is **not** the confirmation
+flood. Always-approve lives in `~/.grok/config.toml`. A project `.grok/config.toml` cannot set
+`permission_mode`.
+
+Four states, each with its own proof:
+
+| State | Proof | If absent |
+|---|---|---|
+| Plugin discovered | `grok inspect --json` lists `graph-powers`, or `~/.grok/config.toml` `[plugins] enabled` includes it | `grok plugin marketplace add GrupoUS/graph-powers` then `grok plugin install graph-powers --trust`, or clone-install with `--target grok` |
+| Hooks pointed at `hooks.json` | `.grok-plugin/plugin.json` `"hooks"` is `./hooks/hooks.json`, never a second list | regenerate with `node "$PLUGIN/grok/install.mjs" --emit-only` |
+| User approval always-approve | `~/.grok/config.toml` `[ui] permission_mode` is `"always-approve"` | run `node "$PLUGIN/bin/graph-powers.mjs" --target grok`, then restart Grok |
+| Claude compat still on | do not set `[compat.claude] hooks = false` | that would drop the plugin hooks this harness ships |
+
+Do not write a user `~/.grok/hooks.json` that always allows. Do not TOML-deny `git commit`.
+The plugin hooks are the guardrails; `always-approve` is what stops the Yes/No on classified
+commands. Git commit and push still ask. `rm -rf /` still denies. Grok has Notification;
+keep it in `hooks/hooks.json`.
+
+Restart the Grok session. An already-open session keeps the previous permission mode.
+
 ## Step 10 — Verify, with output
 
 Not one of these is optional, and each needs its output shown:
@@ -1729,6 +1929,27 @@ codex exec --skip-git-repo-check "reply with: ok" # one line per hook, then the 
 #    exit 2 as a decision, so this is what a wrong path looks like — and `Failed` means one errored
 #    and was stepped over. Neither is a finished state; § 9b names the entry behind either. A hook
 #    that appears in `/hooks` and in no output line is unapproved: approve it there.
+
+# 9. Cursor IDE Run Mode — only if this machine has ~/.cursor
+python3 -c "
+import json
+from pathlib import Path
+p = Path.home() / '.cursor' / 'permissions.json'
+print('missing' if not p.exists() else json.loads(p.read_text(encoding='utf-8')).get('approvalMode'))
+"
+#    expected on a Cursor machine under autonomous: unrestricted
+
+# 10. Grok CLI permission_mode — only if this machine has ~/.grok
+python3 -c "
+from pathlib import Path
+p = Path.home() / '.grok' / 'config.toml'
+if not p.exists():
+    print('missing')
+else:
+    lines = [l.strip() for l in p.read_text(encoding='utf-8').splitlines()]
+    print(next((l.split('=',1)[1].strip().strip(chr(34)) for l in lines if l.startswith('permission_mode')), 'unset'))
+"
+#    expected on a Grok machine under autonomous: always-approve
 ```
 
 **When an agent will not spawn**, the error names which of the two problems you have. They have
@@ -1770,6 +1991,8 @@ silent: the agent reads it, finds nothing, and carries on with less context than
 **Project:** <what was written here, and nothing else>
 **Codex health:** <§ 9b before: n BLOCKS / n RISK> → <after: same, and what was repaired>
 **Codex hooks:** <approved by the user in /hooks | pending — guardrails inert until then>
+**Cursor:** <permissions.json approvalMode | skipped, no ~/.cursor> — reload the window after writing it
+**Grok:** <config.toml permission_mode | skipped, no ~/.grok> — restart the session after writing it
 **Verification:** <each check, with its result>
 **Backup:** <path> — restore with `rm -rf .claude && mv <backup> .claude`
 ```

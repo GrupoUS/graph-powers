@@ -20,7 +20,6 @@ fails loudly — an unreadable git state just produces no notice.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -83,10 +82,7 @@ def main() -> int:
     except (ValueError, OSError, RecursionError):
         payload = {}
 
-    cwd = None
-    if isinstance(payload, dict) and isinstance(payload.get("cwd"), str):
-        cwd = payload["cwd"]
-    cwd = cwd or os.environ.get("CLAUDE_PROJECT_DIR")
+    cwd = str(gp.project_dir(payload if isinstance(payload, dict) else None))
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD", cwd=cwd)
     if not branch or branch == "HEAD":

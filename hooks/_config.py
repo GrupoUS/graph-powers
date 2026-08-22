@@ -30,9 +30,11 @@ worse than no guardrail, because it teaches people to switch guardrails off.
 Harness support
 ---------------
 Claude Code exports CLAUDE_PROJECT_DIR. Codex CLI does not, but passes `cwd` in the
-hook payload on stdin — hooks that read the payload should pass it to
-`project_dir()`. When neither is available the git worktree root is used, and the
-process working directory is the last resort.
+hook payload on stdin. Grok CLI sets GROK_WORKSPACE_ROOT and CLAUDE_PROJECT_DIR, and
+sends camelCase (`toolName`, `toolInput`, `hookEventName`). Hooks that read the
+payload should use the helpers below rather than one client's key names. When none
+of that is available the git worktree root is used, and the process working
+directory is the last resort.
 """
 
 from __future__ import annotations
@@ -130,17 +132,145 @@ def project_dir(payload: dict[str, Any] | None = None) -> Path:
     """The repository the session runs in — never the plugin directory.
 
     `payload` is the hook event read from stdin. Codex puts the working directory
-    there; Claude Code exports it as an environment variable instead.
+    there; Claude Code exports it as an environment variable instead. Grok sends
+    `workspaceRoot` and exports `GROK_WORKSPACE_ROOT` (plus the Claude alias).
     """
     if isinstance(payload, dict):
-        cwd = payload.get("cwd")
-        if isinstance(cwd, str) and cwd:
-            return Path(cwd)
-    env = os.environ.get("CLAUDE_PROJECT_DIR")
-    if env:
-        return Path(env)
+        for key in ("cwd", "workspaceRoot", "workspace_root"):
+            cwd = payload.get(key)
+            if isinstance(cwd, str) and cwd:
+                return Path(cwd)
+    for var in ("CLAUDE_PROJECT_DIR", "GROK_WORKSPACE_ROOT"):
+        env = os.environ.get(var)
+        if env:
+            return Path(env)
     here = Path.cwd()
     return _git_root(here) or here
+
+
+# Grok's matcher aliases Claude tool names onto its own. The payload still carries
+# Grok's name (`run_terminal_command`, `search_replace`, `spawn_subagent`). Gates
+# that branch on `Bash` / `Write` / `Agent` have to see the Claude name, or they
+# stand down on the harness they were meant to guard.
+_TOOL_ALIASES = {
+    "run_terminal_command": "Bash",
+    "read_file": "Read",
+    "search_replace": "Edit",
+    "grep": "Grep",
+    "list_dir": "Glob",
+    "web_search": "WebSearch",
+    "web_fetch": "WebFetch",
+    "spawn_subagent": "Agent",
+    "task": "Agent",
+}
+
+_EVENT_ALIASES = {
+    "pre_tool_use": "PreToolUse",
+    "post_tool_use": "PostToolUse",
+    "permission_request": "PermissionRequest",
+    "session_start": "SessionStart",
+    "session_end": "SessionEnd",
+    "user_prompt_submit": "UserPromptSubmit",
+    "notification": "Notification",
+    "stop": "Stop",
+    "subagent_stop": "SubagentStop",
+    "pre_compact": "PreCompact",
+}
+
+
+def tool_input(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """Claude `tool_input`, Grok `toolInput`, or empty. Never raises."""
+    if not isinstance(payload, dict):
+        return {}
+    raw = payload.get("tool_input")
+    if not isinstance(raw, dict):
+        raw = payload.get("toolInput")
+    return raw if isinstance(raw, dict) else {}
+
+
+def tool_name(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    raw = payload.get("tool_name")
+    if not isinstance(raw, str) or not raw:
+        raw = payload.get("toolName")
+    return raw if isinstance(raw, str) else ""
+
+
+def canonical_tool(payload: dict[str, Any] | None) -> str:
+    """The Claude tool name, even when the payload came from Grok."""
+    name = tool_name(payload)
+    return _TOOL_ALIASES.get(name, name)
+
+
+def hook_event(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        env = os.environ.get("GROK_HOOK_EVENT") or "PreToolUse"
+        return _EVENT_ALIASES.get(env, env)
+    raw = payload.get("hook_event_name")
+    if not isinstance(raw, str) or not raw:
+        raw = payload.get("hookEventName")
+    if not isinstance(raw, str) or not raw:
+        raw = os.environ.get("GROK_HOOK_EVENT") or "PreToolUse"
+    return _EVENT_ALIASES.get(raw, raw)
+
+
+def session_id(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        return os.environ.get("GROK_SESSION_ID") or ""
+    raw = payload.get("session_id")
+    if not isinstance(raw, str) or not raw:
+        raw = payload.get("sessionId")
+    if not isinstance(raw, str) or not raw:
+        raw = os.environ.get("GROK_SESSION_ID") or ""
+    return raw
+
+
+def bash_command(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    top = payload.get("command")
+    if isinstance(top, str) and top.strip():
+        return top
+    cmd = tool_input(payload).get("command")
+    return cmd if isinstance(cmd, str) else ""
+
+
+def file_path_from_payload(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    top = payload.get("file_path")
+    if isinstance(top, str) and top:
+        return top
+    inp = tool_input(payload)
+    for key in ("file_path", "path", "notebook_path", "target"):
+        value = inp.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def emit_pretool_deny(reason: str) -> None:
+    """Block a tool call on Claude Code, Codex, Cursor and Grok from one payload.
+
+    Claude/Codex/Cursor read `hookSpecificOutput.permissionDecision`. Grok reads a
+    top-level `decision` (and honours it regardless of exit code). Extra keys are
+    ignored on both sides; inventing a second deny helper is how one harness
+    stops being guarded.
+    """
+    print(
+        json.dumps(
+            {
+                "decision": "deny",
+                "reason": reason,
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                },
+            }
+        )
+    )
 
 
 def _deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

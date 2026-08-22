@@ -63,7 +63,7 @@ def main() -> int:
     if not isinstance(payload, dict):
         return 0
 
-    command = ((payload.get("tool_input") or {}).get("command")) or ""
+    command = gp.bash_command(payload)
     if not GIT_WRITE_RE.search(command):
         return 0
 

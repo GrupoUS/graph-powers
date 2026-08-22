@@ -20,6 +20,7 @@ The worker asks each harness to update **itself**, through its own supported pat
 
   Claude Code   claude plugin marketplace update <mp> && claude plugin update <plugin>@<mp>
   Codex CLI     git -C <clone> pull --ff-only, then regenerate the artefacts from it
+  Grok CLI      grok plugin marketplace update && grok plugin update <plugin>
 
 The Codex half needs a clone because that is how Codex installs: the manifest written at install
 time records where it came from, and that is the directory this pulls. When the recorded path is
@@ -115,6 +116,7 @@ def settings(cfg: dict[str, typing.Any]) -> dict[str, typing.Any]:
         else DEFAULT_INTERVAL_HOURS,
         "claude": node.get("claude") is not False,
         "codex": node.get("codex") is not False,
+        "grok": node.get("grok") is not False,
     }
 
 
@@ -185,6 +187,7 @@ def spawn_worker(opts: dict[str, typing.Any]) -> None:
         env = dict(os.environ)
         env["GRAPH_POWERS_UPDATE_CLAUDE"] = "1" if opts["claude"] else "0"
         env["GRAPH_POWERS_UPDATE_CODEX"] = "1" if opts["codex"] else "0"
+        env["GRAPH_POWERS_UPDATE_GROK"] = "1" if opts["grok"] else "0"
         # Detach, so the update outlives this hook and never holds the session open.
         # `start_new_session` is `setsid`, and CPython silently ignores it on Windows — the worker
         # then stays in the console's process group and dies with it, or holds it open. The two
@@ -308,6 +311,10 @@ def worker() -> int:
                 ], timeout=300)
                 if code == 0:
                     notices.append(f"Codex artefacts regenerated at {head[:8]}")
+
+    if os.environ.get("GRAPH_POWERS_UPDATE_GROK") == "1" and which("grok"):
+        run(["grok", "plugin", "marketplace", "update"])
+        run(["grok", "plugin", "update", PLUGIN])
 
     after = registered_version()
     if notices or (before and after and before != after):

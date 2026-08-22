@@ -58,6 +58,31 @@ Two mechanisms for one need is one too many, and the difference is real rather t
 structured and conditional. Run both, report which produced each row, and say in one line when the
 project uses neither.
 
+A third block, `database`, answers a different question: **is the declared schema applied?**
+`contractGates` still run. A project that put a status command in both gets two rows, and that is
+reported rather than collapsed.
+
+### 0.3 Database
+
+Fire only when § 0.1 mapped the `schema` surface. Otherwise one row:
+`SKIPPED (schema surface untouched)`.
+
+No `database` block, or block present but `${database.commands.status}` empty → `NOT DECLARED`.
+Same voice as the four tooling gates.
+
+When it fires, run `${database.commands.status}` through the Bash tool with a bounded wait.
+Classify with `Skill("performance-optimization")` **Schema state** (do not restate the token list
+here). Report exactly one of `PASS` / `DRIFT` / `UNREACHABLE`.
+
+- **DRIFT** — print the exact `${database.commands.apply}` string (even when
+  `${database.applyPolicy}` is `never`) and the rollback line: "Do not apply from `/verify`.
+  Rollback, if this apply already ran, is the reverse the project's own tool names (`down` /
+  `rollback` / equivalent) — do not invent SQL." Verdict `NEEDS-WORK`. `/verify` never applies.
+- **UNREACHABLE** — `NEEDS-WORK`. Say which half could not run. Do not print apply as if it would
+  help.
+
+`/verify` never applies, under either `applyPolicy` value. Apply is `/implement` § 7.5.
+
 Load the domain skill for what changed — `Skill("debugger")` when chasing a failure,
 `Skill("performance-optimization")` when performance, security or SEO surfaces moved,
 `Skill("astro")` when `project.stack` names Astro.

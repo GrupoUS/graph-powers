@@ -25,7 +25,8 @@ from typing import cast
 # nobody's installed harness behaves differently because CONTRIBUTING.md gained a paragraph.
 SHIPPED = (
     "agents/", "skills/", "commands/", "hooks/", "references/", "templates/", "workflows/",
-    "schema/", "codex/", "bin/", ".claude-plugin/", "examples/",
+    "schema/", "codex/", "cursor/", "grok/", "bin/", ".claude-plugin/", ".cursor-plugin/",
+    ".grok-plugin/", "examples/",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENT_SETUP.md",
 )
 
@@ -70,8 +71,17 @@ def main() -> int:
     here = version_on_disk(manifest)
     pkg = version_on_disk("package.json")
 
-    if here != pkg:
-        print(f"::error::plugin.json says {here} and package.json says {pkg} — they must match")
+    cursor_path = ".cursor-plugin/plugin.json"
+    cursor_ver = version_on_disk(cursor_path) if Path(cursor_path).exists() else here
+    grok_path = ".grok-plugin/plugin.json"
+    grok_ver = version_on_disk(grok_path) if Path(grok_path).exists() else here
+
+    if here != pkg or here != cursor_ver or here != grok_ver:
+        print(
+            f"::error::plugin.json says {here}, package.json says {pkg}, "
+            f".cursor-plugin/plugin.json says {cursor_ver}, "
+            f".grok-plugin/plugin.json says {grok_ver} — they must match"
+        )
         return 1
 
     base = base_ref()

@@ -100,12 +100,7 @@ def run_format(data: dict[str, object]) -> None:
     if not command:
         return  # the project formats itself, or does not format. Either way, not our call.
 
-    file_path = str(
-        data.get("file_path")
-        or typing.cast(dict[str, object], data.get("tool_input", {})).get(
-            "file_path", ""
-        )
-    )
+    file_path = gp.file_path_from_payload(data)
     if not file_path:
         return
     if Path(file_path).suffix.lower() not in FORMATTABLE_EXTENSIONS:
@@ -222,7 +217,7 @@ def run_check(data: dict[str, object]) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     data: dict[str, object] = read_input()
-    event = str(data.get("hook_event_name", "")).strip()
+    event = gp.hook_event(data)
 
     # Explicit override via CLI arg ("format" | "check") for manual testing
     if len(sys.argv) > 1:

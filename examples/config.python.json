@@ -26,6 +26,15 @@
     "backendRoot": "src",
     "schemaRoot": "alembic"
   },
+  "database": {
+    "engine": "postgres",
+    "commands": {
+      "status": "uv run alembic current --check-heads",
+      "generate": "uv run alembic revision --autogenerate",
+      "apply": "uv run alembic upgrade head"
+    },
+    "applyPolicy": "never"
+  },
   "protectedFiles": {
     "exact": ["alembic.ini"],
     "contains": [".env"]

@@ -32,6 +32,11 @@ Substitution placeholders used in commands (resolve at runtime):
 | `${tooling.testRunner}` | `tooling.testRunner` |
 | `${gates.lighthouse.*}` | `gates.lighthouse.*` |
 | `${gates.lcp/cls/inp/initialJsKb}` | `gates.*` |
+| `${database.engine}` | `database.engine` |
+| `${database.commands.status}` | `database.commands.status` |
+| `${database.commands.generate}` | `database.commands.generate` |
+| `${database.commands.apply}` | `database.commands.apply` |
+| `${database.applyPolicy}` | `database.applyPolicy` |
 | `${rulesDir}` | `paths.rulesDir` (defaults to `.claude/rules`) |
 
 **Rule layer.** All project rules + supplements live under `${rulesDir}`. No overlay folder, no overlay-first resolution. Tier 2 rules auto-load via `paths:` frontmatter; supplements are read on demand, by explicit path, from the command or skill that needs them:

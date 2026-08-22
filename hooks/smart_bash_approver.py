@@ -548,6 +548,10 @@ def _emit_decision(
     if decision != "deny" and codex_turn:
         return
 
+    if decision == "deny" and reason:
+        gp.emit_pretool_deny(reason)
+        return
+
     specific: dict[str, object] = {
         "hookEventName": "PreToolUse",
         "permissionDecision": decision,
@@ -753,16 +757,9 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
 
 def main() -> None:
     data: dict[str, object] = read_input()
-    event = str(data.get("hook_event_name") or "PreToolUse")
+    event = gp.hook_event(data)
     codex_turn = bool(data.get("turn_id"))
-    command: str = normalize_command(
-        str(
-            data.get("command")
-            or typing.cast(dict[str, object], data.get("tool_input", {})).get(
-                "command", ""
-            )
-        )
-    )
+    command: str = normalize_command(gp.bash_command(data))
 
     if not command:
         # No opinion, not an approval request. The `Bash` matcher is a regex the harness applies by

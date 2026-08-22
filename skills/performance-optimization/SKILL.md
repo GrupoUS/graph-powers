@@ -109,6 +109,8 @@ syntax — write the form the shell accepts: `ANALYZE=true <pm> run build` in ba
 ## `database-performance`
 
 The catalogue. The scan order is `/perf` § 4; what each hit means, and what replaces it, is here.
+Schema-state classification (PASS / DRIFT / UNREACHABLE / NOT DECLARED / SKIPPED) lives in
+**Schema state** below — `/verify` § 0.3 runs it; this pack never applies.
 
 | Severity | Pattern | Fix |
 |---|---|---|
@@ -118,7 +120,7 @@ The catalogue. The scan order is `/perf` § 4; what each hit means, and what rep
 | Medium | list query with no `.limit()` | bound it; cap a list endpoint at 100 |
 | Medium | independent queries awaited in sequence | `Promise.all([…])` |
 | Medium | same query shape on every request | prepare it |
-| Medium | RLS policy calling a `VOLATILE` helper | make the helper `STABLE`, or it runs per row |
+| Medium | **Postgres-only.** RLS policy calling a `VOLATILE` helper | make the helper `STABLE`, or it runs per row |
 
 **Pool bounds — report any that is unset**, and size them for the platform (serverless burns
 connections; a long-running server holds them):
@@ -132,9 +134,9 @@ const pool = new Pool({
 });
 ```
 
-A serverless driver generally accepts the same options, but the `statement_timeout` spelling
-(`options: '-c statement_timeout=30000'`) varies by driver and version — verify against the runtime
-before applying it.
+A serverless driver generally accepts the same options, but the **Postgres-only**
+`statement_timeout` spelling (`options: '-c statement_timeout=30000'`) varies by driver and version —
+verify against the runtime before applying it.
 
 **Batching and preparing**, in the shape most ORMs offer:
 
@@ -157,6 +159,50 @@ const getUserByExternalId = db
 
 Prepare the queries that run on every request, the frequently-called service functions, and
 scheduler loops — not the one-off.
+
+### Per-engine introspection
+
+Read-only. `/perf` § 4.4 points here instead of embedding one engine's SQL. Run against the
+engine `${database.engine}` names, or skip the row whose engine the project does not have.
+
+| Engine | Foreign keys without an index | What a document store does instead |
+|---|---|---|
+| Postgres | `SELECT conrelid::regclass AS table, a.attname AS column FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey) WHERE c.contype = 'f' AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND a.attnum = ANY (i.indkey));` | — |
+| MySQL | `SELECT k.TABLE_NAME, k.COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE k WHERE k.CONSTRAINT_SCHEMA = DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS s WHERE s.TABLE_SCHEMA = k.CONSTRAINT_SCHEMA AND s.TABLE_NAME = k.TABLE_NAME AND s.COLUMN_NAME = k.COLUMN_NAME);` | — |
+| SQLite | `PRAGMA foreign_key_list('<table>')` vs `PRAGMA index_list('<table>')` per table the schema declares | — |
+| SQL Server | `SELECT t.name AS table_name, c.name AS column_name FROM sys.foreign_key_columns fkc JOIN sys.tables t ON t.object_id = fkc.parent_object_id JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id WHERE NOT EXISTS (SELECT 1 FROM sys.index_columns ic WHERE ic.object_id = fkc.parent_object_id AND ic.column_id = fkc.parent_column_id);` | — |
+| Document store | — | There is no FK-index scan. Check the collection indexes the project declared, and report any query predicate that has no supporting index. |
+
+**Postgres-only** query-plan tooling (`pg_stat_statements`, `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)`)
+stays in `/perf` § 4.6 as a pointer, not as the generic scan.
+
+### Schema state
+
+One classifier, used by `/verify` § 0.3. `/perf` reports; `/implement` owns apply.
+Statuses: **PASS**, **DRIFT**, **UNREACHABLE**, **NOT DECLARED**, **SKIPPED**.
+
+`${database.commands.status}` is the command. Exit code alone does not distinguish drift from
+unreachable — `prisma migrate status` ≥ 4.3.0 exits 1 for both a connection error and unapplied
+files; Alembic and several other tools do the same. Classify by **output class**:
+
+1. Capture stdout, stderr, exit, and whether the process started.
+2. Did not start, timed out, or no interpreter → `UNREACHABLE`.
+3. Exit 0 → `PASS`.
+4. Non-zero **and** combined output is empty or whitespace → `UNREACHABLE` (cannot classify).
+5. Non-zero **and** output matches a connection-class token → `UNREACHABLE`.
+6. Any other non-zero → `DRIFT`.
+
+Connection-class tokens (generic vocabulary, not an ORM name): `connection refused`,
+`could not connect`, `cannot connect`, `can't connect`, `timed out`, `timeout expired`,
+`connection timed out`, `connection reset`, `no such host`, `unknown host`,
+`name or service not known`, `network is unreachable`, `no route to host`,
+`server has gone away`, `authentication failed`, `password authentication failed`,
+`access denied for user`, `ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`, `ECONNRESET`, `EAI_AGAIN`.
+
+`${database.commands.generate}` writes the migration artefact in the repo; it does not touch the
+database. `${database.commands.apply}` is the irreversible edge. This pack never runs it.
+Apply is `/implement` § 7.5, and only when `${database.applyPolicy}` is `optIn` with current-turn
+approval.
 
 ## `security-baseline`
 
@@ -224,7 +270,8 @@ Anti-patterns, all four observed:
 - No claim of improvement without before/after evidence
   (`Skill("superpowers:verification-before-completion")`).
 - No scope expansion into an unrelated refactor.
-- A schema change is proposed, never applied from here.
+- A schema change is proposed, never applied from this pack. Apply is `/implement` § 7.5,
+  and only when `${database.applyPolicy}` is `optIn` with current-turn approval.
 
 ## Report
 

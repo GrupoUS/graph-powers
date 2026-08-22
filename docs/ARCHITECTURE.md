@@ -162,10 +162,10 @@ versions, and tells the user how to keep them current.
 
 ---
 
-## 8. Both harnesses, one source
+## 8. Four harnesses, one source
 
-**Decided:** everything Codex needs is *generated* from the artefacts that already exist for Claude
-Code.
+**Decided:** everything Codex, Cursor or Grok needs is *generated* from the artefacts that already
+exist for Claude Code.
 
 It turned out to be cheaper than expected: Codex hooks use the same event names and stdin payload,
 so the thirteen Python files run unchanged. One script is registered twice:
@@ -177,8 +177,26 @@ the same `autonomy` posture, applied to the half of a session that a shell class
 Skills use the same `SKILL.md` frontmatter, so they are copied rather than converted. Only
 subagents needed a real translation, into TOML.
 
-**Refused:** a second hand-maintained list of hooks for Codex. That is the divergence problem again,
-now inside a single repository.
+Cursor is the third client. Its native hook file is a flattened, renamed copy of `hooks/hooks.json`
+(`cursor/install.mjs`): `Bash` becomes `Shell`, `Edit` becomes `StrReplace`, nested matcher groups
+become an array of commands, and `${CLAUDE_PLUGIN_ROOT}` becomes a path relative to the plugin
+root. PermissionRequest and Notification do not exist there, so they are skipped — inventing a
+Cursor event for them would be a second owner for a decision that already has one. `preToolUse`
+still classifies the shell. The IDE confirmation flood is not a hook: it is
+`~/.cursor/permissions.json`, which the same installer writes.
+
+Grok CLI is the fourth client. It reads Claude's nested `hooks/hooks.json` and aliases
+`CLAUDE_PLUGIN_ROOT` from `GROK_PLUGIN_ROOT`, so there is no translated hook list. What does
+not line up is the stdin payload: camelCase (`toolName`, `toolInput`, `workspaceRoot`) and Grok
+tool names (`run_terminal_command`, `search_replace`, `spawn_subagent`). `_config.py` canonicalises
+those onto the Claude names the gates already branch on, and `emit_pretool_deny` writes both
+Grok's top-level `{ "decision": "deny" }` and Claude's `hookSpecificOutput.permissionDecision`.
+`.grok-plugin/` is generated (`grok/install.mjs`). The confirmation flood is
+`~/.grok/config.toml` `[ui] permission_mode = "always-approve"` — user config only; a project
+`.grok/config.toml` cannot set it. PreToolUse deny still blocks.
+
+**Refused:** a second hand-maintained list of hooks for Codex, Cursor or Grok. That is the divergence
+problem again, now inside a single repository.
 
 **The asymmetries worth knowing.** Codex has no per-tool denylist, so `disallowedTools: Write,
 Edit` becomes `sandbox_mode = "read-only"`. Denying only `Edit` — as the planner does, to keep
