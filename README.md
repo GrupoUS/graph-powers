@@ -478,10 +478,11 @@ manager family is still denied.
 
 ## The guardrails
 
-Twelve hook scripts, wired through thirteen registrations in
+Thirteen hook scripts, wired through fourteen registrations in
 [`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code and Codex when the plugin is
 installed. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
-Codex `PermissionRequest` to approve an escalation that the same classifier already allowed. A
+`PermissionRequest` to approve an escalation that the same classifier already allowed;
+`tool_approver` answers the same event for everything that is **not** a shell command. A
 guarded `ask` is left to the normal approval flow; an autonomous allow never reaches the user.
 Codex still requires explicit trust in `/hooks` before the registrations execute. That closes one
 of the audit's findings: two of the projects had **nine hooks each, written and never connected**.
@@ -493,6 +494,7 @@ They existed on disk and never ran once.
 | `graph_guardrails` | Kill switch (`AGENT_STOP` at the root), spawn ceiling, per-agent round ceiling, write lease | `<PREFIX>_ALLOW_SPAWN_OVER=1`, `<PREFIX>_ALLOW_OFF_LEASE=1` |
 | `protect_files` | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles` | — |
 | `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
+| `tool_approver` | The approval prompt for every tool that is not Bash — subagent spawns, MCP calls, fetches, workflows. Answers it under `autonomous`, stays out of the way under `guarded`, and never overrides a `PreToolUse` denial | `autonomy.toolDefault` |
 | `auto_update` | Keeps the harness at the published version, in a detached process, at most once per interval | `autoUpdate.enabled: false` |
 | `branch_session_notice` · `session_context` · `notify` | Inform; never block | — |
 
@@ -501,7 +503,7 @@ defaults instead of taking the session down. A guardrail that breaks your work w
 bug teaches people to switch guardrails off.
 
 ```bash
-python3 hooks/test_hooks.py     # 295 checks in a sandbox; exit 0 = everything holds
+python3 hooks/test_hooks.py     # 321 checks in a sandbox; exit 0 = everything holds
 ```
 
 The suite proves the property that matters: **the same hook file, in two different projects**,

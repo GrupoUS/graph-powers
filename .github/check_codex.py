@@ -31,12 +31,12 @@ assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clob
 hook_names = {
     "auto_update", "branch_session_notice", "commit_audit_gate", "git_branch_gate",
     "git_commit_gate", "git_push_gate", "graph_guardrails", "notify", "protect_files",
-    "session_context", "smart_bash_approver", "ultracite",
+    "session_context", "smart_bash_approver", "tool_approver", "ultracite",
 }
 ours = [c for c in commands if any(f"/hooks/{name}.py" in c for name in hook_names)]
-assert len(ours) == 13, f"expected 13 Graph Powers registrations, found {len(ours)}"
+assert len(ours) == 14, f"expected 14 Graph Powers registrations, found {len(ours)}"
 assert {name for name in hook_names if any(f"/hooks/{name}.py" in c for c in ours)} == hook_names, \
-    "one of the 12 Graph Powers hook scripts is not registered"
+    f"one of the {len(hook_names)} Graph Powers hook scripts is not registered"
 
 agents = sorted(glob.glob(os.path.join(codex_home, "agents/*.toml")))
 assert agents, f"no Codex subagents generated under {codex_home}"
