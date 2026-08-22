@@ -15,6 +15,7 @@ matrix reads as coverage.
 | Type-check | `${tooling.typeChecker}` | PASS / FAIL | {output tail or error count} |
 | Lint | `${tooling.linter}` | PASS / FAIL | {error count} |
 | Tests | `${tooling.testRunner}` | PASS / FAIL | {N passed / N failed} |
+| Database | `${database.commands.status}` | PASS / DRIFT / UNREACHABLE / NOT DECLARED / SKIPPED (schema surface untouched) | on DRIFT, print `${database.commands.apply}` — do not run it |
 | Static analysis | `/debug` | PASS / FAIL / N issues | {summary} |
 | Performance | `/perf` | PASS / FAIL | {Lighthouse / CWV} |
 | E2E | `/debug frontend` | PASS / FAIL | {snapshots captured / regressions} |
@@ -27,7 +28,8 @@ matrix reads as coverage.
 - **`VERIFIED`** — every declared signal ran and passed, no unresolved P0/P1.
 - **`VERIFIED-WITH-NOTES`** — everything that ran passed; only P2/P3 remain, each one listed.
 - **`NEEDS-WORK`** — a signal failed, **or could not be run**. "I could not check this" and "this is
-  fine" are different answers.
+  fine" are different answers. `DRIFT` and `UNREACHABLE` are `NEEDS-WORK`. Do not collapse them
+  into each other: one is "the schema is not applied", the other is "I could not check".
 
 These three are the harness's vocabulary, and they are deliberately the same words
 `graph-powers:ultra-verify` returns, so a chained run and a direct `/verify` can be compared. This

@@ -74,7 +74,7 @@ def allow() -> None:
 
 def main() -> None:
     data = read_input()
-    tool = str(data.get("tool_name") or "")
+    tool = gp.canonical_tool(data)
 
     # No tool name is not an approval. A payload this hook cannot read is a payload it cannot
     # judge, and the normal flow is the correct place for a call it did not understand.

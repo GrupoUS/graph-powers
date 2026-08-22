@@ -130,17 +130,7 @@ REASON_BRANCH = (
 
 
 def deny(reason: str) -> None:
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        },
-        sys.stdout,
-    )
-    print()  # the hook payload must be newline-terminated
+    gp.emit_pretool_deny(reason)
 
 
 def target_branch(args: str, *, create_flags: set[str]) -> str | None:
@@ -183,11 +173,8 @@ def main() -> int:
 
     if not isinstance(payload, dict):
         return 0
-    tool_input = cast("dict[str, object]", payload).get("tool_input")
-    if not isinstance(tool_input, dict):
-        return 0
-    command = cast("dict[str, object]", tool_input).get("command")
-    if not isinstance(command, str) or not command.strip():
+    command = gp.bash_command(payload)
+    if not command.strip():
         return 0
 
     if gp.opted_in("MAIN_CHECKOUT", command):

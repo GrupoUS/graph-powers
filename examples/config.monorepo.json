@@ -35,6 +35,15 @@
     "libRoot": "apps/web/src/lib",
     "planDir": "docs/plans"
   },
+  "database": {
+    "engine": "postgres",
+    "commands": {
+      "status": "bun run db:status",
+      "generate": "bun run db:generate",
+      "apply": "bun run db:migrate"
+    },
+    "applyPolicy": "optIn"
+  },
   "codex": {
     "model": "gpt-5.6",
     "reasoningEffort": "high"

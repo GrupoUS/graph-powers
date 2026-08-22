@@ -241,6 +241,27 @@ Codex handles implementation. Main agent validates against the sprint contract w
 
 ---
 
+## 7.5 Schema apply
+
+`${database.commands.generate}`, when declared, is a repo write. Treat it as ordinary
+implementation, not an irreversible edge.
+
+`${database.commands.apply}` is the irreversible edge. It fires when the plan's schema work needs
+it, or when `/verify` returned `DRIFT`.
+
+1. Missing `${database.commands.apply}` → print `NOT DECLARED` and stop.
+2. `${database.applyPolicy}` absent or `never` → print `${database.commands.apply}` and the
+   rollback line; **do not run it**.
+3. `${database.applyPolicy}` is `optIn` → require explicit approval **in this turn**
+   (`references/safety-floor.md` §3). Approval from an earlier turn has expired. Then run apply.
+   Then run `${database.commands.status}` and classify with `Skill("performance-optimization")`
+   **Schema state**. Claim success only on `PASS`. An apply with no re-proof is a claim, not a
+   gate. `UNREACHABLE` after apply is `NEEDS-WORK`, not success.
+
+`/verify` never applies. This section is the only apply edge. Do not invent an opt-in env key.
+
+---
+
 ## 8. Quality gates
 
 Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
@@ -272,7 +293,7 @@ Never retry blindly. Never skip a gate because a task "looks correct."
 - STOP after 3rd failure on same task → invoke `/debug recover`
 - STOP if agent team runs 10+ task iterations without sprint completion
 - ASK if plan has `[ASSUMED]` items not yet validated
-- ASK before destructive operations (schema drops, data deletion)
+- ASK before destructive operations (schema drops, data deletion) — schema apply is § 7.5
 
 ---
 

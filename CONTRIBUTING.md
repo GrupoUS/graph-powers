@@ -82,17 +82,21 @@ it trains people to ignore gates.
 **How to check:** did `hooks/test_hooks.py` gain both cases? Does the suite exit `0`? Does the
 violation case fail if you comment out the blocking line?
 
-### 5. Does it work on both harnesses?
+### 5. Does it work on every harness?
 
-The same Python file runs under Claude Code and Codex CLI. Claude exports `CLAUDE_PROJECT_DIR`;
-Codex passes `cwd` in the payload.
+The same Python file runs under Claude Code, Codex CLI, Cursor and Grok CLI. Claude exports `CLAUDE_PROJECT_DIR`;
+Codex and Cursor pass `cwd` in the payload. Grok passes camelCase `toolName` / `toolInput` /
+`workspaceRoot` and sets `GROK_WORKSPACE_ROOT`.
 
-**How to check:** does the hook read the payload and pass it to `_config.project_dir(payload)`? Does
-`test_hooks.py` cover the change with `harness="codex"`? A guardrail that resolves the wrong project
-denies and permits against somebody else's rules.
+**How to check:** does the hook read the payload through `_config` helpers (`bash_command`,
+`canonical_tool`, `file_path_from_payload`) rather than `payload["tool_input"]`? Does
+`test_hooks.py` cover the change with `harness="codex"` and `harness="grok"`? A guardrail that
+resolves the wrong project denies and permits against somebody else's rules.
 
 If the change touches `agents/`, `commands/`, `hooks/hooks.json` or `.claude-plugin/plugin.json`, run
-`node codex/install.mjs --project <scratch> --plugin . --dry-run` and read what it would generate.
+`node codex/install.mjs --project <scratch> --plugin . --dry-run`,
+`node cursor/install.mjs --emit-only --dry-run` and
+`node grok/install.mjs --emit-only --dry-run` and read what they would generate.
 
 ### 6. What invokes this?
 
@@ -157,10 +161,10 @@ PY
 
 | Type | Why | What to demand on top |
 |---|---|---|
-| **A hook** | Runs in every project, on every tool call, on both harnesses | Negative and positive tests; proof of fail-open; the Codex payload case |
+| **A hook** | Runs in every project, on every tool call, on every harness | Negative and positive tests; proof of fail-open; the Codex payload case |
 | **`_config.py`** | The single point where configuration is read; breaks everything at once | Tests with the config missing, invalid, partial, and in the legacy location |
-| **`plugin.json`** | Defines the wiring; an error switches guardrails off silently | `claude plugin validate` plus confirming every declared hook exists — and that `codex/install.mjs` still generates from it |
-| **`codex/*.mjs`** | Writes into someone else's files | Proof that a second install produces no duplicates, and that uninstall leaves third-party entries standing |
+| **`plugin.json`** | Defines the wiring; an error switches guardrails off silently | `claude plugin validate` plus confirming every declared hook exists — and that `codex/install.mjs`, `cursor/install.mjs` and `grok/install.mjs` still generate from it |
+| **`codex/*.mjs` · `cursor/*.mjs` · `grok/*.mjs`** | Writes into someone else's files | Proof that a second install produces no duplicates, and that uninstall leaves third-party entries standing |
 | **`config.schema.json`** | Public contract; projects already depend on it | A new field with a default; a removed field only with documented migration |
 | **Agent frontmatter** | Defines real permissions | Check the resolved tool set, not the declared one |
 
@@ -169,7 +173,7 @@ PY
 ## After approving
 
 The change reaches the projects on the next plugin update (`claude plugin update graph-powers`, plus
-`node <clone>/bin/graph-powers.mjs --target codex` for the generated side). There is no gradual rollout: either it is
+`node <clone>/bin/graph-powers.mjs --target all` for the generated Codex, Cursor and Grok sides). There is no gradual rollout: either it is
 published or it is not.
 
 If something got through and broke, the path is to revert in the repository and publish again — not

@@ -78,13 +78,7 @@ def read_input() -> dict[str, object]:
 
 
 def deny(reason: str) -> None:
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }))
+    gp.emit_pretool_deny(reason)
 
 
 def allow() -> None:
@@ -94,10 +88,7 @@ def allow() -> None:
 def main() -> None:
     data: dict[str, object] = read_input()
     # Support both top-level and nested tool_input
-    file_path = str(
-        data.get("file_path")
-        or typing.cast(dict[str, object], data.get("tool_input", {})).get("file_path", "")
-    )
+    file_path = gp.file_path_from_payload(data)
 
     if not file_path:
         allow()

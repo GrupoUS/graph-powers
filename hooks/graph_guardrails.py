@@ -108,17 +108,7 @@ def limits(root: Path) -> dict[str, int]:
 
 
 def deny(reason: str) -> None:
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        },
-        sys.stdout,
-    )
-    print()  # the hook payload must be newline-terminated
+    gp.emit_pretool_deny(reason)
 
 
 def counter_path(root: Path, session: str) -> Path:
@@ -201,8 +191,8 @@ def opted_in(name: str, payload: dict[str, Any]) -> bool:
     real environment variable for a whole approved run."""
     if os.environ.get(name) == "1":
         return True
-    tool_input = payload.get("tool_input")
-    blob = json.dumps(tool_input) if isinstance(tool_input, dict) else ""
+    tool_input = gp.tool_input(payload)
+    blob = json.dumps(tool_input) if tool_input else ""
     return f"{name}=1" in blob
 
 
@@ -215,8 +205,8 @@ def main() -> int:
         return 0
 
     root = gp.project_dir(payload)
-    tool = payload.get("tool_name")
-    session = str(payload.get("session_id") or "")
+    tool = gp.canonical_tool(payload)
+    session = gp.session_id(payload)
 
     # G1 — kill switch. Checked before anything else and for every tool: the
     # point of a stop file is that it stops the run, not that it stops the parts
@@ -238,10 +228,15 @@ def main() -> int:
         state = read_state(path)
         events = recent_spawns(state, now, window_minutes * 60)
 
-        tool_input = payload.get("tool_input")
+        tool_input = gp.tool_input(payload)
         agent_type = ""
-        if isinstance(tool_input, dict):
-            agent_type = str(tool_input.get("subagent_type") or "")
+        if tool_input:
+            agent_type = str(
+                tool_input.get("subagent_type")
+                or tool_input.get("subagentType")
+                or tool_input.get("agent_type")
+                or ""
+            )
         key = agent_key(agent_type)
 
         total = len(events) + 1
@@ -288,10 +283,7 @@ def main() -> int:
         declared = lease_paths(root)
         if declared is None:
             return 0  # no lease on disk = nobody declared ownership = nothing to enforce
-        tool_input = payload.get("tool_input")
-        target = ""
-        if isinstance(tool_input, dict):
-            target = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+        target = gp.file_path_from_payload(payload)
         if not target:
             return 0
         # Compare in POSIX form on both sides. `str(WindowsPath)` yields `src\\owned.ts` while the

@@ -270,10 +270,8 @@ column; if not, project the columns it needs.
 ### 4.4 Index gaps
 
 Every foreign-key column needs an index, or a cascade and every join over it is a sequential scan.
-
-```sql
-SELECT conname, conrelid::regclass, conkey FROM pg_constraint WHERE contype = 'f';
-```
+The SQL is `Skill("performance-optimization")` **Per-engine introspection** — one row per engine,
+not a single-engine query inlined here.
 
 Then: columns that appear repeatedly in `WHERE` clauses in the application code without a supporting
 index, and composite order — `WHERE a = ? AND b = ?` needs `(a, b)`, not `(a)` plus `(b)`.
@@ -281,20 +279,22 @@ index, and composite order — `WHERE a = ? AND b = ?` needs `(a, b)`, not `(a)`
 ### 4.5 Prepared statements and RLS
 
 Repeated parameterized queries with the same shape are prepare candidates: per-request queries, hot
-service functions, scheduler loops. For Postgres RLS, a policy that calls a helper function needs
-that function `STABLE` (not `VOLATILE`) or it is evaluated per row; a `security definer` function
-must set `search_path`.
+service functions, scheduler loops. **Postgres-only** for the rest of this subsection: for Postgres
+RLS, a policy that calls a helper function needs that function `STABLE` (not `VOLATILE`) or it is
+evaluated per row; a `security definer` function must set `search_path`. Details in the skill
+catalogue.
 
 ### 4.6 `EXPLAIN ANALYZE`
 
-The three hottest queries, from application logs or `pg_stat_statements`:
+**Postgres-only.** The three hottest queries, from application logs or `pg_stat_statements`:
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) <query>;
 ```
 
 Flag sequential scans on large tables, sorts spilling to disk, nested loops over many rows, and an
-index that exists but is not used.
+index that exists but is not used. Other engines: use whatever explain the **Per-engine
+introspection** row names, or skip this step and say so.
 
 ### 4.7 Report
 
@@ -308,8 +308,8 @@ index that exists but is not used.
 | EXPLAIN highlight | query | What the plan shows |
 ```
 
-Migration SQL is **proposed, never applied** here — a schema change is an irreversible edge and
-belongs to the plan that owns it.
+Migration SQL is **proposed, never applied** here — a schema change is an irreversible edge.
+Apply is `/implement` § 7.5.
 
 ---
 

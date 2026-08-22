@@ -5,8 +5,10 @@
  *   bunx graph-powers        npx graph-powers
  *
  * What it does, in order: detects which harnesses are present, wires the plugin into each of
- * them, optionally writes a starting config, and verifies. Then it prints the one thing that
- * actually finishes the job — the prompt that hands AGENT_SETUP.md to the agent.
+ * them, writes the operator's autonomy posture if it is missing, repairs a project config whose
+ * `level: autonomous` is defeated by `bashDefault: ask`, writes Cursor's IDE Run Mode file when
+ * Cursor is present, optionally writes a starting config, and verifies. Then it prints the one
+ * thing that actually finishes the job — the prompt that hands AGENT_SETUP.md to the agent.
  *
  * What it deliberately does NOT do: delete a single file. Cleaning an existing `.claude/` is the
  * step that decides whether adoption works, and it is the only one that needs judgement —
@@ -27,6 +29,8 @@ import {
   installProject as installCodexProject,
   uninstall as uninstallCodex,
 } from "../codex/install.mjs";
+import { install as installCursor } from "../cursor/install.mjs";
+import { install as installGrok } from "../grok/install.mjs";
 
 const PLUGIN = "graph-powers";
 const MARKETPLACE = "graph-powers";
@@ -65,7 +69,9 @@ const AGENT_PROMPT = `Read AGENT_SETUP.md from the graph-powers plugin and execu
 Stop for my approval before each write, as the playbook instructs.`;
 
 if (has("--agent-setup")) {
-  console.log(`\n${bold("Paste this into a Claude Code or Codex session opened in your project:")}\n`);
+  console.log(
+    `\n${bold("Paste this into a Claude Code, Codex, Cursor, or Grok session opened in your project:")}\n`,
+  );
   console.log(AGENT_PROMPT);
   console.log(`\n${dim(`The playbook itself: ${join(PLUGIN_ROOT, "AGENT_SETUP.md")}`)}\n`);
   process.exit(0);
@@ -86,9 +92,16 @@ ${bold("USAGE")}
     codex plugin add graph-powers@graph-powers
   Prefer that route. This script is the fallback for unavailable marketplaces and project-scoped
   installs. Do not combine both routes: their hook registrations accumulate and run twice.
+  Cursor loads the tracked \`.cursor-plugin/\` from the same clone or marketplace; this script
+  writes the IDE permission file the marketplace cannot.
+  Grok CLI reads \`.grok-plugin/\` and \`hooks/hooks.json\` (Claude's nested shape, not a second
+  list). This script writes ~/.grok/config.toml; do not also drop a user hooks.json.
 
 ${bold("OPTIONS")}
-  --target <claude|codex|both>   Which harness to wire. Default: autodetect from the CLIs present.
+  --target <claude|codex|cursor|grok|both|all>
+                                 Which harness to wire. Default: autodetect from the CLIs and
+                                 from ~/.cursor / ~/.grok. \`both\` is Claude + Codex (the historical
+                                 pair). \`all\` is every harness this machine has a reason to wire.
   --scope <user|project|local>   Where to register. Default: user — install once, serve every
                                  project on this machine, including future ones.
                                  user    = ~/.claude/settings.json (recommended)
@@ -99,8 +112,12 @@ ${bold("OPTIONS")}
   --autonomy <autonomous|guarded>
                                  How much runs without asking. Default: autonomous — unrecognised
                                  commands run, cleanup runs, commit and push do not need an opt-in
-                                 key. The destructive floor still holds either way. "guarded"
-                                 restores a confirmation on each of those.
+                                 key. Also writes ~/.graph-powers/config.json (machine-wide Bash
+                                 autonomy, git still asks) if that file is missing, and repairs a
+                                 project config that set level=autonomous but left bashDefault=ask
+                                 — that combination is the PreToolUse:Bash confirmation flood.
+                                 The destructive floor still holds either way. "guarded" restores
+                                 a confirmation on each of those and writes neither file.
   --source <org/repo|path>       Where the marketplace comes from. Default: ${DEFAULT_REPO}
   --config                       Also write a starting .graph-powers/config.json, inferred from the stack.
   --prefix <NAME>                Opt-in key prefix (with --config). Default: the directory name.
@@ -108,6 +125,8 @@ ${bold("OPTIONS")}
   --skip-marketplace             Skip registering the marketplace (already registered).
   --update                       Pull the latest commit into this clone and reinstall from it.
   --uninstall                    Remove the generated Codex artefacts recorded by a previous run.
+                                 Cursor's ~/.cursor/permissions.json and Grok's ~/.grok/config.toml
+                                 are operator posture and stay.
   --agent-setup                  Print the prompt that hands AGENT_SETUP.md to the agent, and exit.
   -h, --help                     This help.
 
@@ -181,17 +200,36 @@ function pythonProbe() {
 
 const claudeVersion = cliVersion("claude");
 const codexVersion = cliVersion("codex");
+const cursorVersion = cliVersion("cursor-agent") || cliVersion("cursor");
+const cursorHome = existsSync(join(homedir(), ".cursor"));
+const grokVersion = cliVersion("grok");
+const grokHome = existsSync(join(homedir(), ".grok"));
 
+const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
 const targetWasAsked = flagValue("--target", null) !== null;
 let target = flagValue("--target", null);
-if (!target) {
-  target = claudeVersion && codexVersion ? "both" : codexVersion ? "codex" : "claude";
+let wantClaude;
+let wantCodex;
+let wantCursor;
+let wantGrok;
+if (targetWasAsked) {
+  if (!VALID_TARGETS.has(target)) {
+    die(`invalid target: ${target}`, "use --target claude | codex | cursor | grok | both | all");
+  }
+  wantClaude = target === "claude" || target === "both" || target === "all";
+  wantCodex = target === "codex" || target === "both" || target === "all";
+  wantCursor = target === "cursor" || target === "all";
+  wantGrok = target === "grok" || target === "all";
+} else {
+  wantClaude = Boolean(claudeVersion);
+  wantCodex = Boolean(codexVersion);
+  wantCursor = Boolean(cursorVersion || cursorHome);
+  wantGrok = Boolean(grokVersion || grokHome);
+  target =
+    [wantClaude && "claude", wantCodex && "codex", wantCursor && "cursor", wantGrok && "grok"]
+      .filter(Boolean)
+      .join("+") || "none";
 }
-if (!["claude", "codex", "both"].includes(target)) {
-  die(`invalid target: ${target}`, "use --target claude | codex | both");
-}
-const wantClaude = target === "claude" || target === "both";
-const wantCodex = target === "codex" || target === "both";
 
 // ── is the harness already global? ───────────────────────────────────────────
 /**
@@ -233,14 +271,19 @@ function gitUpdate(root) {
     spawnSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 120000 });
 
   if (git("rev-parse", "--git-dir").status !== 0) {
-    die(`${root} is not a git clone.`, `Install with: git clone https://github.com/${DEFAULT_REPO}`);
+    die(
+      `${root} is not a git clone.`,
+      `Install with: git clone https://github.com/${DEFAULT_REPO}`,
+    );
   }
   const before = (git("rev-parse", "HEAD").stdout ?? "").trim();
   const pull = git("pull", "--ff-only");
   if (pull.status !== 0) {
     console.error(`${pull.stdout}${pull.stderr}`.trim());
-    die("could not fast-forward the clone.",
-        "Local commits or uncommitted changes? Resolve them, then run --update again.");
+    die(
+      "could not fast-forward the clone.",
+      "Local commits or uncommitted changes? Resolve them, then run --update again.",
+    );
   }
   const after = (git("rev-parse", "HEAD").stdout ?? "").trim();
   return { changed: before !== after, before, after };
@@ -259,9 +302,11 @@ if (has("--update")) {
   }
   info("Reinstalling from the updated clone…");
   // Re-exec rather than continue: the files this process already loaded are the old ones.
-  const again = spawnSync(process.execPath,
+  const again = spawnSync(
+    process.execPath,
     [join(PLUGIN_ROOT, "bin/graph-powers.mjs"), ...argv.filter((a) => a !== "--update")],
-    { stdio: "inherit" });
+    { stdio: "inherit" },
+  );
   process.exit(again.status ?? 0);
 }
 
@@ -271,10 +316,25 @@ if (has("--uninstall")) {
   const removed = uninstallCodex({ projectDir: cwd, dryRun, log: (p) => info(p) });
   ok(`${removed.length} path(s) removed; third-party hook entries untouched`);
   info("The Claude Code plugin is removed with `claude plugin uninstall graph-powers`.");
+  info("Cursor's ~/.cursor/permissions.json is operator posture and is not removed.");
+  info("Grok's ~/.grok/config.toml is operator posture and is not removed.");
   process.exit(0);
 }
 
 // ── commands ─────────────────────────────────────────────────────────────────
+function grok(args, { capture = false } = {}) {
+  if (dryRun) {
+    info(`(dry-run) grok ${args.join(" ")}`);
+    return { status: 0, stdout: "", stderr: "" };
+  }
+  const r = runCli("grok", args, {
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    encoding: "utf8",
+    cwd,
+  });
+  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
 function claude(args, { capture = false } = {}) {
   if (dryRun) {
     info(`(dry-run) claude ${args.join(" ")}`);
@@ -303,32 +363,108 @@ function claude(args, { capture = false } = {}) {
  */
 function permissionAllowlist(pm) {
   const readOnlyGit = [
-    "status", "diff", "log", "show", "branch", "fetch", "remote", "reflog", "rev-parse",
-    "rev-list", "ls-files", "ls-remote", "blame", "describe", "shortlog", "merge-base",
-    "cat-file", "symbolic-ref", "name-rev", "check-ignore", "grep", "diff-tree",
-    "count-objects", "stash list", "worktree list",
+    "status",
+    "diff",
+    "log",
+    "show",
+    "branch",
+    "fetch",
+    "remote",
+    "reflog",
+    "rev-parse",
+    "rev-list",
+    "ls-files",
+    "ls-remote",
+    "blame",
+    "describe",
+    "shortlog",
+    "merge-base",
+    "cat-file",
+    "symbolic-ref",
+    "name-rev",
+    "check-ignore",
+    "grep",
+    "diff-tree",
+    "count-objects",
+    "stash list",
+    "worktree list",
   ].map((c) => `Bash(git ${c}:*)`);
 
   // Every manager, not only the one this repository happens to use: the agent runs `npx`/`bunx`
   // for one-off tools regardless, and a missing entry here is a permission prompt per call.
-  const managers = [pm, "bun", "bunx", "npm", "npx", "pnpm", "pnpx", "yarn", "uv", "uvx", "pip", "pipx"]
-    .filter(Boolean);
+  const managers = [
+    pm,
+    "bun",
+    "bunx",
+    "npm",
+    "npx",
+    "pnpm",
+    "pnpx",
+    "yarn",
+    "uv",
+    "uvx",
+    "pip",
+    "pipx",
+  ].filter(Boolean);
 
   return [
     ...readOnlyGit,
+    // Blanket Bash under autonomous: the hook is the blocklist (destructive floor, package
+    // managers, git gates). A pattern-only allowlist is what left `python3 - <<'PY'` and every
+    // other unclassified command as a PreToolUse confirmation, which is the prompt flood this
+    // installer exists to stop. Guarded installs omit it so the normal approval flow stays.
+    ...(autonomyLevel === "autonomous" ? ["Bash"] : []),
     "Bash(git add:*)",
     "Bash(git config --get:*)",
     ...[...new Set(managers)].map((m) => `Bash(${m}:*)`),
-    "Bash(python3:*)", "Bash(python:*)", "Bash(node:*)", "Bash(deno:*)",
-    "Bash(make:*)", "Bash(just:*)", "Bash(cargo:*)", "Bash(go:*)",
-    "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)", "Bash(touch:*)", "Bash(diff:*)",
-    "Bash(test:*)", "Bash(which:*)", "Bash(env:*)", "Bash(printf:*)", "Bash(echo:*)",
-    "Bash(awk:*)", "Bash(sort:*)", "Bash(uniq:*)", "Bash(cut:*)", "Bash(tr:*)", "Bash(du:*)",
-    "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)",
-    "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)", "Bash(jq:*)", "Bash(sed -n:*)",
-    "Bash(gh pr view:*)", "Bash(gh pr list:*)", "Bash(gh pr diff:*)", "Bash(gh pr checks:*)",
-    "Bash(gh issue view:*)", "Bash(gh issue list:*)", "Bash(gh api:*)",
-    "Read", "Glob", "Grep", "Edit", "Write", "TodoWrite", "Skill",
+    "Bash(python3:*)",
+    "Bash(python:*)",
+    "Bash(node:*)",
+    "Bash(deno:*)",
+    "Bash(make:*)",
+    "Bash(just:*)",
+    "Bash(cargo:*)",
+    "Bash(go:*)",
+    "Bash(mkdir:*)",
+    "Bash(cp:*)",
+    "Bash(mv:*)",
+    "Bash(touch:*)",
+    "Bash(diff:*)",
+    "Bash(test:*)",
+    "Bash(which:*)",
+    "Bash(env:*)",
+    "Bash(printf:*)",
+    "Bash(echo:*)",
+    "Bash(awk:*)",
+    "Bash(sort:*)",
+    "Bash(uniq:*)",
+    "Bash(cut:*)",
+    "Bash(tr:*)",
+    "Bash(du:*)",
+    "Bash(ls:*)",
+    "Bash(cat:*)",
+    "Bash(head:*)",
+    "Bash(tail:*)",
+    "Bash(wc:*)",
+    "Bash(find:*)",
+    "Bash(grep:*)",
+    "Bash(rg:*)",
+    "Bash(jq:*)",
+    "Bash(sed -n:*)",
+    "Bash(gh pr view:*)",
+    "Bash(gh pr list:*)",
+    "Bash(gh pr diff:*)",
+    "Bash(gh pr checks:*)",
+    "Bash(gh issue view:*)",
+    "Bash(gh issue list:*)",
+    "Bash(gh api:*)",
+    "Read",
+    "Glob",
+    "Grep",
+    "Edit",
+    "Write",
+    "TodoWrite",
+    "Skill",
   ];
 }
 
@@ -345,22 +481,149 @@ function writePermissions(theScope) {
   const wanted = permissionAllowlist(detectStack().pm);
   const added = wanted.filter((rule) => !existing.includes(rule));
 
-  if (!added.length) {
+  // `defaultMode: auto` still prompts whenever a PreToolUse hook returns `ask`, which is
+  // exactly the confirmation this install is supposed to stop. `bypassPermissions` lets the
+  // hook be the gate: allow proceeds, the destructive floor still denies. Never downgrade an
+  // existing stricter-or-equal mode, and never overwrite a mode the operator already set to
+  // something other than the Claude defaults.
+  const currentMode = current.permissions?.defaultMode;
+  const wantBypass =
+    autonomyLevel === "autonomous" &&
+    (currentMode === undefined || currentMode === "auto" || currentMode === "default");
+  const wantSkipPrompt =
+    autonomyLevel === "autonomous" && current.skipAutoPermissionPrompt !== true;
+
+  if (!added.length && !wantBypass && !wantSkipPrompt) {
     info(`permissions already cover the harness (${existing.length} rules) — nothing added`);
     return;
   }
   const next = {
     ...current,
-    permissions: { ...current.permissions, allow: [...existing, ...added] },
+    permissions: {
+      ...current.permissions,
+      allow: added.length ? [...existing, ...added] : existing,
+      ...(wantBypass ? { defaultMode: "bypassPermissions" } : {}),
+    },
+    ...(wantSkipPrompt ? { skipAutoPermissionPrompt: true } : {}),
   };
   if (dryRun) {
-    info(`(dry-run) would add ${added.length} allow rules to ${settingsFile.replace(homedir(), "~")}`);
+    const extras = [
+      added.length ? `${added.length} allow rules` : null,
+      wantBypass ? "defaultMode=bypassPermissions" : null,
+      wantSkipPrompt ? "skipAutoPermissionPrompt" : null,
+    ].filter(Boolean);
+    info(`(dry-run) would write ${extras.join(", ")} to ${settingsFile.replace(homedir(), "~")}`);
     return;
   }
   mkdirSync(dirname(settingsFile), { recursive: true });
   writeFileSync(settingsFile, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-  ok(`${added.length} permission rules added (${existing.length} already there, none removed)`);
+  if (added.length) {
+    ok(`${added.length} permission rules added (${existing.length} already there, none removed)`);
+  }
+  if (wantBypass) ok("permissions.defaultMode → bypassPermissions (hook remains the gate)");
+  if (wantSkipPrompt) ok("skipAutoPermissionPrompt → true");
   info(settingsFile.replace(homedir(), "~"));
+}
+
+/**
+ * What an `autonomous` or `guarded` install writes into an autonomy block, field by field.
+ *
+ * Leaving `bashDefault` / `cleanup` / `toolDefault` implied is how a later edit of one of them
+ * to `ask` silently defeated `level: autonomous` and produced
+ * "Hook PreToolUse:Bash requires confirmation for this command. [plugin:graph-powers]" on every
+ * unclassified command. The file has to say what it does.
+ */
+function autonomyFields() {
+  const allow = autonomyLevel === "autonomous" ? "allow" : "ask";
+  return {
+    level: autonomyLevel,
+    bashDefault: allow,
+    cleanup: allow,
+    toolDefault: allow,
+    destructiveFloor: true,
+  };
+}
+
+function writeJson(file, value) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+/**
+ * The operator's posture, written once per machine. Without it, every clone that has no
+ * project `autonomy` block falls back to guarded, and the setting looks broken.
+ *
+ * Git stays at `ask` here on purpose: machine-wide `commit: auto` would let every repository
+ * on the machine land a commit without the operator in the loop. The project file is where
+ * that choice belongs. Never overwrite a file that already exists — someone tuned it.
+ */
+function writeUserAutonomy() {
+  const userFile = join(homedir(), ".graph-powers", "config.json");
+  const display = userFile.replace(homedir(), "~");
+  if (existsSync(userFile)) {
+    info(`${display} already exists — not overwritten`);
+    return;
+  }
+  if (autonomyLevel !== "autonomous") {
+    info("autonomy is guarded — not writing a machine-wide loosening file");
+    return;
+  }
+  const cfg = {
+    $schema: `https://raw.githubusercontent.com/${DEFAULT_REPO}/main/schema/config.schema.json`,
+    autonomy: {
+      machineWide: true,
+      ...autonomyFields(),
+      git: { commit: "ask", push: "ask", protectedBranch: "ask" },
+    },
+  };
+  if (dryRun) {
+    info(`(dry-run) would write ${display}`);
+    return;
+  }
+  writeJson(userFile, cfg);
+  ok(`${display} written (machineWide autonomous; git still asks)`);
+}
+
+/**
+ * A project that declared `level: autonomous` and then set `bashDefault: ask` (or cleanup /
+ * toolDefault) is the confirmation flood: the per-field override wins, and every unclassified
+ * command becomes a Yes/No. Repair those three fields to match the level. Do not touch git,
+ * destructiveFloor, allowPackageManagers, or anything else — those are project decisions.
+ *
+ * A `guarded` project is left alone. So is a file with no `autonomy` block: the schema default
+ * is guarded, and inventing an autonomy block here would be a loosening the repository did not
+ * ask for.
+ */
+function repairProjectAutonomy() {
+  if (autonomyLevel !== "autonomous") return;
+  const candidates = [
+    join(cwd, ".graph-powers", "config.json"),
+    join(cwd, ".claude", "config.json"),
+  ];
+  const configFile = candidates.find((p) => existsSync(p));
+  if (!configFile) return;
+  const current = readJsonSafe(configFile);
+  if (!current || typeof current.autonomy !== "object" || current.autonomy === null) return;
+  if (current.autonomy.level !== "autonomous") return;
+
+  const nextAutonomy = { ...current.autonomy };
+  const repaired = [];
+  for (const key of ["bashDefault", "cleanup", "toolDefault"]) {
+    if (nextAutonomy[key] === "ask") {
+      nextAutonomy[key] = "allow";
+      repaired.push(key);
+    }
+  }
+  if (!repaired.length) return;
+
+  const rel = configFile.startsWith(cwd) ? configFile.slice(cwd.length + 1) : configFile;
+  if (dryRun) {
+    info(`(dry-run) would repair ${rel}: ${repaired.join(", ")} ask → allow`);
+    return;
+  }
+  writeJson(configFile, { ...current, autonomy: nextAutonomy });
+  ok(`repaired ${rel}: ${repaired.join(", ")} ask → allow (level is autonomous)`);
+  info("git.commit / git.push / destructiveFloor were left as the project wrote them.");
 }
 
 // ── stack detection, for --config ────────────────────────────────────────────
@@ -378,13 +641,16 @@ function detectStack() {
   const hasFile = (...names) => names.some((n) => existsSync(join(cwd, n)));
   const parts = [];
 
-  if (hasFile("astro.config.mjs", "astro.config.ts", "astro.config.js") || deps.astro) parts.push("astro");
-  if (hasFile("next.config.js", "next.config.mjs", "next.config.ts") || deps.next) parts.push("next");
+  if (hasFile("astro.config.mjs", "astro.config.ts", "astro.config.js") || deps.astro)
+    parts.push("astro");
+  if (hasFile("next.config.js", "next.config.mjs", "next.config.ts") || deps.next)
+    parts.push("next");
   if (hasFile("nuxt.config.ts") || deps.nuxt) parts.push("nuxt");
   if (hasFile("svelte.config.js") || deps.svelte) parts.push("svelte");
   if (hasFile("vite.config.ts", "vite.config.js") || deps.vite) parts.push("vite");
   if (hasFile("turbo.json", "pnpm-workspace.yaml") || pkg.workspaces) parts.push("monorepo");
-  if (hasFile("drizzle.config.ts", "drizzle.config.js") || deps["drizzle-orm"]) parts.push("drizzle");
+  if (hasFile("drizzle.config.ts", "drizzle.config.js") || deps["drizzle-orm"])
+    parts.push("drizzle");
   if (hasFile("prisma/schema.prisma") || deps.prisma) parts.push("prisma");
   if (deps.react) parts.push("react");
   if (deps.vue) parts.push("vue");
@@ -394,12 +660,17 @@ function detectStack() {
   if (hasFile("Cargo.toml")) parts.push("rust");
 
   // Package manager from the lockfile present — not from the habit of whoever installs.
-  const pm = hasFile("bun.lockb", "bun.lock") ? "bun"
-    : hasFile("pnpm-lock.yaml") ? "pnpm"
-    : hasFile("yarn.lock") ? "yarn"
-    : hasFile("package-lock.json") ? "npm"
-    : hasFile("uv.lock") ? "uv"
-    : null;
+  const pm = hasFile("bun.lockb", "bun.lock")
+    ? "bun"
+    : hasFile("pnpm-lock.yaml")
+      ? "pnpm"
+      : hasFile("yarn.lock")
+        ? "yarn"
+        : hasFile("package-lock.json")
+          ? "npm"
+          : hasFile("uv.lock")
+            ? "uv"
+            : null;
 
   // Only commands that genuinely exist in the scripts get in. A gate pointing at a script that
   // is not there dies as "script not found", and the report line reads as covered.
@@ -425,9 +696,10 @@ function detectStack() {
  * the next model ships, and every machine that installed before then keeps generating the old one.
  */
 function codexSettings() {
-  const cfg = readJson(join(cwd, ".graph-powers/config.json"))
-    ?? readJson(join(cwd, ".claude/config.json"))
-    ?? {};
+  const cfg =
+    readJson(join(cwd, ".graph-powers/config.json")) ??
+    readJson(join(cwd, ".claude/config.json")) ??
+    {};
   const codex = cfg.codex ?? {};
   return {
     ...(typeof codex.model === "string" && codex.model ? { model: codex.model } : {}),
@@ -470,36 +742,45 @@ function writeConfig() {
       ...(Object.keys(d.commands).length ? { commands: d.commands } : {}),
     },
     paths: existsSync(join(cwd, "src")) ? { frontendRoot: "src" } : {},
-    // Written explicitly rather than left to the schema default, so the file says what it does
-    // instead of leaving a stranger to look it up.
-    autonomy: {
-      level: autonomyLevel,
-      destructiveFloor: true,
-    },
+    autonomy: autonomyFields(),
   };
 
   if (dryRun) {
     info("(dry-run) would write .graph-powers/config.json:");
-    console.log(dim(JSON.stringify(cfg, null, 2).split("\n").map((l) => `      ${l}`).join("\n")));
+    console.log(
+      dim(
+        JSON.stringify(cfg, null, 2)
+          .split("\n")
+          .map((l) => `      ${l}`)
+          .join("\n"),
+      ),
+    );
     return;
   }
   mkdirSync(join(cwd, ".graph-powers"), { recursive: true });
   writeFileSync(configFile, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
   ok(`.graph-powers/config.json created (stack: ${d.stack}, prefix: ${prefix})`);
   warn("Review it before trusting it: detection is a starting point, not a verdict.");
-  info(`In particular: workBranch=${cfg.git.workBranch}, testRunner=${JSON.stringify(cfg.tooling.testRunner)}`);
+  info(
+    `In particular: workBranch=${cfg.git.workBranch}, testRunner=${JSON.stringify(cfg.tooling.testRunner)}`,
+  );
 }
 
 // ── steps ────────────────────────────────────────────────────────────────────
 const steps = [];
 if (wantClaude) steps.push("marketplace", "plugin", "permissions");
+steps.push("autonomy");
 if (wantCodex) steps.push("codex");
+if (wantCursor) steps.push("cursor");
+if (wantGrok) steps.push("grok");
 if (wantConfig) steps.push("config");
 steps.push("verify");
 const TOTAL = steps.length + 1;
 let n = 0;
 
-console.log(`\n${bold("Graph Powers")} ${dim("— shared harness for Claude Code and Codex CLI")}`);
+console.log(
+  `\n${bold("Graph Powers")} ${dim("— shared harness for Claude Code, Codex CLI, Cursor and Grok")}`,
+);
 if (dryRun) console.log(yellow("  dry-run: nothing will be changed"));
 
 // Installing the harness into its own repository is always an accident, and a quiet one: it adds
@@ -507,8 +788,10 @@ if (dryRun) console.log(yellow("  dry-run: nothing will be changed"));
 // next commit ships them. It happened here, once, from a `--update` that re-ran the installer in
 // the clone's own directory.
 if (resolve(cwd) === PLUGIN_ROOT && !has("--force")) {
-  die("this is the plugin's own repository — installing it into itself writes the artefacts it generates.",
-      "Run it from the project you want to wire, or pass --force if you really mean it.");
+  die(
+    "this is the plugin's own repository — installing it into itself writes the artefacts it generates.",
+    "Run it from the project you want to wire, or pass --force if you really mean it.",
+  );
 }
 
 step(++n, TOTAL, "Checking the environment");
@@ -517,24 +800,40 @@ step(++n, TOTAL, "Checking the environment");
   else info("claude not found");
   if (codexVersion) ok(`codex ${codexVersion}`);
   else info("codex not found");
+  if (cursorVersion) ok(`cursor ${cursorVersion}`);
+  else if (cursorHome) ok("Cursor home present (~/.cursor)");
+  else info("cursor not found");
+  if (grokVersion) ok(`grok ${grokVersion}`);
+  else if (grokHome) ok("Grok home present (~/.grok)");
+  else info("grok not found");
   // A missing CLI is only fatal when nobody said what to wire. With an explicit `--target` the
   // request is unambiguous, and generating the artefacts for a CLI that is not installed yet is a
   // real use: a container image, a CI runner, a machine being prepared for someone else.
-  if (!claudeVersion && !codexVersion && !targetWasAsked) {
+  if (!wantClaude && !wantCodex && !wantCursor && !wantGrok && !targetWasAsked) {
     die(
-      "neither `claude` nor `codex` was found on PATH.",
-      "Install Claude Code (https://claude.com/claude-code) or Codex CLI first, "
-        + "or pass --target to write the artefacts anyway.",
+      "neither `claude`, `codex`, Cursor, nor Grok was found.",
+      "Install Claude Code, Codex CLI, Cursor or Grok CLI first, " +
+        "or pass --target to write the artefacts anyway.",
     );
   }
   if (wantClaude && !claudeVersion) {
     // Claude Code is different: its half of the install *is* the CLI. There are no files to write
     // without it, so there is nothing to generate ahead of time.
-    die("--target includes claude, but the `claude` CLI is not on PATH.",
-        "Use --target codex, or install Claude Code.");
+    die(
+      "--target includes claude, but the `claude` CLI is not on PATH.",
+      "Use --target codex, --target cursor or --target grok, or install Claude Code.",
+    );
   }
   if (wantCodex && !codexVersion) {
-    warn("codex is not on PATH — the artefacts will still be written, but nothing will read them yet.");
+    warn(
+      "codex is not on PATH — the artefacts will still be written, but nothing will read them yet.",
+    );
+  }
+  if (wantCursor && !cursorVersion && !cursorHome) {
+    warn("Cursor is not on PATH and ~/.cursor is absent — permissions will still be written.");
+  }
+  if (wantGrok && !grokVersion && !grokHome) {
+    warn("Grok is not on PATH and ~/.grok is absent — config.toml will still be written.");
   }
 
   // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
@@ -546,7 +845,9 @@ step(++n, TOTAL, "Checking the environment");
     if (Number(major) > 3 || (Number(major) === 3 && Number(minor) >= 10)) {
       ok(version);
     } else {
-      warn(`${version} — the guardrails need Python 3.10 or newer; they will fail open and never run.`);
+      warn(
+        `${version} — the guardrails need Python 3.10 or newer; they will fail open and never run.`,
+      );
     }
   } else {
     warn("python3 not found — the guardrails are Python stdlib and will not run without it.");
@@ -570,30 +871,40 @@ if (wantClaude) {
     else if (/already/i.test(out)) info("marketplace was already registered");
     else {
       console.error(out.trim());
-      die("failed to register the marketplace.", "Check that the repository is reachable and the path is right.");
+      die(
+        "failed to register the marketplace.",
+        "Check that the repository is reachable and the path is right.",
+      );
     }
   }
 
   step(++n, TOTAL, `Installing the plugin ${dim(`(scope: ${scope})`)}`);
   if (already.installed && already.version === localVersion && !has("--force")) {
     ok(`already installed globally at ${already.version} — nothing to do`);
-    info(`installed ${already.installedAt ?? "earlier"} from commit ${(already.gitCommitSha ?? "?").slice(0, 8)}`);
+    info(
+      `installed ${already.installedAt ?? "earlier"} from commit ${(already.gitCommitSha ?? "?").slice(0, 8)}`,
+    );
     info("It already serves every project on this machine, including ones that do not exist yet.");
   } else if (already.installed && already.version !== localVersion) {
     info(`global install is at ${already.version}, this source is ${localVersion} — updating`);
     // The qualified `<plugin>@<marketplace>` form: the bare name is "not found". The command also
     // exits 0 when it fails, so its output is what gets read, not its status.
-    const r = claude(["plugin", "update", `${PLUGIN}@${MARKETPLACE}`, "--scope", "user", "-y"],
-                     { capture: true });
+    const r = claude(["plugin", "update", `${PLUGIN}@${MARKETPLACE}`, "--scope", "user", "-y"], {
+      capture: true,
+    });
     const out = `${r.stdout}${r.stderr}`;
     if (r.status === 0 && !/not found|failed/i.test(out)) {
       ok(`${PLUGIN} updated to ${localVersion} · restart the session to apply`);
     } else {
       console.error(out.trim());
-      warn(`update failed — the existing install still works; try \`claude plugin update ${PLUGIN}@${MARKETPLACE}\`.`);
+      warn(
+        `update failed — the existing install still works; try \`claude plugin update ${PLUGIN}@${MARKETPLACE}\`.`,
+      );
     }
   } else {
-    const r = claude(["plugin", "install", `${PLUGIN}@${MARKETPLACE}`, "--scope", scope, "-y"], { capture: true });
+    const r = claude(["plugin", "install", `${PLUGIN}@${MARKETPLACE}`, "--scope", scope, "-y"], {
+      capture: true,
+    });
     const out = `${r.stdout}${r.stderr}`;
     if (r.status === 0) ok(`${PLUGIN} installed at ${scope} scope`);
     else if (/already installed/i.test(out)) info("already installed in this scope");
@@ -608,13 +919,19 @@ if (wantClaude) {
   step(++n, TOTAL, `Permissions ${dim(`(${autonomyLevel})`)}`);
   writePermissions(scope);
   if (autonomyLevel === "autonomous") {
-    info("autonomy: autonomous — unrecognised commands run, cleanup runs, commit and push need no key.");
+    info(
+      "autonomy: autonomous — unrecognised commands run, cleanup runs, commit and push need no key.",
+    );
     info("Still refused, at any level: rm -rf on / or $HOME, mkfs, dd to a device, DROP DATABASE,");
     info("force-pushing a protected branch. Those are what git cannot give back.");
   } else {
     info("autonomy: guarded — an unrecognised command asks, and git actions need an opt-in key.");
   }
 }
+
+step(++n, TOTAL, "Autonomy posture");
+writeUserAutonomy();
+repairProjectAutonomy();
 
 if (wantCodex) {
   step(++n, TOTAL, "Wiring Codex");
@@ -661,6 +978,72 @@ if (wantCodex) {
   }
 }
 
+if (wantCursor) {
+  step(++n, TOTAL, `Wiring Cursor ${dim(`(${autonomyLevel})`)}`);
+  try {
+    const result = installCursor({
+      pluginRoot: PLUGIN_ROOT,
+      dryRun,
+      emit: false,
+      autonomous: autonomyLevel === "autonomous",
+      log: (m) => info(String(m).replace(homedir(), "~")),
+    });
+    if (result.written.length) ok(`${result.written.length} Cursor path(s) written`);
+    else ok("Cursor IDE permissions already match autonomous posture");
+    if (result.skipped?.length) {
+      info(
+        `native Cursor hooks skip ${result.skipped.join(", ")} — preToolUse still gates the shell`,
+      );
+    }
+    info("~/.cursor/permissions.json is the IDE Run Mode. cli-config.json is cursor-agent only.");
+    info(
+      "A team dashboard can still force Auto-review; then set Settings → Agents → Run Everything.",
+    );
+  } catch (e) {
+    die(`failed to wire Cursor: ${e.message}`);
+  }
+}
+
+if (wantGrok) {
+  step(++n, TOTAL, `Wiring Grok ${dim(`(${autonomyLevel})`)}`);
+  try {
+    let nativeInstall = false;
+    if (grokVersion && !has("--skip-marketplace")) {
+      const add = grok(["plugin", "marketplace", "add", source], { capture: true });
+      const addOut = `${add.stdout}${add.stderr}`;
+      if (add.status === 0 || /already/i.test(addOut)) ok("Grok marketplace registered");
+      else warn(`Grok marketplace add failed — clone path will still be written. ${addOut.trim()}`);
+
+      const inst = grok(["plugin", "install", PLUGIN, "--trust"], { capture: true });
+      const instOut = `${inst.stdout}${inst.stderr}`;
+      if (inst.status === 0 || /already/i.test(instOut)) {
+        ok("Grok plugin installed (--trust)");
+        nativeInstall = true;
+      } else {
+        warn(`Grok plugin install failed — config.toml still written. ${instOut.trim()}`);
+      }
+    } else if (grokVersion && has("--skip-marketplace")) {
+      info("Grok marketplace skipped by --skip-marketplace");
+    }
+
+    const result = installGrok({
+      pluginRoot: PLUGIN_ROOT,
+      dryRun,
+      emit: false,
+      autonomous: autonomyLevel === "autonomous",
+      discoverClone: !nativeInstall,
+      log: (m) => info(String(m).replace(homedir(), "~")),
+    });
+    if (result.written.length) ok(`${result.written.length} Grok path(s) written`);
+    else ok("Grok config.toml already matches autonomous posture");
+    info("~/.grok/config.toml is user-only. permission_mode cannot live in a project .grok/.");
+    info("Do not also write ~/.grok/hooks/*.json — native plugin hooks would run twice.");
+    info("Git commit and push still ask. rm -rf / still denies.");
+  } catch (e) {
+    die(`failed to wire Grok: ${e.message}`);
+  }
+}
+
 if (wantConfig) {
   step(++n, TOTAL, "Writing .graph-powers/config.json");
   writeConfig();
@@ -679,18 +1062,46 @@ if (wantCodex && !dryRun) {
   // Which manifest to read depends on the scope, and reading the wrong one is not a cosmetic
   // slip: the global install records its hooks in the Codex home, so looking in the project
   // always found nothing and always warned — on a run that had just succeeded.
-  const manifest = scope === "user"
-    ? readJson(join(homedir(), ".codex", "graph-powers-installed.json"))
-    : readJson(join(cwd, ".graph-powers", "installed.json"));
+  const manifest =
+    scope === "user"
+      ? readJson(join(homedir(), ".codex", "graph-powers-installed.json"))
+      : readJson(join(cwd, ".graph-powers", "installed.json"));
   if (manifest?.hookCommands?.length) {
     ok(`${manifest.hookCommands.length} Codex hook entries recorded`);
-    if (manifest.complete === false) warn("the manifest says the install did not finish — re-run it.");
+    if (manifest.complete === false)
+      warn("the manifest says the install did not finish — re-run it.");
   } else if (manifest) {
     ok("Codex manifest written");
   } else {
     warn("no Codex manifest was written — check the output above.");
   }
   info("Codex asks you to approve hooks once: open a session and run /hooks, or they stay inert.");
+}
+
+if (wantCursor && !dryRun) {
+  const permFile = join(homedir(), ".cursor/permissions.json");
+  const perms = existsSync(permFile) ? readJsonSafe(permFile) : null;
+  if (autonomyLevel === "autonomous" && perms?.approvalMode === "unrestricted") {
+    ok("Cursor IDE approvalMode is unrestricted");
+  } else if (autonomyLevel === "autonomous") {
+    warn("Cursor permissions.json is missing or not unrestricted — the IDE will keep asking.");
+  } else {
+    info("Cursor left on guarded posture (no unrestricted write)");
+  }
+  info("Reload the Cursor window, or start a new Agent chat, for Run Mode to apply.");
+}
+
+if (wantGrok && !dryRun) {
+  const grokFile = join(process.env.GROK_HOME || join(homedir(), ".grok"), "config.toml");
+  const toml = existsSync(grokFile) ? readFileSync(grokFile, "utf8") : "";
+  if (autonomyLevel === "autonomous" && /permission_mode\s*=\s*"always-approve"/.test(toml)) {
+    ok("Grok permission_mode is always-approve");
+  } else if (autonomyLevel === "autonomous") {
+    warn("Grok config.toml is missing or not always-approve — the CLI will keep asking.");
+  } else {
+    info("Grok left on guarded posture (no always-approve write)");
+  }
+  info("Restart the Grok session. Hooks and skills are read at startup.");
 }
 
 console.log(`
@@ -701,7 +1112,9 @@ ${bold("Done.")} Two steps the installer does not do for you:
 
   ${bold("2.")} ${bold("Run the setup playbook.")} Paste this into a session opened in this project:
 
-${AGENT_PROMPT.split("\n").map((l) => `       ${dim(l)}`).join("\n")}
+${AGENT_PROMPT.split("\n")
+  .map((l) => `       ${dim(l)}`)
+  .join("\n")}
 
      It installs the required external plugins, writes or improves your config, rules and
      instructions, and — the step that decides whether any of this changes anything — cleans the

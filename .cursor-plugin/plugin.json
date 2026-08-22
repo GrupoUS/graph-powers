@@ -1,13 +1,14 @@
 {
   "name": "graph-powers",
+  "displayName": "Graph Powers",
   "description": "Agents, skills, commands and git/execution guardrails that work in any repository, on Claude Code, Codex CLI, Cursor and Grok CLI. The project declares its stack in .graph-powers/config.json and the plugin adapts; nothing here is specific to one product.",
   "version": "1.9.0",
   "author": {
     "name": "GrupoUS"
   },
-  "license": "MIT AND Apache-2.0",
   "homepage": "https://github.com/GrupoUS/graph-powers#readme",
   "repository": "https://github.com/GrupoUS/graph-powers",
+  "license": "MIT AND Apache-2.0",
   "keywords": [
     "harness",
     "agents",
@@ -17,5 +18,9 @@
     "codex",
     "cursor",
     "grok"
-  ]
+  ],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks-cursor.json"
 }

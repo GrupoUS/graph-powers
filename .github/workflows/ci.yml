@@ -48,7 +48,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, json, sys
-          files = sorted(set(glob.glob("**/*.json", recursive=True) + glob.glob(".*/*.json")))
+          files = sorted(set(glob.glob("**/*.json", recursive=True) + glob.glob(".*/*.json")
+                           + glob.glob(".cursor-plugin/*.json") + glob.glob(".grok-plugin/*.json")))
           bad = []
           for f in files:
               try:
@@ -64,7 +65,7 @@ jobs:
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
 
-      - name: Guardrails — negative tests, both harnesses
+      - name: Guardrails — negative tests, every harness
         run: python3 hooks/test_hooks.py
 
       - name: Frontmatter parses, and name matches the file
@@ -139,7 +140,7 @@ jobs:
           fi
           echo "no broken symlinks"
 
-      - name: Every declared hook exists, on both harnesses
+      - name: Every declared hook exists, on every harness
         run: |
           python3 - <<'PY'
           import json, os, sys
@@ -199,7 +200,7 @@ jobs:
           python3 - <<'PY'
           import glob, os, re, sys
           pat = re.compile(
-              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|workflows)'
+              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|workflows)'
               r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)'
           )
           missing = {}
@@ -337,6 +338,147 @@ jobs:
                 "old root gone, third parties intact")
           PY
 
+  cursor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Cursor artefacts match the Claude source
+        run: |
+          node --check cursor/install.mjs
+          python3 .github/check_cursor.py
+
+      - name: Cursor installer writes IDE permissions, merge never clobbers
+        run: |
+          fakehome=$(mktemp -d)
+          mkdir -p "$fakehome/.cursor"
+          printf '%s\n' '{"approvalMode":"allowlist","mcpAllowlist":["other:tool"]}' \
+            > "$fakehome/.cursor/permissions.json"
+          HOME="$fakehome" node cursor/install.mjs --plugin "$PWD"
+          python3 - "$fakehome" <<'PY'
+          import json, os, sys
+          home = sys.argv[1]
+          perms = json.load(open(os.path.join(home, ".cursor/permissions.json"), encoding="utf-8"))
+          assert perms["approvalMode"] == "unrestricted", perms
+          assert "*:*" in perms["mcpAllowlist"], perms
+          assert "other:tool" in perms["mcpAllowlist"], "operator allowlist was replaced"
+          assert perms["terminalAllowlist"] == ["*"], perms
+          cli = json.load(open(os.path.join(home, ".cursor/cli-config.json"), encoding="utf-8"))
+          assert cli["approvalMode"] == "unrestricted", cli
+          assert cli["autoAcceptWebSearch"] is True, cli
+          print("autonomous install upgraded allowlist without dropping other:tool")
+          PY
+          HOME="$fakehome" node cursor/install.mjs --plugin "$PWD"
+          python3 - "$fakehome" <<'PY'
+          import json, os, sys
+          home = sys.argv[1]
+          perms = json.load(open(os.path.join(home, ".cursor/permissions.json"), encoding="utf-8"))
+          assert perms["mcpAllowlist"].count("*:*") == 1, "second install duplicated the allowlist"
+          print("second install is idempotent")
+          PY
+          empty=$(mktemp -d)
+          HOME="$empty" node cursor/install.mjs --plugin "$PWD" --guarded
+          python3 - "$empty" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          assert not os.path.exists(os.path.join(home, ".cursor/permissions.json")), \
+              "guarded autonomy must not write unrestricted permissions"
+          print("guarded writes nothing")
+          PY
+
+      - name: Clone installer --target cursor, from a project directory
+        run: |
+          project=$(mktemp -d)
+          fakehome=$(mktemp -d)
+          git -C "$project" init -q
+          cd "$project"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target cursor --skip-marketplace --autonomy autonomous
+          python3 - "$fakehome" <<'PY'
+          import json, os, sys
+          home = sys.argv[1]
+          perms = json.load(open(os.path.join(home, ".cursor/permissions.json"), encoding="utf-8"))
+          assert perms["approvalMode"] == "unrestricted", perms
+          print("clone installer --target cursor wrote unrestricted permissions")
+          PY
+
+  grok:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Grok artefacts match the Claude source
+        run: |
+          node --check grok/install.mjs
+          python3 .github/check_grok.py
+
+      - name: Grok installer writes config.toml, merge never clobbers
+        run: |
+          fakehome=$(mktemp -d)
+          mkdir -p "$fakehome/.grok"
+          cat > "$fakehome/.grok/config.toml" <<'TOML'
+          # operator comment
+          [ui]
+          theme = "dark"
+          permission_mode = "ask"
+
+          [[marketplace.sources]]
+          name = "other"
+          git = "https://example.invalid/other.git"
+          TOML
+          HOME="$fakehome" node grok/install.mjs --plugin "$PWD"
+          python3 - "$fakehome" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          text = open(os.path.join(home, ".grok/config.toml"), encoding="utf-8").read()
+          assert 'permission_mode = "always-approve"' in text, text
+          assert 'theme = "dark"' in text, "operator ui keys were dropped"
+          assert text.count("[ui]") == 1, "duplicate [ui] tables"
+          assert 'name = "other"' in text, "operator marketplace source was dropped"
+          assert 'name = "graph-powers"' in text, text
+          assert "git commit" not in text, "must not TOML-deny git commit"
+          print("autonomous install upgraded ask without dropping operator keys")
+          PY
+          HOME="$fakehome" node grok/install.mjs --plugin "$PWD"
+          python3 - "$fakehome" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          text = open(os.path.join(home, ".grok/config.toml"), encoding="utf-8").read()
+          assert text.count('name = "graph-powers"') == 1, "second install duplicated the marketplace source"
+          print("second install is idempotent")
+          PY
+          empty=$(mktemp -d)
+          HOME="$empty" node grok/install.mjs --plugin "$PWD" --guarded
+          python3 - "$empty" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          assert not os.path.exists(os.path.join(home, ".grok/config.toml")), \
+              "guarded autonomy must not write always-approve"
+          print("guarded writes nothing")
+          PY
+
+      - name: Clone installer --target grok, from a project directory
+        run: |
+          project=$(mktemp -d)
+          fakehome=$(mktemp -d)
+          git -C "$project" init -q
+          cd "$project"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target grok --skip-marketplace --autonomy autonomous
+          python3 - "$fakehome" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          text = open(os.path.join(home, ".grok/config.toml"), encoding="utf-8").read()
+          assert 'permission_mode = "always-approve"' in text, text
+          print("clone installer --target grok wrote always-approve")
+          PY
+
   clone:
     runs-on: ubuntu-latest
     steps:
@@ -377,4 +519,29 @@ jobs:
           assert m['complete'] is True, m
           assert m['pluginRoot'].endswith('graph-powers'), m['pluginRoot']
           print('installed from a clone;', len(m['paths']), 'paths recorded')
+          "
+          echo "── cursor from the same clone ──"
+          cursorhome=$(mktemp -d)
+          cd "$project"
+          HOME="$cursorhome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+            --target cursor --skip-marketplace > /dev/null
+          test -f "$cursorhome/.cursor/permissions.json" \
+            || { echo "::error::a fresh clone did not write Cursor permissions"; exit 1; }
+          python3 -c "
+          import json
+          d = json.load(open('$cursorhome/.cursor/permissions.json'))
+          assert d['approvalMode'] == 'unrestricted', d
+          print('cursor permissions written from a clone')
+          "
+          echo "── grok from the same clone ──"
+          grokhome=$(mktemp -d)
+          cd "$project"
+          HOME="$grokhome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+            --target grok --skip-marketplace > /dev/null
+          test -f "$grokhome/.grok/config.toml" \
+            || { echo "::error::a fresh clone did not write Grok config.toml"; exit 1; }
+          python3 -c "
+          text = open('$grokhome/.grok/config.toml', encoding='utf-8').read()
+          assert 'permission_mode = \"always-approve\"' in text, text
+          print('grok config written from a clone')
           "
