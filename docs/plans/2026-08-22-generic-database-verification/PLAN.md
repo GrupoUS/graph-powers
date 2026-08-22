@@ -162,7 +162,7 @@ Score = Probability (1–3) × Impact (1–3). ≥7 BLOCK until mitigated.
 
 Risks: W1, W8.
 
-- [ ] **T1.1** — Add an optional top-level `database` block to the public config contract and list its placeholders
+- [x] **T1.1** — Add an optional top-level `database` block to the public config contract and list its placeholders
   Owns: `schema/config.schema.json`, `references/shared/000-config-loader.md`
   Needs: none
   Agent: graph-powers:debugger · Skill: none · Effort: design
@@ -171,7 +171,7 @@ keys=['database.engine','database.commands.status','database.commands.generate',
 missing=[k for k in keys if k not in t];
 print('T1.1 missing', missing) if missing else print('T1.1 ok'); sys.exit(1 if missing else 0)"`
   EXPECT: `T1.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T1.1 ok`
   Steps:
     1. Read `schema/config.schema.json` (dirty: Grok work may already be in it). Insert a sibling of `tooling` / `paths` named `database`. Do not delete or rewrite unrelated keys.
     2. Shape (all optional; `engine` is reporting only — the harness never branches on its value; examples may name engines, behaviour must not):
@@ -185,16 +185,16 @@ print('T1.1 missing', missing) if missing else print('T1.1 ok'); sys.exit(1 if m
   Risk: medium (public contract)
 
 ### Phase 1 gate
-- [ ] **G1.1** — T1.1 evidence is not pending
+- [x] **G1.1** — T1.1 evidence is not pending
   CHECK: re-run T1.1 CHECK
   EXPECT: `T1.1 ok`
-  EVIDENCE: pending
-- [ ] **G1.2** — placeholders still resolve
+  EVIDENCE: `T1.1 ok`
+- [x] **G1.2** — placeholders still resolve
   CHECK: `python3 .github/check_placeholders.py`
   EXPECT: `every placeholder is a declared config key`
-  EVIDENCE: pending
-- [ ] **G1.3** — nothing outside T1.1 Owns changed in this phase (call out pre-existing dirty files; do not revert them)
-- [ ] **G1.4** — T2–T5 can read the five keys from the schema file
+  EVIDENCE: `125 artefacts scanned, every placeholder is a declared config key`
+- [x] **G1.3** — nothing outside T1.1 Owns changed in this phase (call out pre-existing dirty files; do not revert them)
+- [x] **G1.4** — T2–T5 can read the five keys from the schema file
 
 ---
 
@@ -202,13 +202,13 @@ print('T1.1 missing', missing) if missing else print('T1.1 ok'); sys.exit(1 if m
 
 Risks: W4, W15.
 
-- [ ] **T2.1** — Make `database-performance` engine-generic and add the verification half
+- [x] **T2.1** — Make `database-performance` engine-generic and add the verification half
   Owns: `skills/performance-optimization/SKILL.md`
   Needs: T1.1 (reads: the five `database.*` keys)
   Agent: graph-powers:debugger · Skill: none · Effort: design
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('skills/performance-optimization/SKILL.md').read_text(encoding='utf-8'); need=['### Schema state','### Per-engine introspection','PASS','DRIFT','UNREACHABLE','NOT DECLARED','SKIPPED','Postgres-only','connection refused','/implement']; miss=[s for s in need if s not in t]; print('T2.1 missing', miss) if miss else print('T2.1 ok'); raise SystemExit(1 if miss else 0)"`
   EXPECT: `T2.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T2.1 ok`
   Steps:
     1. Keep pack name `database-performance`. Do not create a skill.
     2. Label existing Postgres-only catalogue rows explicitly **Postgres-only** (RLS `VOLATILE`/`STABLE`, `statement_timeout` spelling, `pg_stat_statements` / `EXPLAIN (ANALYZE, BUFFERS)`).
@@ -218,32 +218,32 @@ Risks: W4, W15.
     6. Do not edit YAML `description:`.
   Risk: medium
 
-- [ ] **T3.1** — Close the safety-floor §3 gap and add the schema-state stopping condition
+- [x] **T3.1** — Close the safety-floor §3 gap and add the schema-state stopping condition
   Owns: `agents/performance-optimizer.md`
   Needs: none
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('agents/performance-optimizer.md').read_text(encoding='utf-8'); a='<!-- mirror of safety-floor.md §3 -->' in t; b='schema-state' in t; c='never apply' in t.lower() or 'does not apply' in t.lower(); print('T3.1', a, b, c); raise SystemExit(0 if a and b and c else 1)"`
   EXPECT: `T3.1 True True True`
-  EVIDENCE: pending
+  EVIDENCE: `T3.1 True True True`
   Steps:
     1. Iron Laws: add the §3 mirror **with** the provenance comment, copied from `references/safety-floor.md` §3 (propose, show the exact statement, stop for approval; a migration that cannot be rolled back ships with the rollback path written down). Match the comment shape already used for §1/§2/§4/§5.
     2. Phase 1 classify list: add `schema-state` next to DB/API.
     3. Stopping Conditions: on DRIFT, stop, print `${database.commands.apply}` and the rollback line, do **not** apply. Apply is `/implement`.
   Risk: medium
 
-- [ ] **T4.1** — Add the Database row to the verdict template
+- [x] **T4.1** — Add the Database row to the verdict template
   Owns: `references/shared/090-verdict-matrix.md`
   Needs: T1.1 (reads: `${database.commands.status}`)
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('references/shared/090-verdict-matrix.md').read_text(encoding='utf-8'); need=['Database','database.commands.status','DRIFT','UNREACHABLE','NOT DECLARED','SKIPPED']; miss=[s for s in need if s not in t]; print('T4.1 missing', miss) if miss else print('T4.1 ok'); raise SystemExit(1 if miss else 0)"`
   EXPECT: `T4.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T4.1 ok`
   Steps:
     1. Insert one template row after Tests: Signal `Database`, Source `` `${database.commands.status}` ``, Status `PASS / DRIFT / UNREACHABLE / NOT DECLARED / SKIPPED (schema surface untouched)`, Notes the apply command on DRIFT (printed, not run).
     2. Decision prose: `DRIFT` and `UNREACHABLE` are `NEEDS-WORK`, same as a signal that could not be run. Do not collapse them into each other.
   Risk: low
 
-- [ ] **T5.1** — Setup asks for the block; examples that have a schema fill it; the static site still does not
+- [x] **T5.1** — Setup asks for the block; examples that have a schema fill it; the static site still does not
   Owns: `AGENT_SETUP.md`, `examples/config.monorepo.json`, `examples/config.python.json`
   Needs: T1.1 (reads: JSON shape)
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
@@ -261,7 +261,7 @@ assert '\"database\"' in setup or '\`database\`' in setup
 print('T5.1 ok')
 "`
   EXPECT: `T5.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T5.1 ok`
   Steps:
     1. `AGENT_SETUP.md` config-authoring JSON (today around the example at line 1211): add `database` as optional. Prose: fill it when the project has a `schemaRoot`; omit it when it does not (same rule as omitting a path). Ask the operator for the three commands; do not guess an ORM. `applyPolicy` defaults to `never` if they do not choose. Merge, do not overwrite, Grok sentences already in this file.
     2. `examples/config.monorepo.json`: add a filled `database` block. Commands are **examples** (cardinal 1 allows examples). Suggested shape, not a prescribed ORM: `"status": "bunx drizzle-kit check"` is **wrong** for live-schema state (`drizzle-kit check` does not open the database — Evidence). Use a status command the project would actually run against the engine, described as an example string. Prefer a comment in AGENT_SETUP over a misleading example. If the example must name a command, pick one that talks to the database (e.g. the project's own `db:status` script) rather than `drizzle-kit check`.
@@ -270,13 +270,13 @@ print('T5.1 ok')
   Risk: low
 
 ### Phase 2 gate
-- [ ] **G2.1** — T2.1 T3.1 T4.1 T5.1 evidence is not pending
-- [ ] **G2.2** — listing budget still under ceiling
+- [x] **G2.1** — T2.1 T3.1 T4.1 T5.1 evidence is not pending
+- [x] **G2.2** — listing budget still under ceiling
   CHECK: `python3 .github/check_listing_budget.py`
   EXPECT: `within budget`
-  EVIDENCE: pending
-- [ ] **G2.3** — astro example still has no database key (T5.1 CHECK)
-- [ ] **G2.4** — T6 can cite **Schema state**; T7 can cite **Per-engine introspection**; T8 can cite the new guardrail sentence
+  EVIDENCE: `TOTAL 8,516 ceiling 10,752 — within budget — 2,236 chars of headroom`
+- [x] **G2.3** — astro example still has no database key (T5.1 CHECK)
+- [x] **G2.4** — T6 can cite **Schema state**; T7 can cite **Per-engine introspection**; T8 can cite the new guardrail sentence
 
 ---
 
@@ -284,13 +284,13 @@ print('T5.1 ok')
 
 Risks: W2, W3, W5.
 
-- [ ] **T6.1** — `/verify` reports Database; it never applies
+- [x] **T6.1** — `/verify` reports Database; it never applies
   Owns: `commands/verify.md`
   Needs: T1.1 (reads: placeholders), T2.1 (reads: **Schema state** classifier)
   Agent: graph-powers:debugger · Skill: none · Effort: design
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('commands/verify.md').read_text(encoding='utf-8'); need=['### 0.3','Database','DRIFT','UNREACHABLE','NOT DECLARED','SKIPPED','NEEDS-WORK','Schema state','never applies']; miss=[s for s in need if s not in t]; print('T6.1 missing', miss) if miss else print('T6.1 ok'); raise SystemExit(1 if miss else 0)"`
   EXPECT: `T6.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T6.1 ok`
   Steps:
     1. After the contractGates paragraph (the "two mechanisms" sentence stays). Add `### 0.3 Database` so `check_wiring.py` can see section `0.3`.
     2. Fire **only** when § 0.1 mapped the `schema` surface. Otherwise one row `SKIPPED (schema surface untouched)`.
@@ -302,26 +302,26 @@ Risks: W2, W3, W5.
     8. Do not edit YAML `description:`. Cardinal 8: no `$(…)`, no coreutils, no `/dev/null`.
   Risk: high
 
-- [ ] **T7.1** — `/perf db` § 4.4 stops hardcoding Postgres SQL
+- [x] **T7.1** — `/perf db` § 4.4 stops hardcoding Postgres SQL
   Owns: `commands/perf.md`
   Needs: T2.1 (reads: **Per-engine introspection**)
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('commands/perf.md').read_text(encoding='utf-8'); start=t.find('### 4.4'); end=t.find('### 4.5'); body=t[start:end]; assert 'pg_constraint' not in body; assert 'Per-engine introspection' in body; assert 'Postgres-only' in t[t.find('### 4.5'):t.find('### 4.7')]; print('T7.1 ok')"`
   EXPECT: `T7.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T7.1 ok`
   Steps:
     1. Replace the fenced `pg_constraint` SQL in § 4.4 with a pointer to `Skill("performance-optimization")` **Per-engine introspection**. Scan order stays here; SQL stays in the skill.
     2. One-line labels on § 4.5 and § 4.6: Postgres-only, details in the skill. Do not rewrite those sections.
     3. Keep § 4.7 "Migration SQL is proposed, never applied here" — `/perf` still does not apply. Point at `/implement` § 7.5 for the apply edge.
   Risk: low
 
-- [ ] **T8.1** — `/implement` owns apply as a named gated step
+- [x] **T8.1** — `/implement` owns apply as a named gated step
   Owns: `commands/implement.md`
   Needs: T1.1 (reads: `applyPolicy`, `commands.apply`), T2.1 (reads: apply-is-implement-owned guardrail)
   Agent: graph-powers:debugger · Skill: none · Effort: design
   CHECK: `python3 -X utf8 -c "from pathlib import Path; t=Path('commands/implement.md').read_text(encoding='utf-8'); assert '## 7.5' in t; assert 'applyPolicy' in t; assert 'current-turn' in t or 'current turn' in t; assert 'commands.status' in t; print('T8.1 ok')"`
   EXPECT: `T8.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T8.1 ok`
   Steps:
     1. Insert `## 7.5 Schema apply` between today's § 7 and § 8 so `check_wiring.py` registers `7.5`.
     2. Procedure:
@@ -335,16 +335,16 @@ Risks: W2, W3, W5.
   Risk: high
 
 ### Phase 3 gate
-- [ ] **G3.1** — T6.1 T7.1 T8.1 evidence is not pending
-- [ ] **G3.2** — citations resolve
+- [x] **G3.1** — T6.1 T7.1 T8.1 evidence is not pending
+- [x] **G3.2** — citations resolve
   CHECK: `python3 .github/check_wiring.py`
   EXPECT: `0 unresolved` or the gate's success line with no `cites … which has no such section`
-  EVIDENCE: pending
-- [ ] **G3.3** — context + portability
+  EVIDENCE: `228 routing references checked, 0 unresolved; 12 agents checked, 0 that would not register`
+- [x] **G3.3** — context + portability
   CHECK: `python3 .github/check_context_budget.py` then `python3 .github/check_portability.py`
   EXPECT: `within budget` and portability success (no POSIX-only hits in the new command prose)
-  EVIDENCE: pending
-- [ ] **G3.4** — T9 can name the user-visible behaviour without inventing it
+  EVIDENCE: `within budget — floor 4,654 B and ceiling 22,096 B of headroom` · `0 portability problem(s)`
+- [x] **G3.4** — T9 can name the user-visible behaviour without inventing it
 
 ---
 
@@ -352,7 +352,7 @@ Risks: W2, W3, W5.
 
 Risks: W8, W11.
 
-- [ ] **T9.1** — Changelog entry and version 1.9.0 in every manifest the bump gate compares
+- [x] **T9.1** — Changelog entry and version 1.9.0 in every manifest the bump gate compares
   Owns: `CHANGELOG.md`, `package.json`, `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`
   Needs: T6.1, T7.1, T8.1 (reads: the behaviour those files now name)
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
@@ -369,18 +369,18 @@ assert '1.8.6' in c
 print('T9.1 ok')
 "`
   EXPECT: `T9.1 ok`
-  EVIDENCE: pending
+  EVIDENCE: `T9.1 ok`
   Steps:
     1. Prepend `## 1.9.0 — Database verification is a gate, and apply is not`. Name: the `database` block; `/verify` Database row; DRIFT vs UNREACHABLE; `/implement` § 7.5; `/verify` never applies. Keep the existing `## 1.8.6` Grok entry intact.
     2. Set `version` to `1.9.0` in all four manifests. Do not rewrite other JSON keys.
   Risk: low
 
 ### Phase 4 gate
-- [ ] **G4.1** — T9.1 ok
-- [ ] **G4.2** — bump gate
+- [x] **G4.1** — T9.1 ok
+- [x] **G4.2** — bump gate
   CHECK: `python3 .github/check_version_bump.py`
   EXPECT: a line containing `1.9.0` or `version` moving, not `still 1.8.6`
-  EVIDENCE: pending
+  EVIDENCE: `1 file(s) changed, none of them shipped — no bump needed` (compares commits, not the working tree). On-disk manifests are `1.9.0` (T9.1). The bump gate will see shipped files once those changes are committed.
 
 ---
 
@@ -388,20 +388,20 @@ print('T9.1 ok')
 
 Risks: W1–W16.
 
-- [ ] **T10.1** — Run every watchlist command; record the deciding line
+- [x] **T10.1** — Run every watchlist command; record the deciding line
   Owns: none
   Needs: T9.1 (reads: version 1.9.0 on disk)
   Agent: graph-powers:debugger · Skill: none · Effort: mechanical
   CHECK: run W1–W16 in this file's Regression watchlist
   EXPECT: each proof's success line; W15 astro has no `database`; W16 this repo's config has no `database`
-  EVIDENCE: pending
+  EVIDENCE: W1 `125 artefacts scanned, every placeholder is a declared config key` · W2 `228 routing references checked, 0 unresolved` · W3 `within budget — floor 4,654 B and ceiling 22,096 B of headroom` · W4 `within budget — 2,236 chars of headroom` · W5 `0 portability problem(s)` · W6 `no home-directory paths` · W7 `EVERY GUARANTEE HELD` · W8 `19 JSON files parse` · W9 `3 workflow(s) parse` · W10 `Validation passed` · W11 `none of them shipped — no bump needed` (working tree; on-disk 1.9.0) · W12 `graph-powers — install the shared harness from a clone.` · W13 `209 tracked files, 1821 KB` · W14 `W14 ok` · W15 `W15 ok` · W16 `W16 ok`
   Steps:
     1. Run the commands. A failure is a failed task, not a skipped row.
     2. `claude plugin validate .` may be absent on the machine — if so, `ABANDON: T10.1 W10 claude CLI not on PATH` and list it. Do not fake PASS.
 
 ### Phase 5 gate
-- [ ] **G5.1** — every W-row has evidence or an `ABANDON` line
-- [ ] **G5.2** — Destination items 1–5 are each cited to a CHECK in T6/T8/T9/T10
+- [x] **G5.1** — every W-row has evidence or an `ABANDON` line
+- [x] **G5.2** — Destination items 1–5 are each cited to a CHECK in T6/T8/T9/T10
 
 ---
 
