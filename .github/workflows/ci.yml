@@ -148,16 +148,16 @@ jobs:
           assert "hooks" not in plugin, "plugin.json duplicates the canonical hooks/hooks.json"
           commands = [h["command"] for arr in d.get("hooks", {}).values()
                       for m in arr for h in m["hooks"]]
-          assert len(commands) == 13, f"expected 13 native hook registrations, found {len(commands)}"
-          assert len(set(commands)) == 12, \
-              f"expected 12 scripts with the Bash approver registered twice, found {len(set(commands))}"
+          assert len(commands) == 14, f"expected 14 native hook registrations, found {len(commands)}"
+          assert len(set(commands)) == 13, \
+              f"expected 13 scripts with the Bash approver registered twice, found {len(set(commands))}"
           missing = [
               h["command"].split("/hooks/")[1].rstrip('"')
               for arr in d.get("hooks", {}).values() for m in arr for h in m["hooks"]
               if not os.path.exists("hooks/" + h["command"].split("/hooks/")[1].rstrip('"'))
           ]
           print("\n".join(f"MISSING: {m}" for m in missing)
-                or "13 native registrations cover 12 hook scripts; every target exists")
+                or "14 native registrations cover 13 hook scripts; every target exists")
           sys.exit(1 if missing else 0)
           PY
 
@@ -314,7 +314,7 @@ jobs:
           assert raw.count(old) == 0, f"{raw.count(old)} command(s) still point at the old plugin root"
           assert raw.count(new) > 0, "no command points at the current plugin root"
           seen = collections.Counter()
-          for groups in data["hooks"].values():
+          for event, groups in data["hooks"].items():
               for group in groups:
                   for hook in group.get("hooks", []):
                       # Only ours. A third party's file living at the same basename is not a
@@ -322,13 +322,19 @@ jobs:
                       if new not in hook["command"]:
                           continue
                       for name in re.findall(r"/hooks/([a-z_]+)\.py", hook["command"]):
-                          seen[name] += 1
-          dupes = {k: v for k, v in seen.items() if v > 1}
+                          # Keyed by event, because one script answering two different events is
+                          # the manifest working as written — the Bash approver runs at both
+                          # PreToolUse and PermissionRequest. The defect this guards against is
+                          # the same script registered twice for the same event, one copy under a
+                          # stale plugin root.
+                          seen[(event, name)] += 1
+          dupes = {f"{event}:{name}": v for (event, name), v in seen.items() if v > 1}
           assert not dupes, f"a guardrail is registered more than once: {dupes}"
           assert "node /other/tool.mjs" in raw, "a third party's hook was dropped"
           assert "/opt/other-tool/hooks/notify.py" in raw, \
               "a third party's hook sharing a basename with ours was deleted"
-          print(f"{len(seen)} guardrails, each registered once, old root gone, third parties intact")
+          print(f"{len(seen)} registrations, none repeated within an event, "
+                "old root gone, third parties intact")
           PY
 
   clone:
