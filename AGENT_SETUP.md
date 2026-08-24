@@ -209,8 +209,10 @@ level up.
 Start by running the preflight at the end of this step. It prints one line per prerequisite and is
 the fastest way to know which halves of this step you can skip.
 
-**The two plugins are required.** Nine of the ten commands call superpowers skills; without it
-`/plan`, `/debug` and `/implement` stop mid-run. `/design` delegates every craft pass to impeccable.
+**The two plugins and the one external skill are required.** Nine of the ten commands call
+superpowers skills; without it `/plan`, `/debug` and `/implement` stop mid-run. `/design` delegates
+every craft pass to impeccable, and loads `landing-page-design` whenever the surface is a landing or
+marketing page.
 
 ### superpowers — the method layer
 
@@ -269,15 +271,44 @@ commands alongside impeccable's.
 `.codex/hooks.json`, and although the Graph Powers installer merges rather than overwrites, doing
 it in this order means the merge happens once and you can verify it once.
 
+### landing-page-design — the landing-page layer
+
+Intake questions, section order, conversion copy, and the visual canon for type, spacing, radius,
+background, hero, icons and motion. MIT, maintained at
+[elayadesign/ai-design-skills](https://github.com/elayadesign/ai-design-skills).
+
+**It is a skill folder, not a plugin.** There is no marketplace entry and no installer: the
+repository ships a single `skills/landing-page-design/SKILL.md`, so installing it is copying that
+one file into the two skills directories this harness already reads — `~/.claude/skills` for Claude
+Code and `~/.agents/skills` for Codex, the same pair impeccable lands in.
+
+```bash
+python -X utf8 -c "import os,urllib.request;h=os.path.expanduser('~');u='https://raw.githubusercontent.com/elayadesign/ai-design-skills/main/skills/landing-page-design/SKILL.md';[(os.makedirs(os.path.join(h,*d,'landing-page-design'),exist_ok=True),urllib.request.urlretrieve(u,os.path.join(h,*d,'landing-page-design','SKILL.md'))) for d in (('.claude','skills'),('.agents','skills'))]"
+```
+
+No `curl`, no `cp`, no `/tmp`: the upstream README spells the install with all three, and none of
+them runs on the Windows shells this plugin has to work under. The command above is the same
+operation in the interpreter every machine here already has, and re-running it is the update.
+
+**Verify:** both files exist and are non-empty, and `Skill("landing-page-design")` resolves in a
+fresh session. If upstream ever grows the skill past that single file, clone the repository and copy
+the whole folder instead — the one-file fetch would silently leave its references behind.
+
+`/design` loads it only for a landing or marketing surface; a dashboard or an app shell never pays
+for it. Its design values are meant to be forked: point the user at the **Design Values** section at
+the bottom of the file when the project's palette and type scale should win, which under this
+harness they always do.
+
 ### Keeping them current
 
-Both age independently of this plugin. Add these to whatever the project uses for routine
+All three age independently of this plugin. Add these to whatever the project uses for routine
 maintenance, and tell the user they exist:
 
 ```bash
 <runner> impeccable update      # same runner as the install above
 claude plugin update graph-powers
 # superpowers updates through the plugin marketplace it was installed from
+# landing-page-design: re-run the python one-liner above
 ```
 
 ### The other two plugins, both conditional
@@ -504,6 +535,9 @@ for want, level, who in (("graph-powers", "REQUIRED",    "this harness"),
     row(want, hit[0] if hit else "MISSING", level, who)
 row("impeccable", "present" if os.path.isdir(os.path.join(home, ".claude/skills/impeccable"))
     else "MISSING", "REQUIRED", "/design delegates every craft pass to it")
+row("landing-page-design", "present" if os.path.isfile(
+    os.path.join(home, ".claude", "skills", "landing-page-design", "SKILL.md"))
+    else "MISSING", "REQUIRED", "/design loads it for a landing or marketing surface")
 
 print("-- MCP servers, matched by the slug the tool names need --")
 listing = run(shutil.which("claude") or "claude", "mcp", "list", timeout=120)
@@ -1980,7 +2014,7 @@ silent: the agent reads it, finds nothing, and carries on with less context than
 ```markdown
 ## Graph Powers — setup complete
 
-**External plugins:** superpowers <version, installed|already present> · impeccable <version, installed|already present>
+**External dependencies:** superpowers <version, installed|already present> · impeccable <version, installed|already present> · landing-page-design <installed|already present>
 **Config:** <created | merged> — branch <x>, opt-in prefix <Y>, gates <list>
 **CLAUDE.md:** <lines before> → <lines after> · removed: <what> · preserved: <what>
 **Rules:** <n> kept · <n> replaced by templates · <n> removed (<why>)

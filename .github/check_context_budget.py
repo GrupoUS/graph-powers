@@ -171,7 +171,26 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 # FLOOR is what the command set loads on every invocation. CEILING is the worst case, every
 # conditional branch taken. WORST_FLOOR bounds a single command, because a total can stay flat
 # while one command doubles, and a command is what a person actually pays for.
-FLOOR_CEILING = 330_000
+#
+# Lowered 330_000 -> 295_000 on 2026-08-24, in two steps, which is the half of this contract that
+# never gets honoured.
+#
+# 7,586 B came out of duplication, and no command lost content: the placeholder table in
+# `000-config-loader.md`, a third copy of the field list `schema/config.schema.json` owns, priced at
+# 9 command floors; and the domain-skill enumeration in `005-superpowers-bootstrap.md`, which
+# `120-skill-invocation-order.md` owns, priced at 10.
+#
+# The other 30,604 B were never a real load — they were this script mismeasuring one, which is the
+# failure its own docstring describes. `/verify § 0.3` fires only when the change set mapped the
+# `schema` surface and `/implement § 7.5` only on the `optIn` apply branch, but in both the
+# condition sat on the line above the `Skill("performance-optimization")` call, so the rule read the
+# call as unconditional and charged 15,323 B to every `/verify` on a passing typecheck. Moving the
+# condition onto the line that orders the load is the fix, and it is the sentence those two steps
+# should have been writing anyway.
+#
+# Measured floor after both: 291,810 B. So 3,190 B stays spendable and 35,000 B is locked away from
+# being spent without anyone noticing.
+FLOOR_CEILING = 295_000
 # Raised 440_000 -> 470_000 on 2026-08-20, and what bought the increase is two separate things.
 # 18_585 B of it was already over the old ceiling before this change and had no owner. The rest is
 # `commands/evolve.md` gaining `Skill("skill-improve")`, the first functional call site the

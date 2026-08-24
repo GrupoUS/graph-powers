@@ -254,8 +254,8 @@ it, or when `/verify` returned `DRIFT`.
    rollback line; **do not run it**.
 3. `${database.applyPolicy}` is `optIn` → require explicit approval **in this turn**
    (`references/safety-floor.md` §3). Approval from an earlier turn has expired. Then run apply.
-   Then run `${database.commands.status}` and classify with `Skill("performance-optimization")`
-   **Schema state**. Claim success only on `PASS`. An apply with no re-proof is a claim, not a
+   Then run `${database.commands.status}` and, only on this branch, classify with
+   `Skill("performance-optimization")` **Schema state**. Claim success only on `PASS`. An apply with no re-proof is a claim, not a
    gate. `UNREACHABLE` after apply is `NEEDS-WORK`, not success.
 
 `/verify` never applies. This section is the only apply edge. Do not invent an opt-in env key.

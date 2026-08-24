@@ -21,17 +21,17 @@ Modes, from the first positional argument:
 
 ---
 
-## Required external plugin
+## Required external design layer
 
-The craft passes are **not** implemented here. They come from
-[impeccable](https://github.com/pbakaus/impeccable), which this plugin depends on and never
-vendors — a copied snapshot of somebody else's design system is the exact failure this harness
-exists to prevent.
+Neither piece is vendored: a copied snapshot of somebody else's design system is the exact failure
+this harness exists to prevent. `AGENT_SETUP.md § Step 1` installs both, so in a configured project
+they are already here. Do not reimplement either inline — a half-remembered version of a design
+methodology is worse than none.
 
-Run it through the runner this project already uses — `npm` → `npx`, `bun` → `bunx`, `pnpm` →
-`pnpm dlx`, `yarn` → `yarn dlx`, read off `tooling.packageManager`. A project that declares
-`autonomy.allowPackageManagers` refuses the managers it did not choose, so a hardcoded `npx` here
-is denied by this plugin's own guardrail in every project standardised on something else.
+**[impeccable](https://github.com/pbakaus/impeccable)** owns every craft pass in § 3. Run it through
+the runner `tooling.packageManager` names — `npm` → `npx`, `bun` → `bunx`, `pnpm` → `pnpm dlx`,
+`yarn` → `yarn dlx`. A hardcoded `npx` is denied by this plugin's own guardrail wherever
+`autonomy.allowPackageManagers` names another family.
 
 ```bash
 <runner> impeccable install --providers=claude,codex --scope=project --yes   # first time
@@ -39,11 +39,12 @@ is denied by this plugin's own guardrail in every project standardised on someth
 ```
 
 `--yes` keeps it non-interactive; without it the installer stops on a prompt this turn cannot answer.
+If `/impeccable` is not available in this session, **stop and say so.**
 
-If `/impeccable` is not available in this session, **stop and say so.** Do not reimplement its
-passes inline; a half-remembered version of a design methodology is worse than none.
-
-`AGENT_SETUP.md` installs it as part of onboarding, so in a configured project it is already there.
+**[landing-page-design](https://github.com/elayadesign/ai-design-skills)** (MIT) owns the page
+system for a landing or marketing surface: intake, section order, conversion copy, and the visual
+canon for type, spacing, radius, background, hero and motion. It is a skill, not a plugin —
+`Skill("landing-page-design")`. Absent, say so and fall back to the project's design rule.
 
 ---
 
@@ -60,6 +61,7 @@ passes inline; a half-remembered version of a design methodology is worse than n
 ```typescript
 Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 Skill("uxmaster");                        // UX judgement: conversion, onboarding, hierarchy
+Skill("landing-page-design");             // only when the target is a landing or marketing page
 ```
 
 Read, in this order: root `DESIGN.md` (the project's design authority), `${rulesDir}/design.md`, and the
@@ -114,9 +116,9 @@ Delegate to the external plugin, one pass at a time, in the order the mode calls
 
 Two rules hold across every pass:
 
-- **The project's tokens win.** impeccable enriches; it does not replace a declared palette,
-  spacing scale or motion canon. On a conflict, the project's design rule is authoritative and the
-  conflict is reported.
+- **The project's tokens win.** impeccable and `landing-page-design` enrich; neither replaces a
+  declared palette, spacing scale or motion canon. On a conflict, the project's design rule is
+  authoritative and the conflict is reported.
 - **Drift repair is never a side effect.** If a pass reports stale context, report it and stop.
   Fixing the toolchain in the middle of a design task hides what changed.
 

@@ -6,7 +6,7 @@ Every command **MUST** invoke the superpowers meta-router as the first skill loa
 Skill("superpowers:using-superpowers"); // meta-router — sets discipline + announce pattern
 ```
 
-This loads the discipline-skill index and the "announce-before-action" rule. Domain skills (`graph-powers:debugger`, `planning`, `performance-optimization`, `senior-architect`, …) load **after** the superpowers method layer, per `120-skill-invocation-order.md` (Skill invocation order).
+This loads the discipline-skill index and the "announce-before-action" rule. Domain skills load **after** the method layer, in the order `120-skill-invocation-order.md` sets.
 
 Exceptions:
 - `/prime` is a context loader — it only **recommends** the next command run the bootstrap.

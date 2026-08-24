@@ -149,8 +149,15 @@ plugin loaders discover. The clone-based Codex installer reads that file and res
 
 ## 7. External plugins stay external
 
-**Decided:** `superpowers` and `impeccable` are required dependencies installed from their own
-channels, not vendored copies.
+**Decided:** `superpowers`, `impeccable` and the `landing-page-design` skill are required
+dependencies installed from their own channels, not vendored copies.
+
+The third one tests the rule at its weakest point: `landing-page-design` is a single 16 KB
+`SKILL.md` under a licence that asks for nothing, so copying it into `skills/` would cost almost
+nothing and would read as convenience. It is still a copy that stops tracking upstream the day it
+lands, and the file is explicitly meant to be forked at its Design Values section — vendoring it
+would make this repository the owner of somebody else's palette. The install is one portable
+command in `AGENT_SETUP.md § Step 1`, and re-running it is the update.
 
 The first version of this repository shipped a 3.3 MB snapshot of impeccable — 70% of the package,
 one minor version behind what its own registry served, with no licence file and no attribution.

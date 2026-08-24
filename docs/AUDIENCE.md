@@ -45,8 +45,8 @@ Fixing it in one repository never reached the others. There was no copy — ther
 - you want a finished harness that guesses your domain rules. The plugin brings **process**; your
   product's rules remain yours to write;
 - you need something that works without an agent CLI installed;
-- you cannot install two external plugins. `superpowers` and `impeccable` are required, and neither
-  is vendored here.
+- you cannot install external dependencies. `superpowers` and `impeccable` are required plugins and
+  `landing-page-design` a required skill, and none of the three is vendored here.
 
 ## What it delivers
 
@@ -76,8 +76,8 @@ file that is not its own, or entering an endless spawn loop.
   not the cage.
 - **It is not an agent framework.** No new runtime, no dependency, no background process. Markdown,
   JSON and standard-library Python.
-- **It does not vendor other people's work.** `superpowers` and `impeccable` install from their own
-  channels and update on their own schedule.
+- **It does not vendor other people's work.** `superpowers`, `impeccable` and `landing-page-design`
+  install from their own channels and update on their own schedule.
 
 ## How you know it is working
 

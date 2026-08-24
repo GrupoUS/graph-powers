@@ -13,31 +13,12 @@ nothing, silently. Where a command genuinely needs the value inside a shell rath
 python -X utf8 -c "import json,pathlib;p=pathlib.Path('.graph-powers/config.json');print(p.read_text(encoding='utf-8') if p.exists() else '{}')"
 ```
 
-Substitution placeholders used in commands (resolve at runtime):
-
-| Placeholder | Source field |
-|---|---|
-| `${project.name}` | `project.name` |
-| `${project.stagingUrl}` | `project.stagingUrl` |
-| `${project.locale}` | `project.locale` |
-| `${paths.backendRoot}` | `paths.backendRoot` |
-| `${paths.frontendRoot}` | `paths.frontendRoot` |
-| `${paths.schemaRoot}` | `paths.schemaRoot` |
-| `${paths.libRoot}` | `paths.libRoot` |
-| `${paths.componentsRoot}` | `paths.componentsRoot` |
-| `${tooling.packageManager}` | `tooling.packageManager` |
-| `${tooling.buildTool}` | `tooling.buildTool` |
-| `${tooling.typeChecker}` | `tooling.typeChecker` |
-| `${tooling.linter}` | `tooling.linter` |
-| `${tooling.testRunner}` | `tooling.testRunner` |
-| `${gates.lighthouse.*}` | `gates.lighthouse.*` |
-| `${gates.lcp/cls/inp/initialJsKb}` | `gates.*` |
-| `${database.engine}` | `database.engine` |
-| `${database.commands.status}` | `database.commands.status` |
-| `${database.commands.generate}` | `database.commands.generate` |
-| `${database.commands.apply}` | `database.commands.apply` |
-| `${database.applyPolicy}` | `database.applyPolicy` |
-| `${rulesDir}` | `paths.rulesDir` (defaults to `.claude/rules`) |
+Substitution placeholders resolve at runtime by identity: `${project.name}` is `project.name`,
+`${database.commands.status}` is `database.commands.status`, and so on for every field
+`${CLAUDE_PLUGIN_ROOT}/schema/config.schema.json` declares. That schema is the list — a table of the
+same names here is a second copy that stops matching it the first time a field is added. One
+exception, because it is not identity: **`${rulesDir}` is `paths.rulesDir`**, defaulting to
+`.claude/rules`.
 
 **Rule layer.** All project rules + supplements live under `${rulesDir}`. No overlay folder, no overlay-first resolution. Tier 2 rules auto-load via `paths:` frontmatter; supplements are read on demand, by explicit path, from the command or skill that needs them:
 

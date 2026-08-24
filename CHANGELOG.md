@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.9.2 — `landing-page-design` joins the required design layer
+
+`/design` now loads `Skill("landing-page-design")` whenever the surface is a landing or marketing
+page: intake, section order, conversion copy, and the visual canon for type, spacing, radius,
+background, hero and motion. `uxmaster` still owns the direction and `impeccable` still owns every
+craft pass — the new skill sits between them and owns the page system.
+
+It is the third external dependency and the first that is a **skill folder rather than a plugin**
+([elayadesign/ai-design-skills](https://github.com/elayadesign/ai-design-skills), MIT, one
+`SKILL.md`). It is not vendored, for the same reason the other two are not: the file is meant to be
+forked at its Design Values section, and a copy stops tracking upstream the day it lands. Upstream
+spells the install with `curl`, `cp` and `/tmp`, none of which runs on the Windows shells this
+plugin supports; `AGENT_SETUP.md § Step 1` carries a `python -X utf8 -c` equivalent that writes both
+`~/.claude/skills` and `~/.agents/skills`, and re-running it is the update. Where the skill's values
+meet the project's, the project's design rule still wins and the conflict is reported.
+
+`check_wiring.py` gains `EXTERNAL_SKILLS`, the bare-name counterpart of `EXTERNAL_ROUTES`: a
+dependency that installs as a skill folder is invoked with no namespace and would otherwise read as
+a missing `skills/<name>/SKILL.md`. Declaring it is what the gate asks for; it does not verify the
+other repository.
+
+**Context budget, paid rather than raised.** Wiring the skill in left 47 B of floor headroom, so two
+duplications went out in the same change — neither a command losing content, both a second copy of
+something another file already owns:
+
+| Cut | Owner it duplicated | Command floors charged |
+|---|---|---|
+| The 21-row placeholder table in `000-config-loader.md`, an identity mapping of `${a.b}` → `a.b` | `schema/config.schema.json`, the parameter contract | 9 |
+| The domain-skill enumeration in `005-superpowers-bootstrap.md` | `120-skill-invocation-order.md` | 10 |
+
+`${rulesDir}` → `paths.rulesDir` survives the first cut, because it is the one mapping that is not
+identity. Floor: 329,953 B → 322,414 B.
+
+**And 30,604 B that were never a real load.** `/verify § 0.3 Database` fires only when the change
+set mapped the `schema` surface; `/implement § 7.5` step 3 fires only on the `optIn` apply branch.
+In both, the condition sat on the line *above* the `Skill("performance-optimization")` call, and
+`check_context_budget.py` reads the line rather than the section — deliberately — so it charged
+15,323 B to every `/verify` on a passing typecheck and every `/implement` with no schema work. The
+condition now sits on the line that orders the load, which is the sentence both steps should have
+been writing anyway. Nothing changed for a run that does hit the branch: it loads the same skill.
+
+`/perf` keeps it in the floor, correctly — that command loads it on every run.
+
+| Command | Floor before | Floor after |
+|---|---|---|
+| `/verify` | 44,894 B | 29,591 B |
+| `/implement` | 49,620 B | 34,319 B |
+
+Floor total: 329,953 B → **291,810 B**. `FLOOR_CEILING` drops 330,000 → 295,000 in the same commit,
+so 3,190 B stays spendable and the other 35,000 B cannot be spent without someone noticing.
+
 ## 1.9.1 — Bun 1.4 + tsgo is the inferred JS/TS gate
 
 `/verify` and the skill matrix now route undeclared JavaScript/TypeScript type-check and

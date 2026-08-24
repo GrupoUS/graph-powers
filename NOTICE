@@ -73,12 +73,13 @@ library, because this repository does not ship shell scripts.
 External dependencies (not redistributed here)
 ================================================================================
 
-Graph Powers requires two external plugins at runtime. Neither is vendored into this repository;
-both are installed from their own distribution channels by the setup playbook in AGENT_SETUP.md,
-and remain under their own licenses:
+Graph Powers requires two external plugins and one external skill at runtime. None of them is
+vendored into this repository; all three are installed from their own distribution channels by the
+setup playbook in AGENT_SETUP.md, and remain under their own licenses:
 
-  superpowers   https://github.com/obra/superpowers          (MIT)
-  impeccable    https://github.com/pbakaus/impeccable        (Apache License 2.0)
+  superpowers           https://github.com/obra/superpowers              (MIT)
+  impeccable            https://github.com/pbakaus/impeccable            (Apache License 2.0)
+  landing-page-design   https://github.com/elayadesign/ai-design-skills  (MIT)
 
 Three further plugins are optional, and named where a command calls them:
 

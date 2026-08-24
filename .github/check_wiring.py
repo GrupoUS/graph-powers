@@ -68,6 +68,16 @@ EXTERNAL_ROUTES = {
     "code-review:code-review",
 }
 
+# The same declaration, for a dependency that ships as a bare skill folder rather than as a plugin:
+# it installs into the harness's own skills directory, so it is invoked `Skill("<name>")` with no
+# namespace and would otherwise be read as a missing `skills/<name>/SKILL.md` here. Checked by hand
+# against the upstream tree before the line was written, exactly as EXTERNAL_ROUTES requires.
+EXTERNAL_SKILLS = {
+    # elayadesign/ai-design-skills @ main, MIT — `skills/landing-page-design/SKILL.md`, the only
+    # skill that repository ships. Declared in README.md; installed by AGENT_SETUP.md § Step 1.
+    "landing-page-design",
+}
+
 # `plugin:skill` is the shape itself, written out in prose that explains the shape. It is not a
 # route and there is nothing to declare.
 PLACEHOLDER_ROUTES = {"plugin:skill", "plugin:agent", "plugin:command"}
@@ -422,7 +432,7 @@ def main() -> int:
                     problems.append(external_problem(path, lineno(text, m.start()), name, "skill"))
                 continue
             checked += 1
-            if bare not in skills:
+            if bare not in skills and bare not in EXTERNAL_SKILLS:
                 problems.append(f"{path}:{lineno(text, m.start())}: Skill(\"{name}\") — no skills/{bare}/SKILL.md")
 
         for m in workflow_re.finditer(text):

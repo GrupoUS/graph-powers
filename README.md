@@ -176,14 +176,15 @@ is operator posture and is not removed.
 
 ## External plugins this builds on
 
-Two plugins are **required**, and neither is vendored here. A copied snapshot of somebody else's
-work goes stale and cannot be updated — the same problem this harness exists to end, one level up.
-The setup playbook installs both.
+Two plugins and one skill are **required**, and none of them is vendored here. A copied snapshot of
+somebody else's work goes stale and cannot be updated — the same problem this harness exists to end,
+one level up. The setup playbook installs all three.
 
-| Plugin | What it brings | Why it stays external |
+| Dependency | What it brings | Why it stays external |
 |---|---|---|
-| [superpowers](https://github.com/obra/superpowers) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Nine of the ten commands call it | Actively maintained upstream, ships for both harnesses |
-| [impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) | The design layer: `/design` delegates every craft pass to it | Ships its own installer for Claude, Codex, Cursor and more |
+| [superpowers](https://github.com/obra/superpowers) (plugin) | The method layer: brainstorming, writing and executing plans, TDD, systematic debugging, verification before completion. Nine of the ten commands call it | Actively maintained upstream, ships for both harnesses |
+| [impeccable](https://github.com/pbakaus/impeccable) (plugin, Apache-2.0) | The craft layer: `/design` delegates every craft pass to it | Ships its own installer for Claude, Codex, Cursor and more |
+| [landing-page-design](https://github.com/elayadesign/ai-design-skills) (skill, MIT) | The landing-page layer: intake, section order, conversion copy, and the visual canon for type, spacing, radius, background, hero and motion. `/design` loads it whenever the surface is a landing or marketing page | One upstream `SKILL.md` with its own design values, forkable by design. It is a skill folder, not a plugin, so it installs by copy rather than through a marketplace |
 
 ```bash
 # superpowers — Claude Code
@@ -196,9 +197,13 @@ The setup playbook installs both.
 #   bun -> bunx       yarn -> yarn dlx
 <runner> impeccable install --providers=claude,codex --scope=project --yes
 <runner> impeccable update     # keep it current
+
+# landing-page-design — one file, into both skills directories the harness reads.
+# The same command installs it and updates it.
+python -X utf8 -c "import os,urllib.request;h=os.path.expanduser('~');u='https://raw.githubusercontent.com/elayadesign/ai-design-skills/main/skills/landing-page-design/SKILL.md';[(os.makedirs(os.path.join(h,*d,'landing-page-design'),exist_ok=True),urllib.request.urlretrieve(u,os.path.join(h,*d,'landing-page-design','SKILL.md'))) for d in (('.claude','skills'),('.agents','skills'))]"
 ```
 
-Neither detail there is cosmetic.
+None of those details is cosmetic.
 
 `--yes` is what makes the command non-interactive. Without it the installer asks which harnesses and
 which scope, and an agent running it waits on a prompt nobody is going to answer.

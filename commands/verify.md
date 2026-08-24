@@ -75,8 +75,8 @@ No `database` block, or block present but `${database.commands.status}` empty â†
 Same voice as the four tooling gates.
 
 When it fires, run `${database.commands.status}` through the Bash tool with a bounded wait.
-Classify with `Skill("performance-optimization")` **Schema state** (do not restate the token list
-here). Report exactly one of `PASS` / `DRIFT` / `UNREACHABLE`.
+Classify with `Skill("performance-optimization")` **Schema state** only on that branch (do not
+restate the token list here). Report exactly one of `PASS` / `DRIFT` / `UNREACHABLE`.
 
 - **DRIFT** â€” print the exact `${database.commands.apply}` string (even when
   `${database.applyPolicy}` is `never`) and the rollback line: "Do not apply from `/verify`.
