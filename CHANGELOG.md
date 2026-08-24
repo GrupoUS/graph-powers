@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.1 — Bun 1.4 + tsgo is the inferred JS/TS gate
+
+`/verify` and the skill matrix now route undeclared JavaScript/TypeScript type-check and
+unit tests through `Skill("bun-verify")`: native `tsgo` and `bun test --parallel`, never
+`npx tsc` or `node --test`. A project that already names `tooling.commands` is unchanged.
+The resolver lives in `references/shared/130-bun-tsgo-gates.md`. Example config:
+`examples/config.bun.json`.
+
 ## 1.9.0 — Database verification is a gate, and apply is not
 
 `/verify` reports a **Database** row when the `schema` surface moved: `PASS` / `DRIFT` /

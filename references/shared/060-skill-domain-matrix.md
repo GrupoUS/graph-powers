@@ -11,7 +11,8 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 | UX direction / conversion / onboarding | `uxmaster` | — |
 | Performance / SEO / security baseline / Core Web Vitals / bundle | `performance-optimization` | `graph-powers:librarian` for external tool docs |
 | Browser verification / E2E evidence | `webapp-testing` | `graph-powers:verification` agent |
-| Astro project surfaces | `astro` (when `project.stack` names Astro) | — |
+| JS/TS type-check, unit tests, inferred gates | `bun-verify` | `/verify`; never Node `tsc` |
+| Astro project surfaces | `astro` (when `project.stack` names Astro) | `bun-verify` for JS/TS gates |
 | Database, provider or deploy specifics | the project's own skill, when it has one | `graph-powers:librarian` for external docs |
 | Skill authoring, iteration or harness wiring audit | `skill-improve` | `graph-powers:skill-improver` agent |
 | Prompt engineering / LLM apps / RAG | `senior-prompt-engineer` | — |

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
+  "project": {
+    "name": "acme-app",
+    "displayName": "Acme App",
+    "stack": "bun-ts",
+    "locale": "en-US"
+  },
+  "git": {
+    "workBranch": "dev-test",
+    "protectedBranches": ["main"]
+  },
+  "tooling": {
+    "packageManager": "bun",
+    "typeChecker": "tsgo",
+    "linter": "biome",
+    "testRunner": "bun-test",
+    "commands": {
+      "typeCheck": "tsgo --noEmit",
+      "lint": "bunx biome check",
+      "format": "bunx biome check --write",
+      "test": "bun test --parallel",
+      "build": "bun run build"
+    }
+  }
+}

@@ -8,7 +8,7 @@ workflow_type: augmented-llm
 **ARGUMENTS**: $ARGUMENTS
 
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`
 
 Modes: `/verify` (full) · `/verify quick` (the gates and the floor, no review batch and no
 checklist) · `/verify loop` (hand the plan-measured half to `graph-powers:ultra-verify`, § 1.6).
@@ -30,9 +30,13 @@ nothing is assumed:
 | Test | `${tooling.commands.test}` | field absent, or `tooling.testRunner` is `null` |
 | Build | `${tooling.commands.build}` | field absent |
 
-**A gate with no declared command is reported as `NOT DECLARED`, never as passing.** A missing
-script that exits non-zero as "script not found" reads exactly like a real failure, and a gate
-nobody declared reads exactly like a gate nobody needed. Say which one it was.
+**A gate with no declared command is reported as `NOT DECLARED`, never as passing** — except a
+JS/TS type-check or test inferred by `Skill("bun-verify")`, which is reported as
+`INFERRED (bun-verify)` and still must exit zero. Never infer `npx tsc` or `node --test`.
+See `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`.
+
+A missing script that exits non-zero as "script not found" reads exactly like a real failure, and a
+gate nobody declared reads exactly like a gate nobody needed. Say which one it was.
 
 **Then read `${rulesDir}/verify-supplements.md`, if the project has one, and run what it declares
 as well.** The four rows above are the shape a typical application has; they are not the shape every
