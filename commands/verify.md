@@ -10,8 +10,10 @@ workflow_type: augmented-llm
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`
 
-Modes: `/verify` (full) · `/verify quick` (the gates and the floor, no review batch and no
-checklist) · `/verify loop` (hand the plan-measured half to `graph-powers:ultra-verify`, § 1.6).
+Modes: `/verify` with **no arguments is `quick`** (gates + floor only — this is the default,
+because the agent batch is what burns RAM). `/verify full` runs the review agents.
+`/verify loop` hands the plan-measured half to `graph-powers:ultra-verify`, § 1.6.
+Load `Skill("bun-verify")` in § 0 when the change set is JS/TS.
 
 The single rule this command exists to enforce: **a gate is passing only if it ran in this session
 and exited zero.** A remembered pass is not a pass.
@@ -153,7 +155,9 @@ Each track returns the findings table of
 one line naming what it checked and found clean.** Without that line "two tracks agree" is not
 evidence and "only one track raised it" cannot be told from "only one track looked".
 
-Skipped in `quick` mode: `quick` is the gates, and it says so.
+Skipped unless `$ARGUMENTS` contains `full` or `loop`: empty arguments are `quick`, and `quick`
+is the gates plus the floor run on the main thread. The agent batch is what made everyday
+`/verify` expensive; it is no longer the default.
 
 ## 1.6 `loop` mode — hand the plan-measured half to the workflow
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.3 — `/verify` is quick by default; Turbo gates get `--filter`
+
+Everyday `/verify` (no arguments) is **`quick`**: process gates + floor. The explorer /
+evaluator / security / design batch runs only for `/verify full` or `/verify loop`. That
+batch was the RAM spike, not Bash.
+
+`Skill("bun-verify")` now scopes a declared `turbo run …` with `--filter=<apps|packages name>`
+from the change set, keeps Vitest as `bun run test` (never bare `bun test`), and refuses to
+infer Bun tests over a Python/`null` runner. Resolver: `references/shared/130-bun-tsgo-gates.md`.
+
 ## 1.9.2 — `landing-page-design` joins the required design layer
 
 `/design` now loads `Skill("landing-page-design")` whenever the surface is a landing or marketing
