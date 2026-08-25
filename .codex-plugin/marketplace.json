@@ -1,0 +1,16 @@
+{
+  "name": "graph-powers",
+  "description": "Graph Powers — a shared Claude Code, Codex CLI, Cursor and Grok CLI harness: agents, skills, commands and guardrails, parameterised per project.",
+  "owner": {
+    "name": "GrupoUS",
+    "url": "https://github.com/GrupoUS"
+  },
+  "plugins": [
+    {
+      "name": "graph-powers",
+      "description": "Agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in .graph-powers/config.json and the plugin adapts.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

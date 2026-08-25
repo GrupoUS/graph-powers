@@ -241,6 +241,20 @@ const JUDGING_ROLES = new Set(["evaluator", "researcher", "orchestrator"]);
 const EFFORT_BY_MODEL = { haiku: "low", sonnet: "medium", opus: "high" };
 const VALID_EFFORT = new Set(["low", "medium", "high", "xhigh"]);
 
+/** Claude Code family names. Codex has no haiku/sonnet/opus, and treating `haiku` as a
+ *  model slug routes the child onto the Spark / `codex_bengalfox` pool instead of the
+ *  user's own Codex limit. */
+export const CLAUDE_MODEL_FAMILIES = new Set(["haiku", "sonnet", "opus", "fable"]);
+
+export function isCodexModelSlug(model) {
+  const name = String(model ?? "").trim();
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  if (CLAUDE_MODEL_FAMILIES.has(lower)) return false;
+  if (lower.startsWith("claude")) return false;
+  return true;
+}
+
 export function agentToToml(markdown, { model, reasoningEffort } = {}) {
   const { data, body } = parseFrontmatter(markdown);
   if (!data.name || !data.description) return null;
@@ -259,8 +273,9 @@ export function agentToToml(markdown, { model, reasoningEffort } = {}) {
   ];
 
   // The Codex model is a project-wide setting, never one written into the generator: a model name
-  // in code is a file that ages out the week the next model ships.
-  if (model) lines.push(`model = ${tomlString(model)}`);
+  // in code is a file that ages out the week the next model ships. Claude family names are not
+  // Codex slugs — writing them made the native plugin spend the Spark / Bengal Fox window.
+  if (isCodexModelSlug(model)) lines.push(`model = ${tomlString(model)}`);
 
   // Effort, most specific source first: the agent said so; else its Claude model implies it; else
   // the role is a judging one and judging wants headroom; else whatever the project configured.

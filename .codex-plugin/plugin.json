@@ -20,7 +20,7 @@
     "grok"
   ],
   "skills": "./skills/",
-  "agents": "./agents/",
+  "agents": "./codex/native-agents/",
   "commands": "./commands/",
-  "hooks": "./hooks/hooks-cursor.json"
+  "hooks": "./hooks/hooks.json"
 }

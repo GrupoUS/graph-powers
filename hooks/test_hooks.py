@@ -476,6 +476,55 @@ def main() -> int:
         check(f"guarded runs `{pm} run dev` without asking",
               call("smart_bash_approver", bash(f"{pm} run dev"), a)[0], "allow")
 
+    print("### turbo --dry=json on a captured pipe is an abort, not a test")
+    # turbo 2.x panics on EPIPE when --dry=json writes to a pipe the reader already closed.
+    # The Bash tool is that pipe. The JS wrapper then process.kill(pid, SIGABRT) and bun
+    # abort()s. This check sits in front of the package-manager allow, because
+    # `bun run test --dry=json` is otherwise an in-family bun command.
+    for label, cmd in [
+        ("the form agents actually type", "turbo run test --dry=json"),
+        ("bun forwarding extra args", "bun run test -- --dry=json"),
+        ("bun without the extra dash", "bun run test --dry=json"),
+        ("the node wrapper", "node node_modules/.bin/turbo run test --dry=json"),
+        ("text dry-run, same panic", "turbo run test --dry"),
+        ("bunx turbo", "bunx turbo run test --dry=json"),
+    ]:
+        check(f"the floor stops {label}, even autonomous",
+              call("smart_bash_approver", bash(cmd), auton)[0], "deny")
+        check(f"...and under guarded too: {label}",
+              call("smart_bash_approver", bash(cmd), a)[0], "deny")
+
+    for label, cmd in [
+        ("the real test gate", "bun run test"),
+        ("forced tests", "bun run test --force"),
+        ("scoped turbo tests", "turbo run test --filter=web"),
+        ("type-check", "turbo run check --filter=api"),
+        ("the wrapper script",
+         "python -X utf8 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+        ("the wrapper under py -3",
+         "py -3 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+    ]:
+        check(f"...but {label} still runs",
+              call("smart_bash_approver", bash(cmd), auton)[0] != "deny", True)
+
+    check("guarded runs the turbo_dry_json wrapper without asking",
+          call("smart_bash_approver",
+               bash("python -X utf8 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+               a)[0], "allow")
+
+    script = HOOKS.parent / "skills" / "bun-verify" / "scripts" / "turbo_dry_json.py"
+    empty = Path(tempfile.mkdtemp(prefix="gp-no-turbo-"))
+    missing = subprocess.run(
+        [sys.executable, str(script), "--task", "test"],
+        cwd=str(empty), capture_output=True, encoding="utf-8", errors="replace",
+        timeout=30, check=False,
+    )
+    check("turbo_dry_json.py exits non-zero when turbo is missing",
+          missing.returncode != 0, True)
+    check("...and does not print a JSON object on stdout",
+          not missing.stdout.lstrip().startswith("{"), True)
+    shutil.rmtree(empty, ignore_errors=True)
+
     print("### `git restore` is decided by its flag set, not by a substring")
     # The floor exempted `restore` with a lookahead for the TEXT `--staged`, and the safe list
     # allowed anything starting `git restore --staged`. Neither reads a flag set, and `--staged

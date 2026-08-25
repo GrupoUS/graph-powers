@@ -19,11 +19,13 @@ REQUIRED = [
     ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
     ".cursor-plugin/plugin.json",
     ".grok-plugin/plugin.json", ".grok-plugin/marketplace.json",
+    ".codex-plugin/plugin.json", ".codex-plugin/marketplace.json",
+    "codex/native-plugin.mjs",
     "AGENT_SETUP.md", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENTS.md", "CONTRIBUTING.md",
     "docs/ARCHITECTURE.md", "docs/AUDIENCE.md",
 ]
-REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows"]
+REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows", "codex/native-agents"]
 MAX_BYTES = 4 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]

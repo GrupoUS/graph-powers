@@ -322,6 +322,12 @@ SAFE_PATTERNS = [
     re.compile(r"^tsc(\s|$)"),
     re.compile(r'^python(3)?( -X [^ ]+)? "?\.claude[\\/]'),
     re.compile(r'^python(3)?( -X [^ ]+)? "?scripts[\\/]'),
+    # bun-verify's turbo dry-run wrapper. The Bash tool is a pipe; turbo --dry=json on that
+    # pipe panics (EPIPE) and Node/bun abort. This script writes a file and prints a path,
+    # so it has to be an allow — otherwise the replacement the deny message names is itself
+    # an ask, and agents re-run the crashing line.
+    re.compile(r"^python(3)?( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
+    re.compile(r"^py -3( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
     # `py` is the Windows launcher for the two entries above, and it gets the same rule for the
     # same reason: what runs is the argument, not the command. A blanket `^py\s+-3(\s|$)` replaced
     # these two for one release and made `py -3 -c "<anything>"` an allow — an interpreter with no
@@ -690,6 +696,41 @@ def _package_manager_verdict(
     )
 
 
+_DRY_JSON_FLAG = re.compile(
+    r"(?:^|\s)--dry(?:-run)?(?:\s|=json|=|\s+json|$)",
+    re.IGNORECASE,
+)
+_TURBO_INVOKER = re.compile(r"\bturbo(?:\.exe|\.cmd)?\b", re.IGNORECASE)
+_BUN_TEST_DRY = re.compile(
+    r"\bbunx?\s+run\s+test\b[\s\S]*--dry(?:-run)?(?:\s|=json|=|\s+json|$)",
+    re.IGNORECASE,
+)
+_TURBO_DRY_WRAPPER = re.compile(r"turbo_dry_json\.py\b", re.IGNORECASE)
+
+_TURBO_DRY_JSON_REASON = (
+    "BLOCKED: turbo/bun --dry=json on a captured stdout pipe panics "
+    "(Rust 'failed printing to stdout: Broken pipe') and Node/bun abort "
+    "with SIGABRT. Inspect the graph with bun-verify's turbo_dry_json.py: "
+    "python -X utf8 ${CLAUDE_PLUGIN_ROOT}/skills/bun-verify/scripts/turbo_dry_json.py "
+    "--task test — then Read the file it prints. Do not re-run the same Bash line."
+)
+
+
+def _turbo_dry_json_denial(command: str) -> str | None:
+    """Deny turbo/bun dry-json on a pipe. The wrapper script is the one allowed form.
+
+    Must run before the package-manager allow. `bun run test --dry=json` is otherwise
+    an in-family bun command and would sail through even under autonomous.
+    """
+    if _TURBO_DRY_WRAPPER.search(command):
+        return None
+    if _DRY_JSON_FLAG.search(command) and _TURBO_INVOKER.search(command):
+        return _TURBO_DRY_JSON_REASON
+    if _BUN_TEST_DRY.search(command):
+        return _TURBO_DRY_JSON_REASON
+    return None
+
+
 def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | None]:
     """Return (allow|ask|deny, optional reason) for one shell segment.
 
@@ -703,6 +744,10 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
     # allowed an optional ` --no-pager`, so `git --no-pager reset --hard` fell out of the floor and
     # into the safe list. `gp.strip_git_global_flags` is the one description of that prefix.
     command = gp.strip_git_global_flags(command)
+
+    dry_reason = _turbo_dry_json_denial(command)
+    if dry_reason:
+        return "deny", dry_reason
 
     # `git restore` is the one verb whose verdict depends on a flag set rather than on a shape, so
     # it is resolved once here and consulted by the floor below and by the safe rung further down.

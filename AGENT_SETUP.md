@@ -1716,6 +1716,12 @@ Then restart Codex and approve the fourteen registrations in `/hooks`. The nativ
 `hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
 copy in `~/.codex/hooks.json` is involved.
 
+**Proof that Codex is not spending the Spark / Bengal Fox window:**
+`.codex-plugin/plugin.json` `"agents"` is `./codex/native-agents/`, and those files have no
+`model: haiku` / `opus` / `sonnet`. If the row is missing or a Claude family is still pinned,
+regenerate with `node "$PLUGIN/codex/native-plugin.mjs"` and restart Codex. The child inherits
+the session model — the user's own Codex/Pro limit, not `codex_bengalfox`.
+
 **Fallback — clone installer:** use this only when the marketplace is unavailable or a
 project-scoped copy is required.
 

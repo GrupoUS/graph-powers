@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.9.4 — Turbo `--dry=json` on a pipe is denied; Codex native agents drop Claude model families
+
+Agents running `turbo run test --dry=json` (or `bun run test --dry=json`) through the Bash
+tool dumped core: turbo 2.x panics on EPIPE (`failed printing to stdout: Broken pipe`), the
+JS wrapper `process.kill(pid, SIGABRT)`, bun abort()s. The Bash tool is that pipe.
+
+`smart_bash_approver.py` now denies those forms even under `autonomous`. The replacement is
+`skills/bun-verify/scripts/turbo_dry_json.py`, which writes JSON to
+`.graph-powers/cache/turbo-dry.json` and prints the path. Declared test gates are unchanged.
+Debugger anti-pattern 37 stops treating the Node SIGABRT as a Node bug.
+
+### Fixed — Codex native plugin spent the Spark / Bengal Fox window
+
+Codex discovers `.codex-plugin/plugin.json` before `.claude-plugin/plugin.json`. This plugin
+had no Codex-native manifest, so the CLI loaded `agents/*.md` including `model: haiku` and
+`model: opus`. Those names are Claude families. Codex has no haiku; the cheap-model fallback
+is Spark, whose rate-limit bucket is `codex_bengalfox` ("Bengal Fox") — a separate pool from
+the user's own Codex/Pro limit, and the one the status line then showed.
+
+`.codex-plugin/` now exists. Native agents are generated from `agents/*.md` with Claude
+model lines stripped (`codex/native-agents/`), so a spawned child inherits the session model
+and that session's limit. The clone generator already refused to write those names into
+TOML; it now also drops a `codex.model` that is itself a Claude family. Gate:
+`.github/check_codex_native.py`. Regenerate with `node codex/native-plugin.mjs`.
+
 ## 1.9.3 — `/verify` is quick by default; Turbo gates get `--filter`
 
 Everyday `/verify` (no arguments) is **`quick`**: process gates + floor. The explorer /

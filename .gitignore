@@ -2,6 +2,7 @@
 AGENT_STOP
 .claude/logs/
 .graph-powers/logs/
+.graph-powers/cache/
 .graph-powers/installed.json
 .claude/settings.local.json
 

@@ -49,7 +49,8 @@ jobs:
           python3 - <<'PY'
           import glob, json, sys
           files = sorted(set(glob.glob("**/*.json", recursive=True) + glob.glob(".*/*.json")
-                           + glob.glob(".cursor-plugin/*.json") + glob.glob(".grok-plugin/*.json")))
+                           + glob.glob(".cursor-plugin/*.json") + glob.glob(".grok-plugin/*.json")
+                           + glob.glob(".codex-plugin/*.json")))
           bad = []
           for f in files:
               try:
@@ -232,6 +233,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Codex native-plugin artefacts match the Claude source
+        run: |
+          node --check codex/native-plugin.mjs
+          python3 .github/check_codex_native.py
 
       - name: Codex artefacts, both scopes, install and removal
         # Two scopes, because they are two code paths and only one of them is the default.

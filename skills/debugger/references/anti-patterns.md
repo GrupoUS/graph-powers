@@ -11,7 +11,7 @@
 - [Backend / API layer](#backend--api-layer) — 6-13
 - [Frontend](#frontend) — 14-22
 - [Integrations](#integrations) — 23-29
-- [Build, CI and delivery](#build-ci-and-delivery) — 30-36
+- [Build, CI and delivery](#build-ci-and-delivery) — 30-37
 
 The catalogue is generic. A project adds its own entries under `${rulesDir}/` — a list that never
 names anything the project it is installed in actually did is decoration.
@@ -136,3 +136,10 @@ or to read-only commands.
     `[skip ci]` included.
 36. **A schema file that compiles but was never applied.** It fails on the next deploy, not in
     review. Name who applies it and when.
+37. **Turbo `--dry=json` EPIPE is not a Node crash.** Symptom: SIGABRT on `node …/turbo` and bun,
+    node's `si_code` is `SI_USER`, stack is `ProcessWrap::OnExit` → `node::Kill` → `uv_kill`.
+    Cause: turbo panicked `failed printing to stdout: Broken pipe (os error 32)` because the
+    agent's Bash capture is a pipe; the JS wrapper then `process.kill(process.pid, signal)`.
+    Do not raise `--max-old-space-size`, reinstall Node, or re-run the same command. Inspect
+    the graph with `Skill("bun-verify")` `scripts/turbo_dry_json.py`. Detail:
+    `${CLAUDE_PLUGIN_ROOT}/skills/bun-verify/references/turbo-dry-json-epipe.md`.

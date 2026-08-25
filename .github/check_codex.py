@@ -48,6 +48,11 @@ for path in agents:
     # A description that stopped at the first comma is the signature of the frontmatter reader
     # treating every key as a list. It is invisible in the file and fatal to discovery.
     assert len(d["description"]) > 40, f"{path}: description truncated -> {d['description']!r}"
+    model = str(d.get("model") or "").lower()
+    assert model not in {"haiku", "sonnet", "opus", "fable"}, (
+        f"{path}: Claude family {model!r} is not a Codex slug — it spends the Spark / "
+        "Bengal Fox window instead of the user's own limit"
+    )
     efforts.add(d.get("model_reasoning_effort"))
 assert len(efforts) > 1, f"every subagent got the same reasoning effort ({efforts}) — frontmatter ignored"
 

@@ -69,7 +69,7 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 321 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails, 350 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
@@ -119,6 +119,18 @@ from inventing work.
 | `examples/` | starting configs per stack | people, by copying |
 | `DESIGN.md` · `PRODUCT.md` · `REVIEW.md` | **specs, not documentation.** What the host project's counterparts must contain, and how the agent builds or improves them | `AGENT_SETUP.md § 6` |
 | `docs/` · `CONTRIBUTING.md` | this plugin's own architecture, audience and review process | people |
+
+### 2026-08-24 Turbo dry-json EPIPE abort cascade
+
+> Added after turbo 2.x panicking on a captured stdout pipe, with Node/bun aborting in sympathy.
+
+**Problem:** Agents ran `turbo run test --dry=json` through Bash. Turbo panicked, Node forwarded
+SIGABRT, bun aborted. Three coredumps. No tests ran.
+**Cause:** Rust `println!` panics on EPIPE. The Bash tool is a pipe. `turbo/bin/turbo` then
+`process.kill(pid, signal)`.
+**Solution:** Hook denies the Bash form. Script `skills/bun-verify/scripts/turbo_dry_json.py`
+writes JSON to `.graph-powers/cache/` and prints the path. Anti-pattern 37 on the debugger
+catalogue. Hosts inherit the rule via `templates/rules/stability.md`.
 
 ## When adding something
 

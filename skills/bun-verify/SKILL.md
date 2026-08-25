@@ -56,7 +56,14 @@ If the resolved command contains `turbo run` and does not already contain `--fil
 3. None (only repo root) → run the command as declared.
 4. Report the final argv. Label `SCOPED` when filters were added.
 
-This is how a monorepo avoids type-checking the untouched app. It is not NeonDash-specific.
+This is how a monorepo avoids type-checking the untouched app.
+
+## Inspect the Turbo graph without aborting
+
+**[HARD]** Never pass `--dry=json` or `--dry-run` to turbo or `bun run test` in Bash. That
+pipe panics turbo (EPIPE) and abort()s Node/bun; the hook denies it. Run
+`scripts/turbo_dry_json.py`, then Read `TURBO_DRY_JSON`. Detail:
+`references/turbo-dry-json-epipe.md`. Declared test gates are unchanged.
 
 ## Procedure
 

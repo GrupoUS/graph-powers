@@ -161,7 +161,7 @@ installer generates those sides from the artefacts that already exist — nothin
 |---|---|---|---|---|
 | Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) |
 | Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` |
-| Subagents | `agents/*.md` | `.codex/agents/*.toml` | The same markdown files | The same markdown files |
+| Subagents | `agents/*.md` | Native: `codex/native-agents/*.md` (Claude `model:` families stripped so the child inherits the user's Codex model and limit). Clone: `.codex/agents/*.toml` | The same markdown files | The same markdown files |
 | Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files |
 | IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) |
 
@@ -259,6 +259,10 @@ Restart Codex, open `/hooks`, and approve the thirteen Graph Powers registration
 the Bash approver is registered for two events). Installation makes the hooks discoverable;
 approval makes them executable. Then run the setup playbook in the project so
 its config, rules and authorities are established.
+
+Codex loads `.codex-plugin/` first. Native subagents come from `codex/native-agents/`, which is
+`agents/*.md` with Claude `model:` families removed, so a child inherits **your** Codex model and
+rate-limit window — not the Spark / Bengal Fox pool that `model: haiku` otherwise maps onto.
 
 ### Cursor
 

@@ -59,6 +59,10 @@ separates "I think it is right" from "it is right":
 {{TOOLING_COMMANDS}}
 ```
 
+- **Turbo dry-run is a file, never a pipe.** `turbo --dry=json` and `bun run test --dry=json`
+  through an agent's captured stdout panics on EPIPE and abort()s Node/bun. Inspect the graph
+  with bun-verify's `turbo_dry_json.py`. Declared `${tooling.commands.test}` is unchanged.
+
 ## Signals specific to this project
 
 {{PROJECT_SIGNALS}}
