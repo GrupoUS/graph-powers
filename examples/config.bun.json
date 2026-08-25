@@ -16,10 +16,10 @@
     "linter": "biome",
     "testRunner": "bun-test",
     "commands": {
-      "typeCheck": "tsgo --noEmit",
+      "typeCheck": "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1",
       "lint": "bunx biome check",
       "format": "bunx biome check --write",
-      "test": "bun test --parallel",
+      "test": "bun test --smol",
       "build": "bun run build"
     }
   }

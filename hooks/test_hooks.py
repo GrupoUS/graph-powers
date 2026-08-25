@@ -476,6 +476,71 @@ def main() -> int:
         check(f"guarded runs `{pm} run dev` without asking",
               call("smart_bash_approver", bash(f"{pm} run dev"), a)[0], "allow")
 
+    print("### JS/TS gates stay on Bun + native tsgo with bounded resources")
+    (pm_bun_auto / "package.json").write_text(
+        json.dumps({"scripts": {
+            "type-check": "cross-env CI=1 tsc --noEmit",
+            "check": "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1",
+            "test": "node --test",
+            "test:parallel": "bun test --parallel",
+            "test:safe": "bun test --smol",
+        }}),
+        encoding="utf-8",
+    )
+    for label, cmd in [
+        ("legacy tsc", "tsc --noEmit"),
+        ("Windows tsc", "tsc.exe --noEmit"),
+        ("npx tsc", "npx tsc --noEmit"),
+        ("bunx tsc", "bunx tsc --noEmit"),
+        ("a package script named tsc", "bun run tsc"),
+        ("the TypeScript Node launcher", "node node_modules/typescript/bin/tsc --noEmit"),
+        ("the TypeScript launcher under Bun", "bun node_modules/typescript/bin/tsc --noEmit"),
+        ("Node's test runner", "node --test"),
+        ("Node's test runner behind another runtime flag", "node --experimental-strip-types --test"),
+        ("Node's Windows test runner", "node.exe --test"),
+        ("the tsgo package's Node shebang", "tsgo --noEmit -p tsconfig.json"),
+        ("unbounded Bun file workers", "bun test --parallel"),
+        ("too many Bun file workers", "bun test --parallel=8"),
+        ("unbounded concurrent tests", "bun test --concurrent"),
+        ("too many concurrent tests", "bun test --concurrent --max-concurrency=20"),
+    ]:
+        check(f"the floor stops {label}, even autonomous",
+              call("smart_bash_approver", bash(cmd), auton)[0], "deny")
+        check(f"...and under guarded too: {label}",
+              call("smart_bash_approver", bash(cmd), a)[0], "deny")
+
+    for label, cmd in [
+        ("native tsgo forced through Bun",
+         "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"),
+        ("serial low-memory Bun tests", "bun test --smol"),
+        ("changed-only fail-fast Bun tests", "bun test --changed --bail=1 --smol"),
+        ("two bounded Bun file workers", "bun test --parallel=2"),
+        ("two bounded concurrent tests", "bun test --concurrent --max-concurrency=2"),
+        ("an internal ESM checker", "node .github/check_workflows.mjs"),
+        ("the plugin installer", "node bin/graph-powers.mjs --help"),
+    ]:
+        check(f"...but {label} is not blocked",
+              call("smart_bash_approver", bash(cmd), auton)[0] != "deny", True)
+
+    check("guarded allows the local-only Bun tsgo launcher without asking",
+          call("smart_bash_approver",
+               bash("bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"),
+               a)[0], "allow")
+
+    for label, cmd in [
+        ("a type-check script hiding tsc", "bun run type-check"),
+        ("a test script hiding Node", "bun run test"),
+        ("a test script hiding unbounded workers", "bun run test:parallel"),
+    ]:
+        check(f"package.json cannot hide {label}",
+              call("smart_bash_approver", bash(cmd), pm_bun_auto)[0], "deny")
+    check("a safe package type-check script still runs",
+          call("smart_bash_approver", bash("bun run check"), pm_bun_auto)[0], "allow")
+    check("a safe package test script still runs",
+          call("smart_bash_approver", bash("bun run test:safe"), pm_bun_auto)[0], "allow")
+    check("direct Bun tests do not expand package.json#scripts.test",
+          call("smart_bash_approver", bash("bun test --smol"), pm_bun_auto)[0], "allow")
+
     print("### turbo --dry=json on a captured pipe is an abort, not a test")
     # turbo 2.x panics on EPIPE when --dry=json writes to a pipe the reader already closed.
     # The Bash tool is that pipe. The JS wrapper then process.kill(pid, SIGABRT) and bun

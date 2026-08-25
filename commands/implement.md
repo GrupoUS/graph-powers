@@ -205,7 +205,7 @@ Responsibilities:
 1. Delegate data/API tasks to debugger agent through the available runtime mechanism
 2. Delegate UI tasks to frontend-specialist only after required upstream gates pass
 3. Validate each agent's Context Handoff against contract Done Definition
-4. Run quality gate after each phase: ${tooling.packageManager} run ${tooling.typeChecker}
+4. Run the phase gate once from the literal `tooling.commands` strings, after applying `references/shared/010-quality-gates.md` and the JS/TS resource floor in `references/shared/130-bun-tsgo-gates.md`
 5. If any criterion fails → return detailed feedback to the responsible agent, not the user
 6. Only report to user: SPRINT N COMPLETE (all criteria met) or BLOCKED: [specific failing criterion]
 
@@ -268,10 +268,10 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
 
 | When | Command |
 |---|---|
-| After each task | `${tooling.packageManager} run ${tooling.typeChecker}` |
-| After each phase | type-check + lint |
+| After each task | The task's focused `CHECK` only; never a whole-project gate |
+| After each phase | Resolved type-check + lint, once |
 | After sprint (if contracts) | All `verify:` commands in Done Definition |
-| Final | type-check + lint + tests |
+| Final | Resolved type-check + lint + serial full tests, once |
 
 ---
 

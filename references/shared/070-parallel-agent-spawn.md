@@ -29,4 +29,11 @@ When invoking 2+ agents in parallel:
    and global stylesheets are never parallel with anything — their ordering is load-bearing.
    `workflows/ultra-build.js` enforces this in code; a plan that needs the re-slice was drawn wrong.
 
+8. **The model comes from the agent, not the caller.** Each agent in `agents/` declares its tier
+   (§2), and the `Agent` tool honours it — so a spawn passes no `model`. An override wins silently,
+   both directions damaging: `graph-powers:explorer` spawned on `opus` makes the cheap lane
+   expensive, and a specialist on the session's model is not the one the work was sized for. Only
+   the runtime's own agents (`Explore`, `Plan`, `general-purpose`) take an explicit model, since
+   they have no frontmatter. Inside `workflows/*.js` the rule inverts: state the model every time.
+
 Anti-pattern: spawning agents serially across multiple messages → loses parallelism + multiplies overhead.

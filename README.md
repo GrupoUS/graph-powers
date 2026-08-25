@@ -161,7 +161,7 @@ installer generates those sides from the artefacts that already exist — nothin
 |---|---|---|---|---|
 | Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) |
 | Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` |
-| Subagents | `agents/*.md` | Native: `codex/native-agents/*.md` (Claude `model:` families stripped so the child inherits the user's Codex model and limit). Clone: `.codex/agents/*.toml` | The same markdown files | The same markdown files |
+| Subagents | `agents/*.md` | Native: `codex/native-agents/*.md` (Claude `model:` families stripped so the child inherits the user's Codex model and limit). Clone: `.codex/agents/*.toml`, with the family mapped to the project's `codex.models` tier | The same markdown files | The same markdown files |
 | Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files |
 | IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) |
 
@@ -263,6 +263,28 @@ its config, rules and authorities are established.
 Codex loads `.codex-plugin/` first. Native subagents come from `codex/native-agents/`, which is
 `agents/*.md` with Claude `model:` families removed, so a child inherits **your** Codex model and
 rate-limit window — not the Spark / Bengal Fox pool that `model: haiku` otherwise maps onto.
+
+Inheriting one model for all twelve is a floor, not the goal: the scout that reads a config file
+and the reviewer that judges a plan then spend the same window. Declare the tiers in
+`.graph-powers/config.json` and the generated **clones** (`~/.codex/agents/*.toml`) split by the
+tier each agent's source frontmatter declares:
+
+```json
+"codex": {
+  "models": { "heavy": "gpt-5.6-sol", "standard": "gpt-5.6", "light": "gpt-5.6-luna" },
+  "reasoningEffort": "high"
+}
+```
+
+`opus` agents take `heavy` (judging, design, verification, code that ships), `haiku` agents take
+`light` (`graph-powers:explorer`, `graph-powers:librarian`), and a tier left out falls back to
+`codex.model`. To carry
+the same split on the **native** surface, generate the agents with your own slugs into a directory
+you point Codex at — never into the tracked one, which stays account-agnostic:
+
+```bash
+node codex/native-plugin.mjs --models heavy=gpt-5.6-sol,light=gpt-5.6-luna --out <dir>
+```
 
 ### Cursor
 
@@ -419,7 +441,7 @@ One file per project, with a safe default for everything. The full contract is
 | `tooling.commands.*` | The literal command behind each gate — **and the tool it names has to be installed**, see below |
 | `paths.*` | Where code lives. An empty field means the project has no such layer, and plans must not invent one |
 | `project.stack` | Turns on the stack-gated skills |
-| `codex.*` | Model and reasoning effort for generated Codex subagents |
+| `codex.model` · `codex.models.{heavy,standard,light}` · `codex.reasoningEffort` | Which Codex model each generated subagent gets, by the tier its source frontmatter declares, and the effort it runs at |
 | `autonomy.*` | How much runs without asking — see below |
 
 ### The tools you declare have to exist
@@ -448,6 +470,32 @@ what it did not:
 A command routed through the package manager — `bun run lint` — is not checked and never reported:
 the tool is named in the project's manifest rather than in the command, and a warning that guesses
 is worse than no warning.
+
+### Low-resource JS/TS verification
+
+`--config` now preconfigures a Bun project with `tsconfig.json` for native `tsgo` and refuses to
+copy an existing gate that explicitly launches Node tests, legacy `tsc`, bare `tsgo`, or unbounded
+Bun workers. The safe defaults are:
+
+```bash
+bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1
+bun test --changed --bail=1 --smol   # edit loop
+bun test --smol                      # full gate, once at the end
+```
+
+Install and pin `@typescript/native-preview` in the project before the gate; `--no-install` makes a
+missing package fail instead of fetching code during verification. Bare `tsgo` is not accepted
+because its npm launcher has a Node shebang. Unbounded `bun test --parallel` is not accepted because
+Bun 1.4 may start one worker process per CPU core; measured parallelism must be capped at
+`--parallel=2`.
+
+TypeScript 7 stable is the native Go port but renamed its executable to `tsc`. Graph Powers keeps the
+`tsgo` preview channel deliberately so a gate can never be confused with legacy Node TypeScript.
+Framework checkers that embed the TypeScript API remain project-declared. Full setup, migration and
+official sources: [`skills/bun-verify/references/low-resource-js-ts-gates.md`](skills/bun-verify/references/low-resource-js-ts-gates.md).
+
+Graph Powers' own ESM verification gates also run through Bun 1.4. The installer remains
+Node-compatible, but agents and CI do not use Node as the test executor.
 
 **Use a different `optInPrefix` per project.** With the same key in two repositories, a commit
 approval given in one starts counting in the other. The versioned test covers exactly that case.

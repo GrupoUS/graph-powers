@@ -36,9 +36,8 @@ Skill("performance-optimization");                    // method, targets, pack c
 ```
 
 From `.graph-powers/config.json`: `${project.stagingUrl}` (default target, override with `url=`) ·
-`${tooling.buildTool}` · `${tooling.packageManager}` · `${tooling.typeChecker}` ·
-`${tooling.testRunner}` · `${gates.lighthouse.*}` · `${gates.lcp}` · `${gates.cls}` · `${gates.inp}` ·
-`${gates.initialJsKb}`.
+`${tooling.buildTool}` · `${tooling.packageManager}` · literal `${tooling.commands.*}` gates ·
+`${gates.lighthouse.*}` · `${gates.lcp}` · `${gates.cls}` · `${gates.inp}` · `${gates.initialJsKb}`.
 
 **The gate is whatever the config says**, never the web.dev line — a project commonly configures
 stricter. If `${rulesDir}/` carries an SEO or performance supplement, load it: route specifics and
@@ -184,7 +183,7 @@ beats a config-wide disable, which beats turning off a category.
 
 `${tooling.buildTool}` from config, confirmed against what is on disk: the build config file
 (`vite.config.*`, `webpack.config.*`, `rollup.config.*`, `astro.config.*`, `next.config.*`), the
-type checker (`tsgo`, `tsc`, `swc`, `babel`) and the `package.json` scripts.
+type checker (the resolved native `tsgo` or framework-specific command; never legacy `tsc`) and the `package.json` scripts.
 
 ### 3.2 Baseline
 
@@ -335,7 +334,7 @@ this mode owns the baseline (dependencies, headers, secrets).
 |---|---|
 | PSI HTTP 429 | retry once, then Lighthouse CLI (`psi-api.md § Failures`) |
 | URL unreachable | report it; check the deploy and DNS. Never report an unmeasured URL as passing |
-| Build fails in § 3 | run `${tooling.typeChecker}` first — a compiler error reads like a build-tool problem |
+| Build fails in § 3 | resolve and run `${tooling.commands.typeCheck}` first — a compiler error reads like a build-tool problem |
 | Database unreachable in § 4 | run the static half only (§ 4.2-4.4 plus the index check against the migration files) and say which half ran |
 | Vercel not authed or not linked | stop with the exact command (`vercel login` / `vercel link`). Never guess a project slug |
 | The project declares no scanner for `doctor` | say so and stop |

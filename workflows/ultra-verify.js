@@ -85,6 +85,20 @@ const PLUGIN_AGENTS = new Set([
 // to change, and `.github/check_workflows.mjs` asserts the set it draws from.
 const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 
+// ── Model tier ───────────────────────────────────────────────────────────────
+// Declared per call, never inherited (AGENTS.md cardinal 6). A workflow does NOT read the `model:`
+// line of `agents/<name>.md`: `agent()` without `model` takes the SESSION model, so an opus-pinned
+// specialist ran on whatever the user happened to be driving, and a haiku scout spent an opus
+// window. `M()` restores the tier the agent's own frontmatter declares; a mechanical unit may still
+// ask for a cheaper model explicitly (§2 of `references/shared/020-complexity-routing.md`) — that is
+// a downgrade, and downgrades are written literally so they read as deliberate.
+//
+// The set below is a second copy of what `agents/` already says, so it is checked rather than
+// trusted: `.github/check_workflows.mjs` fails a spawn that omits `model`, a set that drifts from
+// the frontmatter, and a light agent pinned to a heavy model.
+const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
+const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
+
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. The project's contract arrives passed in by the caller, or read by one cheap agent.
@@ -140,7 +154,7 @@ async function resolveConfig() {
      maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
-    { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
+    { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: M('explorer') }
   )
 }
 
@@ -156,6 +170,7 @@ if (!cfg.pluginRoot) {
 }
 const DBG_GUIDE = `${cfg.pluginRoot}/skills/debugger/references/anti-patterns.md`
 const PERF_GUIDE = `${cfg.pluginRoot}/commands/perf.md`
+const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-bun-tsgo-gates.md`
 
 // Same lane set as ultra-plan and ultra-build. Kept as an enum on every `agent` field below: this
 // is the one thing the upstream copies of this workflow got wrong — `agent` was a free string, so
@@ -172,6 +187,15 @@ const AGENT_ENUM = [
 
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boolean)
+const quickTest = (command) => {
+  if (!/^bun(?:\.exe)?\s+test(?:\s|$)/i.test(command)) return command
+  const flags = []
+  if (!/(?:^|\s)--changed(?=\s|$)/i.test(command)) flags.push('--changed')
+  if (!/(?:^|\s)--bail(?:=|\s|$)/i.test(command)) flags.push('--bail=1')
+  if (!/(?:^|\s)--smol(?=\s|$)/i.test(command)) flags.push('--smol')
+  return [command, ...flags].join(' ')
+}
+const quickGateList = [commands.typeCheck, commands.lint, commands.test && quickTest(commands.test)].filter(Boolean)
 // `build` is deliberately NOT in `gateList`: that list also drives REGATE, which runs after every
 // fix batch, and rebuilding per round is the most expensive thing this workflow could do. It runs
 // ONCE, in the opening gate pass, because a tree that type-checks can still fail to build — a
@@ -182,15 +206,15 @@ const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boole
 const openingGateList = [...gateList, commands.build].filter(Boolean)
 // Presented one per line, never chained: `;` is not a separator in cmd.exe, and a chained
 // line makes "capture each exit code" unanswerable even where the chain does work.
-const gateBlock = gateList.map((c) => `  - \`${c}\``).join('\n')
+const quickGateBlock = quickGateList.map((c) => `  - \`${c}\``).join('\n')
 const openingGateBlock = openingGateList.map((c) => `  - \`${c}\``).join('\n')
 const GIT_RAILS =
   'HARD RULES (no inherited config): never git commit/push/checkout/reset/stash. Leave changes in ' +
   'the working tree.' + projectRules +
-  (gateList.length ? ' After editing, re-run the relevant gate and capture the exit code.' : '')
+  ' After editing, run only a focused regression check for the files you changed. Never run the whole-project gate list; the workflow owns it once per round and once at the final boundary.'
 const ROOT_CAUSE = 'Name the exact root cause BEFORE patching (read ' + DBG_GUIDE + '; do NOT invoke a Skill). Fix the source, not the symptom; no "while I am here" scope creep.'
-const REGATE = gateList.length
-  ? `Re-run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${gateBlock}\nRead-only.`
+const REGATE = quickGateList.length
+  ? `Read ${GATE_GUIDE} first. Re-run this low-resource gate set from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${quickGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Read-only.`
   : 'This project declares no gate commands. Report allGreen:true with an empty gates list and say so — a project with no gates is a finding about the project, not a pass. Read-only.'
 
 const GATES = { type: 'object', required: ['allGreen', 'gates'], properties: {
@@ -238,7 +262,7 @@ const deadCodeProbe = commands.deadCode
 const [g0, scope] = await parallel([
   () => agent(
     openingGateList.length
-      ? `Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\nReport pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
+      ? `Read ${GATE_GUIDE} first. Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Report pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
       : `This project declares no gate commands in its config. Return allGreen:true with an empty gates list, and note in \`failing\` that no gate was declared. Read-only.`,
     { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: 'haiku' }
   ),
@@ -252,7 +276,7 @@ const [g0, scope] = await parallel([
 2. Return \`touched\` as an object with one boolean per surface below, keyed by its name:
 ${SURFACES.map((s) => `   ${s.name} = ${s.match}`).join('\n')}${deadCodeProbe}
 Return changedFiles (the union), touched, baseRef, confidence. Empty diff → changedFiles:[] and every boolean false.`,
-    { agentType: AG('explorer'), phase: 'Gates', schema: SCOPE, label: 'scope', model: 'haiku' }
+    { agentType: AG('explorer'), phase: 'Gates', schema: SCOPE, label: 'scope', model: M('explorer') }
   ),
 ])
 let g = g0
@@ -319,14 +343,14 @@ await agent(
 - EFFICIENCY: flag wasted work the diff introduces — redundant computation or repeated I/O, independent operations run sequentially, blocking work added to startup or hot paths. Also flag long-lived objects built from closures or captured environments (they keep the whole enclosing scope alive — a leak when that scope holds large values); prefer a structure copying only the fields it needs. Name the cheaper alternative.
 - ALTITUDE: check each change is implemented at the right depth, not as a fragile bandaid. Special cases layered on shared infrastructure mean the fix is not deep enough — prefer generalizing the underlying mechanism over adding special cases.${invariantClause}${deadCodeClause} ${GIT_RAILS}
 Return applied changes + gate evidence.`,
-  { agentType: AG('debugger'), phase: 'Simplify', schema: FIX, label: 'simplify' }
+  { agentType: AG('debugger'), phase: 'Simplify', schema: FIX, label: 'simplify', model: M('debugger') }
 )
 
 // 3. Adversarial verify (fan-out skeptics) — combat self-preferential bias
 phase('Adversarial verify')
 const reqs = await agent(
   `Read the plan at ${PLAN_PATH}. Extract the flat requirement list (R1..Rn) from the acceptance criteria + the ## Verification steps. Read-only.`,
-  { agentType: AG('explorer'), phase: 'Adversarial verify', schema: REQS, label: 'extract-reqs', model: 'haiku' }
+  { agentType: AG('explorer'), phase: 'Adversarial verify', schema: REQS, label: 'extract-reqs', model: M('explorer') }
 )
 // Lenses are distinct QUESTIONS, never the same question asked N times — identical skeptics agree
 // with each other and miss the same things. Spec compliance is deliberately absent: the
@@ -420,7 +444,7 @@ const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => agent(
 PLAN: ${PLAN_PATH}
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it. Read-only.${SCOPE_LOCK}`,
-  { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}` }
+  { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}`, model: M(l.agent ?? 'evaluator') }
 ))
 let sk = (await parallel(skMaker('init'))).filter(Boolean)
 const outOfScope = outOfScopeFrom(sk)
@@ -431,7 +455,7 @@ phase('Completeness')
 const completeMaker = (round) => agent(
   `Walk EVERY requirement from the plan at ${PLAN_PATH} against the ACTUAL git diff. Mark each done (file:line) / missing / partial, and record which agent should implement any gap. Detect scope drift (changed files not cited in the plan). This is the guard against agentic laziness and goal drift. Read-only.
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}`,
-  { agentType: AG('evaluator'), phase: round ? 'Fix loop' : 'Completeness', schema: COMPLETENESS, label: `completeness:${round || 0}` }
+  { agentType: AG('evaluator'), phase: round ? 'Fix loop' : 'Completeness', schema: COMPLETENESS, label: `completeness:${round || 0}`, model: M('evaluator') }
 )
 let c = await completeMaker(0)
 
@@ -456,12 +480,12 @@ const fixThunks = (state, round) => [
     `Implement this MISSING plan item, following the conventions of the code around it. Do NOT invoke a process skill that re-dispatches agents (this workflow orchestrates). ${ROOT_CAUSE} ${GIT_RAILS}
 PLAN: ${PLAN_PATH}
 ITEM: ${JSON.stringify(m)}`,
-    { agentType: AG(m.agent || 'debugger'), phase: 'Fix loop', schema: FIX, label: `fix-missing:${round}` }
+    { agentType: AG(m.agent || 'debugger'), phase: 'Fix loop', schema: FIX, label: `fix-missing:${round}`, model: M(m.agent || 'debugger') }
   )),
   ...state.refuted.map((f, i) => () => agent(
     `Fix this confirmed P0/P1 finding. Apply the relevant fix pattern from ${DBG_GUIDE} (read it); do NOT invoke a skill. ${ROOT_CAUSE} ${GIT_RAILS}
 FINDING: ${JSON.stringify(f)}`,
-    { agentType: AG(f.agent || 'debugger'), phase: 'Fix loop', schema: FIX, label: `fix-bug:${round}:${i}` }
+    { agentType: AG(f.agent || 'debugger'), phase: 'Fix loop', schema: FIX, label: `fix-bug:${round}:${i}`, model: M(f.agent || 'debugger') }
   )),
 ]
 // Shared re-verify after a fix batch (used by the loop AND by the final cleanup round).
@@ -543,6 +567,16 @@ if (round > 0) {
   }
 } else {
   openFindings = refutedFrom(sk) // no fix rounds ran → the init panel already reflects the final tree
+}
+
+// Intermediate rounds use changed-only Bun tests when possible. Once every write is finished, the
+// full declared gate set runs exactly once against the final tree; otherwise a quick green loop could
+// be mistaken for a final verdict, or a passing opening build could survive fixes that broke it.
+if (round > 0 && openingGateList.length) {
+  g = await agent(
+    `Read ${GATE_GUIDE} first. Run the FINAL gate set once from the repository root, each as a separate command:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`,
+    { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: 'gates:final', model: 'haiku' }
+  )
 }
 
 const missing = (c?.items ?? []).filter((i) => i.status !== 'done')

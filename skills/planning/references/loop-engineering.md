@@ -121,12 +121,12 @@ Bridges user stories → testable implementation.
 - [ ] `exact/path/to/other.ts` — [what it does]
 
 **Acceptance Criteria:**
-- [ ] `${tooling.commands.test}` passes for `<path>`
-- [ ] `${tooling.packageManager} run ${tooling.typeChecker}` reports 0 errors
+- [ ] the focused test from `${tooling.commands.test}` passes for `<path>`
+- [ ] `${tooling.commands.typeCheck}` reports 0 errors at the phase gate
 - [ ] [agent-browser CLI: user can do X without Y error — see `Skill("webapp-testing")`]
 - [ ] Edge case: [describe at least 1 edge case and expected behavior]
 
-**Done Definition:** `${tooling.packageManager} run ${tooling.typeChecker} && ${tooling.packageManager} run ${tooling.testRunner} <path>`
+**Done Definition:** run `${tooling.commands.typeCheck}` and the focused `${tooling.commands.test}` invocation as separate commands; both exit 0. JS/TS commands first pass `references/shared/130-bun-tsgo-gates.md`.
 
 **Boundary (NOT in this sprint):**
 - [Feature A] — defer to Sprint N+1
@@ -152,7 +152,7 @@ For lower complexity, use a 3-line version:
 
 **Acceptance Criteria:**
 - [ ] the project's migration/push command completes without errors
-- [ ] `${tooling.packageManager} run ${tooling.typeChecker}` reports 0 errors
+- [ ] `${tooling.commands.typeCheck}` reports 0 errors at the phase gate
 - [ ] FK index exists on `notifications.user_id`
 - [ ] Edge case: duplicate notification insert rejected by unique constraint
 

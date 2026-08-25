@@ -6,7 +6,7 @@ Without `.codex-plugin/plugin.json`, Codex falls through to `.claude-plugin/` an
 no haiku; the cheap-model fallback is Spark, whose rate-limit bucket is `codex_bengalfox`
 ("Bengal Fox") — not the user's own Codex window. The generator strips those lines.
 
-    node codex/native-plugin.mjs
+    bun codex/native-plugin.mjs
 """
 
 from __future__ import annotations
@@ -55,17 +55,16 @@ def main() -> int:
         return 1
 
     generated = subprocess.run(
-        ["node", "codex/native-plugin.mjs", "--dry-run"],
+        ["bun", "codex/native-plugin.mjs", "--dry-run"],
         cwd=ROOT,
         check=False,
         capture_output=True,
         encoding="utf-8",
     )
-    # --dry-run does not print JSON. Rebuild in-process via a small node snippet.
+    # --dry-run does not print JSON. Rebuild in-process via a small Bun snippet.
     built = subprocess.run(
         [
-            "node",
-            "--input-type=module",
+            "bun",
             "-e",
             """
 import { readFileSync } from "node:fs";
@@ -92,15 +91,15 @@ process.stdout.write(JSON.stringify({
 
     data = json.loads(built.stdout)
     if data["manifest"] != native_plugin:
-        print("::error::.codex-plugin/plugin.json is stale — run: node codex/native-plugin.mjs")
+        print("::error::.codex-plugin/plugin.json is stale — run: bun codex/native-plugin.mjs")
         return 1
     if data["marketplace"] != native_market:
-        print("::error::.codex-plugin/marketplace.json is stale — run: node codex/native-plugin.mjs")
+        print("::error::.codex-plugin/marketplace.json is stale — run: bun codex/native-plugin.mjs")
         return 1
 
     native_dir = ROOT / "codex/native-agents"
     if not native_dir.is_dir():
-        print("::error::codex/native-agents/ is missing — run: node codex/native-plugin.mjs")
+        print("::error::codex/native-agents/ is missing — run: bun codex/native-plugin.mjs")
         return 1
 
     errors = 0
@@ -115,7 +114,7 @@ process.stdout.write(JSON.stringify({
         current = path.read_text(encoding="utf-8") if path.is_file() else ""
         want = body if body.endswith("\n") else body + "\n"
         if current != want:
-            print(f"::error::{path.relative_to(ROOT)} is stale — run: node codex/native-plugin.mjs")
+            print(f"::error::{path.relative_to(ROOT)} is stale — run: bun codex/native-plugin.mjs")
             errors += 1
         if CLAUDE_MODEL_LINE.search(current):
             print(f"::error::{path.relative_to(ROOT)} still pins a Claude model family")

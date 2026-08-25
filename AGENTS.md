@@ -30,9 +30,18 @@ be made in two files of this repository, the repository is reproducing the probl
 5. **No verifier writes.** Agents that judge or research declare `disallowedTools: Write, Edit`.
    Watch the `memory:` field, which injects `Read`/`Write`/`Edit` on top of the `tools:` allowlist —
    that is how the `librarian` became write-capable against its own description.
-6. **The node that judges runs on a strong model, declared.** Explicit `model:`, never inherited. A
-   cheap evaluator produces a false positive other nodes "correct", and the origin of the error is
-   lost.
+6. **Every node declares its model, and the tier travels.** Explicit `model:` in the frontmatter,
+   never inherited: a cheap evaluator produces a false positive other nodes "correct", and the
+   origin of the error is lost — and a scout that inherits an expensive one turns the cheap lane
+   into the expensive lane without anybody deciding to. That one line is the tier, and the rest
+   derives from it: the Codex generator maps the family to this project's `codex.models` slug, and
+   the reasoning effort follows the same family.
+
+   Two surfaces do not read it, so both are checked rather than trusted. A `Workflow` `agent()`
+   call never opens the agent file — an omitted `model` runs on the session's, which is how an
+   `opus`-pinned `frontend-specialist` implemented on `sonnet`; `.github/check_workflows.mjs`
+   fails the omission and any upgrade of a light agent. An `Agent` spawn does read it, so a
+   `model:` passed at the spawn site only overrides what was already right — do not pass one.
 7. **Four harnesses, one source.** Anything Codex, Cursor or Grok needs is *generated* from the
    artefacts that already exist for Claude Code (`codex/install.mjs`, `cursor/install.mjs`,
    `grok/install.mjs`). A second hand-maintained list is the divergence this repository exists
@@ -72,14 +81,14 @@ claude plugin validate .                    # manifest and marketplace
 python3 hooks/test_hooks.py                 # guardrails, 350 checks in a sandbox
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
-node .github/check_workflows.mjs             # workflow scripts parse, and each name matches its file
+bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
 python3 .github/check_listing_budget.py     # what the plugin costs before anything is invoked
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 python3 .github/check_placeholders.py       # every ${…} is a key the schema declares
-node bin/graph-powers.mjs --help          # the installer still starts under node
+bun bin/graph-powers.mjs --help               # the installer still starts under Bun
 python3 .github/check_clone.py              # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 ```

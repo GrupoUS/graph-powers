@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.9.5 — Explicit model tiers and low-resource JS/TS gates
+
+### Changed — JS/TS verification no longer fans out across the machine
+
+The inferred host-project gates are now native tsgo forced through Bun with `--checkers 1`, serial
+`bun test --smol` for the final suite, and changed-only fail-fast tests during fix loops. Unbounded
+`bun test --parallel` was removed as a default because Bun 1.4 can start one process per CPU core.
+Whole-project gates run once at phase/final boundaries instead of once per implementation task.
+
+The Bash guardrail denies Node's test runner, legacy `tsc`, bare `tsgo` (the npm launcher has a Node
+shebang), and unbounded Bun workers even under autonomous mode. Plugin ESM verification and CI now
+run through Bun 1.4; the installer remains Node-compatible, but Node is not a gate executor. The
+installer skips unsafe package scripts and preconfigures Bun + `tsconfig.json` projects with the safe tsgo command. Setup, compatibility limits
+and official sources live in `skills/bun-verify/references/low-resource-js-ts-gates.md`.
+
+### Fixed — the model tier is declared everywhere it is spent
+
+An agent's `model:` line is the tier: `opus` for the nodes that judge, design, fix and verify,
+`haiku` for the scouts. Two surfaces spent a different one than the line says.
+
+### Fixed — a workflow spawned every specialist on the session's model
+
+`agent()` inside `workflows/*.js` resolves `opts.model` and never opens `agents/*.md`. Eleven of
+the twenty-four call sites in `ultra-build`, `ultra-plan` and `ultra-verify` passed none, so
+`frontend-specialist` — `model: opus` in its own frontmatter — implemented on whatever model the
+user happened to be driving, `project-planner` and `evaluator` judged on it, and `librarian`, a
+`haiku` scout, researched on it. The cheap lane failed the same way in reverse: a caller that
+passes `model` by hand at an `Agent` spawn site overrides frontmatter that was already correct, and
+one session spawned `explorer` on `opus`.
+
+Every workflow call now states its model through an `M()` helper drawn from the frontmatter tier; a
+deliberate downgrade for a mechanical unit (gates, re-gates) stays written literally.
+`.github/check_workflows.mjs` reads the resolved `opts` of every stubbed spawn — so the dynamic
+call sites are covered too — and fails a call with no `model`, or one that spawns a light agent on
+a heavier model than its own file declares. `references/shared/070` §8, `020` §2 and `130` carry
+the rule; cardinal 6 of `AGENTS.md` now covers both ends of the ladder.
+
+### Added — `codex.models`, one Codex slug per tier
+
+Generated Codex subagents all took the project's single `codex.model`, so twelve deliberately
+different agents came out of the generator on one model and only their reasoning effort differed —
+and a cheap-effort call on the strong model is still billed as the strong model.
+
+`codex.models.heavy` / `.standard` / `.light` map the Claude family each source agent declares onto
+this project's slugs (`opus` → heavy, `sonnet` → standard, `haiku` → light), falling back to
+`codex.model` for a tier left empty and to nothing at all when neither is configured. `node
+codex/install.mjs` now reads the project config itself, so a direct invocation generates what the
+`graph-powers` CLI generates instead of subagents with no model line at all.
+
+For the native surface, `node codex/native-plugin.mjs --models heavy=…,light=… --out <dir>` writes
+the agents with those slugs into a directory the operator names. `--models` without `--out` is
+refused: a Codex slug is account-specific, and `codex/native-agents/` is tracked.
+
 ## 1.9.4 — Turbo `--dry=json` on a pipe is denied; Codex native agents drop Claude model families
 
 Agents running `turbo run test --dry=json` (or `bun run test --dry=json`) through the Bash

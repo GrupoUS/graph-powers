@@ -1311,6 +1311,10 @@ Three things to get right, because they are the ones that go wrong quietly:
   `drizzle-kit check` is not a status command: it never opens the database.
 - **`testRunner: null` is an answer.** It says the absence is deliberate. Omitting the field says
   nobody looked.
+- **JS/TS gates use the low-resource resolver.** Read `skills/bun-verify/references/low-resource-js-ts-gates.md`. For a Bun project with `tsconfig.json`, configure native tsgo exactly as
+  `bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1`; install the package locally first. Use `bun test --smol` for the final suite and
+  `bun test --changed --bail=1 --smol` in an edit loop. Never copy `node --test`, legacy `tsc`, bare
+  `tsgo`, unbounded `--parallel`, or unbounded `--concurrent` into the config.
 
 **Leave `autoUpdate` alone unless the project asks otherwise.** The harness keeps itself current
 on its own: at session start, at most once every twelve hours, a detached worker asks each CLI to

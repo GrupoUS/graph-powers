@@ -18,12 +18,12 @@ claude plugin validate .
 python3 hooks/test_hooks.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
-node bin/graph-powers.mjs --help > /dev/null
+bun bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
-node .github/check_workflows.mjs            # workflow scripts parse, run dry, and name real agents
+bun .github/check_workflows.mjs             # workflow scripts parse, run dry, and name real agents
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 ```
 

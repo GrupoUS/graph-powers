@@ -7,11 +7,12 @@ description: "JS/TS gates: Bun 1.4 tests and tsgo, never Node tsc."
 # Bun 1.4 + tsgo gates
 
 Resolve and run JavaScript/TypeScript verification on this harness. Project
-`.graph-powers/config.json` `tooling.commands` always wins. When a JS/TS gate is
-undeclared, use Bun 1.4 and native `tsgo` — not `npx tsc` and not `node --test`.
+`.graph-powers/config.json` `tooling.commands` supplies the command, but never overrides the
+resource safety floor below. When a JS/TS gate is undeclared, use Bun 1.4 and native `tsgo` —
+not legacy `tsc`, `node --test`, or a `tsgo` shebang that starts Node.
 
-Loaded by `/verify` and by `graph-powers:graph-engineering` Step 5. Browser E2E
-stays on `webapp-testing` + the `graph-powers:verification` agent.
+Loaded by `/verify`; `ultra-verify` reads the shared resolver directly. Browser E2E stays on
+`webapp-testing` + the `graph-powers:verification` agent.
 
 ## Cost model
 
@@ -36,16 +37,16 @@ The agent batch is the expensive part (RAM and tokens). Process gates are cheap 
 
 | Gate | Command |
 |---|---|
-| Type-check | `tsgo --noEmit -p <tsconfig>` |
-| Test | `bun test --parallel` |
-| Incremental test | `bun test --parallel --changed` |
+| Type-check | `bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p <tsconfig> --checkers 1` |
+| Test | `bun test --smol` |
+| Incremental test | `bun test --changed --bail=1 --smol` |
 | Lint | leave `NOT DECLARED` unless `tooling.commands.lint` exists |
-| Scripts in parallel | `bun run --parallel <a> <b>` |
 
 Do **not** infer `bun test` when `tooling.testRunner` is `null`, `python`, or a Vitest/`bun run test` command. A project that declared Vitest (`bun run test`) must keep that string — bare `bun test` skips its config.
 
-`tsgo` is the TypeScript 7 native compiler (`@typescript/native-preview`). It is
-not the `tsc` that ships with `typescript@5` under Node.
+Bare `tsgo` follows a Node shebang; the exact command above forces Bun, forbids gate-time installs
+and caps checker workers. Missing local tooling is `NEEDS-WORK`. Setup, TypeScript 7 naming and
+framework limits: `references/low-resource-js-ts-gates.md`.
 
 ## Scope Turbo before running
 
@@ -67,21 +68,17 @@ pipe panics turbo (EPIPE) and abort()s Node/bun; the hook denies it. Run
 
 ## Procedure
 
-1. If `/verify` has no arguments, treat it as `quick`. Done when the mode is stated in the report.
-2. Read `.graph-powers/config.json` `tooling.commands`. Done when each present key is the command you will run.
-3. For a missing JS/TS key, apply the table above. Report `INFERRED (bun-verify)`, never pretend it was declared.
-4. Apply Turbo scoping. Run through the harness shell tool. Capture exit code. A missing `tsgo` binary is `NEEDS-WORK`, not a silent `tsc` fallback.
-5. Prefer `bun test --parallel` over a serial runner only when inferred. Add `--changed` only when the user asked for a cheap loop, not for the final verdict.
-6. Dispatch `graph-powers:verification` for UI flows, never as part of `quick`. This skill does not open a browser.
+1. Empty `/verify` means `quick`; state the mode.
+2. Read literal `tooling.commands`; expand `bun run <script>` from `package.json`.
+3. Apply the deny list in `references/low-resource-js-ts-gates.md`; forbidden or missing tooling is `NEEDS-WORK`, with no fallback.
+4. Infer only missing JS/TS keys from the table; label them `INFERRED (bun-verify)`.
+5. Scope Turbo, run changed-only tests in loops, and run the serial full suite once at the final gate.
+6. Browser UI uses `graph-powers:verification`, never `quick`.
 
 ## Pitfalls
 
-- `npx tsc` / `node_modules/typescript/bin/tsc` is the slow Node compiler. Do not "helpfully" fall back to it.
-- `bunx tsc` may still resolve TypeScript 5 from the project. Call `tsgo` by that name.
-- `--parallel` implies isolate. Do not add `--no-isolate` to chase speed if tests share globals.
-- Bun 1.4 `lockfileVersion` 2/3 is unread by older Bun. Do not rewrite the lockfile as a side effect of a gate.
-- Declared `tooling.commands.test: null` means no tests on purpose. Do not invent `bun test`.
-- Replacing Bash with another shell does not speed gates up. The cost is the compiler, the test runner, or the agent batch.
+Never rewrite the lockfile during a gate. `tooling.commands.test: null` means no tests on purpose.
+Replacing the shell does not reduce gate cost; compiler/test workers and agent batches do.
 
 ## Verification
 

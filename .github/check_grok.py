@@ -54,8 +54,7 @@ def main() -> int:
 
     generated = subprocess.run(
         [
-            "node",
-            "--input-type=module",
+            "bun",
             "-e",
             """
 import { readFileSync } from "node:fs";
@@ -80,16 +79,15 @@ process.stdout.write(JSON.stringify({
 
     data = json.loads(generated.stdout)
     if data["manifest"] != grok_plugin:
-        print("::error::.grok-plugin/plugin.json is stale — run: node grok/install.mjs --emit-only")
+        print("::error::.grok-plugin/plugin.json is stale — run: bun grok/install.mjs --emit-only")
         return 1
     if data["marketplace"] != grok_market:
-        print("::error::.grok-plugin/marketplace.json is stale — run: node grok/install.mjs --emit-only")
+        print("::error::.grok-plugin/marketplace.json is stale — run: bun grok/install.mjs --emit-only")
         return 1
 
     merge = subprocess.run(
         [
-            "node",
-            "--input-type=module",
+            "bun",
             "-e",
             """
 import { mergeGrokConfig } from "./grok/install.mjs";

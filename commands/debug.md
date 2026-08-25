@@ -74,7 +74,7 @@ Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). The bug
 is the only place this command names it.** Every later section that needs a known-pattern lookup
 uses what was loaded here.
 
-Run baseline quality gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using `${tooling.typeChecker}` / `${tooling.linter}` / `${tooling.testRunner}`.
+Resolve baseline gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using literal `tooling.commands`. When the change set is JS/TS, apply `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md` first.
 
 Context load via `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` (WISC):
 - Bug in frontend area → `/prime frontend`
@@ -284,9 +284,9 @@ Run § 0.1. Run `/prime frontend`.
 
 ### 3.2 Quality gates baseline
 
-Unit suite first — cheap, and it catches logic errors before a browser starts: `${tooling.testRunner}`
-against the frontend project, then `${tooling.typeChecker}` and `${tooling.linter}`. Only reach for a
-browser once the unit tests pass.
+Run the smallest relevant unit-test filter first. When this is a Bun edit loop, load
+`Skill("bun-verify")` and use its changed-only command, not the full suite. Then run resolved
+type-check and lint once; only then reach for a browser.
 
 ### 3.3 Static diagnosis (parallel)
 

@@ -1,15 +1,15 @@
 # JS/TS gate resolution (Bun 1.4 + tsgo)
 
-Used by `/verify` § 0 and by the Hermes `graph-engineering` Step 5.
-Load `Skill("bun-verify")` before applying this file.
+Used by `/verify` § 0, `ultra-verify`, and `010-quality-gates.md`. Load `Skill("bun-verify")`.
 
 ## Resolve the command
 
-1. If `.graph-powers/config.json` names `tooling.commands.<gate>`, that string is the command.
-2. Else if the change set is JS/TS and `bun-verify` applies, infer from that skill's table and label the row `INFERRED (bun-verify)`.
-3. Else the row is `NOT DECLARED`.
+1. Resolve literal `tooling.commands.<gate>`; expand `bun run <script>` from `package.json`.
+2. Reject Node tests, legacy `tsc`, bare `tsgo`, or Bun concurrency above two: `NEEDS-WORK`, no execution or fallback.
+3. Infer only missing JS/TS keys from `bun-verify`; label `INFERRED (bun-verify)`.
+4. Otherwise: `NOT DECLARED`.
 
-Never infer `npx tsc`, `npm test`, `node --test`, or bare `bun test` on top of a declared Vitest/`bun run test` command.
+A safe declared Vitest/`bun run test` stays declared; bare `bun test` would skip its config.
 
 ## Scope before spawn
 
@@ -26,4 +26,6 @@ Empty `/verify` arguments mean `quick` (process gates + floor). Agent tracks (ex
 
 Bash/terminal is the launcher. Do not replace it to chase performance.
 
-Bun 1.4 is the inferred test runtime (`--parallel`, `--changed`, `--shard`). Type-check is native `tsgo` (TypeScript 7), not `tsc` from `typescript@5`.
+Tests: `bun test --changed --bail=1 --smol` in loops; `bun test --smol` once finally.
+Type-check: `bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p <tsconfig> --checkers 1`.
+Missing tools fail. Parallelism is opt-in and capped at two. Internal plugin ESM scripts are not tests.

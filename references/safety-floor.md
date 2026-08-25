@@ -65,6 +65,9 @@ Use the commands the project declared in `tooling.commands` — package manager,
 formatter, test runner, build. Never substitute a different tool because it is more familiar: a gate
 run with the wrong tool reports on something the project does not ship.
 
+For JS/TS, declaration does not override `130-bun-tsgo-gates.md`: Node tests, legacy `tsc`, bare
+`tsgo` and unbounded workers are `NEEDS-WORK`. Plugin ESM verification runs through Bun.
+
 When a command is not declared, say so. A gate that silently does nothing because the script does not
 exist is worse than an absent gate, because the report line reads as covered.
 

@@ -49,8 +49,7 @@ def main() -> int:
 
     generated = subprocess.run(
         [
-            "node",
-            "--input-type=module",
+            "bun",
             "-e",
             """
 import { readFileSync } from "node:fs";
@@ -78,13 +77,13 @@ process.stdout.write(JSON.stringify({
 
     data = json.loads(generated.stdout)
     if data["file"] != tracked:
-        print("::error::hooks/hooks-cursor.json is stale — run: node cursor/install.mjs --emit-only")
+        print("::error::hooks/hooks-cursor.json is stale — run: bun cursor/install.mjs --emit-only")
         return 1
 
     # Keywords and description can drift in the tracked manifest independently of the hook
     # list; the generator is still the owner of both, so the whole file has to match.
     if data["manifest"] != cursor_plugin:
-        print("::error::.cursor-plugin/plugin.json is stale — run: node cursor/install.mjs --emit-only")
+        print("::error::.cursor-plugin/plugin.json is stale — run: bun cursor/install.mjs --emit-only")
         return 1
 
     skipped = set(data["skipped"])

@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import {
   installGlobal as installCodexGlobal,
   installProject as installCodexProject,
+  readCodexSettings,
   uninstall as uninstallCodex,
 } from "../codex/install.mjs";
 import { install as installCursor } from "../cursor/install.mjs";
@@ -635,6 +636,44 @@ function readJson(p) {
   }
 }
 
+function isBunNativeTsgoCommand(command) {
+  const value = String(command ?? "").trim().toLowerCase();
+  return (
+    /^bunx(?:\.exe|\.cmd)?\s/.test(value) &&
+    !/[;&|]/.test(value) &&
+    value.includes("--bun") &&
+    value.includes("--no-install") &&
+    value.includes("@typescript/native-preview") &&
+    /(?:^|\s)tsgo(?:\s|$)/.test(value)
+  );
+}
+
+function gateScriptIssue(gate, command) {
+  const value = String(command ?? "").trim().toLowerCase();
+  if (!value) return null;
+  if (gate === "typeCheck") {
+    if (isBunNativeTsgoCommand(value)) return null;
+    if (/(?:^|[\s;&|])(?:tsc|tsgo)(?:\.exe|\.cmd)?(?=\s|$)/.test(value))
+      return "legacy tsc or a bare tsgo Node shebang";
+    if (/\b(?:npx|bunx|pnpx)\b[^\r\n]*\btsc(?:\.exe|\.cmd)?(?:\s|$)/.test(value))
+      return "legacy tsc package launcher";
+    if (/\bnode(?:\.exe)?\b[^\r\n]*(?:typescript|node_modules)[\\/][^\r\n]*\btsc(?:\.js)?(?:\s|$)/.test(value))
+      return "TypeScript's Node launcher";
+  }
+  if (gate === "test") {
+    if (/(?:^|[\s;&|])node(?:\.exe)?(?=\s|$)/.test(value))
+      return "Node test executor";
+    const parallel = value.match(/(?:^|\s)--parallel(?:=(\d+))?(?=\s|$)/);
+    if (parallel && (!parallel[1] || Number(parallel[1]) > 2))
+      return "unbounded Bun test workers";
+    const concurrent = /(?:^|\s)--concurrent(?=\s|$)/.test(value);
+    const concurrency = value.match(/(?:^|\s)--max-concurrency(?:=|\s+)(\d+)(?=\s|$)/);
+    if (concurrent && (!concurrency || Number(concurrency[1]) > 2))
+      return "unbounded concurrent tests";
+  }
+  return null;
+}
+
 function detectStack() {
   const pkg = readJson(join(cwd, "package.json")) ?? {};
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -676,9 +715,18 @@ function detectStack() {
   // is not there dies as "script not found", and the report line reads as covered.
   const scripts = pkg.scripts ?? {};
   const commands = {};
+  const blockedGates = [];
   const pick = (key, ...candidates) => {
-    const found = candidates.find((c) => scripts[c]);
-    if (found && pm) commands[key] = `${pm} run ${found}`;
+    for (const candidate of candidates) {
+      if (!scripts[candidate]) continue;
+      const issue = gateScriptIssue(key, scripts[candidate]);
+      if (issue) {
+        blockedGates.push(`${candidate}: ${issue}`);
+        continue;
+      }
+      if (pm) commands[key] = `${pm} run ${candidate}`;
+      return;
+    }
   };
   pick("typeCheck", "type-check", "typecheck", "check", "tsc");
   pick("lint", "lint:check", "lint");
@@ -686,7 +734,19 @@ function detectStack() {
   pick("test", "test");
   pick("build", "build");
 
-  return { stack: parts.join("-") || "unknown", pm, commands, hasTests: Boolean(scripts.test) };
+  const hasTsconfig = hasFile("tsconfig.json");
+  if (!commands.typeCheck && pm === "bun" && hasTsconfig) {
+    commands.typeCheck = "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1";
+  }
+
+  return {
+    stack: parts.join("-") || "unknown",
+    pm,
+    commands,
+    hasTests: Boolean(commands.test),
+    nativeTsgo: commands.typeCheck?.includes("@typescript/native-preview") ?? false,
+    blockedGates,
+  };
 }
 
 /**
@@ -696,17 +756,7 @@ function detectStack() {
  * the next model ships, and every machine that installed before then keeps generating the old one.
  */
 function codexSettings() {
-  const cfg =
-    readJson(join(cwd, ".graph-powers/config.json")) ??
-    readJson(join(cwd, ".claude/config.json")) ??
-    {};
-  const codex = cfg.codex ?? {};
-  return {
-    ...(typeof codex.model === "string" && codex.model ? { model: codex.model } : {}),
-    ...(typeof codex.reasoningEffort === "string" && codex.reasoningEffort
-      ? { reasoningEffort: codex.reasoningEffort }
-      : {}),
-  };
+  return readCodexSettings(cwd);
 }
 
 function currentBranch() {
@@ -738,11 +788,18 @@ function writeConfig() {
     },
     tooling: {
       ...(d.pm ? { packageManager: d.pm } : {}),
+      ...(d.nativeTsgo ? { typeChecker: "tsgo" } : {}),
       testRunner: d.hasTests ? "detect" : null,
       ...(Object.keys(d.commands).length ? { commands: d.commands } : {}),
     },
     paths: existsSync(join(cwd, "src")) ? { frontendRoot: "src" } : {},
     autonomy: autonomyFields(),
+  };
+
+  const reportBlockedGates = () => {
+    for (const blocked of d.blockedGates) {
+      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/bun-verify/references/low-resource-js-ts-gates.md.`);
+    }
   };
 
   if (dryRun) {
@@ -755,12 +812,14 @@ function writeConfig() {
           .join("\n"),
       ),
     );
+    reportBlockedGates();
     return;
   }
   mkdirSync(join(cwd, ".graph-powers"), { recursive: true });
   writeFileSync(configFile, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
   ok(`.graph-powers/config.json created (stack: ${d.stack}, prefix: ${prefix})`);
   warn("Review it before trusting it: detection is a starting point, not a verdict.");
+  reportBlockedGates();
   info(
     `In particular: workBranch=${cfg.git.workBranch}, testRunner=${JSON.stringify(cfg.tooling.testRunner)}`,
   );

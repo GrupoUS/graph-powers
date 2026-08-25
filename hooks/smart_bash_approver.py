@@ -318,8 +318,7 @@ SAFE_PATTERNS = [
     # Toolchain binaries that are not package managers (those are handled by PACKAGE_MANAGER_RE
     # below, which covers every manager instead of naming one — a plugin that hardcodes `bun`
     # asks a pnpm project for permission it never asks a bun project for).
-    re.compile(r"^tsgo(\s|$)"),
-    re.compile(r"^tsc(\s|$)"),
+
     re.compile(r'^python(3)?( -X [^ ]+)? "?\.claude[\\/]'),
     re.compile(r'^python(3)?( -X [^ ]+)? "?scripts[\\/]'),
     # bun-verify's turbo dry-run wrapper. The Bash tool is a pipe; turbo --dry=json on that
@@ -340,7 +339,7 @@ SAFE_PATTERNS = [
     # Optional local CLIs (read-only introspection)
     re.compile(r"^(psql|mysql|sqlite3) "),
     # Version checks (Bun-only for package managers)
-    re.compile(r"^(python3?|bun|node|deno|docker|git|tsgo|tsc) --version"),
+    re.compile(r"^(python3?|bun|node|deno|docker|git) --version"),
     # Local reversible filesystem helpers
     re.compile(r"^mkdir -p"),
     re.compile(r"^touch "),
@@ -731,6 +730,146 @@ def _turbo_dry_json_denial(command: str) -> str | None:
     return None
 
 
+_NODE_TEST_RUNNER = re.compile(
+    r"^node(?:\.exe)?(?:\s+--[a-z0-9-]+(?:=[^\s]+)?)*\s+--test(?:\s|=|$)",
+    re.IGNORECASE,
+)
+_DIRECT_TSGO = re.compile(r"^tsgo(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE)
+_LEGACY_TSC_LAUNCHERS = (
+    re.compile(r"^tsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
+    re.compile(r"^(?:npx|bunx|pnpx)(?:\.exe|\.cmd)?\b[^\r\n]*\btsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
+    re.compile(r"^(?:bun|npm|pnpm|yarn)(?:\.exe|\.cmd)?\s+(?:run\s+|exec\s+|x\s+|dlx\s+)?tsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
+    re.compile(r"^(?:node|bun)(?:\.exe)?\s+[^\r\n]*(?:typescript|node_modules)[\\/][^\r\n]*\btsc(?:\.js)?(?:\s|$)", re.IGNORECASE),
+)
+_BUN_TEST = re.compile(r"^bun(?:\.exe)?\s+test(?:\s|$)", re.IGNORECASE)
+_PARALLEL = re.compile(r"(?:^|\s)--parallel(?:=(\d+))?(?=\s|$)", re.IGNORECASE)
+_CONCURRENT = re.compile(r"(?:^|\s)--concurrent(?=\s|$)", re.IGNORECASE)
+_MAX_CONCURRENCY = re.compile(r"(?:^|\s)--max-concurrency(?:=|\s+)(\d+)(?=\s|$)", re.IGNORECASE)
+
+_JS_GATE_REASON = (
+    "BLOCKED: JS/TS gates must use Bun's low-resource test runner and native tsgo through "
+    "`bunx --bun --no-install --package @typescript/native-preview tsgo`. "
+    "Do not use Node's test runner, legacy tsc, or a tsgo shebang that starts Node. "
+    "Read skills/bun-verify/references/low-resource-js-ts-gates.md."
+)
+
+
+def _is_bun_native_tsgo(command: str) -> bool:
+    """The one tsgo launcher that neither fetches a package nor follows its Node shebang."""
+    parts = [part.strip('"\'').lower() for part in command.split()]
+    if not parts or parts[0] not in {"bunx", "bunx.exe", "bunx.cmd"}:
+        return False
+    try:
+        tsgo_at = parts.index("tsgo")
+    except ValueError:
+        return False
+    prefix = parts[1:tsgo_at]
+    package_named = (
+        "--package=@typescript/native-preview" in prefix
+        or "-p=@typescript/native-preview" in prefix
+        or any(
+            prefix[i] in {"--package", "-p"}
+            and i + 1 < len(prefix)
+            and prefix[i + 1] == "@typescript/native-preview"
+            for i in range(len(prefix))
+        )
+    )
+    return "--bun" in prefix and "--no-install" in prefix and package_named
+
+
+def _js_gate_denial(command: str) -> str | None:
+    """Refuse known high-cost JS/TS gate launchers before package-manager allows."""
+    if _is_bun_native_tsgo(command):
+        return None
+    if _NODE_TEST_RUNNER.search(command) or _DIRECT_TSGO.search(command):
+        return _JS_GATE_REASON
+    if any(pattern.search(command) for pattern in _LEGACY_TSC_LAUNCHERS):
+        return _JS_GATE_REASON
+    if not _BUN_TEST.search(command):
+        return None
+
+    parallel = _PARALLEL.search(command)
+    if parallel and (
+        parallel.group(1) is None or not 1 <= int(parallel.group(1)) <= 2
+    ):
+        return (
+            "BLOCKED: unbounded `bun test --parallel` starts up to one worker per CPU core. "
+            "Use serial `bun test --smol`, changed-only `bun test --changed --bail=1 --smol`, "
+            "or explicitly cap file workers with `--parallel=2`."
+        )
+    if _CONCURRENT.search(command):
+        cap = _MAX_CONCURRENCY.search(command)
+        if cap is None or not 1 <= int(cap.group(1)) <= 2:
+            return (
+                "BLOCKED: concurrent Bun tests need an explicit low-resource cap. "
+                "Use `--concurrent --max-concurrency=2`, or prefer serial `bun test --smol`."
+            )
+    return None
+
+
+_PACKAGE_SCRIPT_CALL = re.compile(
+    r"^(bun|npm|pnpm|yarn)(?:\.exe|\.cmd)?\s+(?:(run)\s+)?([a-z0-9:_-]+)(?:\s|$)",
+    re.IGNORECASE,
+)
+_SCRIPT_NODE = re.compile(r"(?:^|[\s;&|])node(?:\.exe)?(?=\s|$)", re.IGNORECASE)
+_SCRIPT_TSC = re.compile(r"(?:^|[\s;&|])(?:tsc|tsgo)(?:\.exe|\.cmd)?(?=\s|$)", re.IGNORECASE)
+_SCRIPT_BUN_TEST = re.compile(r"(?:^|[;&|]\s*|\s)bun(?:\.exe)?\s+test\b[^;&|]*", re.IGNORECASE)
+
+
+def _configured_gate_kind(command: str, cfg: dict[str, typing.Any]) -> str | None:
+    tooling = cfg.get("tooling")
+    commands = tooling.get("commands") if isinstance(tooling, dict) else None
+    if not isinstance(commands, dict):
+        return None
+    normalized = command.strip().lower()
+    for kind in ("typeCheck", "test"):
+        declared = commands.get(kind)
+        if isinstance(declared, str):
+            target = declared.strip().lower()
+            if normalized == target or normalized.startswith(target + " "):
+                return kind
+    return None
+
+
+def _package_script_denial(
+    command: str, root: Path, cfg: dict[str, typing.Any]
+) -> str | None:
+    """Inspect a declared package script so `bun run type-check` cannot hide legacy tsc."""
+    match = _PACKAGE_SCRIPT_CALL.search(command)
+    if not match:
+        return None
+    manager, run_keyword, script_name = match.group(1), match.group(2), match.group(3)
+    # `bun test` is Bun's native runner, not shorthand for `package.json#scripts.test`.
+    if manager.lower() == "bun" and run_keyword is None:
+        return None
+    kind = _configured_gate_kind(command, cfg)
+    if kind is None:
+        if script_name == "test" or script_name.startswith("test:"):
+            kind = "test"
+        elif script_name in {"type-check", "typecheck", "check", "tsc"}:
+            kind = "typeCheck"
+        else:
+            return None
+    try:
+        package = json.loads((root / "package.json").read_text(encoding="utf-8"))
+        scripts = package.get("scripts") if isinstance(package, dict) else None
+        body = scripts.get(script_name) if isinstance(scripts, dict) else None
+    except Exception:
+        return None
+    if not isinstance(body, str):
+        return None
+    if kind == "typeCheck" and _is_bun_native_tsgo(body):
+        return None
+    if kind == "typeCheck" and (
+        _SCRIPT_TSC.search(body) or _SCRIPT_NODE.search(body)
+    ):
+        return _JS_GATE_REASON
+    if kind == "test" and _SCRIPT_NODE.search(body):
+        return _JS_GATE_REASON
+    bun_test = _SCRIPT_BUN_TEST.search(body)
+    return _js_gate_denial(bun_test.group(0).strip()) if bun_test else None
+
+
 def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | None]:
     """Return (allow|ask|deny, optional reason) for one shell segment.
 
@@ -748,6 +887,19 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
     dry_reason = _turbo_dry_json_denial(command)
     if dry_reason:
         return "deny", dry_reason
+
+    js_gate_reason = _js_gate_denial(command)
+    if js_gate_reason:
+        return "deny", js_gate_reason
+
+    # The canonical tsgo form is local-only (`--no-install`) and forces Bun instead of obeying the
+    # package's Node shebang. It is safe to allow without a prompt when Bun belongs to this project;
+    # a project that explicitly declared another package-manager family still gets the normal deny.
+    if _is_bun_native_tsgo(command):
+        manager_verdict = _package_manager_verdict(command, policy)
+        if manager_verdict and manager_verdict[0] == "deny":
+            return manager_verdict
+        return "allow", None
 
     # `git restore` is the one verb whose verdict depends on a flag set rather than on a shape, so
     # it is resolved once here and consulted by the floor below and by the safe rung further down.
@@ -816,7 +968,9 @@ def main() -> None:
         # and nothing is granted here that the harness would not have granted on its own.
         return
 
-    policy = gp.autonomy(gp.load(payload=data))
+    cfg = gp.load(payload=data)
+    policy = gp.autonomy(cfg)
+    root = gp.project_dir(data)
 
     # `allowPackageManagers` is applied inside `_classify`, once per segment — see
     # `_package_manager_verdict`. Applying it here, to the whole line, is what let a leading
@@ -826,6 +980,10 @@ def main() -> None:
     final_decision = "allow"
     ask_reason: str | None = None
     for segment in segments or [command]:
+        script_reason = _package_script_denial(segment, root, cfg)
+        if script_reason:
+            _deny(script_reason, event=event, codex_turn=codex_turn)
+            return
         decision, reason = _classify(segment, policy)
         if decision == "deny":
             _deny(

@@ -28,6 +28,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
 
       - name: Dependency for the frontmatter gate
         run: pip install --quiet pyyaml
@@ -36,11 +39,10 @@ jobs:
         run: python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 
       - name: Workflow syntax
-        # `node --check` refuses these files: they use a top-level `return`, legal only because the
-        # runtime wraps the body. The script wraps them the same way, and also asserts that each
-        # meta.name matches its filename — a mismatch registers the workflow under a name nobody
-        # calls, and nothing else would notice.
-        run: node .github/check_workflows.mjs
+        # A raw syntax check refuses these files: top-level `return` is legal only because the
+        # workflow runtime wraps the body. This Bun gate applies that wrapper, dry-runs the scripts,
+        # and checks each meta.name against its filename.
+        run: bun .github/check_workflows.mjs
 
       - name: Valid JSON everywhere
         # glob() skips hidden directories, so .claude-plugin/*.json needs its own pattern —
@@ -230,14 +232,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
+          bun-version: "1.4.0"
 
       - name: Codex native-plugin artefacts match the Claude source
-        run: |
-          node --check codex/native-plugin.mjs
-          python3 .github/check_codex_native.py
+        run: python3 .github/check_codex_native.py
 
       - name: Codex artefacts, both scopes, install and removal
         # Two scopes, because they are two code paths and only one of them is the default.
@@ -255,19 +255,19 @@ jobs:
           echo "keep me" > "$fakehome/.agents/skills/someone-else/SKILL.md"
 
           echo "── project scope ──"
-          node codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
-          node codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
+          bun codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
+          bun codex/install.mjs --project "$fixture" --plugin "$PWD" --scope project > /dev/null
           python3 .github/check_codex.py "$fixture" "$fixture" project
 
           echo "── user scope (the default) ──"
-          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
-          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" --force > /dev/null
+          HOME="$fakehome" bun codex/install.mjs --project "$fixture" --plugin "$PWD" > /dev/null
+          HOME="$fakehome" bun codex/install.mjs --project "$fixture" --plugin "$PWD" --force > /dev/null
           python3 .github/check_codex.py "$fakehome" "$fixture" user
           test -f "$fakehome/.agents/skills/someone-else/SKILL.md" || {
             echo "::error::a third party's skill was destroyed by the install"; exit 1; }
 
           echo "── removal ──"
-          HOME="$fakehome" node codex/install.mjs --project "$fixture" --plugin "$PWD" --uninstall > /dev/null
+          HOME="$fakehome" bun codex/install.mjs --project "$fixture" --plugin "$PWD" --uninstall > /dev/null
           python3 - "$fakehome" "$fixture" <<'PY'
           import json, os, sys
           home, fixture = sys.argv[1], sys.argv[2]
@@ -308,11 +308,11 @@ jobs:
           python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['version']='0.0.1';json.dump(d,open(p,'w'),indent=2)" \
             "$rootA/.claude-plugin/plugin.json"
 
-          HOME="$fakehome" node "$rootA/codex/install.mjs" --project "$fixture" --plugin "$rootA" > /dev/null
+          HOME="$fakehome" bun "$rootA/codex/install.mjs" --project "$fixture" --plugin "$rootA" > /dev/null
           echo "── version bump from a moved root ──"
-          HOME="$fakehome" node "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" > /dev/null
+          HOME="$fakehome" bun "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" > /dev/null
           echo "── same version, moved root, --force (the repair path) ──"
-          HOME="$fakehome" node "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" --force > /dev/null
+          HOME="$fakehome" bun "$rootB/codex/install.mjs" --project "$fixture" --plugin "$rootB" --force > /dev/null
           python3 - "$fakehome" "$rootA" "$rootB" <<'PY'
           import collections, json, re, sys
           home, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -348,14 +348,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
+          bun-version: "1.4.0"
 
       - name: Cursor artefacts match the Claude source
-        run: |
-          node --check cursor/install.mjs
-          python3 .github/check_cursor.py
+        run: python3 .github/check_cursor.py
 
       - name: Cursor installer writes IDE permissions, merge never clobbers
         run: |
@@ -363,7 +361,7 @@ jobs:
           mkdir -p "$fakehome/.cursor"
           printf '%s\n' '{"approvalMode":"allowlist","mcpAllowlist":["other:tool"]}' \
             > "$fakehome/.cursor/permissions.json"
-          HOME="$fakehome" node cursor/install.mjs --plugin "$PWD"
+          HOME="$fakehome" bun cursor/install.mjs --plugin "$PWD"
           python3 - "$fakehome" <<'PY'
           import json, os, sys
           home = sys.argv[1]
@@ -377,7 +375,7 @@ jobs:
           assert cli["autoAcceptWebSearch"] is True, cli
           print("autonomous install upgraded allowlist without dropping other:tool")
           PY
-          HOME="$fakehome" node cursor/install.mjs --plugin "$PWD"
+          HOME="$fakehome" bun cursor/install.mjs --plugin "$PWD"
           python3 - "$fakehome" <<'PY'
           import json, os, sys
           home = sys.argv[1]
@@ -386,7 +384,7 @@ jobs:
           print("second install is idempotent")
           PY
           empty=$(mktemp -d)
-          HOME="$empty" node cursor/install.mjs --plugin "$PWD" --guarded
+          HOME="$empty" bun cursor/install.mjs --plugin "$PWD" --guarded
           python3 - "$empty" <<'PY'
           import os, sys
           home = sys.argv[1]
@@ -401,7 +399,7 @@ jobs:
           fakehome=$(mktemp -d)
           git -C "$project" init -q
           cd "$project"
-          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+          HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
             --target cursor --skip-marketplace --autonomy autonomous
           python3 - "$fakehome" <<'PY'
           import json, os, sys
@@ -415,14 +413,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
+          bun-version: "1.4.0"
 
       - name: Grok artefacts match the Claude source
-        run: |
-          node --check grok/install.mjs
-          python3 .github/check_grok.py
+        run: python3 .github/check_grok.py
 
       - name: Grok installer writes config.toml, merge never clobbers
         run: |
@@ -438,7 +434,7 @@ jobs:
           name = "other"
           git = "https://example.invalid/other.git"
           TOML
-          HOME="$fakehome" node grok/install.mjs --plugin "$PWD"
+          HOME="$fakehome" bun grok/install.mjs --plugin "$PWD"
           python3 - "$fakehome" <<'PY'
           import os, sys
           home = sys.argv[1]
@@ -451,7 +447,7 @@ jobs:
           assert "git commit" not in text, "must not TOML-deny git commit"
           print("autonomous install upgraded ask without dropping operator keys")
           PY
-          HOME="$fakehome" node grok/install.mjs --plugin "$PWD"
+          HOME="$fakehome" bun grok/install.mjs --plugin "$PWD"
           python3 - "$fakehome" <<'PY'
           import os, sys
           home = sys.argv[1]
@@ -460,7 +456,7 @@ jobs:
           print("second install is idempotent")
           PY
           empty=$(mktemp -d)
-          HOME="$empty" node grok/install.mjs --plugin "$PWD" --guarded
+          HOME="$empty" bun grok/install.mjs --plugin "$PWD" --guarded
           python3 - "$empty" <<'PY'
           import os, sys
           home = sys.argv[1]
@@ -475,7 +471,7 @@ jobs:
           fakehome=$(mktemp -d)
           git -C "$project" init -q
           cd "$project"
-          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+          HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
             --target grok --skip-marketplace --autonomy autonomous
           python3 - "$fakehome" <<'PY'
           import os, sys
@@ -490,16 +486,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          bun-version: "1.4.0"
 
-      - name: The installer runs under node and under bun
+      - name: The installer and settings audit run under Bun
         run: |
-          node bin/graph-powers.mjs --help > /dev/null
           bun bin/graph-powers.mjs --help > /dev/null
-          node bin/audit-settings.mjs > /dev/null
-          echo "installer OK on both runtimes"
+          bun bin/audit-settings.mjs > /dev/null
+          echo "installer OK on Bun"
 
       - name: A clone is the artefact — everything it needs is committed
         run: python3 .github/check_clone.py
@@ -514,7 +508,7 @@ jobs:
           # The installer refuses to run inside the plugin's own repository, and takes its target
           # from the working directory — so this runs from the project, as a person would.
           cd "$project"
-          HOME="$fakehome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+          HOME="$fakehome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
             --target codex > /dev/null
           cd - > /dev/null
           test -f "$fakehome/.codex/graph-powers-installed.json" \
@@ -529,7 +523,7 @@ jobs:
           echo "── cursor from the same clone ──"
           cursorhome=$(mktemp -d)
           cd "$project"
-          HOME="$cursorhome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+          HOME="$cursorhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
             --target cursor --skip-marketplace > /dev/null
           test -f "$cursorhome/.cursor/permissions.json" \
             || { echo "::error::a fresh clone did not write Cursor permissions"; exit 1; }
@@ -542,7 +536,7 @@ jobs:
           echo "── grok from the same clone ──"
           grokhome=$(mktemp -d)
           cd "$project"
-          HOME="$grokhome" node "$clone/graph-powers/bin/graph-powers.mjs" \
+          HOME="$grokhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
             --target grok --skip-marketplace > /dev/null
           test -f "$grokhome/.grok/config.toml" \
             || { echo "::error::a fresh clone did not write Grok config.toml"; exit 1; }

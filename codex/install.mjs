@@ -246,6 +246,55 @@ const VALID_EFFORT = new Set(["low", "medium", "high", "xhigh"]);
  *  user's own Codex limit. */
 export const CLAUDE_MODEL_FAMILIES = new Set(["haiku", "sonnet", "opus", "fable"]);
 
+/**
+ * Claude family -> tier. The family an agent declares is the only place a tier is written down, so
+ * it is what travels: `opus` means "this node judges, designs or verifies", `haiku` means "this
+ * node is a scout". Codex has no such families, but it does have a strong model and a cheap one,
+ * and `codex.models` in the project config is where those two names live.
+ */
+export const TIER_BY_MODEL = { haiku: "light", sonnet: "standard", fable: "standard", opus: "heavy" };
+
+/**
+ * The Codex slug a generated subagent gets: the tier its Claude family implies, else the project's
+ * flat `codex.model`, else nothing (inherit the session model, which is what the first version did
+ * for every agent alike).
+ *
+ * Without the tier the twelve agents came out of the generator on ONE model, so the scout that
+ * reads a config file and the reviewer that judges a plan spent the same window. Effort alone does
+ * not fix that: a cheap-effort call on the strong model is still billed as the strong model.
+ */
+export function codexModelFor(claudeFamily, { model, models } = {}) {
+  const tier = TIER_BY_MODEL[String(claudeFamily ?? "").toLowerCase()];
+  const candidates = [tier ? models?.[tier] : null, model];
+  return candidates.find((m) => isCodexModelSlug(m)) ?? null;
+}
+
+/**
+ * This project's Codex model settings, from the config the harness already defines.
+ *
+ * One reader, two callers: the `graph-powers` CLI and this file's own `--project` mode. They used
+ * to disagree — the CLI passed the model, the direct invocation passed nothing — so the same
+ * project generated subagents with a model or without one depending on which command ran, and the
+ * CI fixture only ever exercised the second.
+ */
+export function readCodexSettings(projectDir) {
+  const cfg =
+    readJson(join(projectDir, ".graph-powers/config.json")) ??
+    readJson(join(projectDir, ".claude/config.json")) ??
+    {};
+  const codex = cfg.codex ?? {};
+  const models = Object.fromEntries(
+    Object.entries(codex.models ?? {}).filter(([, v]) => typeof v === "string" && v),
+  );
+  return {
+    ...(Object.keys(models).length ? { models } : {}),
+    ...(typeof codex.model === "string" && codex.model ? { model: codex.model } : {}),
+    ...(typeof codex.reasoningEffort === "string" && codex.reasoningEffort
+      ? { reasoningEffort: codex.reasoningEffort }
+      : {}),
+  };
+}
+
 export function isCodexModelSlug(model) {
   const name = String(model ?? "").trim();
   if (!name) return false;
@@ -255,7 +304,7 @@ export function isCodexModelSlug(model) {
   return true;
 }
 
-export function agentToToml(markdown, { model, reasoningEffort } = {}) {
+export function agentToToml(markdown, { model, models, reasoningEffort } = {}) {
   const { data, body } = parseFrontmatter(markdown);
   if (!data.name || !data.description) return null;
 
@@ -275,7 +324,12 @@ export function agentToToml(markdown, { model, reasoningEffort } = {}) {
   // The Codex model is a project-wide setting, never one written into the generator: a model name
   // in code is a file that ages out the week the next model ships. Claude family names are not
   // Codex slugs — writing them made the native plugin spend the Spark / Bengal Fox window.
-  if (isCodexModelSlug(model)) lines.push(`model = ${tomlString(model)}`);
+  //
+  // Which of the project's slugs this agent gets is not project-wide, though: it follows the tier
+  // the agent's own frontmatter declares, so `codex.models.light` reaches the scouts and
+  // `codex.models.heavy` reaches the nodes that judge.
+  const codexModel = codexModelFor(asList(data.model)[0], { model, models });
+  if (codexModel) lines.push(`model = ${tomlString(codexModel)}`);
 
   // Effort, most specific source first: the agent said so; else its Claude model implies it; else
   // the role is a judging one and judging wants headroom; else whatever the project configured.
@@ -1014,6 +1068,9 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
     force: argv.includes("--force"),
     log: (p) => console.log(`  ${p}`),
   };
+  // The project's own model tiers, so a direct `node codex/install.mjs` generates what the
+  // `graph-powers` CLI generates rather than twelve subagents with no model at all.
+  opts.codex = readCodexSettings(opts.projectDir);
   if (argv.includes("--uninstall")) {
     // Removal defaults to both halves. `--scope` on an install says where to write; on a removal
     // it would say what to leave behind, and "uninstalled" that leaves half the artefacts running

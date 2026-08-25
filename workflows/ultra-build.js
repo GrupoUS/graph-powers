@@ -79,19 +79,31 @@ const PLUGIN_AGENTS = new Set([
 // to change, and `.github/check_workflows.mjs` asserts the set it draws from.
 const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 
+// ── Model tier ───────────────────────────────────────────────────────────────
+// Declared per call, never inherited (AGENTS.md cardinal 6). A workflow does NOT read the `model:`
+// line of `agents/<name>.md`: `agent()` without `model` takes the SESSION model, so an opus-pinned
+// specialist ran on whatever the user happened to be driving, and a haiku scout spent an opus
+// window. `M()` restores the tier the agent's own frontmatter declares; a mechanical unit may still
+// ask for a cheaper model explicitly (§2 of `references/shared/020-complexity-routing.md`) — that is
+// a downgrade, and downgrades are written literally so they read as deliberate.
+//
+// The set below is a second copy of what `agents/` already says, so it is checked rather than
+// trusted: `.github/check_workflows.mjs` fails a spawn that omits `model`, a set that drifts from
+// the frontmatter, and a light agent pinned to a heavy model.
+const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
+const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
+
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. So the project's contract arrives one of two ways — passed in by the command that
 // called us (free), or read by one cheap agent when someone invokes this workflow directly.
-const CONFIG_SHAPE = { type: 'object', required: ['paths', 'commands'], properties: {
+const CONFIG_SHAPE = { type: 'object', required: ['paths'], properties: {
   displayName: { type: 'string' },
   paths: { type: 'object', properties: {
     frontendRoot: { type: 'string' }, backendRoot: { type: 'string' },
     schemaRoot: { type: 'string' }, mobileRoot: { type: 'string' },
   } },
-  commands: { type: 'object', properties: {
-    typeCheck: { type: 'string' }, lint: { type: 'string' }, test: { type: 'string' },
-  } },
+
   hardRules: { type: 'array', items: { type: 'string' } },
   domainSkills: { type: 'array', items: { type: 'object', properties: {
     match: { type: 'string' }, skill: { type: 'string' },
@@ -108,20 +120,19 @@ async function resolveConfig() {
 Return, flattened:
   displayName      <- project.displayName, else project.name, else ""
   paths            <- paths.frontendRoot / backendRoot / schemaRoot / mobileRoot; omit any that is absent
-  commands         <- tooling.commands.typeCheck / lint / test; omit any that is absent
+
   hardRules        <- chain.hardRules, else []
   domainSkills     <- chain.domainSkills, else []
   maxParallelWave  <- graphGuardrails.maxParallelWave, else 5
   maxTasksPerPlan  <- graphGuardrails.maxTasksPerPlan, else 40
 
 Read only. Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
-    { agentType: AG('explorer'), phase: 'Classify', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
+    { agentType: AG('explorer'), phase: 'Classify', schema: CONFIG_SHAPE, label: 'config', model: M('explorer') }
   )
 }
 
 const cfg = (await resolveConfig()) ?? {}
 const paths = cfg.paths ?? {}
-const commands = cfg.commands ?? {}
 const WAVE_CAP = cfg.maxParallelWave ?? 5
 const TOTAL_CAP = cfg.maxTasksPerPlan ?? 40
 
@@ -154,18 +165,13 @@ function splitByFileOwnership(tasks) {
   return subWaves
 }
 
-// Listed, not chained: `;` is a literal argument in cmd.exe, and this string is pasted into
-// every implementer prompt of every wave.
-const gateLine = [commands.typeCheck, commands.lint, commands.test].filter(Boolean).map((c) => `\`${c}\``).join(', ')
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const GIT_RAILS =
   'HARD RULES (you do NOT inherit project config — obey these literally): never run git commit / ' +
   'git push / git checkout / git reset / git stash. Leave ALL changes in the working tree. Match ' +
   'existing patterns and the surrounding code style. Touch ONLY the files you own.' +
   projectRules +
-  (gateLine
-    ? ` After editing, run the relevant gate on your touched files — each as a separate command, never chained: ${gateLine} — and capture the exit code as evidence.`
-    : ' This project declares no gate commands: say so in gateEvidence rather than inventing one.')
+  ' After editing, run only the task-specific CHECK named by the plan or the narrowest test for your touched files. Never run a whole-project type-check, lint, build or full test suite here; ultra-verify owns those gates once after the build. Capture the focused exit code as evidence, or say the plan named no focused check.'
 
 const TASK_GRAPH = { type: 'object', required: ['waves'], properties: {
   waves: { type: 'array', items: { type: 'object', required: ['tasks'], properties: {
@@ -189,7 +195,7 @@ const graph = await agent(
   `Read the plan at ${PLAN_PATH}. Extract every atomic task and CLASSIFY each: domain → agent (${ROUTING}); file ownership; dependency; acceptance criterion. Those ${AGENT_ENUM.length} are the ONLY routable values — a task the plan left unassigned, or assigned to anything else (including "main"), goes to debugger as the generic lane; say so in its detail so the reassignment is visible rather than silent.
 For each task also return \`needs\`: the ids of the tasks whose OUTPUT it reads. Copy the plan's \`Needs:\` field when the plan has one; otherwise infer it, and only where you can name what is read — a task that merely comes later in the plan does NOT need it. An empty \`needs\` on a task the plan really does gate is the one error that costs correctness here, so when a dependency is genuinely unclear, declare it.
 Group into WAVES: tasks in the same wave MUST have DISJOINT file sets and no inter-dependency. Order waves by dependency. Waves remain the fallback ordering for tasks whose \`needs\` you could not determine. Read-only — return the wave structure.`,
-  { agentType: AG('explorer'), phase: 'Classify', schema: TASK_GRAPH, label: 'classify', model: 'haiku' }
+  { agentType: AG('explorer'), phase: 'Classify', schema: TASK_GRAPH, label: 'classify', model: M('explorer') }
 )
 
 // 2. Act — waves sequential, tasks within a wave parallel, routed to specialists
@@ -327,7 +333,7 @@ FILES YOU OWN (do not touch anything outside this set): ${JSON.stringify(t.files
 ACCEPTANCE: ${t.criterion}
 ${GIT_RAILS}
 Return id, status, changedPaths, gateEvidence.`,
-        { agentType: AG(t.agent), phase: 'Act', schema: TASK_RESULT, label: `${t.agent}:${t.id}` }
+        { agentType: AG(t.agent), phase: 'Act', schema: TASK_RESULT, label: `${t.agent}:${t.id}`, model: M(t.agent) }
       ))
     } finally {
       release(t)

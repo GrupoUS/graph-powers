@@ -11,6 +11,9 @@ AGENT_STOP
 .codex/hooks.json
 .codex/agents/
 .agents/skills/
+# `node codex/native-plugin.mjs --models … --out <dir>` writes native agents carrying THIS
+# account's Codex slugs. The tracked copies under `codex/native-agents/` never carry one.
+.graph-powers/codex-native/
 # `.codex/rules/` is deliberately NOT ignored in a project that installs the plugin: the rules are
 # copied as a starting point and then edited, which is why the uninstaller preserves them. Here it
 # can only be residue — the installer refuses to run against the plugin's own checkout, so the only

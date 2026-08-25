@@ -82,6 +82,20 @@ const PLUGIN_AGENTS = new Set([
 // to change, and `.github/check_workflows.mjs` asserts the set it draws from.
 const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 
+// ── Model tier ───────────────────────────────────────────────────────────────
+// Declared per call, never inherited (AGENTS.md cardinal 6). A workflow does NOT read the `model:`
+// line of `agents/<name>.md`: `agent()` without `model` takes the SESSION model, so an opus-pinned
+// specialist ran on whatever the user happened to be driving, and a haiku scout spent an opus
+// window. `M()` restores the tier the agent's own frontmatter declares; a mechanical unit may still
+// ask for a cheaper model explicitly (§2 of `references/shared/020-complexity-routing.md`) — that is
+// a downgrade, and downgrades are written literally so they read as deliberate.
+//
+// The set below is a second copy of what `agents/` already says, so it is checked rather than
+// trusted: `.github/check_workflows.mjs` fails a spawn that omits `model`, a set that drifts from
+// the frontmatter, and a light agent pinned to a heavy model.
+const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
+const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
+
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. The project's contract arrives passed in by the caller, or read by one cheap agent.
@@ -112,7 +126,7 @@ async function resolveConfig() {
      riskSurfaces  <- chain.riskSurfaces, else ["auth","payment","PII","schema","env","ci"]
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
-    { agentType: AG('explorer'), phase: 'Frame', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
+    { agentType: AG('explorer'), phase: 'Frame', schema: CONFIG_SHAPE, label: 'config', model: M('explorer') }
   )
 }
 
@@ -182,7 +196,7 @@ const frame = await agent(
   `Frame and classify this task following ${SKILL}/phase-a-brainstorm.md § Phase 0 — Framing (problem framing + scope decomposition + divergent angles). ${NO_SKILL}
 TASK: ${TASK}
 Return: intent level L1-L6 (per the skill's Step 0 tier gate), a one-paragraph restated goal, open unknowns, and 3-4 research angles — only the highest-signal ones (prefer fewer, sharper angles; mix codebase areas + external topics), plus risk surfaces (${SURFACES.join('/')}, or none). ${RO}`,
-  { agentType: AG('explorer'), phase: 'Frame', schema: FRAME, label: 'frame', model: 'haiku' }
+  { agentType: AG('explorer'), phase: 'Frame', schema: FRAME, label: 'frame', model: M('explorer') }
 )
 
 // A dead frame is not an L4 task. With no angles there is nothing to research (the plan would be
@@ -219,14 +233,14 @@ const research = (await parallel([
     `Research EXTERNAL knowledge for this task: library/API behavior, current best practices, version pitfalls, security advisories.
 TASK: ${TASK}
 Return findings + citations. Never touch the filesystem.`,
-    { agentType: AG('librarian'), phase: 'Fan-out research', schema: RESEARCH, label: 'librarian' }
+    { agentType: AG('librarian'), phase: 'Fan-out research', schema: RESEARCH, label: 'librarian', model: M('librarian') }
   ),
   ...angles.map((a, i) => () => agent(
     `Research this angle (internal codebase ONLY): existing patterns, reusable helpers/primitives, impacted files, conventions to match.
 TASK: ${TASK}
 ANGLE: ${a}
 Return concrete findings + reusable files (path + why). ${RO}`,
-    { agentType: AG('explorer'), phase: 'Fan-out research', schema: RESEARCH, label: `explore:${i}`, model: 'haiku' }
+    { agentType: AG('explorer'), phase: 'Fan-out research', schema: RESEARCH, label: `explore:${i}`, model: M('explorer') }
   )),
 ])).filter(Boolean)
 // parallel() maps a dead agent to null, so a total wipeout arrives here as []. Synthesizing from
@@ -243,7 +257,7 @@ const approaches = (await parallel(
 TASK: ${TASK}
 RESEARCH: ${JSON.stringify(research).slice(0, 6000)}
 Return name, summary, tradeoffs, risk. ${RO}`,
-    { agentType: AG('project-planner'), phase: 'Fan-out research', schema: APPROACH, label: `approach:${lens}` }
+    { agentType: AG('project-planner'), phase: 'Fan-out research', schema: APPROACH, label: `approach:${lens}`, model: M('project-planner') }
   ))
 )).filter(Boolean)
 if (!approaches.length) {
@@ -288,7 +302,7 @@ APPROACHES (anonymized on purpose — judge the tradeoffs, you are not told whic
 Pick + justify the best approach (graft good ideas from the runner-up). Write EVERY task in the grammar of ${SKILL}/phase-b-writing-plans.md § Step 1 — a \`- [ ] **T<n>** — <action>\` checkbox carrying \`Owns:\` (the paths this task alone writes), \`Needs:\` naming the task it reads AND what it reads from it, \`Agent:\` — MUST be one of ${LANES.join('|')} — and \`CHECK:\`/\`EXPECT:\`/\`EVIDENCE: pending\` in place of a prose acceptance line. \`Needs:\` with no payload named is a false edge: delete it and let the two tasks run together. Close every phase with its gate block, and put the whole-project commands THERE rather than inside each task. Those are the only values ultra-build can route: where phase-b-writing-plans.md and dispatch-matrix.md offer a wider list including "main", they are describing the human chain, which has a main-thread lane — this workflow does not, so ignore that column here and send docs/config/schema tasks to debugger.${schemaRule}${l6Extra}
 Write the plan to ${PLAN_DIR}/<YYYY-MM-DD>-<slug>/PLAN.md — one plan is one directory, per ${cfg.pluginRoot}/references/shared/007-path-conventions.md — using today's date, which you already have — do NOT shell out for it. \`date +%F\` is coreutils: on Windows \`date\` either opens an interactive prompt asking for a new system date, or rejects the argument. The path is what the build step receives as its input, so an invented date is a broken handoff. The plan MUST carry, besides its phases: ## Destination, ## Reuse ledger, ## Regression watchlist, ## Execution graph, ## Verification with executable steps, ## Rollback, ## Out of scope and ## Not yet specified — /verify reads the ledger, the watchlist and the rollback verbatim, and a plan without them degrades it to a generic gate run. HARD: commit NOTHING — leave the file in the working tree only.
 Return planPath, recommendedApproach, taskCount, summary.`,
-  { agentType: AG('project-planner'), phase: 'Synthesize', schema: PLAN, label: 'synthesize' }
+  { agentType: AG('project-planner'), phase: 'Synthesize', schema: PLAN, label: 'synthesize', model: M('project-planner') }
 )
 // No plan path = no plan. Stop before the review spawns: `PLAN.planPath` is `required` but the
 // schema still accepts "", and a review of "the plan at undefined" burns up to 4 opus agents and
@@ -303,7 +317,7 @@ const ANCHORS = 'Score 1-10 on the four calibration anchors in ' + SKILL + '/loo
 const reviewPrompt = (n) =>
   `evaluator Mode 1 (Plan Review)${n > 1 ? ' — re-review after revision' : ''}. Read the plan at ${plan?.planPath}. Critique for: ambiguities, vague or missing acceptance criteria, scope creep, wrong agent dispatch, disjoint-file violations, missing tenant/PII/idempotency/index guards, layer-ordering errors. ${ANCHORS} ${RO}`
 
-let review = await agent(reviewPrompt(1), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:1' })
+let review = await agent(reviewPrompt(1), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:1', model: M('evaluator') })
 // Only revise when there is something to revise, and only re-review when the revision actually
 // happened: an unschema'd revise agent that died silently is otherwise indistinguishable from a
 // real revision, and the re-review then spends an opus agent re-reading an unchanged file and
@@ -313,10 +327,10 @@ if (review?.verdict === 'REVISION_REQUIRED' && review?.issues?.length) {
     `Revise the plan at ${plan.planPath} to resolve these issues, keeping the ${SKILL}/phase-b-writing-plans.md format. ${NO_SKILL} Keep it on disk, commit nothing.
 ISSUES: ${JSON.stringify(review.issues)}
 Return revised:true only if you actually edited the file, plus a one-line summary of the changes.`,
-    { agentType: AG('project-planner'), phase: 'Plan review', schema: REVISED, label: 'revise' }
+    { agentType: AG('project-planner'), phase: 'Plan review', schema: REVISED, label: 'revise', model: M('project-planner') }
   )
   if (revision?.revised) {
-    review = await agent(reviewPrompt(2), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:2' })
+    review = await agent(reviewPrompt(2), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:2', model: M('evaluator') })
   } else {
     log('Revision did not happen (agent returned nothing or reported no edit) — keeping the first review verdict')
   }
@@ -329,7 +343,7 @@ if (isL6) {
     `evaluator Mode 3 (Architecture Analysis) on the plan at ${plan?.planPath}. This task touches risky surfaces (${[level, ...risky].join(', ')}). Assess: irreversible-data risk, tenant isolation, auth/permission scope, migration safety, idempotency, rollback path.
 VERDICT RULE — apply literally, because this verdict BLOCKS the run: return APPROVED unless you find a blocking architectural defect (irreversible or unrecoverable data loss · cross-tenant or PII exposure · auth/permission bypass · unsafe or irreversible migration · no rollback path). Advisory improvements, "consider also", and second-order nice-to-haves belong in issues and must NOT flip the verdict to REVISION_REQUIRED. Mode 3's own rubric has no pass/fail concept, so this rule is the criterion.
 Return verdict + concrete issues. ${RO}`,
-    { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:arch' }
+    { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:arch', model: M('evaluator') }
   )
 }
 

@@ -1,8 +1,8 @@
 /**
  * Syntax gate for `workflows/*.js`.
  *
- * `node --check` refuses these files, and correctly: they use a top-level `return`, which is legal
- * only because the workflow runtime wraps the body in an async function before evaluating it. So
+ * A raw syntax check refuses these files: they use a top-level `return`, which is legal only
+ * because the workflow runtime wraps the body in an async function before evaluating it. So
  * the check has to wrap them the same way. Without this gate there is none at all — a stray
  * backtick inside one of the prompt template literals is invisible until a run starts and has
  * already spent agents.
@@ -40,6 +40,69 @@ function checkAgentSet(path, source, onDisk) {
       problems.push(
         `AGENTS ${path}: agents/${name}.md exists but PLUGIN_AGENTS omits it — a spawn of it would go unnamespaced`,
       );
+  return problems;
+}
+
+/**
+ * `agents/<name>.md` -> the Claude model family its frontmatter declares.
+ *
+ * The frontmatter is the single place a tier is written down (`AGENTS.md` cardinal 6), and it is
+ * the place a workflow cannot read: the `agent()` runtime resolves `opts.model` and never opens the
+ * agent file, so a spawn with no `model` runs on the session's model regardless of what the
+ * specialist pinned. Reading the families here is what lets the gate below compare the two.
+ */
+function readAgentModels() {
+  const models = new Map();
+  if (!existsSync("agents")) return models;
+  for (const file of readdirSync("agents").filter((f) => f.endsWith(".md"))) {
+    const source = readFileSync(join("agents", file), "utf8");
+    // Frontmatter only: a `model:` inside the body is prose about some other agent.
+    const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+    const declared = front && /^model:\s*["']?([\w.-]+)["']?/m.exec(front[1]);
+    models.set(basename(file, ".md"), declared ? declared[1].toLowerCase() : null);
+  }
+  return models;
+}
+
+/** Claude families, cheapest first. Anything else is a pinned model id and is left alone. */
+const TIER_ORDER = ["haiku", "sonnet", "fable", "opus"];
+
+/**
+ * Every spawn declares its model, and no cheap agent is spawned on an expensive one.
+ *
+ * Two distinct failures, both measured in this repository's own transcripts. A call that omits
+ * `model` inherited the session model, so `frontend-specialist` — `model: opus` in its own
+ * frontmatter — ran on whatever the user was driving. And a caller that passes one at random
+ * spawned `explorer`, a `haiku` scout, on `opus`: the cheap lane is only cheap while nobody
+ * overrides it.
+ *
+ * A DOWNGRADE stays legal: §2 of `references/shared/020-complexity-routing.md` tiers by what the
+ * unit of work is, so a mechanical `debugger` pass may ask for `haiku`. Upgrading a light agent is
+ * what is refused, because that is never the unit of work getting harder — it is a spawn that
+ * forgot which lane it was in.
+ */
+function checkModels(path, spawned, agentModels) {
+  const problems = [];
+  const seen = new Set();
+  for (const { agentType, model } of spawned) {
+    const bare = String(agentType).split(":").pop();
+    const declared = agentModels.get(bare) ?? null;
+    const key = `${agentType}|${model ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!model) {
+      problems.push(
+        `MODEL  ${path}: spawns ${agentType} with no \`model\` — a workflow never reads agents/*.md, so this runs on the session model${declared ? ` instead of the \`${declared}\` its frontmatter declares` : ""}`,
+      );
+      continue;
+    }
+    const asked = TIER_ORDER.indexOf(String(model).toLowerCase());
+    const pinned = TIER_ORDER.indexOf(String(declared).toLowerCase());
+    if (declared && asked > pinned && pinned !== -1 && asked !== -1)
+      problems.push(
+        `MODEL  ${path}: spawns ${agentType} on \`${model}\` while agents/${bare}.md declares \`${declared}\` — a cheap lane stops being cheap the moment a caller upgrades it`,
+      );
+  }
   return problems;
 }
 
@@ -242,7 +305,11 @@ async function dryRun(body, args) {
     agent: async (prompt, opts = {}) => {
       if (typeof prompt !== "string" || !prompt.trim())
         throw new Error(`empty prompt at ${spawned.length}`);
-      spawned.push(opts.agentType ?? "(inherited)");
+      // The model is recorded, not only the agent type: a workflow does NOT read the `model:` line
+      // of `agents/<name>.md`, so a call that omits it runs on whatever model the session happens
+      // to be driving. Checking the resolved `opts` rather than the source text is what makes the
+      // dynamic call sites — `AG(t.agent)`, `AG(f.agent || 'debugger')` — checkable at all.
+      spawned.push({ agentType: opts.agentType ?? "(inherited)", model: opts.model });
       return opts.schema ? sampleFor(opts.schema) : "ok";
     },
     parallel: async (thunks) => Promise.all(thunks.map((t) => t())),
@@ -269,9 +336,9 @@ async function dryRun(body, args) {
 /**
  * Two modes, one check.
  *
- *   node .github/check_workflows.mjs                 the gate: every file in workflows/
- *   node .github/check_workflows.mjs <file> [...]    one script, before it is ever run — PARSE ONLY
- *   node .github/check_workflows.mjs <file> --run    ...and execute its body against the stubs
+ *   bun .github/check_workflows.mjs                  the gate: every file in workflows/
+ *   bun .github/check_workflows.mjs <file> [...]     one script, before it is ever run — PARSE ONLY
+ *   bun .github/check_workflows.mjs <file> --run     ...and execute its body against the stubs
  *
  * The second mode exists because the failure this file was written to catch does not only happen
  * to workflows that ship. A script authored inline for a single run — the shape `Workflow({script})`
@@ -327,13 +394,8 @@ for (const f of files) {
   }
 }
 
-const agentsOnDisk = existsSync("agents")
-  ? new Set(
-      readdirSync("agents")
-        .filter((f) => f.endsWith(".md"))
-        .map((f) => basename(f, ".md")),
-    )
-  : new Set();
+const agentModels = readAgentModels();
+const agentsOnDisk = new Set(agentModels.keys());
 
 if (CHECKING_ONE_OFF && RUN_REQUESTED)
   console.log(
@@ -388,13 +450,21 @@ for (const file of files) {
       // oxlint-disable-next-line no-await-in-loop
       const { spawned } = await dryRun(body, "dry-run/plan.md");
       spawnCount = spawned.length;
-      const unnamespaced = [...new Set(spawned)].filter(
+      const types = spawned.map((s) => s.agentType);
+      const unnamespaced = [...new Set(types)].filter(
         (a) => a !== "(inherited)" && !a.includes(":") && agentsOnDisk.has(a),
       );
       if (unnamespaced.length) {
         console.error(
           `SPAWN  ${path}: spawns ${unnamespaced.join(", ")} without the plugin namespace`,
         );
+        failed++;
+        continue;
+      }
+
+      const modelProblems = checkModels(path, spawned, agentModels);
+      if (modelProblems.length) {
+        for (const problem of modelProblems) console.error(problem);
         failed++;
         continue;
       }

@@ -34,7 +34,7 @@ Run all of them, in this order, from the repository root. Every one exits 0 on s
 | 2 | Guardrails | `python3 hooks/test_hooks.py` | a hook lost a guarantee. This is the declared `test` gate; it is listed here so the set is readable in one place |
 | 3 | Hook syntax | `python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"` | a hook would raise on import, and a hook that cannot start is a guardrail that is not running |
 | 4 | JSON | `python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"` | a config file is unparseable. Claude Code ignores such a file wholesale rather than erroring |
-| 5 | Workflows | `node .github/check_workflows.mjs` | a workflow does not parse, or its `meta.name` disagrees with its filename, so the name will not resolve at runtime |
+| 5 | Workflows | `bun .github/check_workflows.mjs` | a workflow does not parse, or its `meta.name` disagrees with its filename, so the name will not resolve at runtime |
 | 6 | Wiring | `python3 .github/check_wiring.py` | an agent, skill, workflow or cited section does not resolve. These fail silently: the model reads the instruction, finds nothing, and continues with less than it thinks it has |
 | 7 | Portability | `python3 .github/check_portability.py` | something POSIX-only entered a command an agent executes, breaking Windows installs quietly |
 | 8 | Command cost | `python3 .github/check_context_budget.py` | a command's floor grew — every future invocation pays it before reading its arguments |
@@ -42,7 +42,7 @@ Run all of them, in this order, from the repository root. Every one exits 0 on s
 | 10 | Machine paths | `python3 .github/check_machine_paths.py` | a home directory reached a tracked file — cardinal 2 |
 | 11 | Placeholders | `python3 .github/check_placeholders.py` | a `${...}` placeholder names a field the schema does not declare, so it resolves to nothing |
 | 12 | Version | `python3 .github/check_version_bump.py` | a shipped file changed without a version bump. Installed machines compare versions, not commits, so the change reaches nobody |
-| 13 | CLI | `node bin/graph-powers.mjs --help` | the installer entry point is broken |
+| 13 | CLI | `bun bin/graph-powers.mjs --help` | the installer entry point is broken |
 
 Two more that need arguments and therefore run in CI rather than here:
 `python3 .github/check_codex.py <root> <project> <scope>` and `python3 .github/check_clone.py`.

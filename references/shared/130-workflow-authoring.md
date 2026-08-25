@@ -60,6 +60,23 @@ likely and least expected.
   interpolation. `name` and `description` are required, and `phases` should match the `phase()`
   calls in the body.
 
+### The model is not inherited here
+
+`agent()` resolves `opts.model` and never opens the agent file, so a call that omits it runs on the
+**session's** model — which is how an `opus`-pinned `graph-powers:frontend-specialist` implemented
+on whatever the user was driving. Every call states one, from the tier in §2:
+
+```javascript
+const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
+const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
+
+await agent(prompt, { agentType: AG(t.agent), schema: TASK_RESULT, model: M(t.agent) })
+```
+
+Going cheaper is legal and written literally — a mechanical pass that only runs the gates asks for
+`'haiku'`. Upgrading a light agent is not. `.github/check_workflows.mjs` reads the resolved `opts`
+of every stubbed spawn, so the dynamic call sites are checked too.
+
 ### Before you reach for one at all
 
 A script that runs one agent, or several that each read the previous one's output, is a chain with

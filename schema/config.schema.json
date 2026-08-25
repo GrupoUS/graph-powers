@@ -86,9 +86,9 @@
           "type": "string",
           "examples": [
             "tsgo",
-            "tsc",
             "mypy"
-          ]
+          ],
+          "description": "Reporting name only. For JS/TS, Graph Powers accepts native tsgo through Bun and rejects legacy tsc, Node's test runner, and bare tsgo launchers. See skills/bun-verify/references/low-resource-js-ts-gates.md."
         },
         "linter": {
           "type": "string",
@@ -118,13 +118,14 @@
         },
         "commands": {
           "type": "object",
-          "description": "The literal command per gate. Whatever is here beats any inference.",
+          "description": "The literal command per gate. It beats inference but not the JS/TS resource floor: Node tests, legacy tsc, bare tsgo and unbounded Bun workers are rejected as NEEDS-WORK rather than executed.",
           "properties": {
             "typeCheck": {
               "type": "string",
               "examples": [
-                "bun run type-check"
-              ]
+                "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"
+              ],
+              "description": "For JS/TS use the exact native tsgo-through-Bun form shown: --bun avoids the package's Node shebang, --no-install prevents network access during a gate, and --checkers 1 caps checker workers."
             },
             "lint": {
               "type": "string",
@@ -141,7 +142,11 @@
               "description": "The tool itself must be installed and resolvable on PATH. This plugin runs the command you declare and nothing more: if it names biome, oxlint, eslint or prettier and that binary is absent, the run fails and the session is told at startup rather than silently skipping. Install globally (bun add -g @biomejs/biome oxlint, or npm i -g ...) so it works in every repository a session visits, not only one that carries it as a dependency. A command routed through the package manager (npm run lint) is not checked - the tool is named in the manifest, not here."
             },
             "test": {
-              "type": "string"
+              "type": "string",
+              "examples": [
+                "bun test --smol"
+              ],
+              "description": "Use a serial low-memory final gate. Fix loops use bun test --changed --bail=1 --smol; unbounded --parallel and --concurrent are rejected."
             },
             "build": {
               "type": "string",
@@ -288,11 +293,42 @@
       "properties": {
         "model": {
           "type": "string",
-          "description": "Model written into generated .codex/agents/*.toml. Left to the project because model names age faster than this plugin does.",
+          "description": "Flat fallback model written into generated .codex/agents/*.toml when codex.models has no slug for the agent's tier. Left to the project because model names age faster than this plugin does.",
           "examples": [
             "gpt-5.6",
             "gpt-5.6-codex"
           ]
+        },
+        "models": {
+          "type": "object",
+          "description": "One Codex slug per tier, chosen by the Claude model family the source agent declares in agents/*.md: opus -> heavy (judging, design, verification), sonnet -> standard, haiku -> light (scouts and lookups). Without this every generated subagent got the same model, so the agent that reads one config file spent the same window as the agent that reviews a plan. A tier left empty falls back to codex.model, and an absent map leaves the model out entirely, which makes the child inherit the session's.",
+          "properties": {
+            "heavy": {
+              "type": "string",
+              "description": "Slug for the nodes that judge, design and verify.",
+              "examples": [
+                "gpt-5.6-sol",
+                "gpt-5.6-codex"
+              ]
+            },
+            "standard": {
+              "type": "string",
+              "description": "Slug for ordinary implementation work.",
+              "examples": [
+                "gpt-5.6",
+                "gpt-5.6-codex"
+              ]
+            },
+            "light": {
+              "type": "string",
+              "description": "Slug for scouts, lookups and mechanical passes. Do not point this at a model on a rate-limit pool the account does not own — Codex's own cheap fallback bills the Spark / codex_bengalfox bucket, not the user's Codex window.",
+              "examples": [
+                "gpt-5.6-luna",
+                "gpt-5.6-mini"
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "reasoningEffort": {
           "type": "string",

@@ -82,7 +82,11 @@ on a model reading a description and deciding.
   script as a value in `args`.
 - Any field an agent fills that becomes a `subagent_type` is an `enum`, never a bare `string`.
   Model-generated text naming an agent is how a typo becomes a spawn failure mid-run.
+- **Every `agent()` call states its `model`.** A workflow does not read `agents/*.md`, so an omitted
+  model is the session's model: `frontend-specialist`, pinned to `opus` in its own frontmatter, ran
+  on whatever the user was driving. Use the file's `M()` helper for the agent's own tier; write a
+  literal only to go *cheaper* for a mechanical unit. Upgrading a light agent is refused.
 
-`node .github/check_workflows.mjs` enforces the parse, the name match and the agent set, and
-dry-runs each script against stubs. `node --check` does **not** work on these files: they use a
+`bun .github/check_workflows.mjs` enforces the parse, the name match and the agent set, and
+dry-runs each script against stubs. A raw syntax check does **not** work on these files: they use a
 top-level `return`, legal only inside the async wrapper the runtime supplies.
