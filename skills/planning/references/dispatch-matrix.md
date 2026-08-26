@@ -33,9 +33,10 @@ Pick the agent and skill from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent
 | Staging E2E / agent-browser | **NEVER parallel** (single browser session) |
 | Plan / PRD synthesis · adversarial review · architecture analysis | No |
 | Codebase lookup (`graph-powers:explorer`) · external research (`graph-powers:librarian`) | **YES — and always background** |
-| Phase A research dispatch (every L4+) | **ALWAYS parallel** (`graph-powers:explorer` + `graph-powers:librarian`, background) |
+| Phase A evidence | `graph-powers:explorer` in background; add `graph-powers:librarian` in the same batch only when current external API, security or version behaviour affects the decision. GATE 1's `graph-powers:project-planner` supplies the second independent L4+ review lane. |
 
-> **Ambiguous (task touches 2+ domains):** `mcp__sequential-thinking__sequentialthinking` to rank agent fit by primary impact area before filling `Agent:` (**L4+ MUST · L3 SHOULD** — one threshold, the same one `../SKILL.md § Step 0` states).
+> **Ambiguous (task touches 2+ domains):** assign by the primary impact area shown by repository
+> evidence. If the tie changes ownership, expose it in the plan instead of forcing another tool.
 
 ---
 

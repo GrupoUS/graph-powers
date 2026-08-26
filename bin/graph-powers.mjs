@@ -798,7 +798,7 @@ function writeConfig() {
 
   const reportBlockedGates = () => {
     for (const blocked of d.blockedGates) {
-      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/bun-verify/references/low-resource-js-ts-gates.md.`);
+      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/debugger/references/low-resource-js-ts-gates.md.`);
     }
   };
 

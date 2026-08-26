@@ -1,18 +1,17 @@
 # Phase A — Brainstorm
 
-> Sequential guide for the first phase of the planning chain.
-> **Direct-invokes `superpowers:brainstorming` as the engine** and wraps it with harness deltas. Honors the tier gating in this skill (`SKILL.md § Step 0`).
-> Consolidates the former Phase 0 framing + discovery-protocol references into this single Phase A guide.
+> Canonical brainstorming method for the planning chain. Read it at L3+ after Step 0 has fixed the
+> destination, reuse ledger and tier. Nothing else re-declares this sequence.
 
 ---
 
 ## HARD GATE
 
-<EXTREMELY-IMPORTANT>
-Do NOT invoke any implementation skill, write any code, or scaffold anything until you have presented a design and the user has approved it.
-</EXTREMELY-IMPORTANT>
+Do not invoke an implementation skill, write code or scaffold until the design has been presented
+and the user has approved it.
 
-Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit); L3+ never skip. For L4+ the gate begins at **Phase 0 framing**, not at the implementation step — *"too simple to need a design"* is itself a red flag at L4+ (unexamined assumptions cost the most rework on "simple" work).
+Tier-gated: L1-L2 skip the design gate and edit directly; L3+ never skip it. Step 0 already fixed
+the destination and tier, so Phase A starts from evidence rather than reopening scope.
 
 **Anti-hallucination:** never speculate about code you haven't read; read files before asserting; if unknown → research or mark a `[Knowledge Gap]`.
 
@@ -21,13 +20,13 @@ Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit);
 ## Entry contract
 
 - Main agent has classified the task as **L3+** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`).
-- `Skill("planning")` is loaded.
+- `Skill("graph-powers:planning")` is loaded.
 - Branch is `${git.workBranch}`. If not, return to it before any action.
 
 ## Exit contract
 
 - **L3:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (evaluator) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
+- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (`graph-powers:project-planner`) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
 
 ---
 
@@ -36,104 +35,62 @@ Tier-gated: L1-L2 skip the gate entirely (autonomy rule authorizes direct edit);
 > Phase A is a goal-gated loop. Model: `references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ on `${git.workBranch}`.
-- **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:evaluator` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
-- **body:** `superpowers:brainstorming` generates the spec → `graph-powers:evaluator` evaluates (Step 8) → revise inline.
-- **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: if Phase 0 question (a) names no observable state change, do not plan · devil's-advocate question at L6+.
-- **terminal:** goal PASS → Phase B. Any guard trips → escalate to user.
+- **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
+- **body:** inspect → clarify → compare approaches → present design → review → correct.
+- **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
+  no design · no speculative feature or abstraction without a current requirement.
+- **terminal:** goal PASS → at L3, return to the requested implementation path; at L4+, continue to
+  Phase B. Any guard trips → escalate to user.
 
 ---
 
-## Engine — invoke `superpowers:brainstorming`
+## Core method and sizing
 
-For every L4+ entry (and L3 in light form), **invoke `Skill("superpowers:brainstorming")`** and let it drive the core loop. Do NOT reimplement its steps — the engine owns them:
+Step 0 has already chosen the path:
 
-| The engine owns | the harness wraps (the deltas below) |
-|---|---|
-| explore project context · clarifying questions one-at-a-time · 2-3 approaches w/ recommendation · design sections w/ inline approval · write the spec into the plan directory · spec self-review · user review gate · terminal "invoke writing-plans" | Phase 0 framing + 5-10→3 divergence (below) · parallel `graph-powers:explorer`+`graph-powers:librarian` dispatch (Step 1) · `AskUserQuestion` UI (Step 2) · `layer-map.md` cross-check (Step 3) · GATE 1 `graph-powers:evaluator` after self-review (Step 8) · branch policy · tier-gated entry · intercept terminal → Phase B |
+| Path | Planning depth | Output |
+|---|---|---|
+| **Spike** | `/research`; the answer is the deliverable | Evidence-backed recommendation; any artifact is throwaway |
+| **L3 bounded** | Existing flow, one domain | Short design in chat; no spec or plan file |
+| **L4+ architectural** | New subsystem, cross-domain contract or structural change | Approved `spec.md`, then Phase B |
 
-The engine's HARD-GATE ("every project gets a design") is overridden by the tier gating in this skill: L1-L2 skip the engine entirely; L3 runs the light path; L4+ runs the full engine + all deltas. The numbered steps below are the **harness deltas in execution order** — interleave them with the engine.
+Hidden complexity only moves upward: stop, state what changed, and reclassify. Do not downgrade a
+task merely to avoid a spec.
 
----
-
-## Phase 0 — Framing (L4+, runs BEFORE Step 1)
-
-> Pre-decision framing: is this the right problem, is it one project, what are the real options?
-> | Tier | Phase 0 | What runs |
-> |---|---|---|
-> | **L1-L2** | SKIP | direct edit |
-> | **L3** | LIGHT | question (a) + scope-decomp check, ~30s, no file |
-> | **L4-L5** | MANDATORY-LITE | full 0.1 + 0.2 + 0.3; 0.4 optional |
-> | **L6+** | MANDATORY-FULL | all four sub-steps incl. 0.4 devil's-advocate |
-
-### 0.1 — Problem framing ("is this the right problem?")
-Three pinned questions, asked **ONE AT A TIME**. At L3, ask only (a).
-
-- **(a)** What observable user/system state changes when this is done? → if the user can't name a state change, the task is unframed. STOP.
-- **(b)** What's the cheapest experiment that would invalidate the framing? → reveals testable assumptions.
-- **(c)** Who, if anyone, is harmed if we DON'T do this? → surfaces urgency vs. preference; if nobody → defer/cancel candidate.
-
-### 0.2 — Scope decomposition pre-check
-**Heuristic:** if you can name **≥ 3 distinct deliverables** shipping to different users or layers, decompose **first**, plan **second**. ≥ 3 children confirmed by user → **STOP planning**, suggest per-child planning invocations. Do not proceed.
-
-### 0.3 — Divergent ideation (L4+ only)
-Generate **≥ 5 candidate approaches** with no filtering. MUST include **≥ 1** of: no-code workflow · cancel/postpone · buy-vs-build (third-party SaaS) · reuse/extend an existing internal solution (LEVER) · "contrarian" inverted approach. Then **narrow to top 3** with a one-line trade-off each. These 3 feed Step 4 — do NOT regenerate options there. Jumping straight to "the obvious 2-3" locks in the framing the user arrived with (#1 cause of bad designs).
-
-### 0.4 — Devil's advocate / inversion (L6+ required, L4-L5 optional)
-For the top-ranked option, write a paragraph titled exactly **"Why this approach is WRONG"** answering: (a) what assumption, if false, kills it? (b) what does the inverse look like? (c) what would a hostile reviewer attack first? Steel-man the opposite, not your pick.
-
-**Output artifact (L4+):** embed this block at the TOP of the spec doc (Step 6):
-
-```markdown
-## Problem
-[one paragraph from 0.1 (a)(b)(c)]
-## Considered (5-10)
-[full list from 0.3]
-## Chosen (3)
-1. [top option] — [trade-off one-liner]   2. …   3. …
-## Recommendation
-[lead with one of the 3, justify in ≤ 3 sentences]
-## Inversion (L6+ required)
-**Why this approach is WRONG:** [paragraph from 0.4]
-```
-
-**L3:** 2-3 sentences inline in chat, no file.
+KISS and YAGNI bind the design. Prefer the existing unit named by the reuse ledger. Compare only
+approaches that could genuinely win; two is enough when there are two, and one is honest when the
+constraints leave no meaningful alternative. Do not add a feature, abstraction, compatibility shim
+or extension point without a current requirement or named consumer.
 
 ---
 
-## Step 1 — Parallel research dispatch (single message, ALWAYS)
+## Step 1 — Inspect before asking
 
-For every L3+ Phase A entry, fire two background agents in ONE assistant message:
-
-```ts
-Agent({
-  subagent_type: "graph-powers:explorer",
-  run_in_background: true,
-  prompt: "Codebase pattern scan for {{task topic}}. Return: existing files matching the domain, current patterns + conventions, hot files (recent commits), reusable functions/utilities, layer boundaries touched. Surface anything contradicting the user's framing. Cap output 1500 tokens.",
-})
-Agent({
-  subagent_type: "graph-powers:librarian",
-  run_in_background: true,
-  prompt: "External docs + CVE scan for {{task topic}} on {{stack: ${project.stack}}}. Return: current best practice (version + year), recent breaking changes, integration pitfalls, security advisories. Context7 for API truth; `mcp__tavily__tavily_research` (model: auto) for the deep best-practice pass. Cap output 1500 tokens.",
-})
-```
-
-While agents work, main agent: reads `references/layer-map.md` to confirm touched layers · reads recent commits + modified files (`git status`, `git log -n 10`) · drafts clarifying-question candidates.
+Read the current flow, its nearest `AGENTS.md`, recent relevant changes, the reuse candidates from
+Step 0 and `references/layer-map.md`. At L3 use one background `graph-powers:explorer`, as the
+execution floor requires. Add `graph-powers:librarian` only when the decision depends on current
+external API, security or version behaviour; when both are needed, dispatch them in one message.
+Every prompt follows `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md § 4`.
 
 ## Step 2 — Clarifying questions
 
 Use `AskUserQuestion`. **One topic per question.** Prefer 2-4 multiple-choice options. Cover: **Purpose** (business/user outcome) · **Constraints** (deadlines, surfaces, must-keep-working) · **Success criteria** (observable "done") · **Reuse vs new** (which existing pattern/file to extend) · **Scope edges** (explicit non-goals).
 
-**Skip questions the user already answered** — re-asking burns trust. **L6+ extra:** add a devil's-advocate question (per § Phase 0 — 0.4).
+**Skip questions the user already answered** — re-asking burns trust. For a real L6 risk surface,
+ask which assumption would invalidate the preferred approach; do not add ceremony merely because of
+the label.
 
 ## Step 3 — Consolidate research findings
 
-When both background agents return: read each summary (< 2000 tokens combined) · cross-reference `references/layer-map.md` ordering · flag contradictions between user framing and findings (if blocking → surface as a clarifying question) · label assumptions `[ASSUMED]` for the spec · **if findings span >2 technical areas with contradictions** → `mcp__sequential-thinking__sequentialthinking` to map the dependency graph **before** Step 4 (L4+ MUST · L3 SHOULD).
+Consolidate the returned evidence, cross-check layer order, and surface only contradictions that can
+change the design. Mark unresolved in-scope assumptions `[ASSUMED]`; unknowns that prevent a task
+list return to Step 0's fog gate instead of being guessed closed.
 
-## Step 4 — Propose 2-3 approaches
+## Step 4 — Compare viable approaches
 
-> Engine-owned. Harness delta: use the option format below; the 3 options come from Phase 0's narrowed set — never start ideation here.
-
-Lead with the **recommended** option:
+When a real trade-off exists, present two or three approaches and lead with the recommendation. One
+approach is enough when repository constraints eliminate the others; say why instead of inventing
+contrast. Include reuse/extend or do-nothing when either can meet the destination.
 
 ```
 **Option N — <name>**
@@ -147,21 +104,26 @@ Get user pick.
 
 ## Step 5 — Present design in sections
 
-> Engine-owned. Harness delta: error handling mandatory at L4+, inversion paragraph at L6+. Incremental validation — ~200-300 words/section, ask "Section reads correct?" after each, rewind on pushback.
+Sections scale to the decision: a few sentences when straightforward, up to roughly 200-300 words
+when nuanced. Cover **architecture**, **components and responsibilities**, **data flow**, **error
+handling** and **testing**. After each section ask whether it is correct so far; rewind on pushback.
 
-Sections (scaled to complexity): **Architecture** (modules, boundaries, data flow) · **Components** (files + responsibilities, paths inline) · **Data flow** (request/event traversal) · **Error handling** (failure modes + recovery, mandatory L4+) · **Testing** (existing coverage, what to add, mock vs real) · **L6+ inversion paragraph** ("Why this approach is WRONG", per `phase-b-writing-plans.md § Risk — pre-mortem + ADR`).
+Design for isolation: one purpose per unit, explicit interfaces, independently testable boundaries.
+Follow existing repository patterns and keep targeted improvements inside touched code only. No
+unrelated refactor and no new layer merely to make the diagram look cleaner.
 
 ## Step 6 — Write spec doc
-
-> Engine writes the working-tree artifact. Harness delta: the richer template below.
 
 **Path:** `${paths.planDir}/YYYY-MM-DD-<kebab-case-slug>/spec.md` (today's ISO date, UTC). The plan that Phase B writes lands beside it as `PLAN.md`, so the whole effort is one directory.
 
 ```markdown
 # <Title> — Design spec
 
-## Context              — why this work (problem/constraint/deadline) + outcome (observable state)
-## Background research  — internal (explorer) + external (librarian) findings + contradictions resolved
+## Destination          — observable condition from Step 0
+## Context              — why this work (problem/constraint/deadline)
+## Reuse ledger         — link or copy the binding rows from Step 0, unchanged
+## Regression watchlist — existing behaviour that must survive, with proof commands
+## Background research  — internal findings; external findings only when required; contradictions resolved
 ## Approach (chosen)    — one-paragraph summary + why over alternatives
 ## Architecture         — modules + boundaries + full file paths (layer-labeled)
 ## Data flow            — request/event traversal + state transitions
@@ -169,40 +131,42 @@ Sections (scaled to complexity): **Architecture** (modules, boundaries, data flo
 ## Testing              — existing coverage + new test plan
 ## Assumptions          — [ASSUMED] every inferred constraint
 ## Out of scope         — explicit non-goals
-## Open questions       — anything unresolved at spec time
+## Not yet specified    — declared fog; empty only when explicitly stated
+## Rollback             — how each risky or externally visible step is undone
 ## References           — spec lineage (related specs, ADRs, prior plans)
 ```
-
-> L4+ embeds the Phase 0 framing block (§ 0.3 output artifact) at the top.
 
 Run the relevant Markdown/config checks, but do not stage or commit the spec
 without explicit current-turn user approval.
 
 ## Step 7 — Spec self-review
 
-Scan before GATE 1: no "TBD"/"TODO"/placeholder/"similar to N" · no internal contradictions (architecture ↔ data flow ↔ testing) · scope tight (one project, not three masquerading — if three, **stop, decompose, brainstorm only the first**) · no ambiguity (any requirement readable two ways → pick one) · every `[ASSUMED]` labeled. Fix inline.
+Scan before GATE 1: every in-scope need is covered · no placeholder or invented detail · architecture,
+data flow and testing agree · scope is one coherent project · every ambiguity is resolved or lives
+under `## Not yet specified` · every assumption is `[ASSUMED]` · no design element serves an
+out-of-scope row.
+Fix inline once.
 
-## Step 8 — GATE 1 — evaluator review (L4+ mandatory)
+## Step 8 — GATE 1 — planning review (L4+ mandatory)
 
-```ts
-Agent({
-  subagent_type: "graph-powers:evaluator",
-  prompt: "Plan Review mode. Review spec at <path>. Verify: scope tight, layer ordering valid, missing risks, user-intent alignment, no contradictions, no scope creep. Return: PASS / FAIL+specifics / BLOCKED. < 2000 tokens.",
-})
-```
+Dispatch `graph-powers:project-planner` with the seven-section prompt from
+`${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md § 4`. It reviews only the spec against the
+destination, reuse ledger, repository evidence, scope, layer order, internal consistency and YAGNI.
+It is read-only and returns the canonical Context Handoff.
 
-**PASS** → Step 9. **FAIL** → revise inline addressing each specific, re-invoke (loop body); **HARD-STOP at 3 iterations** → escalate. **BLOCKED** → surface to user, do not retry.
+**PASS** → Step 9. **FAIL** → revise inline against cited findings, then re-run; **HARD-STOP at 3
+iterations** → escalate. **BLOCKED** → surface to the user, do not retry blind.
 
 ## Step 9 — User approval
 
-> "Spec written to `<plan dir>/spec.md` and evaluator returned PASS. Approve to proceed to Phase B (writing-plans)?"
+> "Spec written to `<plan dir>/spec.md` and the planning review passed. Approve Phase B, which writes the implementation plan?"
 
 Wait for explicit "yes"/"approve"/"go". On change request → revise + re-loop self-review + Step 8.
 
 ## Step 10 — Transition
 
 ```
-"Phase A complete. Spec at <path>. Invoking Phase B (writing-plans)."
+"Phase A complete. Spec at <path>. Starting Phase B."
 ```
 Read `phase-b-writing-plans.md` next.
 
@@ -210,11 +174,15 @@ Read `phase-b-writing-plans.md` next.
 
 ## L3 light path (truncated flow)
 
-For L3 explicit tasks: (1) brief codebase grep, no parallel agents · (2) one clarifying question if ambiguous · (3) inline 3-section spec in chat (`**Architecture:** … **Data shape:** … **Validation:** <command>`) · (4) user nod · (5) direct edit, skip Phase B + C. No file, no GATE 1.
+For L3: (1) targeted repository inspection with one background explorer · (2) one clarifying question
+only if it changes the design · (3) inline three-section spec (`Architecture`, `Data shape`,
+`Validation`) · (4) user approval · (5) hand off to the requested implementation path. No file and no
+reviewer gate.
 
 ## L6+ extra
 
-Devil's advocate at Step 2 · inversion paragraph at Step 5 · pre-mortem block in spec + ADR if architecture is novel (per `phase-b-writing-plans.md § Risk — pre-mortem + ADR`).
+Add a pre-mortem and ADR only when the task has a real risk surface or more than one viable
+architecture, per `phase-b-writing-plans.md § Risk — pre-mortem + ADR`.
 
 ---
 
@@ -222,8 +190,8 @@ Devil's advocate at Step 2 · inversion paragraph at Step 5 · pre-mortem block 
 
 | Condition | Action |
 |---|---|
-| Phase 0 (a): user answers "I don't know what problem this solves" | STOP, escalate, do not plan |
-| Phase 0.2 produces ≥ 3 child tasks confirmed by user | STOP planning, suggest per-child invocations |
+| No observable destination | STOP; clarify the outcome before designing |
+| Scope contains independent deliverables | STOP; split them and design only the first approved slice |
 | User rejects 3 design proposals | Stop, ask for explicit constraints, do not auto-iterate |
 | evaluator FAIL 3× on same spec | Escalate; spec likely has fundamental ambiguity |
 | Background agents both return BLOCKED | Halt Phase A, surface, do not invent design from nothing |

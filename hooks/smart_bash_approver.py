@@ -321,12 +321,23 @@ SAFE_PATTERNS = [
 
     re.compile(r'^python(3)?( -X [^ ]+)? "?\.claude[\\/]'),
     re.compile(r'^python(3)?( -X [^ ]+)? "?scripts[\\/]'),
-    # bun-verify's turbo dry-run wrapper. The Bash tool is a pipe; turbo --dry=json on that
+    # debugger's turbo dry-run wrapper. The Bash tool is a pipe; turbo --dry=json on that
     # pipe panics (EPIPE) and Node/bun abort. This script writes a file and prints a path,
     # so it has to be an allow — otherwise the replacement the deny message names is itself
     # an ask, and agents re-run the crashing line.
     re.compile(r"^python(3)?( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
     re.compile(r"^py -3( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
+    # intent-layer's AGENTS.md tree tool. The setup playbook (step 4b) and /evolve run its three
+    # subcommands — `state` and `measure` read, `check` is a gate that writes nothing — so under
+    # `guarded` each would otherwise ask, three times per install. It lives under the plugin root,
+    # not `scripts/` or `.claude/`, which is why the two script-path entries above do not cover it.
+    # The closing quote is part of the match: the playbook writes the path as
+    # `"$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .`, and `\S*` stops at the space
+    # AFTER the quote, so `\.py(\s|$)` never met the line that motivated the entry. The first
+    # version was written from the unquoted test fixture and passed its own test over the broken
+    # case; the audit that found it also found the same defect in the skill's eval assertions.
+    re.compile(r"^python(3)?( -X [^ ]+)?\s+\S*intent_layer\.py[\"']?(\s|$)"),
+    re.compile(r"^py -3( -X [^ ]+)?\s+\S*intent_layer\.py[\"']?(\s|$)"),
     # `py` is the Windows launcher for the two entries above, and it gets the same rule for the
     # same reason: what runs is the argument, not the command. A blanket `^py\s+-3(\s|$)` replaced
     # these two for one release and made `py -3 -c "<anything>"` an allow — an interpreter with no
@@ -709,8 +720,8 @@ _TURBO_DRY_WRAPPER = re.compile(r"turbo_dry_json\.py\b", re.IGNORECASE)
 _TURBO_DRY_JSON_REASON = (
     "BLOCKED: turbo/bun --dry=json on a captured stdout pipe panics "
     "(Rust 'failed printing to stdout: Broken pipe') and Node/bun abort "
-    "with SIGABRT. Inspect the graph with bun-verify's turbo_dry_json.py: "
-    "python -X utf8 ${CLAUDE_PLUGIN_ROOT}/skills/bun-verify/scripts/turbo_dry_json.py "
+    "with SIGABRT. Inspect the graph with debugger's turbo_dry_json.py: "
+    "python -X utf8 ${CLAUDE_PLUGIN_ROOT}/skills/debugger/scripts/turbo_dry_json.py "
     "--task test — then Read the file it prints. Do not re-run the same Bash line."
 )
 
@@ -750,7 +761,7 @@ _JS_GATE_REASON = (
     "BLOCKED: JS/TS gates must use Bun's low-resource test runner and native tsgo through "
     "`bunx --bun --no-install --package @typescript/native-preview tsgo`. "
     "Do not use Node's test runner, legacy tsc, or a tsgo shebang that starts Node. "
-    "Read skills/bun-verify/references/low-resource-js-ts-gates.md."
+    "Read skills/debugger/references/low-resource-js-ts-gates.md."
 )
 
 

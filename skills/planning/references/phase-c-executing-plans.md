@@ -1,9 +1,9 @@
 # Phase C — Executing-plans
 
 > Sequential guide for the third phase of the planning chain.
-> **Direct-invokes `superpowers:subagent-driven-development` as the engine** — fresh subagent per
+> **Direct-invokes `graph-powers:executing-plans` as the engine, in subagent-driven mode** — fresh subagent per
 > task, two-stage review, continuous execution — executed through this plugin's `/implement`.
-> For inline execution the engine is `superpowers:executing-plans` instead.
+> For inline execution the engine is the same skill in inline mode.
 
 ---
 
@@ -33,7 +33,7 @@
 
 ## Step 1 — Invoke the engine, then `/implement`
 
-**`Skill("superpowers:subagent-driven-development")`** first — it loads the doctrine (read the plan
+**`Skill("graph-powers:executing-plans")`** in subagent-driven mode first — it loads the doctrine (read the plan
 once, per-task implementer → spec review → quality review, no inter-task pause). Then:
 
 ```

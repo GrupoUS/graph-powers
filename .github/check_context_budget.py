@@ -8,9 +8,9 @@ invocation of that command — so this prints it, and can hold a baseline to com
 Two numbers, because one was lying
 ----------------------------------
 The first version of this script charged every `Skill("x")` and every cited reference to every
-invocation. `/verify` came out at 51 KB, of which 42 KB was three domain skills its own text loads
-**conditionally** — `Skill("debugger")` *when chasing a failure*, `Skill("astro")` *when the stack
-is Astro*. A `/verify` on a passing typecheck loads none of them. Charging all three made the
+invocation. `/verify` came out at 51 KB, of which 42 KB was three domain references its own text
+loaded **conditionally** — debugging, performance and the former Astro reference. A `/verify` on a
+passing typecheck loaded none of them. Charging all three made the
 cheapest command in the set look like the second most expensive, and — worse — made a correct
 change (stating a condition instead of loading eagerly) register as no improvement at all.
 
@@ -177,7 +177,8 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 #
 # 7,586 B came out of duplication, and no command lost content: the placeholder table in
 # `000-config-loader.md`, a third copy of the field list `schema/config.schema.json` owns, priced at
-# 9 command floors; and the domain-skill enumeration in `005-superpowers-bootstrap.md`, which
+# 9 command floors; and the domain-skill enumeration in `005-method-bootstrap.md` (then named
+# `005-superpowers-bootstrap.md`), which
 # `120-skill-invocation-order.md` owns, priced at 10.
 #
 # The other 30,604 B were never a real load — they were this script mismeasuring one, which is the
@@ -190,7 +191,14 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 #
 # Measured floor after both: 291,810 B. So 3,190 B stays spendable and 35,000 B is locked away from
 # being spent without anyone noticing.
-FLOOR_CEILING = 295_000
+#
+# Raised 295_000 -> 300_000 on 2026-08-26, and the 3,190 B were spent by two skills, not by prose:
+# `designer` (1.10.0) took 3,117 B of routing — `/design § 1` rewritten around its five moves, plus
+# a row in the skill-domain matrix, a WISC tier-3 line and the invocation order — and `animate`
+# (same release) took 300 B for its own matrix row, its `/pr-review` 3D cell and the `/design § 3`
+# call, which is conditional and so priced on the ceiling. Measured floor after both: 295,227 B.
+# Each row is a call site cardinal 4 requires; the alternative was a skill nothing routes to.
+FLOOR_CEILING = 300_000
 # Raised 440_000 -> 470_000 on 2026-08-20, and what bought the increase is two separate things.
 # 18_585 B of it was already over the old ceiling before this change and had no owner. The rest is
 # `commands/evolve.md` gaining `Skill("skill-improve")`, the first functional call site the
@@ -198,7 +206,16 @@ FLOOR_CEILING = 295_000
 # path, so it was charged zero and the gate was measuring a load it could not see. A merged 8.6 KB
 # body is the honest price of that edge, and the merge itself cut the two bodies from 384 non-empty
 # lines to 107. Lower this again when the pre-existing overage is paid down.
-CEILING_CEILING = 470_000
+#
+# Raised 470_000 -> 500_000 on 2026-08-26. 1.10.0 added four skills and every one of them loads on
+# a conditional branch, so the growth is ceiling and not floor: `/design` pays `landing-page-design`
+# (15.9 KB, only for a landing or marketing surface — the skill that used to be an external copy
+# and was therefore invisible to this gate, exactly as `skill-improve` was above) and `animate`
+# (14.6 KB, only before the animate pass); `/evolve § 5` pays `intent-layer` (8.5 KB). Measured
+# after: ceiling 497,086 B, floor 297,920 B — the floor stayed under its cap because the same loads
+# are conditional, which is the shape this gate exists to reward. The 18,585 B overage noted above
+# is still unpaid.
+CEILING_CEILING = 500_000
 WORST_FLOOR = 70_000
 
 

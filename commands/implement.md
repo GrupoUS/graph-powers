@@ -1,5 +1,5 @@
 ---
-description: "Execute an implementation plan that already exists — in a plan file or in this conversation. Use when the user says to implement, build or execute the plan, to start a sprint, or to carry out what was agreed. Parses phases and agent assignments, loads the domain skills, spawns specialists, runs parallel and sequential waves against sprint-contract gates. Do not use to decide what to build (/plan) or to confirm the result holds (/verify)."
+description: "Execute an implementation plan that already exists — in a plan file or in this conversation. Use when the user says to implement, build or execute the plan, to start a sprint, or to carry out what was agreed. Routes the plan through executing-plans, applies test-driven development to production behaviour, assigns agents, and runs the declared gates. Do not use to decide what to build (/plan) or to confirm the result holds (/verify)."
 workflow_type: orchestrator-workers
 ---
 
@@ -7,320 +7,185 @@ workflow_type: orchestrator-workers
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
-
-> **Plans come from:** `Skill("superpowers:writing-plans")` (canonical format, written to `${paths.planDir}/`) chained with `Skill("planning")` for this project layer-map — both loaded only when no plan exists and this command has to write one first.
-> **Plan files:** `${paths.planDir}/YYYY-MM-DD-<slug>/PLAN.md` — one plan is one directory, per `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`. A bare `${paths.planDir}/*.md` written before that convention is still accepted, as is a plan in the active conversation.
-> **The driver doctrine** — rolling dispatch, the two review gates, the subagent prompt templates — is `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-c-executing-plans.md`, read when a plan is executed by subagents rather than inline.
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`.
+>
+> `/implement` is the harness adapter, not a second execution engine. The task loop, ledger, briefs,
+> reviews and final review belong to `graph-powers:executing-plans`. The project-specific rolling
+> dispatch and phase gates are `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-c-executing-plans.md`, read only for L3+ execution.
 
 ---
 
 ## 0. Pre-flight
 
-```typescript
-Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
-```
+Read `.graph-powers/config.json` for the branch, tooling, paths and autonomy policy. If
+`${rulesDir}/routing-supplements.md` exists, read it for project-specific routing.
 
-Use the file-search tool to locate `${paths.planDir}/*/PLAN.md` (preferred) and `${paths.planDir}/*.md` (older shape). Do not rely on shell globbing or stderr redirection for this check.
+Use the file-search tool to locate the plan in this order:
 
 | Source | Action |
 |---|---|
-| Plan file exists | `Skill("superpowers:executing-plans")` — parse phases + TodoWrite seed |
-| Plan in chat context | `Skill("superpowers:executing-plans")` — extract phases + tasks from conversation |
-| No plan found | `Skill("superpowers:writing-plans")` → `Skill("planning")` — write plan to `${paths.planDir}/`. Never implement without a plan. |
+| `$ARGUMENTS` names a plan file or directory | Invoke `Skill("graph-powers:executing-plans")` with that plan. |
+| One active `${paths.planDir}/*/PLAN.md` or legacy `${paths.planDir}/*.md` matches the request | Invoke `Skill("graph-powers:executing-plans")` with that plan. |
+| The approved plan is in this conversation | Preserve it verbatim in the canonical path from `007-path-conventions.md`, then invoke `Skill("graph-powers:executing-plans")`; do not re-plan it. |
+| No approved plan exists | **STOP.** Route to `/plan`; `/implement` does not invent the missing plan. |
 
-Parse from plan: **Tier**, **Layers**, phase markers (`[SEQUENTIAL]` / `[PARALLEL-SAFE]`), the task checkboxes (`- [ ]`) with their `Owns:` / `Needs:` / `CHECK:` / `EXPECT:` fields, each phase's gate block, the `## Verification` commands, sprint contracts, and `[ASSUMED]` items to validate before starting.
+Parse **Tier**, **Layers**, `[SEQUENTIAL]` / `[PARALLEL-SAFE]`, task checkboxes, `Owns`, `Needs`,
+`CHECK`, `EXPECT`, phase gates, sprint contracts and `[ASSUMED]` items. An old plan without the newer
+fields is accepted only when its ordering, ownership and verification are still unambiguous.
 
-For L4+ work (multi-domain or multi-file changes), invoke `Skill("superpowers:using-git-worktrees")` to isolate the workspace before any agent spawns. Skip for L1-L3 trivial work.
-
-Read `.graph-powers/config.json` for tooling + paths. If `${rulesDir}/routing-supplements.md` exists, also read it for project-specific layer/agent routing.
+Check the current branch and working tree before any write. Preserve existing user changes. Never
+create, switch or delete a worktree as an implicit side effect; isolation belongs in the approved
+plan or requires a separate decision.
 
 **Flags:**
 
 | Flag | Effect |
 |---|---|
-| `--codex` | Delegate L5+ phases to the `codex:codex-rescue` agent |
-| `--sprint=N` | Execute only sprint N of multi-sprint plan |
-| `--dry-run` | Parse + display task/agent assignments without executing |
+| `--codex` | For L5+ only, route an oversized implementation unit to `codex:codex-rescue` when that optional plugin is installed. |
+| `--sprint=N` | Execute only sprint N of a multi-sprint plan. |
+| `--dry-run` | Parse and display tasks, ownership, dependencies and agent assignments; write nothing. |
+
+For `--dry-run`, stop after the routing table. Do not create the execution workspace.
 
 ---
 
-## 1. Skill routing
+## 1. Route skills and agents
 
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` (Skill-to-Domain Matrix), load the skill matching the task domain **before spawning any agent for that phase**.
+The method skill is already selected in Step 0. Load domain skills only when the plan touches their
+domain, in the order from `120-skill-invocation-order.md`:
 
-If the plan touches:
-- Schema / migrations / data → load `graph-powers:debugger` skill and any host database skill listed in `${rulesDir}/routing-supplements.md`
-- API / handlers / services → `graph-powers:debugger`
-- Components / styling → the project's design rule, or its own design-system skill when it has one
-- Performance / SEO → `performance-optimization`
-- Skill authoring, iteration or harness wiring audit → `skill-improve`
-- External provider/deployment/product API → host provider skill if configured; otherwise there is no skill for this — spawn the **agent** `graph-powers:librarian`, which is a different namespace from a skill
+- schema, migrations, API, handlers, services or a failing task → `graph-powers:debugger`, plus a
+  host database skill only when `${rulesDir}/routing-supplements.md` declares one;
+- UI components or styling → the project's design rule or declared design-system skill;
+- performance, SEO or the security baseline → `performance-optimization`;
+- skill authoring or harness wiring → `skill-improve`;
+- an external API or provider → the configured host skill, otherwise the read-only
+  `graph-powers:librarian` agent.
 
-Multiple skills may load. Process skills (`planning`, `graph-powers:debugger`) before implementation skills.
+Use the plan's `Agent` field when present. Otherwise resolve the agent from
+`030-agent-assignment-matrix.md`; never maintain a second assignment table here. Before an L3+ phase,
+spawn `graph-powers:explorer` in the background for only the patterns the phase needs. External
+facts, when needed, go to `graph-powers:librarian` in the same batch.
 
----
-
-## 2. Agent assignment
-
-If plan doesn't specify `**Agent:**`, assign by file-path detection:
-
-| File-path pattern | Agent |
+| Tier | Execution |
 |---|---|
-| `${paths.schemaRoot}/**` | `graph-powers:debugger` |
-| `${paths.backendRoot}/**` | `graph-powers:debugger` |
-| `${paths.frontendRoot}/**` (UI files) | `graph-powers:frontend-specialist` |
-| `${paths.frontendRoot}/**` (logic / hooks / non-UI) | `graph-powers:debugger` |
-| Cross-domain (3+ layers) | `graph-powers:project-planner` as coordinator |
-| Any failing task | `graph-powers:debugger` |
+| L1-L2 | Inline in the main agent; no delegation. |
+| L3-L5 | Subagent-driven through `graph-powers:executing-plans`. |
+| L6+ | Coordinator plus specialists, still using the same engine, ownership and review contracts. |
 
-If `${rulesDir}/routing-supplements.md` extends this table → respect those bindings.
+Every spawn uses the seven sections in `references/execution-floor.md § 4`. Read-only work runs in
+the background. Writers own disjoint paths, and no caller overrides the model declared by an agent.
 
-Background read-only agents (always `run_in_background: true`):
+---
 
-| When | Agent |
+## 2. Execute the plan
+
+Follow the selected mode in `graph-powers:executing-plans`. Supply the resolved config, plan fields,
+agent routing and domain skills; the engine owns its ledger, dispatch, task review, fix rounds and
+final review. For L1-L2, use its inline path without manufacturing subagent overhead. Do not
+paraphrase or replace either loop here.
+
+### TDD gate
+
+When a task implements a feature, bug fix, refactor or behaviour change, invoke `Skill("graph-powers:test-driven-development")`
+in the writer's prompt before any production edit:
+
+```
+one behaviour → focused test → verify expected RED → minimum GREEN → verify GREEN → refactor only while green
+```
+
+The RED and GREEN commands and deciding output go in the task report, or in the inline evidence for
+L1-L2. A passing test that was never seen failing is not TDD. Generated code, configuration-only
+work and throwaway prototypes are exceptions only after the user accepts the exception, exactly as
+the skill requires.
+
+KISS and YAGNI bind every task: implement only the current `EXPECT` and failing test; reuse an
+existing seam; add no speculative option, compatibility layer, abstraction, refactor or adjacent
+feature. A later task can earn a later capability.
+
+### Review and evidence
+
+Treat every agent report as unverified until its diff and focused `CHECK` support it. A checked task
+with `EVIDENCE: pending` remains incomplete; an impossible check stays visible as
+`ABANDON: <task id> <reason>`.
+
+Continuous execution means progress updates, not approval pauses. Stop only on the conditions in
+§ 5 or on a boundary that `safety-floor.md` reserves for the user.
+
+---
+
+## 3. Gates
+
+Run literal commands from `tooling.commands`; never reconstruct a package-manager command.
+
+| Boundary | Gate |
 |---|---|
-| Before any phase — grep existing patterns | `graph-powers:explorer` |
-| External API docs, package versions | `graph-powers:librarian` |
+| After each task | Its focused `CHECK` only. |
+| After each phase | Resolved type-check and lint, once; confirm the next phase's required interfaces exist. |
+| After a sprint with a contract | Every `verify:` command in its Done Definition. |
+| Final | Resolved type-check, lint and serial full tests, once. |
+
+Apply `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` to every PASS or completion
+claim: fresh command, full output, exit code read, then the claim. If UI changed, also use
+`webapp-testing` for the plan's browser criterion. A missing declared command is `NOT DECLARED`, not
+passing.
 
 ---
 
-## 3. Execution mode (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`)
+## 4. Schema apply
 
-| Complexity | Mode |
-|---|---|
-| L1-L2 | DIRECT — main agent executes |
-| L3-L5 | SUBAGENTS — `Agent()` per task/phase |
-| L6+ | COORDINATED — coordinator + specialists; use Agent Team tools only when the runtime exposes them |
+`${database.commands.generate}`, when declared, is a repository write and follows the ordinary task
+loop. `${database.commands.apply}` is the irreversible edge:
 
----
+1. Missing command → print `NOT DECLARED` and stop.
+2. Missing policy or `${database.applyPolicy} = never` → show the apply and rollback commands; do
+   not run them.
+3. `${database.applyPolicy} = optIn` → require explicit approval in this turn, then apply and run
+   `${database.commands.status}`. Only if this branch runs, classify the result with
+   `Skill("performance-optimization")` and claim success on PASS.
 
-## 4. Mode A — DIRECT (L1-L2)
-
-1. Load skill for the task domain
-2. Execute task directly in main agent
-3. Run verify command
-4. Gate per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` (type-check)
+`/verify` never applies a schema. Do not invent an opt-in key.
 
 ---
 
-## 5. Mode B — SUBAGENTS (L3-L5)
+## 5. Failure and stopping conditions
 
-Method-layer skill load (single message at the top of Mode B):
-
-```typescript
-Skill("superpowers:subagent-driven-development");  // two-stage review (spec → quality), working-tree checkpoint per task
-Skill("superpowers:dispatching-parallel-agents");  // distinct scope + shared return contract
-```
-
-### Before any phase
-
-Spawn `graph-powers:explorer` in background to grep existing patterns relevant to this phase:
-
-```typescript
-Agent({
-  subagent_type: "graph-powers:explorer",
-  prompt: "Grep [domain] patterns in [paths]. Report file:line for reuse.",
-  run_in_background: true
-});
-```
-
-If the explorer returns conflicting or ambiguous patterns (two conventions for the same concern, unclear layer ownership), invoke `mcp__sequential-thinking__sequentialthinking` to resolve the convention hierarchy **before** spawning phase agents (L4+ MUST · L3 SHOULD).
-
-### Sequential phase
-
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/080-sequential-phase-gating.md` (Sequential Phase Gating).
-
-**Hard TDD gate (L3+):** Before each task that writes code, invoke `Skill("superpowers:test-driven-development")`. The skill requires a failing test before the implementation lands. L1-L2 trivial tasks (single-line fix, exact existing pattern) are exempt — note the exemption in the task log.
-
-```
-Load domain skill
-→ Skill("superpowers:test-driven-development") gate → write failing test → wait → spawn agent for task 1 → wait → run verify command → Skill("superpowers:verification-before-completion") evidence → gate
-→ Skill("superpowers:test-driven-development") gate → write failing test → wait → spawn agent for task 2 → wait → run verify command → Skill("superpowers:verification-before-completion") evidence → gate
-→ ...
-```
-
-### Parallel phase — rolling dispatch
-
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`. Dispatch every task whose
-`Needs` are already **verified** and whose `Owns` collide with nothing in flight, up to
-`graphGuardrails.maxParallelWave`:
-
-```typescript
-// Write-capable → foreground:
-Agent({ subagent_type: "graph-powers:frontend-specialist", prompt: "..." })
-Agent({ subagent_type: "graph-powers:debugger", prompt: "..." })
-// Read-only → background:
-Agent({ subagent_type: "graph-powers:explorer", prompt: "...", run_in_background: true })
-```
-
-**Review each task the moment it returns** — do not hold its review until its siblings finish. A
-task's verification is what releases whatever it unblocked, so the phase runs in the length of its
-longest chain rather than the sum of its waves. Parse the returning agent's `## Context Handoff`,
-run that task's own `CHECK`, paste the deciding output into its `EVIDENCE:` line and check the box.
-
-**The phase gate runs once**, when every task in the phase is verified: the whole-project commands
-live there and nowhere else, then `Skill("superpowers:verification-before-completion")` captures the
-gate output as the phase's evidence.
-
-**A checked box whose `EVIDENCE` still reads `pending` is unmet.** A check that proves impossible is
-surrendered in the open — `ABANDON: <task id> <reason>` — and named in the report. Silent
-scope-narrowing is the failure this rule exists to catch.
-
-### Sprint contract gate
-
-If plan includes sprint contracts, after all tasks in a sprint:
-
-1. Run each `verify:` command listed in the contract's Done Definition
-2. All must pass — no partial credit
-3. Any failure → fix + re-run before next sprint
+- No approved plan → route to `/plan` and stop.
+- An `[ASSUMED]` item blocks the next task → validate it or ask; never guess silently.
+- A task needs a path outside `Owns` → stop that task, correct the plan and re-dispatch.
+- A report says PASS but its `CHECK` fails → the task failed.
+- A phase or sprint gate fails → do not advance to a dependent phase.
+- Never retry the same worker with the same context. Follow the engine's fix-round cap; if repeated
+  attempts reveal a deeper defect, route to `/debug recover`.
+- Destructive, security-sensitive, credential or outward-facing work — including stage, commit,
+  push, PR, merge and publish — requires the user's current-turn approval.
+- A plan whose requirements or ownership cannot be made unambiguous is BLOCKED; report the exact
+  missing decision.
 
 ---
 
-## 6. Mode C — COORDINATED (L6+)
+## 6. Completion
 
-### Coordinator pattern
-
-Create a **coordinator task** assigned to `graph-powers:project-planner` (or use native Agent Team tools when available). The coordinator:
-- Holds the full plan + sprint contracts
-- Delegates domain tasks via `SendMessage`
-- Validates `## Context Handoff` from each specialist against the contract
-- Gates sprints before advancing
-- Reports progress + blockers
-
-If native team tools exist, create the coordinator and dependent specialist tasks there. Otherwise, spawn the coordinator as a foreground subagent and have the main agent enforce phase gates between specialist calls.
-
-### Coordinator prompt template
-
-```
-You are the coordinator for implementing [feature].
-
-Plan: [paste plan content or docs/plans/[slug].md]
-Sprint contract: [paste Sprint N contract]
-Skill loaded: [skill name for this domain]
-
-Responsibilities:
-1. Delegate data/API tasks to debugger agent through the available runtime mechanism
-2. Delegate UI tasks to frontend-specialist only after required upstream gates pass
-3. Validate each agent's Context Handoff against contract Done Definition
-4. Run the phase gate once from the literal `tooling.commands` strings, after applying `references/shared/010-quality-gates.md` and the JS/TS resource floor in `references/shared/130-bun-tsgo-gates.md`
-5. If any criterion fails → return detailed feedback to the responsible agent, not the user
-6. Only report to user: SPRINT N COMPLETE (all criteria met) or BLOCKED: [specific failing criterion]
-
-Do not implement yourself. Coordinate, validate, gate.
-```
-
-### Context management
-
-| Model | Strategy |
-|---|---|
-| Sonnet 4.x | Context reset between sprints — write handoff artifact before each reset |
-| Opus 4.6+ | Auto-compaction, continuous session — monitor for context anxiety |
-
-Handoff artifact path: `${paths.planDir}/HANDOFF-[slug]-sprint-N.md` (same structure as `/evolve handoff` § 6).
-
-Handoff contains: completed tasks, verified state, next sprint contract, open issues, key decisions, modified files, resume commands.
-
-Context anxiety symptoms (Sonnet): agent rushing, skipping edge cases, accepting failures. If observed → trigger reset immediately.
-
----
-
-## 7. `--codex` flag (L5+ delegation)
-
-For implementation phases too large or complex for a standard agent:
-
-Spawn the `codex:codex-rescue` agent with:
-- Task description from the plan phase
-- Sprint contract done criteria
-- Relevant file paths + line references
-- Verify command
-
-Codex handles implementation. Main agent validates against the sprint contract when done.
-
----
-
-## 7.5 Schema apply
-
-`${database.commands.generate}`, when declared, is a repo write. Treat it as ordinary
-implementation, not an irreversible edge.
-
-`${database.commands.apply}` is the irreversible edge. It fires when the plan's schema work needs
-it, or when `/verify` returned `DRIFT`.
-
-1. Missing `${database.commands.apply}` → print `NOT DECLARED` and stop.
-2. `${database.applyPolicy}` absent or `never` → print `${database.commands.apply}` and the
-   rollback line; **do not run it**.
-3. `${database.applyPolicy}` is `optIn` → require explicit approval **in this turn**
-   (`references/safety-floor.md` §3). Approval from an earlier turn has expired. Then run apply.
-   Then run `${database.commands.status}` and, only on this branch, classify with
-   `Skill("performance-optimization")` **Schema state**. Claim success only on `PASS`. An apply with no re-proof is a claim, not a
-   gate. `UNREACHABLE` after apply is `NEEDS-WORK`, not success.
-
-`/verify` never applies. This section is the only apply edge. Do not invent an opt-in env key.
-
----
-
-## 8. Quality gates
-
-Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`.
-
-| When | Command |
-|---|---|
-| After each task | The task's focused `CHECK` only; never a whole-project gate |
-| After each phase | Resolved type-check + lint, once |
-| After sprint (if contracts) | All `verify:` commands in Done Definition |
-| Final | Resolved type-check + lint + serial full tests, once |
-
----
-
-## 9. Failure handling
-
-| Attempt | Action |
-|---|---|
-| 1st | Read error. Retry with error context added to agent prompt |
-| 2nd | Invoke `graph-powers:debugger` skill. Break task into smaller subtasks |
-| 3rd | Switch to `/debug recover`. Escalate to user with root-cause analysis |
-
-Never retry blindly. Never skip a gate because a task "looks correct."
-
----
-
-## Stopping conditions
-
-- STOP if no plan exists → invoke `Skill("planning")` (or `/plan`) first
-- STOP after 3rd failure on same task → invoke `/debug recover`
-- STOP if agent team runs 10+ task iterations without sprint completion
-- ASK if plan has `[ASSUMED]` items not yet validated
-- ASK before destructive operations (schema drops, data deletion) — schema apply is § 7.5
-
----
-
-## 10. Cleanup (Coordinated Runs)
-
-After all sprints complete, collect final handoffs, close any runtime-native team resources if they were created, and leave no background research task uncollected.
-
----
-
-## 11. Completion
-
-Final gate: `Skill("superpowers:verification-before-completion")` — capture full stdout + exit code of type-check / lint / tests; do not declare "complete" without that evidence.
-
-When useful, append a row to `.graph-powers/logs/progress.md` with the date, phase, base `HEAD`, and working-tree status. Do not stage or commit it without explicit authorization in the current turn.
-
-Then hand off to `/verify` for the full post-implementation pipeline (which itself invokes `finishing-a-development-branch` in Phase 10 to surface the merge/PR/keep/discard options menu).
+Collect every live agent, finish the engine's final review, run the final gates, then run
+`/verify quick`. It must pass before the implementation is called ready. Leave the working tree
+reviewed and unstaged; do not commit, push, open a PR or merge.
 
 ```
 Implementation complete.
 
 Working tree reviewed and left unstaged. Git actions require separate user authorization.
 
-Gates passed (evidence captured):
-  - Type check: ok (exit 0)
-  - Lint: ok (exit 0)
-  - Tests: ok (N passed / 0 failed)
-  - Sprint contracts: ok (if applicable)
+Evidence:
+  - Focused task checks: <results>
+  - Type check: <result or NOT DECLARED>
+  - Lint: <result or NOT DECLARED>
+  - Tests: <result or NOT DECLARED>
+  - Sprint contracts: <result or not applicable>
+  - Final review: <result>
 
-Next: /verify   (runs the full 10-phase gate + finishing-a-development-branch menu)
+Rulings I made:
+  - <decision — why — cost if wrong, or none>
+
+Next: /verify
 ```

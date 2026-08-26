@@ -14,8 +14,8 @@
  *
  * Two properties matter more than anything else here:
  *
- *   **Merge, never overwrite.** Other tools write `.codex/hooks.json` too — `npx impeccable
- *   install` is one of them. Clobbering it would silently disable somebody else's guardrails,
+ *   **Merge, never overwrite.** Other tools write `.codex/hooks.json` too — any skill installer
+ *   with a hooks half is one of them. Clobbering it would silently disable somebody else's guardrails,
  *   which is the same failure this plugin exists to prevent, pointed the other way.
  *
  *   **Record what was written.** `.graph-powers/installed.json` lists every generated path and
@@ -526,7 +526,7 @@ function openInstall({
   const previous = readJson(paths.manifest) ?? {};
   if (!dryRun) writeFile(paths.manifest, manifestBody(planned, false));
 
-  // Hooks, merged. Another tool writes this file too (`npx impeccable install` is one), and
+  // Hooks, merged. Another tool may write this file too (any installer with a hooks half), and
   // clobbering it would silently disable somebody else's guardrails.
   //
   // Written only when the bytes change. Codex trusts a hooks file by its content, so an identical

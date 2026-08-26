@@ -251,8 +251,8 @@ read them as "all clauses true → exit".
 
 | Phase | Verifiable goal (binary) | Body | Guards |
 |---|---|---|---|
-| **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | `superpowers:brainstorming` → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable state change in Phase 0 framing → do not plan) · devil's-advocate at L6+ |
-| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** GATE 2 `graph-powers:evaluator` Mode 1 meets the 4 anchors **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved | `superpowers:writing-plans` → `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
+| **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect → clarify → compare → design → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable destination → do not plan) |
+| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** self-review passes **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved; at L5+, GATE 2 meets the 4 anchors | map files/interfaces → write tasks → self-review → at L5+ `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
 | **C — Executing-plans** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → GATE A → GATE B → close the task, and its verification releases what it unblocked (`subagent-driven-development`) | HARD-STOP 3 retries/task · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · seq-think gate before the 3rd retry |
 
 ---
@@ -262,8 +262,8 @@ read them as "all clauses true → exit".
 - **Not an autonomous always-on agent.** The git rails hold: commit/push stay manual, the user
   approves every phase boundary and every merge (`${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`). The loop
   iterates *within* a phase toward its goal; it never auto-advances past a user-approval gate.
-- **Not a new engine.** The chain still direct-invokes the `superpowers` skills. Loop engineering
-  is a process wrapper — it encodes *how to iterate*, not domain knowledge.
+- **Not a second method.** Phase A and Phase B own their methods. Loop engineering adds only the
+  iteration and stop conditions.
 - **Not a license to skip framing.** GOAL-GUARD is upstream of the loop: if Phase A can't state a
-  binary goal, the answer is more framing (`phase-a-brainstorm.md § Phase 0 — Framing`), not a
+  binary goal, the answer is more framing (`step-0-inventory.md § 0.0`), not a
   looser loop.

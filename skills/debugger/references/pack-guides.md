@@ -20,7 +20,7 @@ Three of the four packs run the same eight moves; only the columns in the next t
 2. Build the reproducer (Step 1). **Nothing below starts before this command exists.**
 3. Dispatch the pack's sub-agents (Step 2 templates below) while the baseline gates run.
 4. Consolidate findings, rank ≥3 falsifiable hypotheses (Step 3), instrument the survivors (Step 4).
-5. Minimal fix through `Skill("superpowers:systematic-debugging")` → RED first (Step 5).
+5. Minimal fix per `references/methodology.md § Step 5` — RED first through `Skill("graph-powers:test-driven-development")` (Step 5).
 6. Verification gates, exit code read (Step 6).
 7. Capture the pack's evidence — browser, database, or both.
 8. Report: confirmed hypothesis, root cause, evidence, what was ruled out.
@@ -73,9 +73,9 @@ Cross-reference `${rulesDir}/stability.md` and `references/methodology.md § Sec
 
 ## Parallel-research templates (Step 2)
 
-Dispatched **after** Step 1 produced a runnable reproducer. Invoke
-`Skill("superpowers:dispatching-parallel-agents")` first — it enforces distinct scope, a shared
-return contract and single-message dispatch (`shared/070-parallel-agent-spawn.md`).
+Dispatched **after** Step 1 produced a runnable reproducer. Read
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` first — it enforces distinct
+scope, a shared return contract and single-message dispatch.
 
 **Shared contract for every template below.** `run_in_background: true`. Read-only **by frontmatter,
 never by instruction**: B, C and D use `subagent_type: "graph-powers:explorer"`

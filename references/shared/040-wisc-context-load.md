@@ -15,5 +15,6 @@ the file.
 
 **Tier 3 (read on demand only):**
 - `Skill("senior-architect")` — runtime and environment shape, architecture decisions, trade-off analysis
+- `Skill("designer")` — visual direction before code: derive from the subject, refuse the defaults, one signature
 - `Skill("uxmaster")` — UX judgement: conversion, onboarding, hierarchy, retention
 - `${rulesDir}/` — the project's own rules and references, including anything it keeps outside skills

@@ -201,40 +201,35 @@ BACKUP
 
 ## Step 1 — Install what the harness depends on
 
-Two kinds of dependency, and this step installs both: the **plugins** the commands call into, and
-the **binaries** the skills shell out to. Neither is vendored. A copied snapshot of somebody else's
-work goes stale and cannot be updated — which is the exact failure this harness exists to end, one
-level up.
+Two kinds of dependency, and this step installs both: the **plugins** two commands can call into,
+both optional, and the **binaries** the skills shell out to. Neither is vendored. A copied snapshot
+of somebody else's work goes stale and cannot be updated — which is the exact failure this harness
+exists to end, one level up.
 
 Start by running the preflight at the end of this step. It prints one line per prerequisite and is
 the fastest way to know which halves of this step you can skip.
 
-**The two plugins and the one external skill are required.** Nine of the ten commands call
-superpowers skills; without it `/plan`, `/debug` and `/implement` stop mid-run. `/design` delegates
-every craft pass to impeccable, and loads `landing-page-design` whenever the surface is a landing or
-marketing page.
+**Nothing required is external.** The method layer the commands open with — discovery, design,
+writing and executing plans, test-driven development, the evidence gate, parallel dispatch,
+receiving a review — ships inside this plugin as `skills/planning`, `executing-plans`,
+`test-driven-development`, `commands/pr-review.md § 4.1` and
+`references/shared/005-method-bootstrap.md`, `015-verification-gate.md`,
+`070-parallel-agent-spawn.md`.
+`/design` needs nothing installed either: its direction, its craft passes and the landing-page
+system are the plugin's own `designer` and `landing-page-design` skills.
 
-### superpowers — the method layer
+**There is no per-skill install.** Claude Code, native Codex, Cursor and Grok expose the plugin's
+whole `skills/` directory. The Codex clone fallback enumerates every skill directory and copies all
+of `references/`; it does not keep a hand-maintained allowlist. Installing or updating Graph Powers
+therefore installs `executing-plans`, `test-driven-development` and their references together. If
+either skill is missing, update or reinstall the plugin and restart the session — do not copy one
+folder by hand and create a version that cannot be updated as a unit.
 
-Brainstorming, writing plans, executing plans, test-driven development, systematic debugging,
-verification before completion. Maintained at [obra/superpowers](https://github.com/obra/superpowers).
+A `superpowers` plugin left from an earlier setup is not used by this harness any more — every
+method call here is namespaced `graph-powers:` — so it can stay or go at the user's choice; do not
+install it on their behalf.
 
-- **Claude Code**, at user scope so it serves every project like the rest of the harness:
-  ```
-  /plugin marketplace add obra/superpowers-marketplace
-  /plugin install superpowers@superpowers-marketplace
-  ```
-  Check first — `claude plugin list | grep superpowers`. If it is there, skip.
-  (It is also on the official Claude plugin marketplace: `/plugin install superpowers@claude-plugins-official`.)
-- **Codex CLI:** open `/plugins`, search `superpowers`, select *Install Plugin*.
-
-Verify: `Skill("superpowers:using-superpowers")` resolves. If it does not, **stop** and tell the
-user — do not carry on and let commands fail halfway through a task.
-
-### impeccable — the design layer
-
-Design, critique, audit and anti-pattern detection for interfaces. Apache-2.0, maintained at
-[pbakaus/impeccable](https://github.com/pbakaus/impeccable).
+### Package runners — resolve the runner before typing any `npx`
 
 **Resolve the runner from the project before you type the command.** `tooling.packageManager` in the
 config (Step 3) decides it, and getting it wrong is not a style question: a project that declares
@@ -249,66 +244,38 @@ lockfile from forking. Widening the allowlist to get past it is the wrong fix.
 | `pnpm` | `pnpm dlx` |
 | `yarn` | `yarn dlx` |
 
-```bash
-# Global first, like everything else that is identical per project.
-# Substitute <runner> from the table above.
-<runner> impeccable install --providers=claude,codex --scope=global --yes
+Every `<runner>` in this playbook substitutes from this table. A global install sidesteps the
+question for a binary; a one-off `npx` never does.
 
-# Only fall back to --scope=project when the team must get it by cloning the repository.
-```
+### landing-page-design — now inside the plugin
 
-**`--yes` is not optional here.** Without it the installer prompts for the harnesses and the scope,
-and a command an agent runs unattended stops on a question nobody answers. With `--providers` and
-`--scope` both given, `--yes` is what makes the run deterministic instead of merely defaulted.
+Until 1.9.5 this skill was installed by copy into `~/.claude/skills` and `~/.agents/skills`. Since
+1.10.0 it ships in `skills/landing-page-design/` as an adapted work, and a personal copy left behind
+is worse than absent: a personal-scope skill wins over a plugin skill of the same name, so a bare
+`Skill("landing-page-design")` keeps loading the old upstream file — the one whose description
+claims every web UI — and the plugin's version never runs. The preflight below reports that state as
+`SHADOWS`.
 
-**Where it lands, so you can verify it.** The Codex half installs to `~/.agents/skills/impeccable`,
-not `~/.codex/skills` — `.agents/skills` is the shared skills directory Codex reads, and it is the
-same one `codex/install.mjs` writes this plugin's skills into. Confirm with a directory listing of
-`~/.agents/skills` and by checking that `~/.codex/hooks.json` still holds this plugin's hook
-commands alongside impeccable's.
-
-**Order matters.** Run this *before* Step 3 writes the Codex artefacts: impeccable also writes
-`.codex/hooks.json`, and although the Graph Powers installer merges rather than overwrites, doing
-it in this order means the merge happens once and you can verify it once.
-
-### landing-page-design — the landing-page layer
-
-Intake questions, section order, conversion copy, and the visual canon for type, spacing, radius,
-background, hero, icons and motion. MIT, maintained at
-[elayadesign/ai-design-skills](https://github.com/elayadesign/ai-design-skills).
-
-**It is a skill folder, not a plugin.** There is no marketplace entry and no installer: the
-repository ships a single `skills/landing-page-design/SKILL.md`, so installing it is copying that
-one file into the two skills directories this harness already reads — `~/.claude/skills` for Claude
-Code and `~/.agents/skills` for Codex, the same pair impeccable lands in.
+Remove both copies. The Claude one is usually a symlink into the Codex one, which is why the
+command unlinks before it deletes, and it is a recursive delete under the home directory — the
+kind this plugin's own guardrail refuses from an agent, correctly. Run it yourself, or hand it to
+the user with `!` in front:
 
 ```bash
-python -X utf8 -c "import os,urllib.request;h=os.path.expanduser('~');u='https://raw.githubusercontent.com/elayadesign/ai-design-skills/main/skills/landing-page-design/SKILL.md';[(os.makedirs(os.path.join(h,*d,'landing-page-design'),exist_ok=True),urllib.request.urlretrieve(u,os.path.join(h,*d,'landing-page-design','SKILL.md'))) for d in (('.claude','skills'),('.agents','skills'))]"
+python -X utf8 -c "import os,shutil;h=os.path.expanduser('~');[(os.unlink(p) if os.path.islink(p) else shutil.rmtree(p)) for p in (os.path.join(h,*d,'landing-page-design') for d in (('.claude','skills'),('.agents','skills'))) if os.path.lexists(p)]"
 ```
 
-No `curl`, no `cp`, no `/tmp`: the upstream README spells the install with all three, and none of
-them runs on the Windows shells this plugin has to work under. The command above is the same
-operation in the interpreter every machine here already has, and re-running it is the update.
-
-**Verify:** both files exist and are non-empty, and `Skill("landing-page-design")` resolves in a
-fresh session. If upstream ever grows the skill past that single file, clone the repository and copy
-the whole folder instead — the one-file fetch would silently leave its references behind.
-
-`/design` loads it only for a landing or marketing surface; a dashboard or an app shell never pays
-for it. Its design values are meant to be forked: point the user at the **Design Values** section at
-the bottom of the file when the project's palette and type scale should win, which under this
-harness they always do.
+Re-run the preflight; the row reads `ok`. Nothing else changes: `/design` loads the skill only for
+a landing or marketing surface, and the project's tokens still win over its canon.
 
 ### Keeping them current
 
-All three age independently of this plugin. Add these to whatever the project uses for routine
-maintenance, and tell the user they exist:
+The optional plugins age independently of this plugin. Add these to whatever the project uses for
+routine maintenance, and tell the user they exist:
 
 ```bash
-<runner> impeccable update      # same runner as the install above
 claude plugin update graph-powers
-# superpowers updates through the plugin marketplace it was installed from
-# landing-page-design: re-run the python one-liner above
+# codex and code-review update through the marketplace each was installed from
 ```
 
 ### The other two plugins, both conditional
@@ -370,8 +337,8 @@ use.
 `/debug frontend`, the `graph-powers:verification` agent and `Skill("webapp-testing")` drive a real browser
 through it. The skills spell it `bunx agent-browser` in twenty-five places, and that spelling is a
 liability in any project that does not use bun: a project declaring `autonomy.allowPackageManagers`
-has this plugin's own guardrail refuse `bunx`, correctly — the same trap the impeccable half of this
-step warns about, with the same runner table as its answer. A global install sidesteps the runner
+has this plugin's own guardrail refuse `bunx`, correctly — the same trap the *Package runners* note in
+this step warns about, with the same runner table as its answer. A global install sidesteps the runner
 question entirely — every `bunx agent-browser …` in the skills then works as plain `agent-browser …`.
 
 One more place hardcodes bun the same way. `skills/debugger/scripts/find_polluter.py:92` runs
@@ -401,7 +368,7 @@ Package names and the binary each one exposes were read from the registries, not
 | `git` | REQUIRED | every command; the guardrails read the worktree | your OS package manager |
 | `node` | REQUIRED | workflows, `bin/`, the Codex installer | nodejs.org, 18 or newer |
 | a package manager | REQUIRED | every per-call fetch above | whatever `tooling.packageManager` declares. `hooks/_config.py:373` already recognises `npm`, `bun`, `pnpm`, `yarn`, `deno`, `uv`, `uvx`, `pipx` and `poetry` as runners, so a Python project on `uv` is a first-class case |
-| `claude` | REQUIRED | the harness; `second-opinion` runs it headless | `npm install -g @anthropic-ai/claude-code` |
+| `claude` | REQUIRED | the harness; `graph-powers:evaluator` Mode 5 runs it headless for the dollar-capped second opinion | `npm install -g @anthropic-ai/claude-code` |
 | `gh` | CONDITIONAL — required the moment a PR or an issue is involved | `gh pr checkout`, `gh issue view` | cli.github.com — then `gh auth login`, because `gh auth status` failing is its own stop |
 | `agent-browser` | RECOMMENDED | `/debug frontend`, `webapp-testing`, the `graph-powers:verification` agent | `npm install -g agent-browser` |
 | a Chrome-family browser | RECOMMENDED | what `agent-browser` drives | already present on most machines; otherwise `agent-browser install` |
@@ -411,7 +378,6 @@ Package names and the binary each one exposes were read from the registries, not
 | `cursor` | OPTIONAL | the Cursor half; the IDE permission file is what stops Auto-review | cursor.com |
 | `grok` | OPTIONAL | the Grok CLI half; `~/.grok/config.toml` is what stops the confirmation flood | docs.x.ai/build |
 | `code-review-graph` | OPTIONAL | `/plan` Step 0 structural search | `python3 -m pip install code-review-graph` |
-| `timeout` | OPTIONAL, and unavailable on Windows | `second-opinion` wraps its headless `claude` call in it | GNU coreutils: present on Linux; macOS needs `brew install coreutils` and the binary is `gtimeout`. Windows has an unrelated `timeout.exe` that pauses — there, drop the wrapper and watch the run yourself |
 
 `code-review-graph` is the one whose absence is designed for: `references/shared/115-code-graph.md`
 says the graph steps are **SKIPPED, never blocking**, and `/plan` falls back to grep. Install it for
@@ -488,7 +454,7 @@ for name, level, who in (
     ("python3",       "REQUIRED",    "the literal name all 12 hook scripts register; see below"),
     ("git",           "REQUIRED",    "every command; the guardrails read the worktree"),
     ("node",          "REQUIRED",    "workflows, bin/, the Codex installer, 18+"),
-    ("claude",        "REQUIRED",    "the harness; second-opinion runs it headless"),
+    ("claude",        "REQUIRED",    "the harness; evaluator Mode 5 runs it headless"),
     ("gh",            "CONDITIONAL", "/pr-review, and /plan in issue mode"),
     ("agent-browser", "RECOMMENDED", "/debug frontend and the browser QA agent"),
     ("gitleaks",      "OPTIONAL",    "/perf security-baseline"),
@@ -528,16 +494,13 @@ home = os.path.expanduser("~")
 pf = os.path.join(home, ".claude/plugins/installed_plugins.json")
 names = set(json.load(open(pf, encoding="utf-8")).get("plugins", {})) if os.path.isfile(pf) else set()
 for want, level, who in (("graph-powers", "REQUIRED",    "this harness"),
-                         ("superpowers",  "REQUIRED",    "nine of the ten commands call it"),
                          ("codex",        "OPTIONAL",    "codex:codex-rescue escalation"),
                          ("code-review",  "OPTIONAL",    "one of /pr-review's four paths")):
     hit = [n for n in names if n.startswith(want + "@")]
     row(want, hit[0] if hit else "MISSING", level, who)
-row("impeccable", "present" if os.path.isdir(os.path.join(home, ".claude/skills/impeccable"))
-    else "MISSING", "REQUIRED", "/design delegates every craft pass to it")
-row("landing-page-design", "present" if os.path.isfile(
-    os.path.join(home, ".claude", "skills", "landing-page-design", "SKILL.md"))
-    else "MISSING", "REQUIRED", "/design loads it for a landing or marketing surface")
+lp = os.path.join(home, ".claude", "skills", "landing-page-design")
+row("landing-page-design", "SHADOWS the plugin copy — remove it (Step 1)" if os.path.lexists(lp)
+    else "ok", "SHIPPED", "in the plugin since 1.10.0; a personal copy wins over it")
 
 print("-- MCP servers, matched by the slug the tool names need --")
 listing = run(shutil.which("claude") or "claude", "mcp", "list", timeout=120)
@@ -1311,7 +1274,7 @@ Three things to get right, because they are the ones that go wrong quietly:
   `drizzle-kit check` is not a status command: it never opens the database.
 - **`testRunner: null` is an answer.** It says the absence is deliberate. Omitting the field says
   nobody looked.
-- **JS/TS gates use the low-resource resolver.** Read `skills/bun-verify/references/low-resource-js-ts-gates.md`. For a Bun project with `tsconfig.json`, configure native tsgo exactly as
+- **JS/TS gates use the low-resource resolver.** Read `skills/debugger/references/low-resource-js-ts-gates.md`. For a Bun project with `tsconfig.json`, configure native tsgo exactly as
   `bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1`; install the package locally first. Use `bun test --smol` for the final suite and
   `bun test --changed --bail=1 --smol` in an edit loop. Never copy `node --test`, legacy `tsc`, bare
   `tsgo`, unbounded `--parallel`, or unbounded `--concurrent` into the config.
@@ -1346,11 +1309,14 @@ this is the only place the mistake becomes visible.
 
 ---
 
-## Step 4 — Improve `CLAUDE.md` and `AGENTS.md`
+## Step 4 — Improve `CLAUDE.md` and `AGENTS.md`, then grow the intent layer under them
 
 These files already exist and carry decisions nobody remembers making. The goal is **not** to
 replace them. It is to take out what now comes from the plugin, keep what only exists here, and
-lose nothing on the way.
+lose nothing on the way. Then, once the root pair is right, the subtrees that earn a node of their
+own get one (4b).
+
+### 4a — The root pair
 
 Read the current file and `$PLUGIN/templates/CLAUDE.md`. Then classify every section:
 
@@ -1375,6 +1341,56 @@ one.
 
 For Codex, the installer maintains a delimited `<!-- graph-powers:start -->` block in `AGENTS.md`.
 Do not hand-edit inside those markers — the next install rewrites it.
+
+### 4b — The intent layer: child `AGENTS.md` nodes where the tree earns them
+
+The root pair says what the project is. It cannot say what `packages/core` owns and `packages/api`
+does not, and that is the question an agent asks on entering a subtree — so it re-derives the
+answer from the files, differently each time. A child `AGENTS.md` in the subtrees that earn one is
+the intent layer, and this harness already reads it: `/prime` loads `${paths.backendRoot}/AGENTS.md`
+and the nearest node under `${paths.frontendRoot}`; `graph-powers:explorer`, `graph-powers:debugger`
+and `graph-powers:frontend-specialist` load the nearest node before touching a subtree. In a
+repository that never grew the layer, every one of those reads returns nothing.
+
+Load `Skill("graph-powers:intent-layer")` and follow its procedure. In this playbook's terms:
+
+```bash
+# where the tree stands — root present, children linked, candidates due
+python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .
+
+# tokens per directory, has-node, verdict — paste the table before proposing anything
+python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" measure . --depth 3
+```
+
+Then decide, and say why for each directory: a node where the table says `NODE` or `SPLIT`, where
+a directory is a responsibility boundary — its own manifest, deploy or owner — and nowhere else.
+Not one per directory, not in tests, not in a utilities folder small enough to read whole. Source
+each node from the repository first: the manifest, the validators and guards, the directory's git
+history, the last three commits that added the typical thing. Ask, one question at a time, only
+what the repository cannot answer. **Never invent a contract.** A node states what the code
+enforces or what a person said; a plausible invariant nobody stated is fiction that agents will then
+defend.
+
+Every child gets a downlink from the nearest ancestor node — in the root, a row in `Where things
+live` — and stays under 4k tokens. The root, the child and every node between them are read
+together by Codex, which stops at 32 KiB; the gate measures that chain, not each file alone.
+
+```bash
+# the gate — exit 0 or the step is not done; quote its output in Step 11
+python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" check .
+```
+
+`--exclude <dir>` on any of the three hides a directory whose `AGENTS.md` is not a node — a template
+still carrying `{{placeholders}}`, a vendored example. A `FAIL` is fixed or explained in the
+report; it is never hidden with `--exclude`.
+
+A `CLAUDE.md` in a subdirectory is not a node: Codex, Cursor and Grok never read it. `check`
+reports it as a warning. Move its content into that directory's `AGENTS.md`, and keep the
+`CLAUDE.md` only when it carries Claude-specific behaviour worth a second file.
+
+This sub-step writes only `AGENTS.md` files below the root and rows in the root's table. The rules
+layer is Step 5 and the three authorities are Step 6; a contract that belongs in one of those does
+not go into a node because the node was open.
 
 ---
 
@@ -1561,11 +1577,12 @@ releases.
 Read this before running the installer, because it is the one step where getting it wrong does not
 degrade the harness — it takes the CLI down.
 
-Four states are separate and each has its own proof:
+Five states are separate and each has its own proof:
 
 | State | Proof | If absent |
 |---|---|---|
 | Plugin installed and enabled | `codex plugin list --json` contains enabled `graph-powers@graph-powers` | install with 9c |
+| Method skills packaged | Step 10 § 7b reports both skill files present in the listed plugin source | update or reinstall the plugin; never copy one skill separately |
 | Hooks discovered | `/hooks` lists fourteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
 | Hooks approved | `/hooks` shows those entries enabled/trusted | approve them explicitly; installation never grants trust |
 | Hooks executing | `codex exec --skip-git-repo-check "reply with: ok"` reports `Completed` | use the diagnostic matrix in 9e |
@@ -1929,6 +1946,10 @@ for path in hits:
 print("" if found else "no pending placeholders")
 PLACEHOLDERS
 
+# 1b. the intent layer holds — every child AGENTS.md linked, resolving, under its cap, and the
+#     root-to-leaf chain under the 32 KiB Codex reads. The check above only scans the root pair.
+python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" check .   # expected: exit 0, last line `intent layer: OK`
+
 # 2. the guardrails hold, and one project's key does not work in another
 python3 "$PLUGIN/hooks/test_hooks.py"        # expected: exit 0
 
@@ -1965,6 +1986,24 @@ git commit --allow-empty -m "guardrail check"     # expected: denied, naming <PR
 # 7. the agents resolve, by the name the registry uses
 #    Spawn one, in the new session, and read the error rather than guessing:
 #      Agent({ subagent_type: "graph-powers:explorer", prompt: "list the files in agents/" })
+
+# 7b. only if Step 9 ran: without invoking an execution skill, inspect the `source.path` for graph-powers in
+#     `codex plugin list --json`. A missing file means a stale or incomplete package, not a
+#     separate skill install.
+python3 - <<'METHOD_SKILLS'
+import json, os, subprocess
+doc = json.loads(subprocess.run(
+    ["codex", "plugin", "list", "--json"], capture_output=True, check=True,
+    encoding="utf-8", errors="replace").stdout)
+entry = next((p for p in doc.get("installed", [])
+              if p.get("pluginId") == "graph-powers@graph-powers" and p.get("enabled")), None)
+root = ((entry or {}).get("source") or {}).get("path")
+required = ("skills/executing-plans/SKILL.md",
+            "skills/test-driven-development/SKILL.md")
+missing = required if not root else tuple(r for r in required if not os.path.isfile(os.path.join(root, *r.split("/"))))
+print("method skills: " + ("present" if not missing else "MISSING " + ", ".join(missing)))
+raise SystemExit(bool(missing))
+METHOD_SKILLS
 
 # 8. Codex answers, and its hooks run — only if Step 9 ran
 codex doctor                                      # expected: 0 fail
@@ -2024,9 +2063,10 @@ silent: the agent reads it, finds nothing, and carries on with less context than
 ```markdown
 ## Graph Powers — setup complete
 
-**External dependencies:** superpowers <version, installed|already present> · impeccable <version, installed|already present> · landing-page-design <installed|already present>
+**External dependencies:** none required · optional plugins: codex <present|absent> · code-review <present|absent> · landing-page-design personal copy <none|removed>
 **Config:** <created | merged> — branch <x>, opt-in prefix <Y>, gates <list>
 **CLAUDE.md:** <lines before> → <lines after> · removed: <what> · preserved: <what>
+**Intent layer:** root AGENTS.md · <n> child nodes (<paths>) · <n> candidates deferred (<why>) · check: exit <code>
 **Rules:** <n> kept · <n> replaced by templates · <n> removed (<why>)
 **Authorities:** DESIGN.md <created|improved|skipped, why> · PRODUCT.md <…> · REVIEW.md <…>
 **Cleanup:** <n> local copies removed · <n> kept as deliberate overrides (<which, and why>)

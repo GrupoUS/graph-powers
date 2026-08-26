@@ -67,7 +67,6 @@ SHELL_CONSTRUCTS = {
 EXEMPT_FILES = {
     ".github/check_portability.py",
     "references/shared/110-guardrails-index.md",   # documents all three shell forms, by design
-    "skills/astro/references/troubleshooting.md",  # has an explicit PowerShell branch
     "CHANGELOG.md",                                # a record of what happened, not an instruction
     # Prose for a person, not a block an agent executes — which is the line this gate draws in its
     # own docstring. Somebody reading the README on a Mac types `~/.claude`, and rewriting that as

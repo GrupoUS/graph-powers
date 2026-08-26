@@ -1,7 +1,7 @@
 export const meta = {
   name: 'ultra-plan',
-  description: 'Fan-out research from many angles + synthesize one reviewed implementation plan (framing → competing approaches → writing-plans format → anchor-scored evaluator gate). Writes the plan to the project\'s plan directory and commits nothing.',
-  whenToUse: 'Start of any L3+ feature. Researches the codebase + external docs in parallel, drafts competing approaches, synthesizes one phased plan with atomic disjoint-file tasks, then adversarially reviews it against the calibration anchors. L1-L2 trivial tasks exit early (direct edit). Pass the task as args, or { task, config }.',
+  description: 'Fan-out focused research + synthesize one reviewed implementation plan (framing → competing approaches → writing-plans format → anchor-scored evaluator gate). Writes the plan to the project\'s plan directory and commits nothing.',
+  whenToUse: 'Start of any L3+ feature. Researches the codebase and, only when needed, external docs; drafts competing approaches; synthesizes one phased plan with atomic disjoint-file tasks; then adversarially reviews it against the calibration anchors. L1-L2 trivial tasks exit early (direct edit). Pass the task as args, or { task, config }.',
   phases: [
     { title: 'Frame', model: 'haiku' },
     { title: 'Fan-out research' },
@@ -22,17 +22,17 @@ export const meta = {
 // arrives through `config` and traces back to `schema/config.schema.json`.
 //
 // This workflow IS the planning chain run as deterministic orchestration. Sub-agents must NOT
-// invoke `Skill("planning")` — that skill is itself an agent-dispatching chain (Phase A fans out
-// explorer + librarian, its gates re-dispatch) and `project-planner` carries the Agent tool, so an
+// invoke `Skill("planning")` — that skill is itself an agent-dispatching chain (Phase A researches,
+// its gates re-dispatch) and `project-planner` carries the Agent tool, so an
 // inner `Skill()` call re-fans-out and the spawn count explodes. Each agent instead READS the
 // relevant guide for conventions and format, and does focused work.
 //   Guide map, all under `<pluginRoot>/skills/planning/references/`:
-//     framing + Phase 0  → phase-a-brainstorm.md § Phase 0 — Framing / § Step 4
+//     framing + options  → planning/SKILL.md § Step 0 + phase-a-brainstorm.md § Core method and sizing / § Step 4
 //     plan format        → phase-b-writing-plans.md (+ § Risk for L6+ pre-mortem/ADR)
 //     review anchors     → loop-engineering.md § Calibration anchors
 //     agent routing      → dispatch-matrix.md
 //
-// Worst-case spawns: 1 config (bare invocation only) + 1 frame + (≤4 explore + 1 librarian)
+// Worst-case spawns: 1 config (bare invocation only) + 1 frame + (≤4 explore + 1 conditional librarian)
 //   + 2 approaches + 1 synth + 1 review (+1 revise +1 re-review) (+1 L6 architecture pass) = ≤ 14.
 //
 // Fail fast, never half-succeed: each stage throws if its input did not survive (dead frame → no
@@ -158,11 +158,12 @@ const LANES = [
 
 // riskSurfaces is `required`: it is the sole switch for the whole L6 branch (pre-mortem, ADR,
 // Mode 3) via isL6 below, so an omitted key would silently disable all three.
-const FRAME = { type: 'object', required: ['intentLevel', 'restatedGoal', 'researchAngles', 'riskSurfaces'], properties: {
+const FRAME = { type: 'object', required: ['intentLevel', 'restatedGoal', 'researchAngles', 'externalResearchNeeded', 'riskSurfaces'], properties: {
   intentLevel: { type: 'string', enum: ['L1', 'L2', 'L3', 'L4', 'L5', 'L6'] },
   restatedGoal: { type: 'string' },
   unknowns: { type: 'array', items: { type: 'string' } },
   researchAngles: { type: 'array', items: { type: 'string' } },
+  externalResearchNeeded: { type: 'boolean' },
   riskSurfaces: { type: 'array', items: { type: 'string', enum: [...SURFACES, 'none'] } },
 } }
 const RESEARCH = { type: 'object', required: ['angle', 'findings'], properties: {
@@ -193,9 +194,9 @@ const REVISED = { type: 'object', required: ['revised'], properties: {
 // 1. Frame — classify intent + list the highest-signal research angles (haiku)
 phase('Frame')
 const frame = await agent(
-  `Frame and classify this task following ${SKILL}/phase-a-brainstorm.md § Phase 0 — Framing (problem framing + scope decomposition + divergent angles). ${NO_SKILL}
+  `Frame and classify this task following ${cfg.pluginRoot}/skills/planning/SKILL.md § Step 0 and ${SKILL}/phase-a-brainstorm.md § Core method and sizing (problem framing + scope decomposition + viable alternatives). ${NO_SKILL}
 TASK: ${TASK}
-Return: intent level L1-L6 (per the skill's Step 0 tier gate), a one-paragraph restated goal, open unknowns, and 3-4 research angles — only the highest-signal ones (prefer fewer, sharper angles; mix codebase areas + external topics), plus risk surfaces (${SURFACES.join('/')}, or none). ${RO}`,
+Return: intent level L1-L6 (per the skill's Step 0 tier gate), a one-paragraph restated goal, open unknowns, 3-4 highest-signal codebase research angles, externalResearchNeeded=true only when the decision depends on current external API/security/version behaviour, and risk surfaces (${SURFACES.join('/')}, or none). ${RO}`,
   { agentType: AG('explorer'), phase: 'Frame', schema: FRAME, label: 'frame', model: M('explorer') }
 )
 
@@ -221,20 +222,21 @@ if ((level === 'L1' || level === 'L2') && !risky.length) {
   }
 }
 
-// 2. Fan-out — parallel research (codebase haiku + 1 external) AND 2 competing approaches
+// 2. Fan-out — parallel codebase research (+ external only when required) AND 2 competing approaches
 phase('Fan-out research')
 const angles = frame.researchAngles.slice(0, 4)
-// Librarian FIRST: the results array is JSON-stringified and hard-sliced before it reaches the
-// downstream prompts, so whatever sits last is what gets truncated away. External findings
-// (security advisories, version pitfalls) are the most expensive to recover and the least
-// recoverable by a later agent — they must not be the tail.
-const research = (await parallel([
+// When needed, librarian stays first: downstream prompts hard-slice the JSON, so external findings
+// must not become the truncated tail. Purely internal work pays no external-research spawn.
+const externalResearch = frame.externalResearchNeeded ? [
   () => agent(
     `Research EXTERNAL knowledge for this task: library/API behavior, current best practices, version pitfalls, security advisories.
 TASK: ${TASK}
 Return findings + citations. Never touch the filesystem.`,
     { agentType: AG('librarian'), phase: 'Fan-out research', schema: RESEARCH, label: 'librarian', model: M('librarian') }
   ),
+] : []
+const research = (await parallel([
+  ...externalResearch,
   ...angles.map((a, i) => () => agent(
     `Research this angle (internal codebase ONLY): existing patterns, reusable helpers/primitives, impacted files, conventions to match.
 TASK: ${TASK}

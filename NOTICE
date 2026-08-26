@@ -35,8 +35,17 @@ Modifications by GrupoUS, as required by section 4(b) of that License:
   skills/skill-improve/    Renamed from `skill-creator`. SKILL.md rewritten as a two-mode
                            router: the upstream authoring loop is Mode A, and this repository's
                            former `harness-audit` skill was merged in whole as Mode B, the
-                           wiring audit. The `scripts/` evaluation tooling is unmodified
-                           upstream code, now shared by both modes. The name is one this
+                           wiring audit. Under `scripts/`, `quick_validate.py`, `init_skill.py`
+                           and `package_skill.py` derive from an upstream revision earlier than
+                           anthropics/skills#465 (2026-02-25, which removed `init_skill.py`
+                           and moved the validator to PyYAML) and are modified here: the
+                           validator reads frontmatter with the standard library, strips one
+                           matching pair of quotes from `name` and `description` before
+                           checking them, counts the body against 500 non-empty lines, and has
+                           an `--all` batch mode; the packager still emits a zip. The
+                           assertion runner `run_evals.py` is not upstream code and never was
+                           (no commit in anthropics/skills touches that path); it is this
+                           repository's own, shared by both modes. The name is one this
                            repository carried before and retired; it is reused here for the
                            merged skill, whose scope is broader than either original.
   skills/webapp-testing/   Retargeted from a hardcoded URL to `project.stagingUrl` read from
@@ -55,8 +64,8 @@ MIT — adapted material, not redistributed verbatim
   skills/debugger/references/methodology.md
 
 Adapted from the `diagnosing-bugs` skill of https://github.com/mattpocock/skills (MIT). Split
-into a diagnose half and a fix half, and rewritten to run inside the Superpowers chain rather
-than alongside it.
+into a diagnose half and a fix half, and rewritten to run inside this plugin's debugging chain
+(`skills/debugger`) rather than alongside it.
 
   skills/planning/references/wayfinding.md
 
@@ -69,17 +78,79 @@ specification.
 Ported from `find-polluter.sh` of https://github.com/obra/superpowers (MIT) to Python standard
 library, because this repository does not ship shell scripts.
 
+  skills/planning/references/phase-a-brainstorm.md
+  skills/planning/references/phase-b-writing-plans.md
+  skills/executing-plans/
+  skills/test-driven-development/
+  commands/pr-review.md § 4.1
+  references/shared/005-method-bootstrap.md
+  references/shared/015-verification-gate.md
+  references/shared/070-parallel-agent-spawn.md
+
+Adapted from the skills of https://github.com/obra/superpowers (MIT, Copyright (c) 2025 Jesse
+Vincent), read at version 6.3.0: `brainstorming` and `writing-plans` (incorporated into the canonical
+Phase A and Phase B references of `skills/planning`, rather than shipped as overlapping skills),
+`subagent-driven-development` together with `executing-plans` and the reviewer template of
+`requesting-code-review` (merged into one skill, `executing-plans`, with a subagent-driven and an
+inline mode), `test-driven-development` with its `writing-good-tests.md`,
+`receiving-code-review` (folded into `/pr-review § 4.1`), and — folded into the shared references
+that already stated the rule here — `using-superpowers`, `verification-before-completion` and
+`dispatching-parallel-agents`.
+`systematic-debugging` and its companion notes were compared against `skills/debugger`, which had
+been written around them, and only what was missing was added there.
+Rewritten for this harness: the three shell scripts of `subagent-driven-development` became one
+Python standard-library script (`skills/executing-plans/scripts/sdd.py`); the visual companion (a
+Node server and its shell scripts) was dropped; every routine "commit" step became a working-tree
+checkpoint that commits only with the user's approval in that turn; the model is chosen through the
+agent's own frontmatter rather than passed at dispatch; spec and plan paths follow this plugin's
+path conventions; the `dot` diagrams became prose and tables; and
+`finishing-a-development-branch` was not ported, because the git rails here end at reviewed
+working-tree changes.
+
+  skills/intent-layer/
+
+Adapted from the `intent-layer` skill of https://github.com/crafter-station/skills (MIT), by
+Railly Hugo, itself built on Tyler Brandt's Intent Layer. The three shell scripts
+(`detect_state.sh`, `analyze_structure.sh`, `estimate_tokens.sh`) were ported to one Python
+standard-library script with a third subcommand, `check`, that upstream does not have — the gate
+the setup playbook runs; the "only one root context file" rule was rewritten for the
+`AGENTS.md` plus `CLAUDE.md` pair this harness installs, with `AGENTS.md` as the root node; the
+root's `## Intent Layer` section became a row in the root's existing `Where things live` table;
+the thresholds were kept and the Codex 32 KiB chain limit added. The capture protocol and the node
+templates were rewritten around this harness's config placeholders and its rule that no value is
+invented.
+
+  skills/animate/
+
+Adapted from four skills of https://github.com/emilkowalski/skills (MIT) — `animate`,
+`review-animations`, `improve-animations` and `find-animation-opportunities` — together with the
+`RECIPES.md`, `STANDARDS.md`, `AUDIT.md` and `PLAN-TEMPLATE.md` they carry. Merged into one skill
+with four modes: the rulebook the four repeated lives once in SKILL.md, the shell sweeps became
+`Grep` patterns, plans land in the project's `paths.planDir`, and the component-library and React
+Native handoffs point at this harness's own agents rather than at the upstream sibling skills.
+
+  skills/landing-page-design/
+
+Adapted from the `landing-page-design` skill of https://github.com/elayadesign/ai-design-skills
+(MIT, Copyright (c) 2026 Elaya), forked from the upstream `main` file of 16,528 bytes as read on
+2026-08-26. Part A — intake, section order, layout types, conversion and copy rules, build order,
+the index decision, the ship floor — is kept in substance and rewritten for this harness. Part B,
+the upstream visual canon, moved whole to `references/house-canon.md` as a fallback that yields to
+the host project's design authority, the `designer` direction contract and the `animate` rulebook;
+each value there carries its reason and is tagged craft or house taste. The upstream description,
+which claimed every web UI, was narrowed to landing and marketing surfaces. Two upstream claims
+were corrected against 2026 sources — FAQ rich results, and `text-wrap: pretty` support — and one
+rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
+
 ================================================================================
 External dependencies (not redistributed here)
 ================================================================================
 
-Graph Powers requires two external plugins and one external skill at runtime. None of them is
-vendored into this repository; all three are installed from their own distribution channels by the
-setup playbook in AGENT_SETUP.md, and remain under their own licenses:
+Graph Powers requires no external plugin at runtime.
 
-  superpowers           https://github.com/obra/superpowers              (MIT)
-  impeccable            https://github.com/pbakaus/impeccable            (Apache License 2.0)
-  landing-page-design   https://github.com/elayadesign/ai-design-skills  (MIT)
+Two skills are optional supplements, installed by copy when wanted and never redistributed here:
+
+  emil-design-eng, apple-design   https://github.com/emilkowalski/skills   (MIT)
 
 Three further plugins are optional, and named where a command calls them:
 

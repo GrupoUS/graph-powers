@@ -53,9 +53,10 @@ violation is actually born, in `workflows/ultra-build.js`
 path never run in parallel.
 
 *A spend ceiling in an interactive session.* The CLI exposes `--max-budget-usd`
-in print mode only (`claude --help`, 2.1.235 — there is no `--max-turns` either).
+in print mode only (`claude --help`, 2.1.245 — there is no `--max-turns` either).
 G2/G3 are the controllable proxy in-session; the real ceiling belongs on the
-headless wrapper that `${CLAUDE_PLUGIN_ROOT}/skills/second-opinion/` uses.
+headless engine of `graph-powers:evaluator` Mode 5, the second opinion
+(`${CLAUDE_PLUGIN_ROOT}/references/rubrics/evaluator-rubric.md`).
 
 Contract
 --------

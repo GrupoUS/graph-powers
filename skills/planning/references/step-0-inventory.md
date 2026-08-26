@@ -1,8 +1,8 @@
 # Step 0 — destination, reuse-first inventory, blast radius
 
-> The long form of `/plan § Step 0`. The command carries the checklist that runs at **every** tier;
-> this file carries the reasoning, the table templates and the surface map, and is read at **L3+**.
-> Research only — no design, no code, no file writes.
+> Canonical Step 0 for `Skill("graph-powers:planning")`. Read it end to end at L3+. At L1-L2 use only 0.0, two
+> targeted searches from 0.2, and one consumer search from 0.4, then state the reuse verdict inline.
+> Research only — no design, code or file writes.
 
 ## Why this runs before anything is designed
 

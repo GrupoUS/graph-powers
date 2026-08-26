@@ -1,5 +1,223 @@
 # Changelog
 
+## 1.10.0 — A direction pass that refuses the defaults
+
+### Added — `skills/designer`, loaded by `/design` before `uxmaster`
+
+A visual-direction skill that runs before any code: ground the surface in its subject, mine the
+subject's own world for material, diverge into three directions that differ in kind, commit one
+signature, and run the mirror test — the any-brief test that catches a plan any brief in the
+category would have produced, and remove-one-accessory. It writes a direction contract that
+`/design § 3` builds from and `§ 5` measures against.
+
+The point is freedom with a floor. Where the brief leaves an axis open, the axis is spent on the
+subject, never on the category habit; where the brief pins a look, the brief wins, including when
+it asks for one of the catalogued defaults. The floor — WCAG 2.2 AA numbers, the project's tokens,
+no invented claims — is held without commentary. `references/defaults-catalogue.md` carries the
+tells axis by axis (the three AI looks, the indigo gradient, the coloured left border, Inter as the
+only decision, the fade-up on every section, the headline that belongs to anyone) with the rewrite
+for each, measured against sixteen sources; `references/mirror-test.md` carries the two tests with
+one worked contract.
+
+Synthesised from Emil Kowalski's `emil-design-eng` and `apple-design`, Anthropic's
+`frontend-design`, the craft floor impeccable used to supply, and the official and practitioner sources the
+catalogue lists. It picks the direction; its own craft passes (Removed, below) build to it, and
+`animate` — with Emil's skills when they are installed — tunes the motion.
+
+### Removed — the `impeccable` dependency
+
+`/design § 3` no longer delegates to the external plugin. The craft passes are `designer`'s own:
+`references/craft-passes.md` defines `shape`, `build`, `audit`, `harden`, `typeset`, `layout`,
+`adapt`, `optimize`, `bolder`, `quieter`, `colorize` and `polish` — what each asks, reads, changes
+and when it is done, who runs it (`graph-powers:ui-ux-designer` read-only for `audit`,
+`graph-powers:frontend-specialist` for the rest) — and `references/craft-floor.md` the checks every
+pass is measured against on the built result. The `animate` pass is the `animate` skill in build
+mode. Written for this harness rather than copied: a pass that needed a package runner, a plugin
+install and a hook merge in every project put three refusable setup steps in front of a design task.
+`AGENT_SETUP.md § Step 1`, README, NOTICE, the docs and the skill matrices no longer name it; the
+hook test fixtures that used its install command as a sample package-runner call use
+`agent-browser` instead.
+
+### Added — `skills/animate`, four modes on one rulebook
+
+A motion skill that starts from the question the rest of the field skips: should this animate at
+all? The gate — frequency tier, named purpose, function — runs before any ingredient, and a request
+that fails it gets a plain refusal and the non-motion alternative instead of a beautiful easing on
+a command palette. Past the gate, the rulebook is Emil Kowalski's: `transform` and `opacity` only,
+never `scale(0)`, never `ease-in` on UI, three strong curves as tokens, per-element duration
+budgets under 300ms, springs for gestures, reduced motion and hover gating shipped with the
+animation. Four modes are verbs on that one rulebook — **build** writes the code from
+`references/recipes.md` (button press, dropdown, tooltip, modal, drawer, toast, accordion, stagger,
+hold-to-confirm, tab indicator, scroll reveal, drag-to-dismiss, masked crossfade, WAAPI);
+**review** returns a Before · After · Why table and Block or Approve (`references/review.md`);
+**audit** surveys a codebase read-only, ranks by leverage and writes self-contained plans into
+`paths.planDir` (`references/audit.md`); **find** proposes at most 5–7 opportunities and lists the
+candidates it rejected, with the gate question that killed each.
+
+Merged from four skills of emilkowalski/skills (MIT, credited in NOTICE) — `animate`,
+`review-animations`, `improve-animations`, `find-animation-opportunities` — which carried the same
+frequency table, the same three curves and the same duration budgets in four copies and differed
+only in the verb. One copy of the rulebook lives in `SKILL.md`; the block list is one table with
+three readers. Read-only is stated honestly: a skill cannot restrict its own tools, so review, audit
+and find run inside `ui-ux-designer`, whose `disallowedTools` is what keeps the promise. Wired
+from `/design § 3` before the `animate` craft pass, from `/pr-review` track 3D when a diff touches
+motion, and from the skill-domain matrix. Nine eval cases: five modes and refusals, four borders
+(`designer`, `/debug`, `mobile-developer`, the project's Astro route doctrine).
+
+### Changed — `/design § 1` runs the five moves; `§ 3` loads `animate`, and Emil's skills when installed
+
+Surgical work inherits the surface's world and runs moves 1 and 5; structural work runs all five
+and offers the category standard as the explicit exit. `emil-design-eng` and `apple-design` are
+declared optional external skills in `check_wiring.py` and README, loaded beside the plugin's own
+`animate` skill before the `animate` pass when present and named as absent otherwise. The skill-domain matrix, the WISC context load
+and the invocation order name `designer` ahead of `uxmaster`.
+
+### Added — `skills/intent-layer`, run by the setup playbook at step 4b
+
+The hierarchy of `AGENTS.md` files — the root node plus a child node in every subtree that earns
+one — is now built, grown and audited by a skill, and the setup playbook runs it after the root pair
+is rewritten. The harness already read those nodes (`/prime` loads `${paths.backendRoot}/AGENTS.md`
+and the nearest node under `${paths.frontendRoot}`; `explorer`, `debugger` and
+`frontend-specialist` load the nearest one before touching a subtree) and every one of those reads
+returned nothing in a repository that never grew the layer.
+
+Adapted from crafter-station's `intent-layer` (MIT; see `NOTICE`). Three changes are the point of
+the adaptation. The upstream shell scripts became one Python standard-library script,
+`scripts/intent_layer.py`, with `state` and `measure` as reads and a third subcommand upstream does
+not have: `check`, a gate that fails on an orphan node, a dangling downlink, a node over 4k tokens,
+a `{{placeholder}}`, a child with no purpose line, or a root-to-leaf chain over the 32 KiB at which
+Codex stops reading `AGENTS.md` files. The upstream "one root file — pick `CLAUDE.md` or
+`AGENTS.md`" rule became this harness's root pair: `AGENTS.md` is the root node, `CLAUDE.md`
+beside it is behaviour and pointers, and a `CLAUDE.md` in a subdirectory is reported as a node
+three of the four harnesses never read. And the root's `## Intent Layer` section became a row in
+the `Where things live` table the root template already carries, so the downlink index has one
+home.
+
+`AGENT_SETUP.md § 4b` runs it at install, `§ 10` runs `check` as a verification, `§ 11` reports
+it; `/evolve § 5` loads it when a learning lands in a subtree with no node or a node past its cap.
+The skill's own script is allowed by the Bash approver under `guarded` the way `turbo_dry_json.py`
+is, and `hooks/test_hooks.py` proves each of the seven `check` failures fires and that the
+legitimate tree passes. Nine eval cases sit on the borders with `/prime`, the rules layer,
+`skill-improve` and a single `/evolve` capture.
+
+### Changed — `second-opinion` is `evaluator` Mode 5
+
+The blind review moved from a standalone skill into the agent that already judges.
+`skills/second-opinion/` is gone; `graph-powers:evaluator` gains a fifth mode, Second Opinion, and
+its description carries the trigger the skill used to own — a fix that keeps not sticking, a
+decision that feels right mainly because the thread has been staring at it. The rubric's Mode 5
+section holds both halves: what the agent refuses to read (`HANDOFF.md`, `PROGRESS.md`, any record
+of prior attempts) and what the caller sends (the artifact by path, the decision stated neutrally,
+the real constraint, the three-part answer shape — verdict, strongest argument against, the one
+settling check).
+
+Three things the move measured. The skill's published invocation never ran as written:
+`--disallowedTools` is variadic and swallowed the question placed after it — on CLI 2.1.245 the
+CLI reported each word of the prompt as a permission deny rule matching no known tool, and exited
+0 having asked nothing. The question now goes first. Blindness needs no separate session: a
+subagent starts from its prompt and nothing else, so the default engine is an ordinary spawn, and
+the headless `claude -p "<question>" --agent graph-powers:evaluator` run stays for the one thing
+only print mode has, `--max-budget-usd` — measured to run the agent on its own declared model,
+$0.11 for a one-word reply. The coreutils `timeout` wrapper is gone: cardinal 8, it does not exist
+on Windows; the Bash tool's own timeout is the wall-clock cap, and `AGENT_SETUP.md` drops the row
+that installed it.
+
+Call sites rewired: recovery Step 4, the skill-domain matrix, `/debug` § 0 and § 7, the debugger
+and planning escalation tables, and the guardrail docstring that named the headless wrapper.
+Listing budget: −344 chars.
+
+### Added — `skills/landing-page-design`, the page system, adapted from elayadesign
+
+The landing-page layer stops being an install-by-copy dependency and ships with the plugin as an
+adapted work (MIT, attributed in `NOTICE`). What it keeps whole is the page system: the intake in
+one batch, the twelve-section order, the four layout types, the conversion and copy rules, the
+build order, the index decision, and the ship floor of content realism, states and the
+landing-specific ship list. What changed is ownership: the upstream visual canon — a font
+whitelist, six hex backgrounds, an icon set, one curve, a mandatory word-by-word tagline reveal —
+moved to `references/house-canon.md` as a fallback behind the project's design authority, the
+`designer` direction contract and the `animate` rulebook, each value tagged craft or house taste
+with its reason, and the catalogued defaults among them (gradient text, glass, the fade-up on
+every section) named as such. The description was narrowed from "any web UI" to landing and
+marketing surfaces, so it no longer out-triggers `designer` on a dashboard.
+
+Measured against the siblings before writing: 45 collisions, 5 of them P0 in the visual canon,
+all resolved by precedence rather than by a second copy of a value. Two upstream claims corrected
+against 2026 sources — Google removed FAQ rich results in May 2026, and `text-wrap: pretty` is
+Chromium-only — and one upstream rule inverted: "organic" fake numbers made invented proof more
+plausible, which is the honesty gate's exact failure; numbers are now real or absent. Eight eval
+cases sit at the real borders; the round is in `skills/skill-improve/learning.md`.
+
+### Removed — the `landing-page-design` external dependency
+
+`AGENT_SETUP.md § Step 1` no longer installs it; its preflight row now reads `SHADOWS` when a
+personal copy under `~/.claude/skills` is still present, because a personal-scope skill of the same
+name wins over the plugin's under a bare `Skill("landing-page-design")`, and the step carries the
+removal command. `check_wiring.py` drops the `EXTERNAL_SKILLS` entry; README,
+`docs/ARCHITECTURE.md § 7` and `docs/AUDIENCE.md` record the reversal and what measured it.
+
+### Removed — the standalone `astro` skill
+
+The ten-file framework manual (46,531 B, 1,034 non-empty lines) mixed the small delivery floor a
+landing page needs with Content Collections, Actions, Sessions, middleware, adapters, CSP, version
+watchlists and troubleshooting. The useful subset now lives once in `landing-page-design`: static
+`.astro` sections, native controls or a local script before a client island, deliberate hydration,
+responsive `astro:assets` images and no router, adapter or server rendering without a concrete
+requirement. `/verify` keeps using the project's declared gates; deeper framework work reads the
+project rules and official Astro documentation on demand. The standalone skill and all nine of its
+references are gone.
+
+### Changed — `skill-improve` Mode B learns from its own ancestors, and the eval runner stops lying
+
+The global `~/.agents/skills/harness-audit/` (2026-08-19, zero rounds in its `learning.md`) was
+diffed section by section against Mode B. Nothing of substance had been lost in the 2026-08-20
+merge — every drop was portability or a recorded decision — but the comparison exposed what neither
+copy had: the ancestors themselves. Both pre-merge skills are still served from the personal layer
+(`~/.claude/skills/harness-audit` and `~/.claude/skills/skill-creator`, symlinks into
+`~/.agents/skills/`), listed in every session beside `graph-powers:skill-improve`: three
+descriptions claiming the same phrases, the trigger collision Mode B exists to detect, with the
+answer already known. Phase 3 now crosses every layer that serves a listing (`~/.claude/skills`,
+`~/.agents/skills`, the plugin cache, the marketplace clone) and greps each for the retired names
+that `learning.md`, `CHANGELOG.md` or `NOTICE` record; a hit is `REMOVAL_CANDIDATE` with double
+evidence and is never unlinked by the skill. Three eval cases cover it — `pos-ancestor-collision`,
+`pos-escalate-a-to-b` for the one border the merge created, and `pos-periodic-audit` for the
+open-ended prompt the global's prose used to carry — each run against a passing and a failing
+response.
+
+A five-lens review with one refuter per P0/P1 (13 agents, 1.06M tokens) returned 62 findings, 6
+confirmed on disk. Inside the skill, all fixed: `init_skill.py` scaffolded a `description` that was
+not YAML — unquoted, with a colon-space — and `quick_validate.py` passed it, because the validator
+tested for the substring and never the shape; the template is quoted and the validator now rejects
+that shape. The two caps were two quantities all along — 1,024 on `description` alone in the
+validator, 1,536 on `description` plus `when_to_use` in the listing gate — and Round 1's "only the
+1,536 is enforced by anything" was wrong; both are in the table now. The settings-JSON gate raised
+`FileNotFoundError` in this very repository, which has no `.claude/settings.json`, six lines under
+a red flag that says "never a stack trace"; it is a fail-open one-liner, measured absent, valid and
+malformed. One assertion regex was wrong in both directions under a note that said it had been
+tested; seven assertions were rewritten and every one run against a passing and a failing string.
+
+`run_evals.py` — which `NOTICE` called unmodified upstream code, and which never existed upstream
+(no commit in anthropics/skills touches that path; `NOTICE` now says so, and says which scripts are
+modified from which revision) — gains `--response-dir`: every case against its own
+`resp-<case-id>.txt`, one line per case, a missing response or a file with zero cases counted as a
+failure, exit 0 only when every case passes. That is the per-case discipline without the shell loop
+the global carried, which cardinal 8 bans. A failed `critical` assertion exits 1 at any threshold;
+an unknown assertion id, a missing `check`, a colon-less check and a value the check cannot parse
+are red rows that name the defect, not tracebacks. Measured on 12 cases in eight directions.
+
+Also in Mode B: a first-round branch for the auditor memory (`MEMORY.md: absent — first round in
+this repository` replaces the paste, never an empty file); a host-project audit records its round in
+the host's `.claude/audit/learning.md`, because the plugin's own `learning.md` is overwritten by the
+next update; `--phase N` is defined; the Phase 5 prompt says the artefacts are on disk rather than
+"attached"; the report names the layers the scope did not cover; `.claude/audit/` is gitignored
+here. The description gains the proactive trigger (`before adding an agent or skill and after a
+plugin or model upgrade`) at +2 chars net, paid for by trimming.
+
+Reported, not applied, because they live outside the skill: `agents/skill-improver.md` carries a
+stale claim about one machine's `SubagentStart` matcher (it lists `skill-improver` today); the
+rubric's W2c and its known-failure catalogue cite another repository's paths; rubric and agent name
+`agentRouting.aliases`, a key the schema does not declare. Round 7 in
+`skills/skill-improve/learning.md`.
+
 ## 1.9.5 — Explicit model tiers and low-resource JS/TS gates
 
 ### Changed — JS/TS verification no longer fans out across the machine
@@ -13,7 +231,7 @@ The Bash guardrail denies Node's test runner, legacy `tsc`, bare `tsgo` (the npm
 shebang), and unbounded Bun workers even under autonomous mode. Plugin ESM verification and CI now
 run through Bun 1.4; the installer remains Node-compatible, but Node is not a gate executor. The
 installer skips unsafe package scripts and preconfigures Bun + `tsconfig.json` projects with the safe tsgo command. Setup, compatibility limits
-and official sources live in `skills/bun-verify/references/low-resource-js-ts-gates.md`.
+and official sources live in `skills/debugger/references/low-resource-js-ts-gates.md`.
 
 ### Fixed — the model tier is declared everywhere it is spent
 
@@ -60,7 +278,7 @@ tool dumped core: turbo 2.x panics on EPIPE (`failed printing to stdout: Broken 
 JS wrapper `process.kill(pid, SIGABRT)`, bun abort()s. The Bash tool is that pipe.
 
 `smart_bash_approver.py` now denies those forms even under `autonomous`. The replacement is
-`skills/bun-verify/scripts/turbo_dry_json.py`, which writes JSON to
+`skills/debugger/scripts/turbo_dry_json.py`, which writes JSON to
 `.graph-powers/cache/turbo-dry.json` and prints the path. Declared test gates are unchanged.
 Debugger anti-pattern 37 stops treating the Node SIGABRT as a Node bug.
 
@@ -84,7 +302,7 @@ Everyday `/verify` (no arguments) is **`quick`**: process gates + floor. The exp
 evaluator / security / design batch runs only for `/verify full` or `/verify loop`. That
 batch was the RAM spike, not Bash.
 
-`Skill("bun-verify")` now scopes a declared `turbo run …` with `--filter=<apps|packages name>`
+The JS/TS resolver now scopes a declared `turbo run …` with `--filter=<apps|packages name>`
 from the change set, keeps Vitest as `bun run test` (never bare `bun test`), and refuses to
 infer Bun tests over a Python/`null` runner. Resolver: `references/shared/130-bun-tsgo-gates.md`.
 
@@ -142,7 +360,7 @@ so 3,190 B stays spendable and the other 35,000 B cannot be spent without someon
 ## 1.9.1 — Bun 1.4 + tsgo is the inferred JS/TS gate
 
 `/verify` and the skill matrix now route undeclared JavaScript/TypeScript type-check and
-unit tests through `Skill("bun-verify")`: native `tsgo` and `bun test --parallel`, never
+unit tests through the JS/TS resolver: native `tsgo` and `bun test --parallel`, never
 `npx tsc` or `node --test`. A project that already names `tooling.commands` is unchanged.
 The resolver lives in `references/shared/130-bun-tsgo-gates.md`. Example config:
 `examples/config.bun.json`.

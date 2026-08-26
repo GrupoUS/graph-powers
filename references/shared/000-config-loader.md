@@ -29,7 +29,7 @@ exception, because it is not identity: **`${rulesDir}` is `paths.rulesDir`**, de
 | `${rulesDir}/routing-supplements.md` | Project-specific routing matrix rows (loaded by `/prime`, `/implement`) |
 | `${rulesDir}/verify-supplements.md` | Project-specific smoke tests (loaded by `/verify`) |
 | `Skill("debugger")` → `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` | Project-specific bug patterns + Negative Constraints index |
-| `Skill("planning")` → `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/layer-map.md` | Project-specific layer map for sprint phase ordering |
+| `Skill("graph-powers:planning")` → `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/layer-map.md` | Project-specific layer map for sprint phase ordering |
 | `Skill("senior-architect")` | Project orientation: architecture map, runtime shape, trade-off analysis |
 | `.graph-powers/logs/` | Runtime state: session counters, write lease, progress log, learnings (never versioned) |
 

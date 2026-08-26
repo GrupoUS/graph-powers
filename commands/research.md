@@ -38,7 +38,11 @@ Skill("superpowers:using-superpowers");           // meta — bootstrap (per `${
 Skill("superpowers:dispatching-parallel-agents"); // explorer + librarian = parallel batch with distinct scope
 ```
 
-If the research scope is open-ended (user says "should we build X?" / "how should we approach Y?" / no concrete artifact requested), also invoke `Skill("superpowers:brainstorming")` to frame the right questions before research. Skip when the user asked a concrete factual question (`how does library X handle Y?`).
+If the research scope is open-ended (user says "should we build X?" / "how should we approach Y?" /
+no concrete artifact requested), use the destination and fog framing in
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md` before research. Do not enter Phase B;
+the research answer is the deliverable. Skip this when the user asked a concrete factual question
+(`how does library X handle Y?`).
 
 ## Execution
 

@@ -7,7 +7,7 @@ workflow_type: routing
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
@@ -49,7 +49,7 @@ Parse first positional token from `$ARGUMENTS`:
 | `frontend` / `ui` / `react` | § 3 frontend | frontend-specialist + explorer ×3 |
 | `backend` / `api` | § 4 backend | templates B + C (+ D on a mutation) |
 | `auth-db` / `auth` / `db` / `permissions` | § 5 auth-db | templates B + C + D |
-| `recover` | § 6 recovery | evaluator Mode 3 |
+| `recover` | § 6 recovery | evaluator Mode 3 · Mode 5 on a hypothesis the thread cannot leave |
 
 A performance complaint with no defect is not a mode here — run `/perf`.
 
@@ -57,17 +57,14 @@ Modes share the **§ 0.1 Setup** preamble.
 
 ### 0.1 Setup (every mode)
 
-Load the superpowers method layer **before** the the project debugger knowledge layer (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` + § 12):
+Load the debugger method and project knowledge layer (per
+`${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`):
 
 ```typescript
-Skill("superpowers:using-superpowers");        // meta — announce-before-action
-Skill("superpowers:systematic-debugging");     // 4-phase root-cause discipline (observe → hypothesize → test → conclude)
-Skill("debugger");                     // the project anti-pattern catalog, packs, references, superpowers debug chain
+Skill("debugger"); // Steps 0-6, anti-pattern catalogue, packs, TDD and verification gates
 ```
 
-`systematic-debugging` sets the method; `Skill("debugger")` adds the bug catalogue and wires the
-rest of the superpowers chain into its Steps. Both load, and they do not conflict. Inside a plugin
-the skill is namespaced, so a same-named personal skill cannot shadow it.
+Inside a plugin the skill is namespaced, so a same-named personal skill cannot shadow it.
 
 Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). The bug catalogue at
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` arrives with the skill — **this
@@ -120,8 +117,9 @@ table with file:line. Read-only **by frontmatter, not by instruction** — a pro
 fix" is a request, not a permission, and the bug catalogue records the review agent that reverted
 80 lines of the diff it was reviewing. Fixing is a separate dispatch, after the root cause is named.
 
-**L4-L5 — Parallel agents.** Invoke `Skill("superpowers:dispatching-parallel-agents")` first, then
-dispatch templates **B (Code Archaeologist)** and **C (Regression Hunter)** in one message from
+**L4-L5 — Parallel agents.** Follow
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, then dispatch templates
+**B (Code Archaeologist)** and **C (Regression Hunter)** in one message from
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/pack-guides.md`. Use them verbatim — they carry
 the shared return contract and the read-only-by-frontmatter rule that a prose "do not fix" does not.
 
@@ -161,7 +159,7 @@ If agents return contradictory findings or no definitive file:line → escalate 
 
 ### 1.6 Implement fix
 
-**Hard gate:** before writing any patch, invoke `Skill("superpowers:test-driven-development")` — a
+**Hard gate:** when Step 5 writes a patch, invoke `Skill("graph-powers:test-driven-development")` — a
 failing reproduction test on the real seam, watched fail, before the fix. No exemption by tier: the
 skill's Iron Law #3 has none, and a command that granted one would be the only place in this harness
 where "too small to test" is an argument.
@@ -169,7 +167,7 @@ where "too small to test" is an argument.
 - Fix the SOURCE, not the symptom
 - NEVER "while I'm here…" — scope creep kills debugging
 - Run quality gates AFTER EACH fix
-- After gates pass, invoke `Skill("superpowers:verification-before-completion")` to capture stdout + exit code as evidence before closing the fix.
+- After gates pass, apply `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` to capture stdout + exit code as evidence before closing the fix.
 
 **Sequential mode (default — same file/flow):** ONE fix at a time.
 
@@ -284,9 +282,9 @@ Run § 0.1. Run `/prime frontend`.
 
 ### 3.2 Quality gates baseline
 
-Run the smallest relevant unit-test filter first. When this is a Bun edit loop, load
-`Skill("bun-verify")` and use its changed-only command, not the full suite. Then run resolved
-type-check and lint once; only then reach for a browser.
+Run the smallest relevant unit-test filter first. For a Bun edit loop, use
+`Skill("debugger") § JS/TS gate resolver` and its changed-only command, not the full suite. Then
+run resolved type-check and lint once; only then reach for a browser.
 
 ### 3.3 Static diagnosis (parallel)
 
@@ -408,7 +406,7 @@ Loaded rules: whatever in `${rulesDir}/` matches the data and auth paths this bu
 
 > Trigger: 2+ failed fix attempts on same hypothesis · quality gate fails 2× · user signals "this isn't working" · confidence < 3 after multi-file investigation.
 
-If the recovery was triggered by code-review feedback (codex review P0/P1, evaluator REVISION_REQUIRED, user pointing to a specific reviewer note), invoke `Skill("superpowers:receiving-code-review")` **before** reading the recovery protocol. The skill enforces technical evaluation of feedback (implement / clarify / pushback) instead of blind agreement.
+If recovery was triggered by code-review feedback, read and apply `${CLAUDE_PLUGIN_ROOT}/commands/pr-review.md § 4.1` before the recovery protocol. That section is the canonical technical evaluation of feedback (implement / clarify / pushback), not a second skill or a locally restated checklist.
 
 **Only in `recover` mode**, load `${CLAUDE_PLUGIN_ROOT}/references/recovery-protocol.md` and execute
 it verbatim, Step 0 through Step 5. It is written there and nowhere else: this command once restated
@@ -426,7 +424,9 @@ The triggers that send you back to Step 1, and the ≥3-attempt architecture rul
 1. Two failed fixes in the same area → `codex:codex-rescue` for a full fix.
 2. Contradictory agent findings → `codex:codex-rescue`, diagnosis mode.
 3. Architecture-level blocker → `graph-powers:evaluator` Mode 3.
-4. Exhausted → `/debug recover`, then the user decides.
+4. The same hypothesis back after every decomposition, no architecture signal →
+   `graph-powers:evaluator` Mode 5, the blind second opinion, called from recovery Step 4.
+5. Exhausted → `/debug recover`, then the user decides.
 
 ---
 

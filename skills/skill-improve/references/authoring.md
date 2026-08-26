@@ -87,8 +87,8 @@ description: Skill for TDD — write test first, watch it fail, write minimal co
 # BAD: too vague, does not match anything a user actually types
 description: Helps with testing
 
-# GOOD: specific conditions and symptoms, phrased the way users phrase them
-description: Use when implementing any feature or bugfix, before writing implementation code. Trigger on write tests, add feature, fix bug, implement X.
+# GOOD: specific conditions and symptoms, phrased the way users phrase them — and quoted
+description: "Use when implementing any feature or bugfix, before writing implementation code. Trigger on write tests, add feature, fix bug, implement X."
 ```
 
 **Make descriptions slightly pushy.** Agents undertrigger — they skip skills that would have
@@ -98,9 +98,12 @@ internal metrics, or wants to display any kind of company data, even without say
 
 Formula: `Use when [specific symptoms and contexts]. Trigger on: [phrases users actually type].`
 
-**The cap is 1,536 characters** for `description` plus `when_to_use` combined, enforced by
-`${CLAUDE_PLUGIN_ROOT}/.github/check_listing_budget.py`. That budget is shared across every skill
-and command in the plugin, so a long description spends headroom that belongs to everyone.
+**Two caps, two quantities.** `description` alone stays under **1,024 characters** — that is what
+`quick_validate.py` holds it to, and the validator is the only gate that runs on a skill authored
+outside the plugin. `description` plus `when_to_use` combined stays under **1,536 characters**,
+enforced by `${CLAUDE_PLUGIN_ROOT}/.github/check_listing_budget.py`. That second budget is shared
+across every skill and command in the plugin, so a long description spends headroom that belongs to
+everyone.
 
 Two frontmatter constraints that come from the validator rather than from taste, and that fail
 silently if ignored:
@@ -117,7 +120,7 @@ silently if ignored:
 ```markdown
 ---
 name: skill-name
-description: "Use when [conditions]. Trigger on: [phrases]."
+description: "Use when the conditions hold and the symptoms appear. Trigger on: the phrases users actually type."
 ---
 
 # Skill Name

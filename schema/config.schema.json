@@ -18,7 +18,7 @@
         },
         "stack": {
           "type": "string",
-          "description": "Free-form stack identifier. Stack-gated skills and rules read this — 'astro' turns on the astro skill.",
+          "description": "Free-form stack identifier read by stack-aware skills, rules and setup inference.",
           "examples": [
             "astro-static-tailwindv4",
             "monorepo-bun-trpc-drizzle-postgres-react19",
@@ -88,7 +88,7 @@
             "tsgo",
             "mypy"
           ],
-          "description": "Reporting name only. For JS/TS, Graph Powers accepts native tsgo through Bun and rejects legacy tsc, Node's test runner, and bare tsgo launchers. See skills/bun-verify/references/low-resource-js-ts-gates.md."
+          "description": "Reporting name only. For JS/TS, Graph Powers accepts native tsgo through Bun and rejects legacy tsc, Node's test runner, and bare tsgo launchers. See skills/debugger/references/low-resource-js-ts-gates.md."
         },
         "linter": {
           "type": "string",

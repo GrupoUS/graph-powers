@@ -4,9 +4,10 @@ description: "Use proactively whenever something is broken: an error, a crash, a
 model: opus
 color: orange
 role_type: worker
-# `Skill` is load-bearing: the preloaded `debugger` skill invokes superpowers
-# systematic-debugging, test-driven-development and verification-before-completion
-# at Steps 5 and 6. Without this tool those three gates resolve to nothing.
+# `Skill` is load-bearing: the preloaded `debugger` skill invokes
+# graph-powers:test-driven-development at Step 5. Recovery reads the canonical feedback protocol
+# from commands/pr-review.md § 4.1 through `Read`, rather than loading a second skill. It also owns
+# the JS/TS gate resolver, so this agent never loads a separate verification skill.
 tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 skills:
   - debugger

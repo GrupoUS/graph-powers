@@ -37,6 +37,8 @@ Own production-quality UI implementation and refactoring. Preserve product inten
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/rubrics/frontend-specialist-rubric.md` only for design critique, motion/dark-mode work, performance budgeting, test design, or refactoring.
 
+For motion — a transition, an entrance, a gesture — read `${CLAUDE_PLUGIN_ROOT}/skills/animate/SKILL.md` (build mode) before writing it: the gate first, then exact curves and budgets, never an approximated value. A path read rather than `Skill()`: this agent carries no `Skill` tool, and a bare name would resolve to a personal copy of the same name where one exists.
+
 ## Handoff Format
 
 Return the canonical Context Handoff from `../skills/senior-prompt-engineer/references/agent-handoff-contracts.md`.

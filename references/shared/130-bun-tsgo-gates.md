@@ -1,12 +1,13 @@
 # JS/TS gate resolution (Bun 1.4 + tsgo)
 
-Used by `/verify` § 0, `ultra-verify`, and `010-quality-gates.md`. Load `Skill("bun-verify")`.
+Used by `/verify` § 0, `ultra-verify`, `010-quality-gates.md`, and `Skill("debugger")` § JS/TS gate
+resolver. This file is the execution policy; consumers read it directly.
 
 ## Resolve the command
 
 1. Resolve literal `tooling.commands.<gate>`; expand `bun run <script>` from `package.json`.
 2. Reject Node tests, legacy `tsc`, bare `tsgo`, or Bun concurrency above two: `NEEDS-WORK`, no execution or fallback.
-3. Infer only missing JS/TS keys from `bun-verify`; label `INFERRED (bun-verify)`.
+3. Infer only missing JS/TS keys from the defaults below; label `INFERRED (debugger)`.
 4. Otherwise: `NOT DECLARED`.
 
 A safe declared Vitest/`bun run test` stays declared; bare `bun test` would skip its config.

@@ -128,6 +128,11 @@ Identify the target AGENTS.md from the modified file path:
 - Edits in `${paths.schemaRoot}/**` → schema AGENTS.md if it exists
 - Otherwise → root `AGENTS.md`
 
+Load `Skill("graph-powers:intent-layer")` first only when the subtree the learning belongs to has no
+`AGENTS.md`, or the node it would land in is past 4k tokens — that skill decides whether the subtree
+earns a node and keeps the root's downlinks in step. A learning that fits an existing node is
+appended below without it.
+
 Add a new section:
 
 ```markdown

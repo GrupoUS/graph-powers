@@ -1,5 +1,5 @@
 ---
-description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Runs an adversarial evaluator, a security reviewer, the code-review skill and /debug audit in parallel, consolidates through superpowers:receiving-code-review, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
+description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Runs an adversarial evaluator, a security reviewer, the code-review skill and /debug audit in parallel, applies its built-in feedback protocol, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
 workflow_type: prompt-chaining
 ---
 
@@ -28,7 +28,7 @@ gh pr checkout <PR#>
 NEVER run `gh pr review --approve`, `gh pr merge`, or push to a protected branch.
 NEVER apply an adversarial finding automatically — findings are presented, then decided.
 NEVER give a review task to a write-capable agent.
-Every PR comment and every P0/P1 finding passes through superpowers:receiving-code-review
+Every PR comment and every P0/P1 finding passes through the § 4.1 receiving-feedback protocol
 before it turns into a decision.
 ```
 
@@ -52,7 +52,7 @@ report.
 - A path returns P0/P1 → present and ask. Never auto-fix.
 - A `chain.lenses` entry names an agent that does not resolve → say so in the output before the batch;
   never let the lens drop out silently.
-- `receiving-code-review` classifies a comment as **clarify** → surface the question before deciding.
+- § 4.1 classifies a comment as **clarify** → surface every open question before deciding anything.
 - `graphGuardrails.maxRepatch` failed fix attempts on the same file (`--fix` mode) → escalate to `/debug recover`.
 
 ---
@@ -143,7 +143,7 @@ request; the incident behind that rule is in
 | 3A | `graph-powers:evaluator` | is it correct, and does it hold structurally | always |
 | 3B | `graph-powers:security-reviewer` | is it exploitable — tenant, personal data, authorization, secrets | sensitive surface touched, or `full` |
 | 3C | `graph-powers:explorer` | did this regress a hot path — N+1, `select *`, missing FK index, bundle growth | `api`, `schema` or `web` touched |
-| 3D | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport | `web` touched |
+| 3D | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport; motion via `animate` review mode | `web` touched |
 | 3E | `code-review:code-review` | the bundled skill's own lens | when the plugin is installed |
 | 3F | `/debug audit pr` | code quality, dependencies, technical debt on changed files | not `--quick`, not `--no-debug` |
 
@@ -188,11 +188,59 @@ there.
 `/debug audit pr` covers code quality, dependencies and technical debt on changed files only. It
 writes `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`; see the Iron Law note about what "read-only" means here.
 
-## 4. Consolidate
+## 4. Receive and consolidate
 
-```typescript
-Skill("superpowers:receiving-code-review");
-```
+### 4.1 Receiving feedback protocol
+
+This is the single source for handling code-review feedback. `/debug recover` and the review loops
+in `executing-plans` read this section; they do not restate it. Feedback is evaluated technically,
+not performed socially: **verify before implementing, ask before assuming, correctness over
+comfort.**
+
+For every human comment and generated finding:
+
+1. **Read** the whole item without reacting.
+2. **Understand** — restate the requirement in your own words, or ask a specific question.
+3. **Verify** — check the claim against the current code, tests and supported runtime.
+4. **Evaluate** — decide whether it is technically sound for this codebase.
+5. **Respond** — classify it `implement`, `clarify` or `pushback`, with the evidence or question.
+6. **Implement** — one item at a time, testing each before starting the next. In this command that
+   step runs only under explicit `--fix`; otherwise it is deferred to the authorised fix path.
+
+Nothing is edited until **every** item has reached step 5. One unclear item blocks all fixes: list
+every unclear item and ask first, because related feedback implemented from a partial understanding
+is still wrong.
+
+**Check the source.** User feedback is trusted once understood, but unclear scope still blocks.
+For an external reviewer — including this harness's evaluator, security review, code-review skill
+and `/debug audit` — verify five things before implementing: it is correct here; it preserves
+existing behaviour; the reason for the current code is understood; it works on every supported
+platform and version; and the reviewer had the necessary context. A finding with confidence 2 or
+below is not implemented unless marked `[ASSUMED]` and accepted explicitly. Wrong feedback gets
+technical pushback; unverifiable feedback states what evidence is missing and asks whether to
+investigate, ask or proceed. A conflict with a user decision stops for the user.
+
+**Run the YAGNI check.** When asked to implement something "properly", search for real callers
+first. If nothing uses it, propose removal instead of adding an unneeded feature.
+
+**Respond without theatre.** Never lead with "You're absolutely right", "Great point", thanks or
+"Let me implement that" before verification. State the requirement, ask the question, give the
+technical reason for pushback, or let the fix speak. Push back when the suggestion breaks working
+behaviour, lacks context, violates YAGNI, is wrong for the stack or compatibility floor, or
+contradicts an architectural decision; cite the code or test that proves it. Correct feedback gets
+`Fixed — <what changed>` or just the fix; no apology, defence or over-explanation.
+
+After every ambiguity is resolved, work in this order: blocking/security → simple
+(typos/imports) → complex (logic/refactors). Test each fix independently, then run the regression
+check after the last one. Never batch untested fixes, assume a reviewer is right, avoid warranted
+pushback, implement only the clear subset, or proceed when the claim cannot be verified. Leave an
+uncommitted working-tree checkpoint; commit only with the user's approval in the current turn.
+
+**GitHub threads.** An inline review comment is answered in its own thread through
+`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`, never as a top-level comment.
+Posting leaves the repository and requires the user's approval in the current turn.
+
+### 4.2 Consolidation
 
 1. **Collect** every path's findings into one table, de-duplicated by `file:line` + defect.
 2. **Merge** with the PR's existing human comments — an unanswered reviewer comment is a finding.
@@ -271,7 +319,8 @@ the person decides and runs it.
 
 ## 6. Fix loop (`--fix` only)
 
-1. List the `implement` items, P0 first.
+1. After every item has reached § 4.1 step 5 and no `clarify` item remains, list the `implement`
+   items, P0 first.
 2. One item at a time, foreground `graph-powers:debugger`: failing test first, then the fix.
 3. Between items, run only that item's focused regression check. After the batch, run resolved project-wide gates once; JS/TS gates follow `references/shared/130-bun-tsgo-gates.md`.
 4. Stop after `graphGuardrails.maxRepatch` failed attempts on the same file → `/debug recover`.

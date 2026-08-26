@@ -114,6 +114,7 @@ Only after a complete investigation is it legitimate to classify something as `e
 git diff HEAD~5
 git log --oneline -10
 ```
+Then the changes git does not show: a dependency bumped in the lockfile, a config value, an environment difference between where it works and where it fails.
 
 ### Multi-component tracing
 Log **at every boundary**, not only where it breaks. In a typical full-stack path: client → request context → service → data layer → driver. Each boundary records INPUT (what arrived), OUTPUT (what leaves) and CONTEXT (user, tenant, timestamp).
@@ -123,6 +124,9 @@ console.error("=== Service args ===", { tenantId, filters });
 console.error("=== Query params ===", { where: conditions });
 console.error("=== Result ===", { count: result.length });
 ```
+
+### Pattern analysis — compare with what works
+Before hypothesising, find the nearest **working** example of the same pattern in this codebase — the sibling procedure that does not 500, the component that hydrates cleanly. If the broken code implements a documented pattern, read the reference implementation **completely**, every line, not the snippet. List **every** difference between working and broken, however small: "that can't matter" is where the cause hides. Then write down what the broken path depends on that the working one does not — config, environment, middleware order, an assumption about data shape. Each difference is a hypothesis candidate for Step 3.
 
 ### Exit criteria
 - [ ] Reproducer command is one shell line (or one script invocation), no human steps
@@ -184,6 +188,7 @@ Rationalisation is the **conscious** excuse for skipping process under pressure 
 - **Single hypothesis** = confirmation-bias trap. Always ≥3.
 - **"It's probably X"** without a probe = guess. Add the probe or drop the hypothesis.
 - **Hypothesis that maps to the symptom, not the cause** = symptomatic. Push one 5-Whys step deeper.
+- **Pretending to know.** If you cannot state what X does, say "I do not understand X" and research or ask the user before ranking — a hypothesis built on a guess about X is a guess twice over.
 
 ### Choose the Step 4 tag prefix
 Pick a unique tag, e.g., `DEBUG_BUG_C500` (≤24 chars, no spaces, ALL_CAPS). Every probe / log / breakpoint added in Step 4 must include this prefix verbatim, so Step 6 cleanup is a single grep:
@@ -198,7 +203,7 @@ Pick a unique tag, e.g., `DEBUG_BUG_C500` (≤24 chars, no spaces, ALL_CAPS). Ev
 
 With the reproducer minimised and the leading hypothesis chosen, Step 4 hands over to
 `references/methodology.md` — instrument, root-cause trace, bisect, defense-in-depth, postmortem.
-Which superpowers skill opens which Step is in `Skill("debugger") § Engine`; the RED test exercises
+Which gate opens which Step is in `Skill("debugger") § Engine`; the RED test exercises
 the **real production seam** (`references/methodology.md § Fix Verification Criteria`).
 
 ---

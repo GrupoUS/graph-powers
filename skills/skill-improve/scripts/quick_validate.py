@@ -78,7 +78,17 @@ def validate_skill(skill_path):
     description = None
     desc_match = re.search(r"description:\s*(.+)", frontmatter)
     if desc_match:
-        description = unquote(desc_match.group(1))
+        raw_description = desc_match.group(1).strip()
+        description = unquote(raw_description)
+        # A plain scalar with `: ` inside is not YAML — the parser reads the second colon as a
+        # nested mapping and the skill never registers. Quoting is the fix, and the validator has
+        # to say so: four command files once carried exactly this and passed every gate, because
+        # the gates tested for the substring `description:` and never parsed the value.
+        if raw_description == description and ": " in raw_description:
+            return (
+                False,
+                "Description contains ': ' and is not quoted — invalid YAML; wrap the value in double quotes",
+            )
         # Check for angle brackets
         if "<" in description or ">" in description:
             return False, "Description cannot contain angle brackets (< or >)"

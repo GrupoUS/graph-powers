@@ -60,7 +60,7 @@ EXTERNAL_ROUTES = {
     "superpowers:using-superpowers", "superpowers:brainstorming",
     "superpowers:systematic-debugging", "superpowers:test-driven-development",
     "superpowers:verification-before-completion", "superpowers:dispatching-parallel-agents",
-    "superpowers:requesting-code-review", "superpowers:receiving-code-review",
+    "superpowers:requesting-code-review",
     "superpowers:writing-plans", "superpowers:subagent-driven-development",
     "superpowers:executing-plans", "superpowers:using-git-worktrees",
     "superpowers:writing-skills",
@@ -73,9 +73,11 @@ EXTERNAL_ROUTES = {
 # namespace and would otherwise be read as a missing `skills/<name>/SKILL.md` here. Checked by hand
 # against the upstream tree before the line was written, exactly as EXTERNAL_ROUTES requires.
 EXTERNAL_SKILLS = {
-    # elayadesign/ai-design-skills @ main, MIT — `skills/landing-page-design/SKILL.md`, the only
-    # skill that repository ships. Declared in README.md; installed by AGENT_SETUP.md § Step 1.
-    "landing-page-design",
+    # emilkowalski/skills @ main, MIT — `skills/emil-design-eng/SKILL.md` and
+    # `skills/apple-design/SKILL.md`, both present in the upstream tree (checked 2026-08-26 against
+    # the GitHub tree API). Optional supplements to `skills/animate`: `/design` loads them when
+    # installed and says so when absent. Declared in README.md.
+    "emil-design-eng", "apple-design",
 }
 
 # `plugin:skill` is the shape itself, written out in prose that explains the shape. It is not a

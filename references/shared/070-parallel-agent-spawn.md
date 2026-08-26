@@ -1,12 +1,6 @@
 ## Section 7: Parallel Agent Spawn pattern
 
-Before any parallel batch, invoke:
-
-```typescript
-Skill("superpowers:dispatching-parallel-agents");
-```
-
-This skill enforces: distinct scope per agent, shared return contract, single-message dispatch, stopping conditions. The numbered rules below are the local the project quick-reference.
+This file is the rulebook for any batch of two or more agents — `execution-floor.md § 2` names it. It enforces one-message dispatch, background by default, distinct scope per agent, one return contract per batch, the wave width, one writer per file, and the model coming from the agent.
 
 When invoking 2+ agents in parallel:
 
@@ -35,5 +29,9 @@ When invoking 2+ agents in parallel:
    expensive, and a specialist on the session's model is not the one the work was sized for. Only
    the runtime's own agents (`Explore`, `Plan`, `general-purpose`) take an explicit model, since
    they have no frontmatter. Inside `workflows/*.js` the rule inverts: state the model every time.
+
+**When not to parallelise.** Failures that are related (fixing one may fix the others); a diagnosis that needs the full system state; exploratory debugging, where what is broken is not yet known; shared state, where the agents would edit the same files or use the same resource. Those get one agent, or sequential ones.
+
+**After the batch returns.** Read each summary; check for conflicting edits between agents; run the full gate, not the slice each agent ran; spot-check — agents make systematic errors, and a batch makes the same one in parallel. Consolidation itself is `execution-floor.md § 7`.
 
 Anti-pattern: spawning agents serially across multiple messages → loses parallelism + multiplies overhead.

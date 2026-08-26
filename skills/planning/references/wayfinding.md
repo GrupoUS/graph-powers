@@ -1,8 +1,8 @@
 # Wayfinding — charting work that is bigger than one plan
 
-> Read when `/plan` Step 0.6 finds that the fog, not the tasks, is what dominates the request:
+> Read when `step-0-inventory.md § 0.6` finds that the fog, not the tasks, dominates the request:
 > the destination is real but the way to it is not visible yet, so writing a task list now would
-> invent detail nobody can defend. Consumers: `.claude/commands/plan.md` Step 0.0 / 0.6 / Step 2,
+> invent detail nobody can defend. Consumers: `Skill("graph-powers:planning")` Step 0 and `/plan` § 2,
 > `SKILL.md § Step 0`. This file is English to match its sibling references; the artifacts it
 > tells you to emit are written in `${project.locale}`.
 >
@@ -76,7 +76,7 @@ background, and free of the user's attention; grilling is the scarcest resource 
 
 ## Map mode
 
-**Trigger** (any one, evaluated at `/plan` Step 0.6):
+**Trigger** (any one, evaluated at `step-0-inventory.md § 0.6`):
 
 - ≥3 open decisions block the writing of the task list itself; or
 - the destination cannot be reached inside one plan/context window (CTX-GUARD, ~80K —
@@ -129,7 +129,7 @@ planning artifact. Never staged/committed without current-turn approval (`SKILL.
 
 1. Name the destination (grilling, HITL — this is the one question that cannot be delegated).
 2. Frame **breadth-first**: fan across the whole space, never deep on one thread. If this surfaces
-   no fog, stop — you do not need a map; go back to `/plan` Step 2 routing.
+   no fog, stop — you do not need a map; go back to `/plan` § 2 routing.
 3. Write the map: `Destination` + `Notes` filled, `Decisions taken` empty, fog sketched.
 4. Create the decisions you can state now; wire blocking in the second pass.
 5. Fire the AFK research decisions in parallel, background.
@@ -148,7 +148,7 @@ planning artifact. Never staged/committed without current-turn approval (`SKILL.
    resolve it on the route.
 6. **One decision per session**, except research, which is parallel and AFK.
 
-**Exit:** no open decisions and no fog → the way is clear → hand the map to `/plan` Step 2 routing
+**Exit:** no open decisions and no fog → the way is clear → hand the map to `/plan` § 2 routing
 (the map is the spec input for `ultra-plan` / Phase B; its `Out of scope` section becomes the
 handoff's `OUT OF SCOPE` block).
 

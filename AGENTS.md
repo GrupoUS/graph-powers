@@ -137,7 +137,7 @@ from inventing work.
 SIGABRT, bun aborted. Three coredumps. No tests ran.
 **Cause:** Rust `println!` panics on EPIPE. The Bash tool is a pipe. `turbo/bin/turbo` then
 `process.kill(pid, signal)`.
-**Solution:** Hook denies the Bash form. Script `skills/bun-verify/scripts/turbo_dry_json.py`
+**Solution:** Hook denies the Bash form. Script `skills/debugger/scripts/turbo_dry_json.py`
 writes JSON to `.graph-powers/cache/` and prints the path. Anti-pattern 37 on the debugger
 catalogue. Hosts inherit the rule via `templates/rules/stability.md`.
 

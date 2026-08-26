@@ -1,0 +1,331 @@
+{
+  "skill_name": "landing-page-design",
+  "notes": "Positives must fire landing-page-design and run the page system — intake in one batch, one offer / one audience / one action, a layout type chosen with a reason, message match to the traffic source, an index decision, the outline before any code — while letting the project's design authority win over the house canon. On Astro, the ordinary implementation stays static-first and uses the built-in image pipeline without inventing an island or integration. Negatives sit on the real borders: an app screen (designer and its craft passes), a motion value (animate), a broken form (/debug), a behavioural lever inside the product (uxmaster). Run one invocation per case id with --threshold 1.0; prose assertions use (?i) regex because responses capitalise sentence-initially.",
+  "assertion_design": "The fires-by-name check is a word-boundary regex, because 'landing page' appears in every prompt and a plain contains would match the prompt echoed back. Negatives assert the ABSENCE OF THIS SKILL'S ARTEFACTS (the intake batch, the section outline, an index decision) rather than not_contains on the name, because a correct refusal that says 'not landing-page-design territory' contains the name and would fail the correct behaviour. Absence checks carry a negation lookbehind — 'no page outline' in a correct refusal is not an outline — because the synthetic self-check failed exactly that way before the first real run.",
+  "evals": [
+    {
+      "id": "pos-new-landing-from-ads",
+      "polarity": "positive",
+      "prompt": "/design a landing page for our invoice-reminder tool. Traffic comes from Google Ads on the query \"late invoice reminders\"; the ad promises \"get paid 12 days sooner\". We have no design system yet and no proof assets collected.",
+      "expected_output": "Fires landing-page-design. Asks only for what is missing, in one batch, and states the assumptions it makes to continue. Locks one offer, one audience, one primary action. Mirrors the ad promise in the hero (message match). Chooses a layout type with a reason. Recommends noindex for an ad-only page. Returns the outline, hero copy, benefits, how it works, FAQ and SEO decision before any code, then builds hero first.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\blanding-page-design\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Locks one primary action / one CTA.",
+          "check": "regex: (?i)(one primary (action|CTA)|single primary (action|CTA)|one offer)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Matches the hero message to the ad promise.",
+          "check": "regex: (?i)(message match|mirror\\w* the ad|match\\w* the ad|12 days sooner)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Chooses a layout type deliberately.",
+          "check": "regex: (?i)(layout (type )?[ABCD]\\b|classic hero|long.form story|minimal conversion|comparison page)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Makes the index decision for an ad-only page.",
+          "check": "regex: (?i)\\bnoindex\\b",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Returns the outline before writing code.",
+          "check": "regex: (?i)(page outline|section order|above the fold)",
+          "critical": true
+        },
+        {
+          "id": "A07",
+          "description": "Asks in one batch or states assumptions rather than stalling.",
+          "check": "regex: (?i)(one batch|assum\\w+)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-hero-copy-rewrite",
+      "polarity": "positive",
+      "prompt": "Rewrite the hero of our landing page. Current headline: \"Streamline your workflow seamlessly\". Current button: \"Learn more\". The product turns a Slack thread into a Jira ticket in one click; buyers are engineering managers at 50-200 person companies.",
+      "expected_output": "Fires landing-page-design. Names the current headline as vague or an AI cliche, rewrites it with a headline formula (outcome plus audience, or outcome without pain), adds a subheadline that says what it is and who it is for, replaces the CTA with a verb plus what they get, and puts a proof line beside the claim. Specific over vague.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\blanding-page-design\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Diagnoses the current headline as vague or a cliche.",
+          "check": "regex: (?i)(clich|vague|generic|could belong to any|anyone-headline|belongs? to (every|any)\\b|therefore to none)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Applies a headline formula naming outcome and audience or pain.",
+          "check": "regex: (?i)(outcome|audience|without \\w+ pain|\\{outcome\\})",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Rewrites the CTA as a verb plus what they get.",
+          "check": "regex: (?i)(verb (plus|\\+|and) what (they|the person|the reader|the user) gets?|what they get|CTA:?\\s*\\**\\s*(start|add|install|book|get|create|turn|see|try)\\b)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Writes a subheadline.",
+          "check": "regex: (?i)(\\bsubheadline\\b|\\bsub(head(ing|line)?)?\\s*:)",
+          "critical": false
+        },
+        {
+          "id": "A06",
+          "description": "Places proof beside the claim.",
+          "check": "regex: (?i)\\bproof\\b",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-index-decision-campaign-page",
+      "polarity": "positive",
+      "prompt": "Should the landing page for our Black Friday promo be indexed? 40 percent off, runs for ten days, traffic comes from our email list and paid social only.",
+      "expected_output": "Fires landing-page-design and applies the SEO rule: a time-bound, campaign-only page is noindex, kept off the sitemap and out of internal navigation; the message matches the email; the final CTA is identical to the top one. Names what would change the answer (an evergreen offer with search intent).",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\blanding-page-design\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Recommends noindex.",
+          "check": "regex: (?i)\\bnoindex\\b",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Grounds the decision in the page being time-bound or campaign-only.",
+          "check": "regex: (?i)(time.bound|short.lived|ten days|10 days|temporary|campaign)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Names the condition under which the answer flips to index.",
+          "check": "regex: (?i)(evergreen|search intent)",
+          "critical": false
+        },
+        {
+          "id": "A05",
+          "description": "Matches the page message to the email that sends the traffic.",
+          "check": "regex: (?i)(message match|match\\w* the email|mirror\\w* the email|same promise)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-project-design-authority-wins",
+      "polarity": "positive",
+      "prompt": "/design the landing page for our new scheduling product. The repo has a root DESIGN.md: body and display face Inter, primary navy #0F3B5C, gold accent, icons from lucide, Tailwind tokens already declared. Ship the hero and the benefits section first.",
+      "expected_output": "Fires landing-page-design and lets the project's design authority win: keeps Inter, navy, gold and lucide exactly as declared, does not impose the house canon's font whitelist or icon set, does not call Inter a mistake. Still runs the page system — intake gaps stated, one primary action, hero first then benefits per the build order, content realism, the ship floor.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\blanding-page-design\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Keeps the project's declared face.",
+          "check": "contains: Inter",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "States that the project's design authority or tokens win.",
+          "check": "regex: (?i)(tokens? win|design authority|DESIGN\\.md (wins|is the authority)|brief wins|identity is pinned|project'?s? (tokens|values|palette) (win|are authoritative|come first))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Does not impose the house icon set over lucide.",
+          "check": "regex: (?is)^(?!.*\\b(switch|replace|swap)\\w* (lucide|to Phosphor|to Solar|to Iconamoon))",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Builds hero before benefits, per the build order.",
+          "check": "regex: (?is)\\bhero\\b.*\\bbenefits\\b",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Applies the content-realism floor.",
+          "check": "regex: (?i)(lorem|placeholder|real (draft )?copy|content realism|round fake numbers|real or absent|invented|fabricated|synthetic)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-astro-static-first-build",
+      "polarity": "positive",
+      "prompt": "/design and build an Astro landing page for a privacy-first analytics product. We need a product image in the hero, three benefits, testimonials below the fold and an FAQ. The repository has no React or other UI-framework integration, and the page has no dynamic data.",
+      "expected_output": "Fires landing-page-design and returns the page outline before code. Builds the ordinary sections as .astro components with semantic HTML and the project's tokens, uses native details for the FAQ, and adds no client island or framework integration without a real interaction. Uses Image or Picture from astro:assets with a responsive layout; only the hero LCP image gets priority and below-fold images remain lazy. Does not add a client router, adapter or server rendering.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\blanding-page-design\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Returns the landing-page outline before code.",
+          "check": "regex: (?i)(page outline|section order|above the fold)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Keeps ordinary sections static and uses a native FAQ control.",
+          "check": "regex: (?is)(\\.astro|static HTML).*?(<details>|native (HTML|control)|no client (JavaScript|JS|island))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Uses Astro's built-in image pipeline.",
+          "check": "regex: (?i)(astro:assets|<(Image|Picture)\\b)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Prioritises only the hero LCP image and leaves lower images lazy.",
+          "check": "regex: (?is)(hero|LCP).*?priority.*?(below.the.fold|testimonial|other images?).*?lazy",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Refuses unnecessary client architecture positively rather than relying on an absence check.",
+          "check": "regex: (?i)(no (client )?(island|router|adapter|SSR|server rendering|framework integration)|do not add (a )?(client )?(island|router|adapter|SSR|server rendering|framework integration)|without (a )?(client )?(island|router|adapter|SSR|server rendering|framework integration))",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "neg-app-screen-layout",
+      "polarity": "negative",
+      "prompt": "The settings screen of our analytics dashboard looks cramped and dated. Improve the layout and spacing.",
+      "expected_output": "Does not run the page system. Routes to /design with designer for the direction and its own craft passes (layout, typeset, polish). No intake about offer, ICP or primary CTA, no section outline, no index decision.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the design workflow or designer.",
+          "check": "regex: (?i)(/design\\b|\\bdesigner\\b|craft pass)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not run the landing-page intake.",
+          "check": "regex: (?is)^(?!.*\\b(ICP|primary CTA|one offer|traffic source)\\b)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not produce a landing-page outline.",
+          "check": "regex: (?is)^(?!.*(?<!no )(?<!not a )(?<!without a )(?<!not an )(above the fold|section order|page outline))",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-motion-value-only",
+      "polarity": "negative",
+      "prompt": "The scroll reveal on our landing page feels heavy — every section fades up over 800ms with a blur. Tune it.",
+      "expected_output": "Does not run the page system. Routes to the animate skill: one authored moment rather than every section, a duration and a curve from its tables, fired once with IntersectionObserver, reduced motion kept. No intake, no outline.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the animate skill.",
+          "check": "regex: (?i)\\banimate\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Answers with a motion value — a curve or a duration.",
+          "check": "regex: (?i)(cubic-bezier|\\b[1-6]\\d0\\s?ms\\b|ease-out|ease-in-out)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not run the landing-page intake or outline (above the fold is legitimate motion vocabulary, so it is not in this list).",
+          "check": "regex: (?is)^(?!.*(?<!no )(?<!not a )(?<!without a )(?<!not an )\\b(ICP|primary CTA|section order|page outline)\\b)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-broken-signup-form",
+      "polarity": "negative",
+      "prompt": "The signup form on the landing page returns a 500 on submit since yesterday's deploy.",
+      "expected_output": "Routes to /debug: reproduce, isolate, find the cause of the 500. No copy rewrite, no page outline, no index decision.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the debug workflow.",
+          "check": "regex: (?i)(/debug\\b|graph-powers:debugger|systematic-debugging|reproduce)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not produce a landing-page outline.",
+          "check": "regex: (?is)^(?!.*(?<!no )(?<!not a )(?<!without a )(?<!not an )(above the fold|section order|page outline))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not rewrite the headline or CTA copy.",
+          "check": "regex: (?is)^(?!.*(?<!no )(?<!not a )(?<!without a )(?<!not an )\\b(headline formula|rewrite the (headline|CTA))\\b)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "neg-activation-lever-in-product",
+      "polarity": "negative",
+      "prompt": "Activation after signup is 18 percent. Which behavioural levers should the first-run screens use?",
+      "expected_output": "Routes to uxmaster and names a lever — goal gradient, smart defaults, IKEA effect, loss aversion — with its honesty check. No landing-page structure, no index decision.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to uxmaster.",
+          "check": "regex: (?i)\\buxmaster\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Names a behavioural lever.",
+          "check": "regex: (?i)(goal gradient|smart default|IKEA effect|loss aversion|reciprocity|zeigarnik|peak-end|anchoring)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not run the landing-page system.",
+          "check": "regex: (?is)^(?!.*(?<!no )(?<!not a )(?<!without a )(?<!not an )(above the fold|section order|page outline|\\bnoindex\\b))",
+          "critical": true
+        }
+      ]
+    }
+  ]
+}

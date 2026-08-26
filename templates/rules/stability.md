@@ -61,13 +61,14 @@ separates "I think it is right" from "it is right":
 
 - **JS/TS gates are Bun + native tsgo, with a resource ceiling.** Never run `node --test`, legacy
   `tsc`, bare `tsgo` (its package shebang starts Node), unbounded `bun test --parallel`, or
-  `--concurrent` without `--max-concurrency=2`. Use the exact commands from `Skill("bun-verify")`;
+  `--concurrent` without `--max-concurrency=2`. Use the exact commands from
+  `Skill("debugger") § JS/TS gate resolver`;
   a forbidden declared command is `NEEDS-WORK`, not an exception.
 - **Whole-project gates run once per phase/final boundary.** Per-task proof is the task's focused
   `CHECK`; do not re-run the full type-check and test suite after every file edit.
 - **Turbo dry-run is a file, never a pipe.** `turbo --dry=json` and `bun run test --dry=json`
   through an agent's captured stdout panics on EPIPE and abort()s Node/bun. Inspect the graph
-  with bun-verify's `turbo_dry_json.py`. Declared `${tooling.commands.test}` is unchanged.
+  with the debugger's `turbo_dry_json.py`. Declared `${tooling.commands.test}` is unchanged.
 
 ## Signals specific to this project
 

@@ -141,5 +141,5 @@ or to read-only commands.
     Cause: turbo panicked `failed printing to stdout: Broken pipe (os error 32)` because the
     agent's Bash capture is a pipe; the JS wrapper then `process.kill(process.pid, signal)`.
     Do not raise `--max-old-space-size`, reinstall Node, or re-run the same command. Inspect
-    the graph with `Skill("bun-verify")` `scripts/turbo_dry_json.py`. Detail:
-    `${CLAUDE_PLUGIN_ROOT}/skills/bun-verify/references/turbo-dry-json-epipe.md`.
+    the graph with `Skill("debugger")` `scripts/turbo_dry_json.py`. Detail:
+    `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/turbo-dry-json-epipe.md`.

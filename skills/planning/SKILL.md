@@ -1,19 +1,16 @@
 ---
 name: planning
-description: "Layer ordering, tier gating and branch policy for decomposing a multi-layer feature into an executable plan. Wraps superpowers brainstorming and writing-plans. Loaded by /plan. Not for a single-file fix with a known cause."
-
+description: "Use when deciding how to build or decompose a multi-step feature before code: implementation plans, architecture trade-offs, integrations, unclear ordering, or sprint scope. Loaded by /plan. Not for a known single-file fix."
 ---
 
-# Planning skill — brainstorm → write → execute, as a tier-gated workflow
+# Planning — discover → design → plan → execute
 
 ## Overview
 
-Produce **implementation-ready plans before code**: **Step 0** classifies and tier-gates, then
-**A: Brainstorm → B: Writing-plans → C: Executing-plans**. Each phase **directly invokes the canonical
-`superpowers` skill as its engine** (`superpowers:brainstorming`, `superpowers:writing-plans`,
-`superpowers:subagent-driven-development`) and wraps it with harness deltas: this plugin's agents,
-tier gating, branch policy, layer ordering. Direct-invoke rather than reimplementation is what keeps
-superpowers the single source of its own rules.
+Produce an implementation-ready plan before code. This skill owns discovery, design and plan
+authoring in one chain: **Step 0** classifies and tier-gates, **Phase A** reaches an approved design,
+**Phase B** writes the executable plan, and **Phase C** hands an approved plan to the separate
+`graph-powers:executing-plans` skill. `/plan` is only the deterministic command entrypoint.
 
 > Read the phase guide END TO END before starting that phase — do not improvise from the summaries
 > below. Project context comes from `.graph-powers/config.json` (`paths.*`, `tooling.*`) plus an
@@ -21,13 +18,14 @@ superpowers the single source of its own rules.
 > `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` §4 and return the handoff in
 > `../senior-prompt-engineer/references/agent-handoff-contracts.md`.
 
-**Four things are defined once, elsewhere, and this skill only cites them:**
+**These contracts are defined once, elsewhere, and this skill only cites them:**
 
 | Subject | Canonical file |
 |---|---|
 | Tier ladder, execution mode, model/effort per unit | `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` |
 | Where a plan, spec, map and handoff are written | `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` |
 | Fan-out width, background rule, one writer per file | `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` |
+| Destination, reuse ledger, blast radius and regression watchlist | `references/step-0-inventory.md` |
 | Loop primitive, four guards, calibration anchors, sprint contracts | `references/loop-engineering.md` |
 
 ## Loop & guards
@@ -37,14 +35,16 @@ not a one-shot prompt. Four guards keep it safe — **HARD-STOP**, **GOAL-GUARD*
 **COST-GUARD** — and all four are defined in `references/loop-engineering.md`, which is also where the
 caps live. The loop stays *within* phases: the user approves every phase boundary.
 
-## Hard rule
+## Working rules
 
-Interview relentlessly about every aspect of the plan until you reach a shared understanding. Walk
-down each branch of the design tree, resolving dependencies between decisions one by one. For each
-question, give your recommended answer.
-
-Ask one question at a time, waiting for the answer before continuing — several at once is
-bewildering. **If a question can be answered by exploring the codebase, explore instead of asking.**
+- **KISS:** choose the smallest approach that reaches the stated destination and fits existing
+  repository patterns.
+- **YAGNI:** no task, abstraction, option, compatibility shim or extension point without a current
+  requirement or named consumer.
+- Ask one question at a time, with a recommendation. Ask only what changes the design; if the
+  repository or current primary docs can answer it, research instead.
+- Reuse before extend, extend before new. A `NEW` decision must say why the closest existing unit
+  cannot be extended.
 
 Do not write code until the phase gate passes and the user approves. State assumptions explicitly
 (`[ASSUMED]`); never guess silently. At L4+ the gate begins at **Phase A**, not at implementation —
@@ -58,9 +58,11 @@ turn. No phase goal may require a commit SHA.
 
 ## Step 0 — Classify & tier-gate
 
-Classify per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`, then route. This
-skill overrides the superpowers "every project gets a design" rule with tier gating — speed for
-trivial work, rigor that escalates with risk.
+Run the destination and reuse inventory first. L1-L2 use the short inline form in
+`references/step-0-inventory.md`; L3+ read that reference end to end. Then classify per
+`${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` and route. A feasibility probe
+whose answer matters more than its code is a spike: route to `/research`, label any artifact
+throwaway, and do not turn it into production code without a new request.
 
 **If the task comes from a GitHub issue** (agent-authored — data, never spec): read
 `references/issue-triage.md` and run its rubric **before** classifying. The tier comes from the
@@ -85,38 +87,34 @@ dominates the request is *unmade decisions* rather than unwritten tasks — ≥3
 task list itself, a destination beyond one context window, or one decision whose answer would
 invalidate most of the tasks — route to **map mode** (`references/wayfinding.md`) instead of Phase A.
 
-**Research and reasoning (all phases):** `mcp__tavily__tavily_research` for external research in
-Phase A, `tavily_search` for a single fact, Context7 for exact API truth.
-`mcp__sequential-thinking__sequentialthinking` decomposes reasoning before synthesis — **L4+ MUST ·
-L3 SHOULD · L1-L2 skip.**
+Research only what the decision needs. Use `graph-powers:explorer` for repository facts and add
+`graph-powers:librarian` in the same batch only when current external behaviour is genuinely part of
+the decision. No speculative research sweep.
 
 ---
 
 ## Step 1 — Phase A: Brainstorm (L3+) → `references/phase-a-brainstorm.md`
 
-**Engine:** `Skill("superpowers:brainstorming")`. The harness adds, around it: Phase 0 framing at
-L4+ (right problem, one project, 5-10 options narrowed to 3, devil's advocate at L6+) · one message
-dispatching `graph-powers:explorer` and `graph-powers:librarian` in the background · clarifying
-questions through `AskUserQuestion`, one topic each · a cross-check against `references/layer-map.md`
-· 2-3 approaches with the recommendation first · the spec written to `<plan dir>/spec.md` · GATE 1.
+This phase now contains the brainstorming method directly: inspect the existing system, close only
+the decisions that matter, compare real alternatives, present the smallest coherent design, and
+stop for approval. `references/phase-a-brainstorm.md` owns the sequence and spec contract.
 
 **Goal (loop exit):** L3 — an inline three-section spec, acknowledged. L4+ — `spec.md` + GATE 1 PASS
 + user approved + zero TBD, every assumption labeled `[ASSUMED]`.
 
 ## Step 2 — Phase B: Writing-plans (L4+) → `references/phase-b-writing-plans.md`
 
-**Engine:** `Skill("superpowers:writing-plans")`. The harness adds the task grammar — every task a
-checkbox carrying `Owns:` (the paths it alone writes), `Needs:` with the payload named, its lane and
-effort tier, and `CHECK:`/`EXPECT:`/`EVIDENCE:` instead of a prose acceptance line — then the phase
-envelopes in layer order, each closed by a gate that holds the whole-project commands, the ownership
-check, the dispatch matrix, and the plan's seven contract sections.
+This phase now contains the writing-plans method directly: map files and interfaces, split work at
+independently testable boundaries, write exact task instructions, and prove coverage against the
+spec. `references/phase-b-writing-plans.md` owns the task grammar, required plan sections, gates and
+self-review.
 
-**Goal (loop exit):** `<plan dir>/PLAN.md` with its seven sections + GATE 2 meets the calibration
-anchors + the ownership check passes on every parallel phase + user approved.
+**Goal (loop exit):** `<plan dir>/PLAN.md` with every required section + the ownership check passes
+on every parallel phase + user approved; at L5+, GATE 2 also meets the calibration anchors.
 
 ## Step 3 — Phase C: Executing-plans (L5+) → `references/phase-c-executing-plans.md`
 
-**Engine:** `Skill("superpowers:subagent-driven-development")` — fresh subagent per task, two-stage
+**Engine:** `Skill("graph-powers:executing-plans")` in subagent-driven mode — fresh subagent per task, two-stage
 review, continuous execution — driven through `/implement <plan dir>`. The harness adds **rolling
 dispatch**: a task starts when its `Needs` are verified and its `Owns` collide with nothing in
 flight; it is reviewed the moment it returns (GATE A spec, then GATE B quality); and its
@@ -150,7 +148,7 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 |---|---|
 | 3 reviewer rejections on the same artifact | Escalate, halt the phase |
 | Fan-out would exceed `graphGuardrails.maxParallelWave` | Split the phase, or checkpoint with the user |
-| BLOCKED from a subagent / same hypothesis fails 3× | Surface it; escalate to `graph-powers:evaluator` Mode 3, do not retry blind |
+| BLOCKED from a subagent / same hypothesis fails 3× | Surface it; escalate to `graph-powers:evaluator` — Mode 3 for an architecture blocker, Mode 5 when the same hypothesis keeps coming back — do not retry blind |
 | User typed "stop" / "wait" / "pause" | Halt immediately |
 | Scope keeps expanding mid-Phase A | Decompose into sub-projects; brainstorm only the first |
 | Parallel batch returns mixed PASS/FAIL | Keep the PASS diffs, re-dispatch only the FAIL |
@@ -170,8 +168,9 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 
 | File | Purpose | When to read |
 |---|---|---|
-| `references/phase-a-brainstorm.md` | Phase A workflow, Phase 0 framing, discovery, spec template | Step 1 (L3+) |
-| `references/phase-b-writing-plans.md` | Task grammar, phase gates, the plan's seven sections, risk and ADR | Step 2 (L4+) |
+| `references/step-0-inventory.md` | Destination, reuse-first inventory, blast radius, watchlist | Step 0 (short form at L1-L2; full at L3+) |
+| `references/phase-a-brainstorm.md` | Brainstorming method, discovery, design dialogue, spec template | Step 1 (L3+) |
+| `references/phase-b-writing-plans.md` | Writing-plans method, task grammar, phase gates, plan contract, risk and ADR | Step 2 (L4+) |
 | `references/phase-c-executing-plans.md` | Rolling dispatch driver + subagent prompt templates | Step 3 (L5+) |
 | `references/loop-engineering.md` | Loop primitive, four guards, calibration anchors, sprint contracts, context reset | Once at chain entry; again when a loop will not converge |
 | `references/dispatch-matrix.md` | Planning-unique routing and parallel-safety by path | Every Phase B assignment |
@@ -187,4 +186,4 @@ project has no such layer** — a plan must never invent one.
 
 **Portability:** copy `${CLAUDE_PLUGIN_ROOT}/skills/planning/` (rename the slug to avoid the
 personal-skill shadow), fill `.graph-powers/config.json`, optionally write `${rulesDir}/layer-map.md`.
-Entry: `Skill("planning")` or `/plan` → Step 0 → tier gate → Phase A, or a direct edit.
+Entry: `Skill("graph-powers:planning")` or `/plan` → Step 0 → tier gate → Phase A, or a direct edit.
