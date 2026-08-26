@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.10.5 — Final review closes the ownership and publication gaps
+## 1.10.6 — Final review closes the ownership and publication gaps
 
 The final PR review fixed both actionable findings from the remote reviewer. A skipped
 case-canonicalisation fixture no longer evaluates stale variables when symlinks are unavailable,
