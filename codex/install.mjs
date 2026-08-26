@@ -577,7 +577,13 @@ function plannedPaths(pluginRoot, paths, extra = []) {
 }
 
 /** The interpreter's leftovers. They are not artefacts, so they are not copied and not recorded. */
-const skipJunk = (_src, entry) => entry === "__pycache__" || entry.endsWith(".pyc");
+// `skills/AGENTS.md` is this repository's own intent node for the skills directory — a map for
+// whoever edits the plugin, not for a host. Copied into `~/.agents/skills/` it would be the one
+// file there Codex could read as an instruction, about a tree the host does not have.
+const skipJunk = (src, entry) =>
+  entry === "__pycache__" ||
+  entry.endsWith(".pyc") ||
+  (entry === "AGENTS.md" && src.replace(/\\/g, "/").endsWith("/skills/AGENTS.md"));
 
 /**
  * Skills, commands-as-skills, subagents and shared references — the four surfaces Codex reads.

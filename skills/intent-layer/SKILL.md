@@ -71,6 +71,15 @@ is not a node — a template still carrying `{{placeholders}}`, a vendored examp
 bytes ÷ 4, an estimate within roughly 15% on code; the thresholds are coarse enough that the error
 does not move a verdict.
 
+The project declares what would otherwise be retyped on every run in `.graph-powers/config.json`,
+block `intentLayer` (contract: `${CLAUDE_PLUGIN_ROOT}/schema/config.schema.json`): `threshold`,
+`split`, `maxNodeTokens`, `codexCap`, `exclude`, and `deferred` — directories the project decided
+do not earn a node although the measure says they would. A flag wins over the block; the block
+wins over the defaults; `--exclude` adds to the block's list. A deferral is a decision, so `check`
+refuses it until the nearest ancestor node names the directory in backticks — `` `references/` `` —
+with the reason beside it, and warns once the directory grows a node of its own. That is what lets
+`state` reach `complete` honestly on a tree where the numbers say otherwise.
+
 ## Procedure
 
 1. **Detect.** Run `state`. Show its output before saying anything about the tree.
@@ -81,6 +90,8 @@ does not move a verdict.
 4. **Decide.** Apply the signals below to the table. Name which directories get a node, which get
    nothing, and the reason for each. `${paths.backendRoot}`, `${paths.frontendRoot}` and
    `${paths.schemaRoot}` are the first candidates, because the harness already reads nodes there.
+   A directory the table flags and the decision refuses goes into `intentLayer.deferred`, and its
+   reason goes into the nearest ancestor node's row — never only into the config.
 5. **Capture.** For each node, answer the four questions in `references/capture-protocol.md` from
    the repository first — entry points, invariants, the canonical way to add the usual thing, the
    mistake already made once. What only a person knows is asked, one question at a time.

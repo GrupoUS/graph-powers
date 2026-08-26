@@ -14,6 +14,12 @@ trip over — an orphan node no ancestor links to, a downlink to a file that is 
 past the 32 KiB Codex stops reading at.
 
 Tokens are bytes / 4. That is an estimate, and the output says so.
+
+The project's `.graph-powers/config.json` may carry an `intentLayer` block (the contract is
+`schema/config.schema.json`): thresholds, `exclude` globs, and `deferred` — directories the
+project decided do not earn a node although the measure says they would. A flag on the command
+line wins over the block; the block wins over the constants below. A deferral is refused unless
+the nearest ancestor AGENTS.md names the directory: the reason has to live where a reader looks.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import argparse
 import fnmatch
 import os
 import re
+import json
 import subprocess
 import sys
 import urllib.parse
@@ -260,6 +267,53 @@ class Layer:
 
     def linked(self, child: Node) -> bool:
         return any(child.rel in a.links for a in self.ancestors(child))
+
+
+# --- configuration -------------------------------------------------------------------------
+
+
+def load_config(root: Path) -> dict[str, object]:
+    """The `intentLayer` block of the project's config, or an empty dict.
+
+    Both locations the schema names are read, `.graph-powers/` first. Fail-open like every hook
+    in this plugin: a missing file, a typo in the JSON, a block of the wrong type — the defaults,
+    never a traceback. A gate that breaks on its own input teaches people to switch gates off.
+    """
+    for rel in (".graph-powers/config.json", ".claude/config.json"):
+        path = root / rel
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        block = data.get("intentLayer") if isinstance(data, dict) else None
+        return block if isinstance(block, dict) else {}
+    return {}
+
+
+def config_int(cfg: dict[str, object], key: str, fallback: int) -> int:
+    value = cfg.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else fallback
+
+
+def config_paths(cfg: dict[str, object], key: str) -> list[str]:
+    value = cfg.get(key)
+    if not isinstance(value, list):
+        return []
+    return [normalise_pattern(str(v)) for v in value if isinstance(v, str) and normalise_pattern(str(v))]
+
+
+def normalise_pattern(raw: str) -> str:
+    """`templates/`, `./templates`, `/templates`, `templates//` and `.\templates` are one intention."""
+    p = raw.replace("\\", "/")
+    while "//" in p:
+        p = p.replace("//", "/")
+    return p.removeprefix("./").removeprefix("/").removesuffix("/")
+
+
+def is_deferred(directory: str, deferred: list[str]) -> bool:
+    return any(directory == d or directory.startswith(d + "/") for d in deferred)
 
 
 # --- discovery ------------------------------------------------------------------------------
@@ -570,7 +624,8 @@ def verdict(tokens: int, has_node: bool, threshold: int, split: int) -> str:
     return "—"
 
 
-def candidates(layer: Layer, m: Measure, threshold: int, split: int) -> list[Row]:
+def candidates(layer: Layer, m: Measure, threshold: int, split: int,
+               deferred: list[str] | None = None) -> list[Row]:
     """Directories that earn a node and do not have one — the `.` row is `state`'s own business.
 
     Only the top-most of a nested run counts: `packages`, `packages/core` and `packages/core/src`
@@ -579,6 +634,8 @@ def candidates(layer: Layer, m: Measure, threshold: int, split: int) -> list[Row
     """
     flagged: list[Row] = []
     for row in m.rows:
+        if is_deferred(row.directory, deferred or []):
+            continue
         has_node = layer.node_at(f"{row.directory}/{ROOT_NODE}") is not None
         if verdict(row.tokens, has_node, threshold, split) in ("NODE", "NODE + SPLIT"):
             flagged.append(row)
@@ -665,14 +722,17 @@ def cmd_state(layer: Layer, args: argparse.Namespace) -> int:
         lines.append(f"  {node.rel}:{line_no} -> {raw}")
 
     m = measure(layer.root_dir, args.exclude, DEPTH)
-    wanted = candidates(layer, m, THRESHOLD, SPLIT)
-    lines.append(f"candidates: {len(wanted)} directories over ~{fmt_k(THRESHOLD)} tokens "
+    wanted = candidates(layer, m, args.threshold, args.split, args.deferred)
+    lines.append(f"candidates: {len(wanted)} directories over ~{fmt_k(args.threshold)} tokens "
                  f"with no node (run measure)")
+    if args.deferred:
+        lines.append(f"deferred: {len(args.deferred)} declared in intentLayer.deferred "
+                     f"({', '.join(args.deferred)})")
     lines.append("tokens = bytes / 4 (estimate)")
     if m.unreadable:
         lines.append(f"unreadable, not counted: {', '.join(m.unreadable)}")
 
-    over_cap = [n for n in layer.nodes if n.tokens > MAX_NODE_TOKENS]
+    over_cap = [n for n in layer.nodes if n.tokens > args.max_node_tokens]
     with_placeholders = [n for n in layer.nodes if placeholders(n)]
     unreadable = [n for n in layer.nodes if n.text is None]
 
@@ -719,15 +779,19 @@ def cmd_measure(layer: Layer, args: argparse.Namespace) -> int:
                  f"{'present' if layer.root else '—':<8}  {root_verdict}")
     for row in shown:
         has_node = layer.node_at(f"{row.directory}/{ROOT_NODE}") is not None
+        cell = verdict(row.tokens, has_node, args.threshold, args.split)
+        if cell in ("NODE", "NODE + SPLIT") and is_deferred(row.directory, args.deferred):
+            cell = "deferred"
         lines.append(f"{row.directory:<{width}}  {row.files:>6}  {fmt_k(row.tokens):>8}  "
-                     f"{'present' if has_node else '—':<8}  "
-                     f"{verdict(row.tokens, has_node, args.threshold, args.split)}")
+                     f"{'present' if has_node else '—':<8}  {cell}")
     if len(m.rows) > len(shown):
         lines.append(f"… {len(m.rows) - len(shown)} more directories below --top {max(0, args.top)}")
     lines.append(f"thresholds: node >= {fmt_k(args.threshold)} · split >= {fmt_k(args.split)} "
                  f"· tokens = bytes / 4 (estimate) · files from {m.source}"
                  + (" (.gitignore honoured)" if m.source == "git" else " (.gitignore not read)"))
     lines.append(f"boundaries: {', '.join(m.boundaries) if m.boundaries else 'none'}")
+    if args.deferred:
+        lines.append(f"deferred (intentLayer.deferred): {', '.join(args.deferred)}")
     if m.unreadable:
         lines.append(f"unreadable, not counted: {', '.join(m.unreadable)}")
     print("\n".join(lines))
@@ -775,6 +839,29 @@ def cmd_check(layer: Layer, args: argparse.Namespace) -> int:
         warns.append(f"{rel}: a Claude-only node; Codex, Cursor and Grok never read it — "
                      f"move its content to {directory}/{ROOT_NODE}")
 
+    # A deferral is a decision, and a decision nobody can read is a default. The nearest
+    # ancestor node has to name the directory; a deferral whose directory grew a node is stale.
+    for directory in args.deferred:
+        if not (layer.root_dir / Path(*PurePosixPath(directory).parts)).is_dir():
+            warns.append(f"intentLayer.deferred: {directory} is not a directory — remove the entry")
+            continue
+        if layer.node_at(f"{directory}/{ROOT_NODE}") is not None:
+            warns.append(f"intentLayer.deferred: {directory} now has its own {ROOT_NODE} — the "
+                         f"deferral is stale, remove the entry")
+            continue
+        probe = Node(f"{directory}/{ROOT_NODE}", layer.root_dir / directory / ROOT_NODE, 0, "")
+        # Named as a path, in backticks — `references/` — not as a word: "references" occurs in
+        # every root, and a check that any root passes checks nothing.
+        named = re.compile("`" + re.escape(directory) + r"/?`")
+        explained_in = [a for a in layer.ancestors(probe)
+                        if a.text is not None and named.search(a.text)]
+        if not explained_in:
+            near = layer.ancestors(probe)
+            where = near[-1].rel if near else ROOT_NODE
+            fails.append(f"intentLayer.deferred: {directory} is deferred in the config and no "
+                         f"ancestor {ROOT_NODE} names it — write `{directory}/` in {where}, "
+                         f"with the reason beside it")
+
     lines = [f"FAIL {f}" for f in fails] + [f"WARN {w}" for w in warns]
     lines.append(f"{len(layer.nodes)} nodes checked, {len(fails)} failures, {len(warns)} warnings")
     lines.append("intent layer: FAIL" if fails else "intent layer: OK")
@@ -802,17 +889,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_measure = sub.add_parser("measure", help="which directories are heavy enough to need a node")
     common(p_measure)
     p_measure.add_argument("--depth", type=int, default=DEPTH)
-    p_measure.add_argument("--threshold", type=int, default=THRESHOLD,
-                           help="tokens at which a directory earns a node")
-    p_measure.add_argument("--split", type=int, default=SPLIT,
-                           help="tokens at which one node is no longer enough")
+    p_measure.add_argument("--threshold", type=int, default=None,
+                           help=f"tokens at which a directory earns a node (config intentLayer.threshold, else {THRESHOLD})")
+    p_measure.add_argument("--split", type=int, default=None,
+                           help=f"tokens at which one node is no longer enough (config intentLayer.split, else {SPLIT})")
     p_measure.add_argument("--top", type=int, default=TOP)
 
     p_check = sub.add_parser("check", help="the gate: exit 1 on anything an agent would trip over")
     common(p_check)
-    p_check.add_argument("--max-node-tokens", type=int, default=MAX_NODE_TOKENS)
-    p_check.add_argument("--codex-cap", type=int, default=CODEX_CAP,
-                         help="bytes of AGENTS.md Codex reads root-to-cwd before it stops")
+    p_check.add_argument("--max-node-tokens", type=int, default=None,
+                         help=f"config intentLayer.maxNodeTokens, else {MAX_NODE_TOKENS}")
+    p_check.add_argument("--codex-cap", type=int, default=None,
+                         help=f"bytes of AGENTS.md Codex reads root-to-cwd before it stops (config intentLayer.codexCap, else {CODEX_CAP})")
     return parser
 
 
@@ -828,19 +916,22 @@ def main(argv: list[str] | None = None) -> int:
     if not root.is_dir():
         sys.stderr.write(f"{args.root}: not a directory\n")
         return 2
-    # `templates/`, `./templates`, `/templates`, `templates//` and `.\templates` are one intention,
-    # and a spelling that matches nothing hides nothing without saying so.
+    # Flag wins over the config block, the block wins over the constants; `--exclude` adds to the
+    # block's list rather than replacing it, so a one-off run never has to restate the project's.
+    cfg = load_config(root)
     patterns: list[str] = []
-    for raw in args.exclude:
-        p = raw.replace("\\", "/")
-        while "//" in p:
-            p = p.replace("//", "/")
-        p = p.removeprefix("./").removeprefix("/").removesuffix("/")
-        if p:
-            patterns.append(p)
+    for raw in list(config_paths(cfg, "exclude")) + [normalise_pattern(p) for p in args.exclude]:
+        if raw and raw not in patterns:
+            patterns.append(raw)
     args.exclude = patterns
-    if getattr(args, "threshold", 0) > getattr(args, "split", 0) and args.command == "measure":
-        sys.stderr.write("--threshold must not exceed --split\n")
+    args.deferred = config_paths(cfg, "deferred")
+    args.threshold = getattr(args, "threshold", None) or config_int(cfg, "threshold", THRESHOLD)
+    args.split = getattr(args, "split", None) or config_int(cfg, "split", SPLIT)
+    args.max_node_tokens = (getattr(args, "max_node_tokens", None)
+                            or config_int(cfg, "maxNodeTokens", MAX_NODE_TOKENS))
+    args.codex_cap = getattr(args, "codex_cap", None) or config_int(cfg, "codexCap", CODEX_CAP)
+    if args.threshold > args.split:
+        sys.stderr.write("threshold must not exceed split (flag or intentLayer in the config)\n")
         return 2
     layer = discover(root, args.root, args.exclude)
     handler = {"state": cmd_state, "measure": cmd_measure, "check": cmd_check}[args.command]

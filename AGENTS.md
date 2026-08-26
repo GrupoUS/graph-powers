@@ -121,17 +121,17 @@ from inventing work.
 | Directory | What it is | Who consumes it |
 |---|---|---|
 | `agents/` | subagents, one `.md` with frontmatter each | Claude Code by `subagent_type`; Codex via generated `.codex/agents/*.toml` |
-| `skills/` | skills, one folder with a `SKILL.md` each | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
-| `commands/` | commands, exposed as `/<name>` | the user; Codex gets them as generated skills |
-| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
-| `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
+| `skills/` | skills, one folder with a `SKILL.md` each — read `skills/AGENTS.md` first | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
+| `commands/` | commands, exposed as `/<name>`. No node: ten files, each its own entry document, and `.claude/rules/artifacts.md` loads on any edit. No node: ten files, each its own entry document, and `.claude/rules/artifacts.md` loads on any edit | the user; Codex gets them as generated skills |
+| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB. No node: `references/shared-context.md` is already the index. No node: `references/shared-context.md` is already the index | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
+| `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` — read `hooks/AGENTS.md` first | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
 | `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
-| `codex/` | the generators for the Codex side | `bin/graph-powers.mjs` |
+| `codex/` | the generators for the Codex side. No node: cardinal 7 is the rule and each generator's docstring is its map. No node: cardinal 7 is the rule and each generator's docstring is its map | `bin/graph-powers.mjs` |
 | `schema/` | the contract for each project's config | editors, and the setup playbook |
 | `templates/` | starting points a project copies and adapts | the setup playbook |
 | `examples/` | starting configs per stack | people, by copying |
 | `DESIGN.md` · `PRODUCT.md` · `REVIEW.md` | **specs, not documentation.** What the host project's counterparts must contain, and how the agent builds or improves them | `AGENT_SETUP.md § 6` |
-| `docs/` · `CONTRIBUTING.md` | this plugin's own architecture, audience and review process | people |
+| `docs/` · `CONTRIBUTING.md` | this plugin's own architecture, audience and review process. No node: prose for people, and `README.md` is its index | people |
 
 ### 2026-08-24 Turbo dry-json EPIPE abort cascade
 

@@ -750,6 +750,49 @@
         }
       }
     },
+    "intentLayer": {
+      "type": "object",
+      "description": "The project's AGENTS.md hierarchy, as read by skills/intent-layer/scripts/intent_layer.py — the tool AGENT_SETUP.md step 4b runs and /verify-style gates can call. Every field has the default the script uses when the block is absent; a command-line flag on the script overrides the value here. The point of the block is 'deferred': a directory the script would otherwise flag as needing a node, which the project has decided does not earn one. A deferral is a decision, so the script refuses it unless the nearest ancestor AGENTS.md names the directory — the reason lives where a reader looks, not only in this file.",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20000,
+          "description": "Estimated tokens (bytes / 4) at which a directory with no AGENTS.md earns one."
+        },
+        "split": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 64000,
+          "description": "Estimated tokens at which one node is no longer enough and child nodes are due below it. Must not be under threshold."
+        },
+        "maxNodeTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4000,
+          "description": "Cap on one node. A node past it is a document, not a map, and check fails on it."
+        },
+        "codexCap": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 32768,
+          "description": "Bytes of AGENTS.md Codex reads from the git root down to the working directory before it stops. check fails when the longest root-to-leaf chain exceeds it."
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "fnmatch globs, POSIX-relative, matched against a directory and every parent: a subtree whose AGENTS.md is not a node — a template still carrying placeholders, a vendored example. Same shape as the script's --exclude, which adds to this list rather than replacing it."
+        },
+        "deferred": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Directories (POSIX-relative, no trailing slash) the project has decided do not earn a node although the measure says they would — because a file they already carry is the map, or a node would only repeat the root. state stops counting them as candidates and reaches complete; check fails if the nearest ancestor AGENTS.md does not mention the directory, and warns once the directory gains a node of its own, because then the deferral is stale."
+        }
+      },
+      "additionalProperties": false
+    },
     "autoUpdate": {
       "type": "object",
       "description": "Whether the harness keeps itself at the published version. A plugin is a copy, and a copy starts ageing the moment it is installed — six months later five machines run five versions of guardrails that were meant to be identical. The check runs at session start, in a detached process, at most once per interval; it never delays the session and never touches anything inside the project.",

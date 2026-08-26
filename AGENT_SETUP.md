@@ -1387,6 +1387,13 @@ python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" check .
 still carrying `{{placeholders}}`, a vendored example. A `FAIL` is fixed or explained in the
 report; it is never hidden with `--exclude`.
 
+What the table flags and the decision refuses is written down twice, on purpose: the directory in
+`intentLayer.deferred` of `.graph-powers/config.json` (Step 3's file; the block is in the schema),
+and the reason in the nearest ancestor node's row, with the directory in backticks. `check` fails
+a deferral the node does not name, and warns when a deferred directory later grows a node — a
+decision nobody can read is a default, and a stale one is worse. Exclusions that hold for every run
+go into `intentLayer.exclude` the same way, so the commands above need no `--exclude` at all.
+
 A `CLAUDE.md` in a subdirectory is not a node: Codex, Cursor and Grok never read it. `check`
 reports it as a warning. Move its content into that directory's `AGENTS.md`, and keep the
 `CLAUDE.md` only when it carries Claude-specific behaviour worth a second file.

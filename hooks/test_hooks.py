@@ -989,6 +989,64 @@ def main() -> int:
           call("smart_bash_approver",
                bash('python -X utf8 -c "import intent_layer"'), a)[0], "ask")
 
+    # The project's `intentLayer` block: exclusions and deferrals declared once, in the config,
+    # instead of retyped on every run — and a deferral refused until the nearest ancestor node
+    # names the directory, because a decision nobody can read is a default.
+    def intent_cfg(fixture: Path, block: object) -> None:
+        (fixture / ".graph-powers").mkdir(exist_ok=True)
+        (fixture / ".graph-powers" / "config.json").write_text(
+            json.dumps({"intentLayer": block}), encoding="utf-8")
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api + "| big | `big/` | no node: its index is the map |\n")
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    intent_write(fx, "templates/AGENTS.md", "# {{X}}\n")
+    intent_write(fx, "big/x.ts", "export const x = 1;\n", size=100_000)
+    check("without the block, the template fails the gate and the heavy directory is a candidate",
+          (intent_run(fx, "check")[0], "candidates: 1" in intent_run(fx, "state")[1]), (1, True))
+    intent_cfg(fx, {"exclude": ["templates"], "deferred": ["big"]})
+    code, out = intent_run(fx, "state")
+    check("intentLayer.exclude hides the template and intentLayer.deferred retires the candidate",
+          (code, "state: complete" in out and "deferred: 1" in out), (0, True))
+    check("...and the gate passes with the deferral explained in the root",
+          intent_run(fx, "check")[0], 0)
+    check("...and measure shows the deferred row as deferred, not NODE",
+          "deferred" in next((l for l in intent_run(fx, "measure")[1].splitlines()
+                              if l.startswith("big ")), ""), True)
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    code, out = intent_run(fx, "check")
+    check("a deferral no ancestor node names fails the gate, naming where to write it",
+          (code, "no ancestor AGENTS.md names it" in out and "write `big/` in AGENTS.md" in out),
+          (1, True))
+    # The directory grows a node and the root links it: the deferral is now stale, which is a
+    # warning — the tree is fine, the config is behind it.
+    intent_write(fx, "AGENTS.md", root_linking_api + "| big | `big/` | `big/AGENTS.md` |\n")
+    intent_write(fx, "big/AGENTS.md", "Owns big.\n")
+    code, out = intent_run(fx, "check")
+    check("a deferred directory that grew a node is a stale deferral — warned, not failed",
+          (code, "stale" in out), (0, True))
+    intent_cfg(fx, {"exclude": ["templates"], "deferred": ["gone"]})
+    check("a deferred directory that does not exist is a warning",
+          "not a directory" in intent_run(fx, "check")[1], True)
+    (fx / "big" / "AGENTS.md").unlink()
+    intent_cfg(fx, {"threshold": 30000})
+    code, out = intent_run(fx, "measure")
+    check("intentLayer.threshold moves the line: 25k tokens is under a 30k threshold",
+          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("—"), True)
+    code, out = intent_run(fx, "measure", "--threshold", "20000")
+    check("...and a flag on the command line wins over the block",
+          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("NODE"), True)
+    (fx / ".graph-powers" / "config.json").write_text("{not json", encoding="utf-8")
+    check("a config with a typo is the defaults, not a traceback",
+          intent_run(fx, "state")[0], 0)
+    # The root still links `big/AGENTS.md`, which was just removed; put the root back to the shape
+    # that links only the api node, so the only thing between this tree and OK is the exclusion.
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_cfg(fx, {"exclude": ["templates"]})
+    check("--exclude adds to the block's list instead of replacing it",
+          intent_run(fx, "check", "--exclude", "big")[0], 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
     print("### `git restore` is decided by its flag set, not by a substring")
     # The floor exempted `restore` with a lookahead for the TEXT `--staged`, and the safe list
     # allowed anything starting `git restore --staged`. Neither reads a flag set, and `--staged

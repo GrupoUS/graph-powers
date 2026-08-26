@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.10.4 — The plugin grows its own intent layer
+
+### Added — `skills/AGENTS.md` and `hooks/AGENTS.md`, the first two child nodes of this repository
+
+`intent-layer`'s own `state` reported this repository `partial` on the day the skill landed:
+`skills/` at ~216k tokens and `hooks/` at ~72k with no node, seven candidates in all. The two
+largest now carry a node each — what the directory owns and does not, the contracts the gates
+enforce, the usual change as numbered steps, and the anti-patterns that shipped once — sourced
+from `.claude/rules/artifacts.md`, `.claude/rules/hooks.md`, the gate scripts and the incident
+records, not invented. The root `AGENTS.md` links both from `Where things live`, and
+`intent_layer.py check . --exclude templates` passes on the result: 3 nodes, longest root-to-leaf
+chain under the Codex cap. The other five candidates (`references/`, `codex/`, `skills/planning`,
+`skills/skill-improve`, `commands/`) stay deferred: each is indexed by a file it already has, and a
+node the reader can replace by opening two files is weight.
+
+### Added — `intentLayer` in the config: thresholds, exclusions and declared deferrals
+
+`intent_layer.py` now reads an `intentLayer` block from `.graph-powers/config.json`
+(`schema/config.schema.json` carries the contract): `threshold`, `split`, `maxNodeTokens`,
+`codexCap`, `exclude`, and `deferred`. A flag wins over the block, the block over the defaults, and
+`--exclude` adds to the block's list. `deferred` is the new idea: a directory the measure flags and
+the project has decided does not earn a node. `state` stops counting it and reaches `complete`
+honestly; `check` refuses the deferral until the nearest ancestor `AGENTS.md` names the directory
+in backticks with the reason beside it, and warns when a deferred directory later grows a node.
+This repository declares its own five, with the reasons in the root's `Where things live` rows and
+in `skills/AGENTS.md`. Eleven tests in `hooks/test_hooks.py` cover the block, including the typo
+that has to fall back to the defaults.
+
+### Changed — the clone installer does not ship `skills/AGENTS.md`
+
+`codex/install.mjs` copies `skills/` whole into `~/.agents/skills/`; the new node would have been
+the one file there Codex could read as an instruction, about a tree the host does not have.
+`skipJunk` now drops it alongside `__pycache__`.
+
 ## 1.10.3 — Review hardening
 
 PR review now keeps task briefs and review packages inside the plan workspace without following
