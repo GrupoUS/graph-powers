@@ -14,7 +14,6 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-
 REFERENCE_RE = re.compile(
     r"(?<![\w${./-])"
     r"(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|workflows)"
