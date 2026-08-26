@@ -922,6 +922,20 @@ def main() -> int:
           (code, "more directories below --top 1" in out), (0, True))
     code, out = intent_run(fx, "measure", "--threshold", "70000", "--split", "64000")
     check("a threshold above the split is refused, not printed as NODE + SPLIT", code, 2)
+    invalid_positive_flags = [
+        ("measure", "--threshold", value)
+        for value in ("0", "-1")
+    ] + [
+        ("measure", "--split", value)
+        for value in ("0", "-1")
+    ] + [
+        ("check", flag, value)
+        for flag in ("--max-node-tokens", "--codex-cap")
+        for value in ("0", "-1")
+    ]
+    check("explicit size and threshold flags must be positive integers",
+          [intent_run(fx, *argv)[0] for argv in invalid_positive_flags],
+          [2] * len(invalid_positive_flags))
     code, out = intent_run(fx, "check", "--exclude", "nothing-here")
     check("an --exclude that hid nothing says so",
           (code, "note: --exclude nothing-here matched nothing" in out), (0, True))
@@ -1045,6 +1059,32 @@ def main() -> int:
     intent_cfg(fx, {"exclude": ["templates"]})
     check("--exclude adds to the block's list instead of replacing it",
           intent_run(fx, "check", "--exclude", "big")[0], 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-config-precedence-"))
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    (fx / ".graph-powers").mkdir()
+    (fx / ".graph-powers" / "config.json").write_text("{}", encoding="utf-8")
+    (fx / ".claude").mkdir()
+    (fx / ".claude" / "config.json").write_text(
+        json.dumps({"intentLayer": {"threshold": 12345}}),
+        encoding="utf-8",
+    )
+    code, out = intent_run(fx, "measure")
+    check("the canonical config shadows the legacy file instead of merging two project configs",
+          (code, "node >= 20.0k" in out, "12.3k" in out), (0, True, False))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-config-thresholds-"))
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    intent_cfg(fx, {"threshold": 70000, "split": 64000})
+    state_code, _ = intent_run(fx, "state")
+    measure_code, measure_out = intent_run(fx, "measure")
+    check_code, _ = intent_run(fx, "check")
+    check("an invalid config threshold pair falls back atomically instead of breaking every command",
+          ((state_code, measure_code, check_code),
+           "node >= 20.0k · split >= 64.0k" in measure_out),
+          ((0, 0, 0), True))
     shutil.rmtree(fx, ignore_errors=True)
 
     container = Path(tempfile.mkdtemp(prefix="gp-intent-config-link-"))

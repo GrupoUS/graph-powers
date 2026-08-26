@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
   "title": "Graph Powers — project configuration contract",
-  "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .claude/config.json instead; both locations are read, .graph-powers/ first. The same file also works at ~/.graph-powers/config.json, where it states the operator's own posture for every repository they open; only the autonomy, graphGuardrails, protectedFiles and autoUpdate blocks are read from there, and a project's own file always outranks it.",
+  "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .claude/config.json instead; both locations are supported, and the first existing file wins, .graph-powers first. The same file also works at ~/.graph-powers/config.json, where it states the operator's own posture for every repository they open; only the autonomy, graphGuardrails, protectedFiles and autoUpdate blocks are read from there, and a project's own file always outranks it.",
   "type": "object",
   "properties": {
     "project": {

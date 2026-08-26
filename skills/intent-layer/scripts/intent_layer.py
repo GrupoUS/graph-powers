@@ -275,9 +275,11 @@ class Layer:
 def load_config(root: Path) -> dict[str, object]:
     """The `intentLayer` block of the project's config, or an empty dict.
 
-    Both locations the schema names are read, `.graph-powers/` first. Fail-open like every hook
-    in this plugin: a missing file, a typo in the JSON, a block of the wrong type — the defaults,
-    never a traceback. A gate that breaks on its own input teaches people to switch gates off.
+    The first existing location the schema names wins, `.graph-powers/` first. The `.claude/`
+    spelling is a whole-file legacy fallback, not a second project-config layer to merge. Fail-open
+    like every hook in this plugin: a missing file, a typo in the JSON, a block of the wrong type —
+    the defaults, never a traceback. A gate that breaks on its own input teaches people to switch
+    gates off.
     """
     resolved_root = root.resolve()
     for rel in (".graph-powers/config.json", ".claude/config.json"):
@@ -892,6 +894,17 @@ def cmd_check(layer: Layer, args: argparse.Namespace) -> int:
 # --- entry ------------------------------------------------------------------------------------
 
 
+def positive_int(raw: str) -> int:
+    """An explicit size/threshold flag; configuration values use fail-open helpers above."""
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a positive integer") from error
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Report (state), measure, or gate (check) a project's AGENTS.md tree.",
@@ -909,17 +922,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_measure = sub.add_parser("measure", help="which directories are heavy enough to need a node")
     common(p_measure)
     p_measure.add_argument("--depth", type=int, default=DEPTH)
-    p_measure.add_argument("--threshold", type=int, default=None,
+    p_measure.add_argument("--threshold", type=positive_int, default=None,
                            help=f"tokens at which a directory earns a node (config intentLayer.threshold, else {THRESHOLD})")
-    p_measure.add_argument("--split", type=int, default=None,
+    p_measure.add_argument("--split", type=positive_int, default=None,
                            help=f"tokens at which one node is no longer enough (config intentLayer.split, else {SPLIT})")
     p_measure.add_argument("--top", type=int, default=TOP)
 
     p_check = sub.add_parser("check", help="the gate: exit 1 on anything an agent would trip over")
     common(p_check)
-    p_check.add_argument("--max-node-tokens", type=int, default=None,
+    p_check.add_argument("--max-node-tokens", type=positive_int, default=None,
                          help=f"config intentLayer.maxNodeTokens, else {MAX_NODE_TOKENS}")
-    p_check.add_argument("--codex-cap", type=int, default=None,
+    p_check.add_argument("--codex-cap", type=positive_int, default=None,
                          help=f"bytes of AGENTS.md Codex reads root-to-cwd before it stops (config intentLayer.codexCap, else {CODEX_CAP})")
     return parser
 
@@ -945,8 +958,14 @@ def main(argv: list[str] | None = None) -> int:
             patterns.append(raw)
     args.exclude = patterns
     args.deferred = config_paths(cfg, "deferred")
-    args.threshold = getattr(args, "threshold", None) or config_int(cfg, "threshold", THRESHOLD)
-    args.split = getattr(args, "split", None) or config_int(cfg, "split", SPLIT)
+    config_threshold = config_int(cfg, "threshold", THRESHOLD)
+    config_split = config_int(cfg, "split", SPLIT)
+    if config_threshold > config_split:
+        # Neither value can be identified as the typo, so discard the malformed pair atomically.
+        # Explicit CLI flags are checked below and still report an input error.
+        config_threshold, config_split = THRESHOLD, SPLIT
+    args.threshold = getattr(args, "threshold", None) or config_threshold
+    args.split = getattr(args, "split", None) or config_split
     args.max_node_tokens = (getattr(args, "max_node_tokens", None)
                             or config_int(cfg, "maxNodeTokens", MAX_NODE_TOKENS))
     args.codex_cap = getattr(args, "codex_cap", None) or config_int(cfg, "codexCap", CODEX_CAP)

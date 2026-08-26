@@ -10,9 +10,9 @@ import sys
 import tempfile
 import threading
 import unittest
-from unittest import mock
 from pathlib import Path
 from typing import TypedDict
+from unittest import mock
 
 import sdd as sdd_module
 
@@ -338,11 +338,22 @@ class SddCliTests(unittest.TestCase):
             errors: list[BaseException] = []
             real_fdopen = sdd_module.os.fdopen
 
-            def delayed_fdopen(*args: object, **kwargs: object):
+            def delayed_fdopen(
+                descriptor: int,
+                mode: str,
+                *,
+                encoding: str,
+                newline: str,
+            ):
                 entered_write.set()
                 if not continue_write.wait(timeout=5):
                     raise TimeoutError("test writer did not resume")
-                return real_fdopen(*args, **kwargs)
+                return real_fdopen(
+                    descriptor,
+                    mode,
+                    encoding=encoding,
+                    newline=newline,
+                )
 
             def write() -> None:
                 try:
@@ -386,22 +397,23 @@ class SddCliTests(unittest.TestCase):
             sdd_module.os.close(descriptor)
             return FailingWriter()
 
-        with tempfile.TemporaryDirectory() as directory:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(sdd_module.os, "fdopen", side_effect=failing_fdopen),
+            mock.patch.object(
+                sdd_module,
+                "fail",
+                side_effect=OSError("expected write failure"),
+            ),
+        ):
             target = Path(directory) / "write-lease.json"
-            with (
-                mock.patch.object(sdd_module.os, "fdopen", side_effect=failing_fdopen),
-                mock.patch.object(
-                    sdd_module,
-                    "fail",
-                    side_effect=OSError("expected write failure"),
-                ),
-            ):
-                with self.assertRaises(OSError):
-                    sdd_module._write_text_no_symlink(
-                        target,
-                        '{"plan": "PLAN.md"}\n',
-                        exclusive=True,
-                    )
+            self.assertRaises(
+                OSError,
+                sdd_module._write_text_no_symlink,
+                target,
+                '{"plan": "PLAN.md"}\n',
+                exclusive=True,
+            )
             self.assertFalse(target.exists())
 
     def test_release_rejects_a_symlinked_state_parent(self) -> None:

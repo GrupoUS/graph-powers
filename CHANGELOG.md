@@ -10,10 +10,13 @@ never visible partially and an interrupted write leaves no canonical file.
 
 Intent-layer configuration now stays inside the project root: external config symlinks fall back
 to defaults, and traversal, drive-root, NUL and empty exclude/deferred paths are rejected by both
-the schema and runtime. `/evolve` also separates method selection from write ownership, so a host
-learning cannot be written into an installed global plugin; only project-owned skill files are
-writable, while the project log and `AGENTS.md` remain the durable destinations. Live documentation
-no longer embeds check or inventory counts that immediately drift from the gates.
+the schema and runtime. The canonical project config shadows the whole legacy file instead of
+merging two sources, while a malformed threshold/split pair falls back atomically to defaults;
+explicitly invalid CLI flags remain an input error. `/evolve` also separates method selection from
+write ownership, so a host learning cannot be written into an installed global plugin; only
+project-owned skill files are writable, while the project log and `AGENTS.md` remain the durable
+destinations. Live documentation no longer embeds check or inventory counts that immediately drift
+from the gates.
 
 ## 1.10.4 — The plugin grows its own intent layer
 
