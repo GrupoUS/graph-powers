@@ -541,7 +541,7 @@ the assertion set are measured, the skill's live trigger behaviour still is not 
 judge's four recurring patterns, once in `MEMORY.md`, change a verdict.
 
 
-## Round 4 — 2026-08-26 · `/design` drops the `impeccable` dependency; `designer` carries the craft passes
+## Round 8 — 2026-08-26 · `/design` drops the `impeccable` dependency; `designer` carries the craft passes
 
 **Hypothesis:** the craft passes `/design § 3` delegated to the external plugin could be written
 into `designer` as two references — the passes and the floor — and the removal would be a routing

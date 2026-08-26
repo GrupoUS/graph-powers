@@ -80,10 +80,13 @@ These are the gates, and all of them pass before anything ships:
 claude plugin validate .                    # manifest and marketplace
 python3 hooks/test_hooks.py                 # guardrails, 350 checks in a sandbox
 python3 skills/planning/scripts/test_sdd.py # structured plans, TDD and review packaging
+python3 skills/skill-improve/scripts/test_run_evals.py # eval runner path and CLI contract
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
+python3 .github/test_file_references.py      # negative tests for the live-file reference gate
+python3 .github/check_file_references.py     # every live Markdown path resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
 python3 .github/check_listing_budget.py     # what the plugin costs before anything is invoked

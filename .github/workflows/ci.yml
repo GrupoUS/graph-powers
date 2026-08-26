@@ -74,6 +74,9 @@ jobs:
       - name: Structured planning and TDD contract
         run: python3 skills/planning/scripts/test_sdd.py
 
+      - name: Skill eval runner contract
+        run: python3 skills/skill-improve/scripts/test_run_evals.py
+
       - name: Frontmatter parses, and name matches the file
         run: |
           python3 - <<'PY'
@@ -203,33 +206,8 @@ jobs:
 
       - name: No dangling file references
         run: |
-          python3 - <<'PY'
-          import glob, os, re, sys
-          pat = re.compile(
-              r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|workflows)'
-              r'/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)'
-          )
-          missing = {}
-          # A changelog is a record of what happened, not a description of what exists. It names
-          # files this repository has since deleted, and files it never owned — `agents/codex-
-          # rescue.md` belongs to the codex plugin, and the entry describing it is correct prose
-          # that this gate has no way to tell from a broken link. Holding a history to today's
-          # tree means the history can never mention a removal, which is most of what a changelog
-          # is for.
-          for f in glob.glob("**/*.md", recursive=True):
-              if os.path.basename(f) == "CHANGELOG.md":
-                  continue
-              base = os.path.dirname(f)
-              for m in set(pat.findall(open(f, encoding="utf-8", errors="replace").read())):
-                  candidates = (m, os.path.join(base, m), os.path.join(base, "..", m),
-                                os.path.join(base, "../..", m))
-                  if any(os.path.exists(p) for p in candidates):
-                      continue
-                  missing.setdefault(m, []).append(f)
-          for m, files in sorted(missing.items()):
-              print(f"DANGLING: {m}  <- {', '.join(sorted(set(files))[:3])}")
-          sys.exit(1 if missing else 0)
-          PY
+          python3 .github/test_file_references.py
+          python3 .github/check_file_references.py
 
   codex:
     runs-on: ubuntu-latest

@@ -630,6 +630,8 @@ def _is_trusted_intent_layer_command(command: str, project_root: Path) -> bool:
         return False
 
     if len(tokens) > index and tokens[index] == "-X":
+        if len(tokens) <= index + 1 or tokens[index + 1] != "utf8":
+            return False
         index += 2
     if len(tokens) <= index + 1:
         return False

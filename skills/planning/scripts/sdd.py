@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Plan workspaces, task briefs, review packages and plan validation.
 
-One script, four subcommands, one location rule — so a brief and the package that reviews it can
+One script, six subcommands, one location rule — so a brief and the package that reviews it can
 never land in different directories:
 
     python -X utf8 sdd.py workspace PLAN_FILE                  -> prints the plan's workspace
-    python -X utf8 sdd.py brief     PLAN_FILE N [OUT]          -> task N's text, to a file
-    python -X utf8 sdd.py package   PLAN_FILE BASE HEAD [OUT]  -> commits, stat and diff, to a file
+    python -X utf8 sdd.py brief     PLAN_FILE N                -> task N's text, to the workspace
+    python -X utf8 sdd.py package   PLAN_FILE BASE HEAD        -> review diff, to the workspace
     python -X utf8 sdd.py validate  PLAN_FILE --max-tasks N   -> tasks, gates and lease as JSON
+    python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N   -> validate + atomically lease
+    python -X utf8 sdd.py release   PLAN_FILE                 -> remove only that plan's lease
 
 Provenance: a port of the `sdd-workspace`, `task-brief` and `review-package` shell scripts of
 obra/superpowers (MIT), rewritten on the Python standard library because this repository ships no
@@ -68,11 +70,12 @@ STRUCTURED_GATE = re.compile(
     r"^(?P<indent>[ \t]*)-[ \t]+\[(?P<checked>[ xX])\][ \t]+"
     r"\*\*(?P<id>G[0-9]+(?:\.[0-9]+)*[A-Za-z]?)\*\*[ \t]+—[ \t]+(?P<title>.+?)\s*$"
 )
-TASK_MARKER = re.compile(r"^[ \t]*-[ \t]+\[[ xX]\]")
+TASK_MARKER = re.compile(r"^(?P<indent>[ \t]*)-[ \t]+\[[ xX]\]")
 MALFORMED_STRUCTURED = re.compile(r"^[ \t]*-[ \t]+\[[ xX]\][ \t]+\*\*T", re.IGNORECASE)
 MALFORMED_GATE = re.compile(r"^[ \t]*-[ \t]+\[[ xX]\][ \t]+\*\*G", re.IGNORECASE)
 FIELD = re.compile(r"^(?P<indent>[ \t]+)(?P<name>[A-Za-z][A-Za-z0-9_-]*):[ \t]*(?P<value>.*)$")
-TASK_ID = re.compile(r"^T[0-9]+(?:\.[0-9]+)*[A-Za-z]?$")
+TASK_ID = re.compile(r"^T(?P<phase>[0-9]+)(?:\.[0-9]+)*[A-Za-z]?$")
+SAFE_REF = re.compile(r"^(?:HEAD|[0-9A-Fa-f]{7,64})$")
 NEED_REF = re.compile(
     r"(?P<id>T[0-9]+(?:\.[0-9]+)*[A-Za-z]?)\s*\(\s*reads\s*:\s*(?P<reads>[^()]*?\S)\s*\)",
     re.IGNORECASE,
@@ -144,13 +147,72 @@ def plan_slug(plan: Path) -> str:
     return slug
 
 
+def _secure_directory(root: Path, *parts: str) -> Path:
+    """Create one repository-local directory chain while refusing every symlink component."""
+    root = root.resolve()
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            fail(f"refusing symlink in SDD state path: {current.as_posix()}", 2)
+        try:
+            current.mkdir()
+        except FileExistsError:
+            if current.is_symlink():
+                fail(f"refusing symlink in SDD state path: {current.as_posix()}", 2)
+            if not current.is_dir():
+                fail(f"SDD state path is not a directory: {current.as_posix()}", 2)
+        try:
+            current.resolve().relative_to(root)
+        except ValueError:
+            fail(f"SDD state path escapes the repository: {current.as_posix()}", 2)
+    return current
+
+
+def _existing_secure_directory(root: Path, *parts: str) -> Path | None:
+    """Resolve an existing state directory without creating or following symlink components."""
+    root = root.resolve()
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            fail(f"refusing symlink in SDD state path: {current.as_posix()}", 2)
+        if not current.exists():
+            return None
+        if not current.is_dir():
+            fail(f"SDD state path is not a directory: {current.as_posix()}", 2)
+        try:
+            current.resolve().relative_to(root)
+        except ValueError:
+            fail(f"SDD state path escapes the repository: {current.as_posix()}", 2)
+    return current
+
+
+def _write_text_no_symlink(target: Path, text: str, *, exclusive: bool = False) -> None:
+    """Write one state file without following a pre-existing final-component symlink."""
+    if target.is_symlink():
+        fail(f"refusing symlink SDD output: {target.as_posix()}", 2)
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if exclusive else os.O_TRUNC)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(target, flags, 0o600)
+    except FileExistsError:
+        raise
+    except OSError as error:
+        fail(f"cannot write SDD state {target.as_posix()}: {error}", 2)
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
 def workspace(plan: Path) -> Path:
-    base = repo_root(plan) / ".graph-powers" / "logs" / "sdd"
-    directory = base / plan_slug(plan)
-    directory.mkdir(parents=True, exist_ok=True)
+    root = repo_root(plan)
+    directory = _secure_directory(root, ".graph-powers", "logs", "sdd", plan_slug(plan))
+    base = directory.parent
     ignore = base / ".gitignore"
+    if ignore.is_symlink():
+        fail(f"refusing symlink SDD output: {ignore.as_posix()}", 2)
     if not ignore.is_file() or ignore.read_text(encoding="utf-8") != "*\n":
-        ignore.write_text("*\n", encoding="utf-8")
+        _write_text_no_symlink(ignore, "*\n")
     return directory
 
 
@@ -208,16 +270,15 @@ def extract_task(lines: list[str], wanted: str) -> list[str]:
     return out
 
 
-def brief(plan: Path, number: str, out: str | None) -> None:
+def brief(plan: Path, number: str) -> None:
     wanted = task_id(number)
     lines = plan.read_text(encoding="utf-8", errors="replace").splitlines()
     section = extract_task(lines, wanted)
     if not section:
         fail(f"task {number} not found in {plan.as_posix()} "
              f"(no heading 'Task {wanted}' and no checkbox 'T{wanted}')", 3)
-    target = Path(out) if out else workspace(plan) / f"task-{wanted}-brief.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("\n".join(section) + "\n", encoding="utf-8")
+    target = workspace(plan) / f"task-{wanted}-brief.md"
+    _write_text_no_symlink(target, "\n".join(section) + "\n")
     print(f"wrote {target.as_posix()}: {len(section)} lines")
 
 
@@ -239,6 +300,14 @@ def _unquote(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] == "`":
         return value[1:-1].strip()
     return value
+
+
+def _is_placeholder(value: str) -> bool:
+    """Recognize an unexpanded plan field without rejecting real shell syntax inside a command."""
+    normalized = _unquote(value).strip()
+    return normalized.lower() in {"pending", "tbd", "todo"} or bool(
+        re.fullmatch(r"<[^<>]+>", normalized)
+    )
 
 
 def _owns(value: str, task: str, errors: list[str]) -> list[str]:
@@ -308,10 +377,14 @@ def _structured_blocks(
     blocks: list[tuple[int, str, list[tuple[int, str]]]] = []
     for position, (index, line_no, task_id_value) in enumerate(starts):
         end = starts[position + 1][0] if position + 1 < len(starts) else len(visible)
-        # Any checkbox ends the preceding block. Fields never bleed through a boundary even when
-        # a plan omits a blank line.
+        header = pattern.match(visible[index][1])
+        assert header is not None
+        block_indent = len(header.group("indent"))
+        # A peer checkbox ends the preceding block. Nested checklist steps remain part of it.
+        # Fields still cannot bleed through a boundary when a plan omits a blank line.
         for candidate in range(index + 1, end):
-            if TASK_MARKER.match(visible[candidate][1]):
+            marker = TASK_MARKER.match(visible[candidate][1])
+            if marker and len(marker.group("indent")) <= block_indent:
                 end = candidate
                 break
         blocks.append((line_no, task_id_value, visible[index:end]))
@@ -347,8 +420,13 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
     steps: list[str] = []
     task_indent = len(header.group("indent"))
     in_steps = False
+    steps_indent: int | None = None
     for _source_line, line in lines[1:]:
         field = FIELD.match(line)
+        if (in_steps and line.strip() and
+                (field is None or steps_indent is None or len(field.group("indent")) > steps_indent)):
+            steps.append(line.strip())
+            continue
         if field and len(field.group("indent")) > task_indent:
             name = field.group("name").lower()
             value = field.group("value").strip()
@@ -359,11 +437,13 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
                     errors.append(f"{task_id_value}: duplicate field Steps")
                 fields["steps"] = value
                 in_steps = True
+                steps_indent = len(field.group("indent"))
                 if value:
                     steps.append(value)
             else:
                 fields[name] = value
                 in_steps = False
+                steps_indent = None
             continue
         if in_steps and line.strip():
             steps.append(line.strip())
@@ -402,6 +482,9 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
             errors.append(f"{task_id_value}: TDD required but Steps has no RED step")
         if not re.search(r"\bGREEN\b", step_text, re.IGNORECASE):
             errors.append(f"{task_id_value}: TDD required but Steps has no GREEN step")
+    for field_name in ("check", "expect"):
+        if fields.get(field_name) and _is_placeholder(fields[field_name]):
+            errors.append(f"{task_id_value}: {field_name.title()} is a placeholder")
     if fields.get("agent", "").strip() and not steps and fields["agent"].strip().lower() != "main":
         errors.append(f"{task_id_value}: subagent task requires Steps")
 
@@ -435,8 +518,14 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
     }
     if "risk" in fields:
         task["risk"] = _unquote(fields["risk"])
-    if task["checked"] and task["evidence"].strip().lower() == "pending":
-        errors.append(f"{task_id_value}: checked task still has EVIDENCE pending")
+    if task["checked"]:
+        if task["evidence"].strip().lower() == "pending":
+            errors.append(f"{task_id_value}: checked task still has EVIDENCE pending")
+        if tdd_match and tdd_match.group(1).lower() == "required":
+            evidence = task["evidence"]
+            if not (re.search(r"\bRED\b", evidence, re.IGNORECASE) and
+                    re.search(r"\bGREEN\b", evidence, re.IGNORECASE)):
+                errors.append(f"{task_id_value}: checked TDD task is missing observed RED/GREEN evidence")
     return task
 
 
@@ -458,6 +547,9 @@ def _parse_gate(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
     for name in ("check", "expect", "evidence"):
         if not fields.get(name, "").strip():
             errors.append(f"{gate_id_value}: missing required field {name.title()}")
+    for field_name in ("check", "expect"):
+        if fields.get(field_name) and _is_placeholder(fields[field_name]):
+            errors.append(f"{gate_id_value}: {field_name.title()} is a placeholder")
     title = header.group("title").strip()
     if not title or title.lower() in {"tbd", "todo"}:
         errors.append(f"{gate_id_value}: gate title is empty or a placeholder")
@@ -516,7 +608,9 @@ def validate_plan(plan: Path, max_tasks: int) -> tuple[dict[str, Any] | None, li
     if len(gate_ids) != len(set(gate_ids)):
         duplicates = sorted({item for item in gate_ids if gate_ids.count(item) > 1})
         errors.append(f"duplicate gate id(s): {', '.join(duplicates)}")
-    task_phases = {task["id"][1:].split(".", 1)[0] for task in tasks}
+    task_phase_matches = [TASK_ID.fullmatch(task["id"]) for task in tasks]
+    assert all(match is not None for match in task_phase_matches)
+    task_phases = {match.group("phase") for match in task_phase_matches if match is not None}
     gate_phases = {gate["phase"] for gate in gates}
     for phase in sorted(task_phases - gate_phases, key=int):
         errors.append(f"phase {phase}: missing structured gate")
@@ -554,8 +648,80 @@ def validate_plan(plan: Path, max_tasks: int) -> tuple[dict[str, Any] | None, li
     return {"tasks": tasks, "gates": gates, "writeLease": lease}, []
 
 
+def _relative_plan(plan: Path, root: Path) -> str:
+    try:
+        return plan.relative_to(root).as_posix()
+    except ValueError:
+        fail(f"plan is outside the repository: {plan.as_posix()}", 2)
+
+
+def _read_lease(path: Path) -> dict[str, Any]:
+    if path.is_symlink():
+        fail(f"refusing symlink write lease: {path.as_posix()}", 2)
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        fail(f"cannot read existing write lease {path.as_posix()}: {error}", 2)
+    if not isinstance(value, dict) or not isinstance(value.get("plan"), str) or not isinstance(value.get("paths"), list):
+        fail(f"invalid existing write lease: {path.as_posix()}", 2)
+    return value
+
+
+def acquire(plan: Path, max_tasks: int) -> dict[str, Any]:
+    """Validate the plan and create its write lease with an atomic create-if-absent."""
+    normalized, errors = validate_plan(plan, max_tasks)
+    if errors:
+        fail("plan validation failed: " + "; ".join(errors), 2)
+    assert normalized is not None
+    root = repo_root(plan)
+    relative_plan = _relative_plan(plan, root)
+    logs = _secure_directory(root, ".graph-powers", "logs")
+    lease_path = logs / "write-lease.json"
+    state_paths = [
+        relative_plan,
+        ".graph-powers/logs/progress.md",
+        f".graph-powers/logs/sdd/{plan_slug(plan)}/task-reviews.md",
+    ]
+    paths = sorted({*normalized["writeLease"], *state_paths})
+    payload = {"plan": relative_plan, "paths": paths}
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    try:
+        _write_text_no_symlink(lease_path, encoded, exclusive=True)
+    except FileExistsError:
+        existing = _read_lease(lease_path)
+        if existing != payload:
+            fail(f"write lease conflict: {existing['plan']} already owns {lease_path.as_posix()}", 2)
+    return normalized
+
+
+def release(plan: Path) -> None:
+    """Remove the active lease only when this exact canonical plan owns it."""
+    root = repo_root(plan)
+    relative_plan = _relative_plan(plan, root)
+    logs = _existing_secure_directory(root, ".graph-powers", "logs")
+    if logs is None:
+        print(f"no write lease to release for {relative_plan}")
+        return
+    lease_path = logs / "write-lease.json"
+    if lease_path.is_symlink():
+        fail(f"refusing symlink write lease: {lease_path.as_posix()}", 2)
+    if not lease_path.exists():
+        print(f"no write lease to release for {relative_plan}")
+        return
+    existing = _read_lease(lease_path)
+    if existing["plan"] != relative_plan:
+        fail(f"write lease belongs to {existing['plan']}, not {relative_plan}", 2)
+    try:
+        lease_path.unlink()
+    except OSError as error:
+        fail(f"cannot release write lease {lease_path.as_posix()}: {error}", 2)
+    print(f"released write lease for {relative_plan}")
+
+
 def resolve_ref(ref: str, label: str, root: Path) -> str:
-    done = git(["rev-parse", "--verify", "--quiet", ref], root)
+    if not SAFE_REF.fullmatch(ref):
+        fail(f"bad {label}: {ref}", 2)
+    done = git(["rev-parse", "--verify", "--quiet", "--end-of-options", ref], root)
     if done.returncode != 0 or not done.stdout.strip():
         fail(f"bad {label}: {ref}", 2)
     return done.stdout.strip()
@@ -579,7 +745,7 @@ def snapshot(root: Path) -> str:
         return git_out(["write-tree"], root, env).strip()
 
 
-def package(plan: Path, base: str, head: str, out: str | None) -> None:
+def package(plan: Path, base: str, head: str) -> None:
     root = repo_root(plan)
     base_sha = resolve_ref(base, "BASE", root)
     head_sha = resolve_ref(head, "HEAD", root)
@@ -618,10 +784,9 @@ def package(plan: Path, base: str, head: str, out: str | None) -> None:
         diff or "(empty)",
         "",
     ])
-    target = Path(out) if out else workspace(plan) / f"review-{base_sha[:7]}..{end[:7]}.diff"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text, encoding="utf-8")
-    size = target.stat().st_size
+    target = workspace(plan) / f"review-{base_sha[:7]}..{end[:7]}.diff"
+    _write_text_no_symlink(target, text)
+    size = len(text.encode("utf-8"))
     line = f"wrote {target.as_posix()}: {count} commit(s), {size} bytes"
     if snap:
         line += f"; worktree snapshot {snap[:7]} — the next fix round packages {snap[:7]}..HEAD"
@@ -641,32 +806,42 @@ def main(argv: list[str] | None = None) -> int:
     p_brief = sub.add_parser("brief", help="extract one task's text to a brief file")
     p_brief.add_argument("plan")
     p_brief.add_argument("task", help="task number: 3, 2.1, T2.1")
-    p_brief.add_argument("out", nargs="?")
 
     p_pkg = sub.add_parser("package", help="write commits, stat and diff for BASE..HEAD to a file")
     p_pkg.add_argument("plan")
     p_pkg.add_argument("base")
     p_pkg.add_argument("head")
-    p_pkg.add_argument("out", nargs="?")
 
     p_validate = sub.add_parser("validate", help="validate a structured plan and print its task graph")
     p_validate.add_argument("plan")
     p_validate.add_argument("--max-tasks", type=int, required=True)
+
+    p_acquire = sub.add_parser("acquire", help="validate and atomically acquire the plan write lease")
+    p_acquire.add_argument("plan")
+    p_acquire.add_argument("--max-tasks", type=int, required=True)
+
+    p_release = sub.add_parser("release", help="release only the write lease owned by this plan")
+    p_release.add_argument("plan")
 
     args = parser.parse_args(argv)
     plan = plan_file(args.plan)
     if args.command == "workspace":
         print(workspace(plan).as_posix())
     elif args.command == "brief":
-        brief(plan, args.task, args.out)
+        brief(plan, args.task)
     elif args.command == "validate":
         normalized, errors = validate_plan(plan, args.max_tasks)
         if errors:
             fail("plan validation failed: " + "; ".join(errors), 2)
         assert normalized is not None
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
+    elif args.command == "acquire":
+        normalized = acquire(plan, args.max_tasks)
+        print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
+    elif args.command == "release":
+        release(plan)
     else:
-        package(plan, args.base, args.head, args.out)
+        package(plan, args.base, args.head)
     return 0
 
 

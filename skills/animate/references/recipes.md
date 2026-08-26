@@ -9,6 +9,59 @@ Each recipe passes the gate at the tier it names. A recipe applied at a higher-f
 finding, not a shortcut — a 200ms popover on a command palette is still a 200ms delay hundreds of
 times a day.
 
+## Required reduced-motion companion
+
+Every recipe below is incomplete until it ships a `prefers-reduced-motion` branch. Put the matching
+`data-motion` value on the animated element; these overrides keep functional state changes while
+removing decorative travel. A hidden starting state must become its visible final state under
+`reveal` — motion can never be required to discover or understand content.
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  [data-motion]:not([data-motion="essential-progress"]) {
+    transition-duration: 120ms !important;
+    animation-duration: 120ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  [data-motion="spatial"] { transform: none !important; }
+  [data-motion="crossfade"] { filter: none !important; }
+  [data-motion="instant"] {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+  [data-motion="reveal"] {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    filter: none !important;
+  }
+}
+```
+
+| Recipe | Reduced-motion value and final behaviour |
+|---|---|
+| Button press | `spatial`: no scale; native pressed state still supplies feedback |
+| Dropdown, tooltip, modal, toast | `spatial`: retain the short opacity fade, remove scale or travel |
+| Drawer, accordion, tab indicator | `instant`: move directly to the correct open, closed or selected state |
+| Stagger and scroll reveal | `reveal`: show every item immediately in its final readable state |
+| Hold to confirm | progress overlay is `essential-progress` and keeps the deliberate 2s linear fill; the button itself is `spatial` |
+| Drag to dismiss | direct pointer tracking remains; skip the release spring and settle immediately at the chosen final state |
+| Masked crossfade | `crossfade`: use the short opacity transition and remove blur |
+| WAAPI | branch before `animate()`, apply the final keyframe directly, and return |
+
+For JS or WAAPI, make the branch explicit rather than relying on CSS to cancel an animation after
+it starts:
+
+```js
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (reduceMotion) {
+  Object.assign(element.style, finalFrame);
+} else {
+  element.animate([initialFrame, finalFrame], options);
+}
+```
+
 ---
 
 ## Button press
@@ -278,6 +331,21 @@ Four details that separate a good drag from a bad one:
 - **Friction, not a wall** — allow the over-drag with rising resistance rather than refusing it.
 
 Settle with a spring so an interrupted drag keeps its velocity: `{ type: "spring", duration: 0.5, bounce: 0.2 }`.
+Branch the release itself for reduced motion; direct pointer tracking remains, but the spring does
+not:
+
+```js
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const shouldDismiss = Math.abs(swipeAmount) >= SWIPE_THRESHOLD || velocity > 0.11;
+
+if (reduceMotion) {
+  const target = shouldDismiss ? Math.sign(swipeAmount) * element.offsetHeight : 0;
+  element.style.transform = `translateY(${target}px)`;
+  if (shouldDismiss) dismiss();
+} else {
+  settleWithSpring({ dismiss: shouldDismiss, duration: 0.5, bounce: 0.2 });
+}
+```
 
 ---
 
@@ -309,8 +377,18 @@ When the motion needs JS control but not a dependency, WAAPI gives CSS-grade per
 hardware-accelerated, interruptible, no bundle cost.
 
 ```js
-element.animate(
-  [{ clipPath: "inset(0 0 100% 0)" }, { clipPath: "inset(0 0 0 0)" }],
-  { duration: 1000, fill: "forwards", easing: "cubic-bezier(0.77, 0, 0.175, 1)" }
-);
+const initialFrame = { clipPath: "inset(0 0 100% 0)" };
+const finalFrame = { clipPath: "inset(0 0 0 0)" };
+const options = {
+  duration: 1000,
+  fill: "forwards",
+  easing: "cubic-bezier(0.77, 0, 0.175, 1)",
+};
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+if (reduceMotion) {
+  Object.assign(element.style, finalFrame);
+} else {
+  element.animate([initialFrame, finalFrame], options);
+}
 ```

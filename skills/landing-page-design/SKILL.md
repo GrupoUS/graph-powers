@@ -47,7 +47,7 @@ files stop agreeing.
 |---|---|---|
 | Palette, type, spacing, radius, icons | Root `DESIGN.md`, `${rulesDir}/design.md`, the project's tokens; then the `designer` direction contract | Uses them. A missing token is proposed by name, never invented |
 | Motion | `animate` — the curves, the duration budget, the scroll-reveal recipe | Says where the one authored moment goes, and that everything else stays still |
-| Conversion mechanism, awareness level, the honesty gate | `uxmaster`, its `references/conversion-and-landing.md` | Applies them to the section order and the copy |
+| Conversion mechanism, awareness level, the honesty gate | `uxmaster`, `${CLAUDE_PLUGIN_ROOT}/skills/uxmaster/references/conversion-and-landing.md` | Applies them to the section order and the copy |
 | Craft passes on the built page | `designer`'s passes, through `/design § 3` | A6 is the drafting rhythm inside the first pass, not a second pass table |
 | Metadata, structured data, crawlability | `/perf seo` | Makes the index decision (A7) and hands the rest over |
 | Astro rendering and assets | The landing-page floor below; project rules for route and config decisions | Keeps the page static-first without turning design into framework architecture |

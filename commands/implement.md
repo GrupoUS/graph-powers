@@ -52,7 +52,8 @@ proposed lease, then stop. Do not create a workspace, write a lease or dispatch 
 ## 4. Invoke Phase C
 
 For a valid non-dry run, pass the plan and validator result to
-`Skill("graph-powers:planning")` → `references/phase-c-executing-plans.md`. Phase C owns all
+`Skill("graph-powers:planning")` →
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-c-executing-plans.md`. Phase C owns all
 workspace, lease, dispatch, review, correction and final-gate behaviour. Return its evidence and
 stop at reviewed working-tree changes; stage, commit, push, PR and merge remain separate user
 actions.

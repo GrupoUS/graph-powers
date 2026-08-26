@@ -80,7 +80,6 @@ DOWNLINK_PATTERNS = (
     re.compile(r"\]\(<([^>\n]*?" + _TAIL + r")[^>\n]*>\)"),
     re.compile(r"\]\((" + _SEG + r"*?" + _TAIL + r")"),
     re.compile(r"`([^`\s]*?" + _TAIL + r")[^`\s]*`"),
-    re.compile(r"(" + _SEG + r"*" + _TAIL + r")"),
 )
 # A token carrying one of these is prose about a convention — `packages/*/AGENTS.md`,
 # `packages/<name>/AGENTS.md`, `${paths.backendRoot}/AGENTS.md` — not a path to a file.
@@ -88,6 +87,60 @@ NOT_A_PATH = ("*", "?", "<", ">", "{", "}", "$", "://")
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}|\{\{\S*")
 FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 RULE_RE = re.compile(r"^(?:[-*_]\s*){3,}$")
+BARE_BREAKS = frozenset("`\"'<>|“”«»‘’*")
+
+
+def bare_downlink_tokens(line: str) -> list[str]:
+    """Extract bare downlinks in one forward pass.
+
+    The former unanchored ``_SEG* + AGENTS.md`` expression retried the whole prefix from every
+    character when a long unrelated token preceded a valid link. That made a 16 KiB line exceed
+    five seconds. This scanner carries the current token boundary forward, so every character is
+    visited once while route groups such as ``app/(dashboard)/AGENTS.md`` remain intact.
+    """
+    tokens: list[str] = []
+    start = 0
+    groups: list[tuple[str, bool, int]] = []
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if char.isspace() or char in BARE_BREAKS:
+            start = index + 1
+            groups.clear()
+            index += 1
+            continue
+        if char in "([":
+            wrapper = index == start
+            groups.append((")" if char == "(" else "]", wrapper, index))
+            index += 1
+            continue
+        if char in ")]":
+            if groups and groups[-1][0] == char:
+                _closing, wrapper, _opening = groups.pop()
+                if wrapper and line[index + 1:index + 2] != "/":
+                    start = index + 1
+            else:
+                groups.clear()
+                start = index + 1
+            index += 1
+            continue
+        if line.startswith("AGENTS.md", index):
+            end = index + len("AGENTS.md")
+            suffix = line[end:end + 2]
+            first = suffix[:1]
+            invalid = bool(first and (first.isalnum() or first in "_~"))
+            invalid = invalid or bool(first in ".-" and len(suffix) > 1 and suffix[1].isalnum())
+            only_wrappers = bool(groups) and all(wrapper for _closing, wrapper, _opening in groups)
+            if not invalid and (not groups or only_wrappers):
+                candidate_start = groups[-1][2] + 1 if only_wrappers else start
+                token = line[candidate_start:end]
+                if token and token not in tokens:
+                    tokens.append(token)
+                start = end
+            index = end
+            continue
+        index += 1
+    return tokens
 
 
 def downlink_tokens(line: str) -> list[str]:
@@ -107,6 +160,10 @@ def downlink_tokens(line: str) -> list[str]:
             if token and token not in tokens:
                 tokens.append(token)
         rest = pattern.sub(" ", rest)
+    for raw in bare_downlink_tokens(rest):
+        token = raw.replace("\\_", "_").replace("\\", "/").strip()
+        if token and token not in tokens:
+            tokens.append(token)
     return tokens
 
 
@@ -273,8 +330,18 @@ def load_node(root: Path, rel: str) -> Node:
     not — a BOM in front of `#` turned a heading into a purpose line.
     """
     path = root / rel
+    if path.is_symlink():
+        return Node(rel, path, 0, None, error="symbolic link nodes are not allowed")
     try:
-        data = path.read_bytes()
+        resolved_root = root.resolve(strict=True)
+        resolved_path = path.resolve(strict=True)
+        resolved_path.relative_to(resolved_root)
+    except ValueError:
+        return Node(rel, path, 0, None, error="node path resolves outside the project root")
+    except OSError as err:
+        return Node(rel, path, 0, None, error=str(err))
+    try:
+        data = resolved_path.read_bytes()
     except OSError as err:
         return Node(rel, path, 0, None, error=str(err))
     if b"\x00" in data[:2048]:
@@ -299,11 +366,31 @@ def resolve_token(root: Path, node_dir: Path, token: str) -> str | None:
     spellings = [token]
     if "%" in token:
         spellings.append(urllib.parse.unquote(token))
+    resolved_root = root.resolve()
     for spelling in spellings:
         for base in (node_dir, root):
-            candidate = os.path.normpath(os.path.join(str(base), spelling))
-            if os.path.isfile(candidate):
-                return posix_rel(candidate, root)
+            candidate = Path(os.path.normpath(os.path.join(str(base), spelling)))
+            try:
+                resolved = candidate.resolve(strict=True)
+                resolved.relative_to(resolved_root)
+            except (OSError, ValueError):
+                continue
+            if resolved.is_file():
+                return posix_rel(resolved, resolved_root)
+    return None
+
+
+def canonical_node(root: Path, target: str, known: set[str]) -> str | None:
+    """The discovered spelling for target, including case-insensitive and symlink aliases."""
+    if target in known:
+        return target
+    candidate = root / Path(*PurePosixPath(target).parts)
+    for relative in known:
+        try:
+            if os.path.samefile(candidate, root / Path(*PurePosixPath(relative).parts)):
+                return relative
+        except OSError:
+            continue
     return None
 
 
@@ -324,11 +411,14 @@ def resolve_links(layer: Layer) -> None:
                 if target is None:
                     if (line_no, token) not in node.dangling:
                         node.dangling.append((line_no, token))
-                elif target != node.rel and target in known:
+                else:
+                    canonical = canonical_node(layer.root_dir, target, known)
+                    if canonical is None or canonical == node.rel:
+                        continue
                     # "read its AGENTS.md first" resolves to the node itself, and a file that
                     # exists but is not a node (an excluded template, say) is neither a link nor
                     # a dangle.
-                    node.links.add(target)
+                    node.links.add(canonical)
 
 
 def discover(root: Path, label: str, patterns: list[str]) -> Layer:

@@ -119,7 +119,7 @@ on every parallel phase + user approved; at L5+, GATE 2 also meets the calibrati
 separate correction reviewer when needed, and a separate final reviewer — driven through
 `/implement <plan dir>`. A task starts when its `Needs` are verified and its `Owns` collide with
 nothing in flight; focused checks run per task and complete repository gates run at each phase
-boundary. The phase creates a plan-scoped write lease from `sdd.py validate`; a lease from another
+boundary. The phase atomically creates a plan-scoped write lease with `sdd.py acquire`; a lease from another
 plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR and merge
 each need separate authorization in the current turn, and **nothing auto-merges**.
 

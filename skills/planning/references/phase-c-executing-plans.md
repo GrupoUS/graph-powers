@@ -17,7 +17,7 @@ working-tree changes. Stage, commit, push, PR and merge require separate current
 
 ## Step 1 — Validate and lease
 
-Before creating a workspace or dispatching a writer, run the moved SDD tool:
+For `--dry-run`, validate without creating state:
 
 ```bash
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
@@ -30,13 +30,17 @@ checked-box evidence, existing dependencies, the `reads` payload, acyclic depend
 phase-gate coverage and `Owns` conflicts. File overlap is valid only when a dependency makes the
 tasks sequential.
 
-Use the JSON `writeLease` to create `.graph-powers/logs/write-lease.json` scoped to this plan before
-the first writer. Add the canonical repository-relative `PLAN_FILE` to `paths`, because the
-controller — never an implementer — persists each reviewed task's evidence there. The exact object
-is `{ "plan": "<canonical PLAN_FILE>", "paths": [<writeLease plus PLAN_FILE>] }`. If the file
-contains a lease for another canonical plan, stop and report the conflict; never merge or overwrite
-it. Create the workspace only after validation and lease acquisition. On normal finish or abort,
-remove only the lease whose `plan` exactly matches the current canonical plan.
+For a real run, atomically validate and acquire the plan-scoped lease before the first writer:
+
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
+```
+
+`acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics. Its `paths`
+are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase progress ledger
+and this plan's task-review ledger. A concurrent controller can observe the same empty state, but
+only one atomic create wins; an existing lease for another plan is a conflict and is never merged or
+overwritten. Create the workspace only after acquisition.
 
 `--dry-run` performs validation and displays routing, dependencies and the lease that would be
 created, but does not create a workspace, write a lease or dispatch an agent.
@@ -71,7 +75,9 @@ Close a task only when the focused `CHECK` passes, changed paths are a subset of
 reviewer is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
 output (plus RED/GREEN/refactor evidence when TDD is required) and checks the task box. For either
 explicit exception status, retain its reason and run the applicable focused check. Implementers do
-not edit the plan.
+not edit the plan. Append one row to the plan workspace's `task-reviews.md`: timestamp, task ID,
+package snapshot, reviewer verdict, correction count and deciding check output. Failed and blocked
+attempts get rows too, so resumption does not erase why a task was retried or stopped.
 
 ### Inline fallback
 
@@ -88,7 +94,9 @@ When all tasks in a phase are closed, execute that phase's normalized `gates` in
 each gate, run its exact `CHECK`, require both a successful exit and its `EXPECT`, then have the
 controller replace `EVIDENCE: pending` with the deciding output and check the gate box. Do not close
 the phase until every gate for it is checked with non-pending evidence. Focused task checks run per
-task and are not replaced by the phase gate.
+task and are not replaced by the phase gate. Then append the phase checkpoint to
+`.graph-powers/logs/progress.md`: timestamp, canonical plan, phase, base `HEAD`, working-tree status,
+closed gate IDs and the next runnable or blocked task.
 
 Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, repository-wide type-check and
 lint run once at each phase gate, never per task; serial full tests run once at the final boundary,
@@ -102,9 +110,9 @@ run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review pa
 task-review ledger to the separate read-only reviewer in
 `references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
 Minor findings and triage deferred or parked items. Then run `/verify quick`, followed by
-`/evolve auto` on PASS. Remove only this plan's lease whether execution finishes successfully or
-aborts. If a final gate fails, leave the lease and working-tree state explicit until the failure is
-resolved or the plan is safely aborted.
+`/evolve auto` on PASS. On success or a safe abort, run `sdd.py release <PLAN_FILE>`; it removes only
+a lease whose canonical `plan` matches. If a final gate fails, leave the lease and working-tree
+state explicit until the failure is resolved or the plan is safely aborted.
 
 ## Required invariants
 

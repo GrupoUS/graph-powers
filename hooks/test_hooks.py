@@ -678,6 +678,16 @@ def main() -> int:
           (code, "cap 4000" in out), (1, True))
     shutil.rmtree(fx, ignore_errors=True)
 
+    # A fixed-tail prefilter is not enough: once a valid tail exists, the bare-token regex still
+    # retries its repeated segment from every character on a generated line. The valid-tail case
+    # must stay linear too, even though the node will ultimately fail both the size and link gates.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "x" * 50_000 + " missing/AGENTS.md\n")
+    code, out = intent_run(fx, "check", timeout=5)
+    check("a long line ending in AGENTS.md is rejected without a regex timeout",
+          (code, "cap 4000" in out and "does not resolve" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
     # Three nodes of 15,000 bytes, every one under the per-node cap, on one path. Codex reads
     # them root-to-cwd as a single 45,000-byte instruction and stops at 32,768 — so the tree
     # fails as a whole while every node passes alone. The middle node links its child by the
@@ -742,16 +752,18 @@ def main() -> int:
     fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
     intent_write(fx, "AGENTS.md",
                  "# Fixture\n\nOwns it.\n\n| PT | `módulos/AGENTS.md` |\n| G | [d](app/(dashboard)/AGENTS.md) |\n"
+                 "| R | (dashboard)/AGENTS.md |\n| D | [slug]/AGENTS.md |\n"
                  "| S | packages/@acme/ui/AGENTS.md |\n| W | packages\\web\\AGENTS.md |\n"
                  "Old copy: docs/AGENTS.md.bak and AGENTS.md~ are not nodes.\n\n"
                  "```\nadd packages/new/AGENTS.md here\n```\n")
-    for rel in ("módulos", "app/(dashboard)", "packages/@acme/ui", "packages/web"):
+    for rel in ("módulos", "app/(dashboard)", "(dashboard)", "[slug]",
+                "packages/@acme/ui", "packages/web"):
         intent_write(fx, f"{rel}/AGENTS.md", f"Owns {rel}.\n")
     code, out = intent_run(fx, "check")
     check("route groups, scoped packages, accents and a Windows-separator downlink all resolve",
           (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
     check("...and a path inside a fence, a .bak and a ~ copy are neither links nor dangles",
-          "5 nodes checked, 0 failures" in out, True)
+          "7 nodes checked, 0 failures" in out, True)
     shutil.rmtree(fx, ignore_errors=True)
 
     # The same dangling token twice on one line was two FAIL lines with one line number.
@@ -838,6 +850,46 @@ def main() -> int:
           "6 nodes checked, 0 failures" in out, True)
     shutil.rmtree(fx, ignore_errors=True)
 
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-root-"))
+    fx = container / "repo"
+    outside = container / "outside"
+    fx.mkdir()
+    outside.mkdir()
+    intent_write(fx, "AGENTS.md", "# Root\n\nOwns it. See `../outside/AGENTS.md`.\n")
+    intent_write(outside, "AGENTS.md", "Outside this repository.\n")
+    code, out = intent_run(fx, "check")
+    check("a real downlink outside the project root is still rejected",
+          (code, "does not resolve" in out), (1, True))
+    shutil.rmtree(container, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-case-"))
+    intent_write(fx, "AGENTS.md", "# Root\n\nOwns it. See `Packages/AGENTS.md`.\n")
+    intent_write(fx, "packages/AGENTS.md", "Owns packages.\n")
+    try:
+        (fx / "Packages").symlink_to(fx / "packages", target_is_directory=True)
+    except OSError as error:
+        print(f"SKIP: case-canonicalisation symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "check")
+    check("an existing differently-cased spelling resolves to the discovered node",
+              (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-node-link-"))
+    fx = container / "repo"
+    fx.mkdir()
+    outside_node = container / "outside-secret.md"
+    outside_node.write_text("Outside secret: {{EXFILTRATED}}.\n", encoding="utf-8")
+    try:
+        (fx / "AGENTS.md").symlink_to(outside_node)
+    except OSError as error:
+        print(f"SKIP: node symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "check")
+        check("a symlinked node outside the root is rejected without reading its contents",
+              (code, "symbolic link" in out, "EXFILTRATED" in out), (1, True, False))
+    shutil.rmtree(container, ignore_errors=True)
+
     for label, body in [
         ("a *** rule", "# A\n***\n| t | t |\n|---|---|\n"),
         ("a - - - rule", "# A\n- - -\n| t | t |\n|---|---|\n"),
@@ -882,6 +934,9 @@ def main() -> int:
     check("...and the gate under the Windows launcher",
           call("smart_bash_approver",
                bash(f'py -3 "{intent}" check .'), a)[0], "allow")
+    check("...but arbitrary Python -X options do not inherit the read-only allowance",
+          call("smart_bash_approver",
+               bash(f'python -X dev "{intent}" check .'), a)[0], "ask")
     check("...and the plugin-root placeholder emitted by the skill",
           call("smart_bash_approver",
                bash('python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/intent-layer/scripts/intent_layer.py" measure .'),

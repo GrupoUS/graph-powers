@@ -11,6 +11,7 @@
 | Map, when the request is fog | `${paths.planDir}/maps/YYYY-MM-DD-<slug>-map.md` |
 | Audit report | `docs/AUDIT-REPORT-YYYY-MM-DD.md` |
 | Phase tracker | `.graph-powers/logs/progress.md` — appended by `/implement` when a phase completes |
+| Task-review ledger | `.graph-powers/logs/sdd/<plan-slug>/task-reviews.md` — every pass, retry and block |
 
 `${paths.planDir}` defaults to `docs/plans`. Folders are created on first write.
 

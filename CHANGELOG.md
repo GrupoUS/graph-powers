@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.10.2 — Review hardening
+
+PR review now keeps task briefs and review packages inside the plan workspace without following
+symlinks, rejects Git revision expressions and unsafe or symlinked eval responses, and removes the
+eval runner's arbitrary JSON output path. Plan leases are acquired atomically and released only by
+their owning plan; phase and task-review ledgers make interrupted execution resumable.
+Structured plans require executable gate fields plus observed RED/GREEN evidence before a TDD task
+can close. Intent-layer bare-link discovery is linear even when a long unrelated token precedes a
+valid `AGENTS.md` link. Motion recipes now carry one mandatory reduced-motion companion.
+
+The dangling-file gate is a tested script instead of duplicated CI/documentation source. It checks
+the live harness, including tracked dot-directories, while retaining changelogs, learning ledgers,
+plans, dated audits and untracked local runtime logs as history. Motion and intent-layer edge cases
+found by the second review pass now carry direct regressions. The final review also closes malformed
+SDD step/phase parsing, unreadable eval responses, project-root downlink escapes and overly broad
+Python `-X` approval. Intent-layer nodes cannot follow symlinks outside the project, and an
+unavailable Git executable makes the reference checker scan runtime Markdown conservatively.
+
 ## 1.10.1 — Planning owns the whole implementation loop
 
 ### Changed — one authority for discovery, planning, execution and TDD

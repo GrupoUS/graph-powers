@@ -17,12 +17,15 @@ Run the gates. If one fails, the review stops here.
 claude plugin validate .
 python3 hooks/test_hooks.py
 python3 skills/planning/scripts/test_sdd.py
+python3 skills/skill-improve/scripts/test_run_evals.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun bin/graph-powers.mjs --help > /dev/null
 git ls-files | wc -l                       # a clone is the artefact; nothing is packed
 python3 .github/check_version_bump.py       # a shipped change bumps the version
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
+python3 .github/test_file_references.py      # negative tests for the live-file reference gate
+python3 .github/check_file_references.py     # every live Markdown path resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 bun .github/check_workflows.mjs             # workflow scripts parse, run dry, and name real agents
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
@@ -122,23 +125,9 @@ applies to it too.
 Every path cited has to exist after the change. That covers `references/` inside skills, scripts,
 and paths in prose.
 
-**How to check:**
-
-```bash
-python3 - <<'PY'
-import os, re, glob
-pat = re.compile(r'(?<![\w${./-])(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|workflows)/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)')
-missing = {}
-for f in glob.glob("**/*.md", recursive=True):
-    base = os.path.dirname(f)
-    for m in set(pat.findall(open(f, encoding="utf-8", errors="replace").read())):
-        if any(os.path.exists(p) for p in (m, os.path.join(base, m), os.path.join(base, "..", m), os.path.join(base, "../..", m))):
-            continue
-        missing.setdefault(m, []).append(f)
-for m, files in sorted(missing.items()):
-    print(f"DANGLING: {m}  <- {', '.join(sorted(set(files))[:3])}")
-PY
-```
+**How to check:** run `python3 .github/test_file_references.py`, then
+`python3 .github/check_file_references.py`. The checker is the single source for resolution and
+historical-record exclusions; do not copy its regex into documentation or CI.
 
 ---
 

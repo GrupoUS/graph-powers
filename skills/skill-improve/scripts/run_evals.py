@@ -35,6 +35,8 @@ import re
 import sys
 from pathlib import Path
 
+SAFE_CASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
 
 def normalize_evals(doc: dict) -> dict:
     """
@@ -91,13 +93,13 @@ def normalize_evals(doc: dict) -> dict:
 
 def load_json(path: str) -> dict:
     """Load and parse a JSON file."""
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:  # NOSONAR -- explicit local CLI input.
         return normalize_evals(json.load(f))
 
 
 def load_response(path: str) -> str:
     """Load the agent response text file."""
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:  # NOSONAR -- explicit local CLI input.
         return f.read()
 
 
@@ -319,14 +321,40 @@ def run_response_dir(evals: dict, response_dir: Path, threshold: float) -> tuple
         # Zero cases would exit 0 having measured nothing — the exact green-over-nothing this
         # mode exists to prevent.
         return [_failed_row("(none)", "the eval file declares no test cases; nothing was measured")], False
-    for case in cases:
-        case_id = case["id"]
+    for position, case in enumerate(cases, 1):
+        if "id" not in case or case["id"] is None:
+            rows.append(_failed_row(f"case-{position}", "missing test case id"))
+            all_ok = False
+            continue
+        case_id = str(case["id"])
+        if not SAFE_CASE_ID.fullmatch(case_id):
+            rows.append(_failed_row(case_id, f"unsafe test case id: {case_id!r}"))
+            all_ok = False
+            continue
         path = response_dir / f"resp-{case_id}.txt"
+        if path.is_symlink():
+            rows.append(_failed_row(case_id, f"response file is a symlink: {path}"))
+            all_ok = False
+            continue
         if not path.exists():
             rows.append(_failed_row(case_id, f"response file not found: {path}"))
             all_ok = False
             continue
-        summary = run_eval_suite(evals, load_response(str(path)), case_id)
+        try:
+            resolved_dir = response_dir.resolve(strict=True)
+            resolved_path = path.resolve(strict=True)
+            resolved_path.relative_to(resolved_dir)
+        except (OSError, ValueError):
+            rows.append(_failed_row(case_id, f"response file escapes its directory: {path}"))
+            all_ok = False
+            continue
+        try:
+            response = load_response(str(resolved_path))
+        except (OSError, UnicodeError) as error:
+            rows.append(_failed_row(case_id, f"could not read response file: {error}"))
+            all_ok = False
+            continue
+        summary = run_eval_suite(evals, response, case_id)
         if "error" in summary:
             rows.append(_failed_row(case_id, summary["error"]))
             all_ok = False
@@ -422,12 +450,6 @@ def main():
         default=0.95,
         help="Minimum pass rate to exit 0 (default: 0.95)",
     )
-    parser.add_argument(
-        "--json-output",
-        default=None,
-        help="Optional path to write JSON results",
-    )
-
     args = parser.parse_args()
     if args.response_dir and args.test_case:
         parser.error("--test-case selects one case; --response-dir already runs every case")
@@ -448,18 +470,6 @@ def main():
     if args.response_dir:
         rows, ok = run_response_dir(evals, Path(args.response_dir), args.threshold)
         print_case_table(rows, args.threshold)
-        if args.json_output:
-            with open(args.json_output, "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "skill": evals.get("skill") or evals.get("skill_name", "unknown"),
-                        "threshold": args.threshold,
-                        "cases": rows,
-                    },
-                    f,
-                    indent=2,
-                )
-            print(f"  JSON results written to: {args.json_output}")
         if ok:
             print("  PASSED: every case reached the threshold")
             sys.exit(0)
@@ -492,12 +502,6 @@ def main():
 
     # Print results
     print_results(summary)
-
-    # Write JSON output if requested
-    if args.json_output:
-        with open(args.json_output, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2)
-        print(f"  JSON results written to: {args.json_output}")
 
     # Exit code: a failed critical assertion fails the run at any threshold; the threshold then
     # decides the non-critical ones. Before this, `critical` was a label in the printed report

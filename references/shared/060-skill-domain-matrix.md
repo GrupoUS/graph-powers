@@ -8,7 +8,7 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 | Plan / decompose / architecture decision | `planning` (via `/plan`) | `senior-architect`, `senior-prompt-engineer` when the feature is an LLM feature |
 | Delegation / who runs what | none — `references/execution-floor.md` is always in force, §4 carries the contract | — |
 | Existing implemented UI / production-readiness repair / design fix | `design-fix` (via `/design fix`) | `designer` only when the repair is structural; `uxmaster` for behavioral criteria |
-| UI / component / page / design system | `designer` — the direction, then the craft passes in its `references/craft-passes.md` — with the project's design rule | `uxmaster` for conversion, `animate` for motion, `graph-powers:debugger` if mid-fix |
+| UI / component / page / design system | `designer` — the direction, then the craft passes in `${CLAUDE_PLUGIN_ROOT}/skills/designer/references/craft-passes.md` — with the project's design rule | `uxmaster` for conversion, `animate` for motion, `graph-powers:debugger` if mid-fix |
 | Visual direction / look and feel / generic, template-like or AI-looking UI | `designer` (via `/design`) | `animate` for the motion inside the direction |
 | Motion, animation, gesture | `animate` | `graph-powers:mobile-developer` for React Native |
 | UX direction / conversion / onboarding | `uxmaster` | `landing-page-design` on a landing or marketing page, including its Astro implementation floor |

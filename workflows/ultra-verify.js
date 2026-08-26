@@ -172,7 +172,7 @@ const DBG_GUIDE = `${cfg.pluginRoot}/skills/debugger/references/anti-patterns.md
 const PERF_GUIDE = `${cfg.pluginRoot}/commands/perf.md`
 const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-bun-tsgo-gates.md`
 
-// Same lane set as ultra-plan and planning Phase C. Kept as an enum on every `agent` field below: this
+// The executable lane set for ultra-verify. Kept as an enum on every `agent` field below: this
 // is the one thing the upstream copies of this workflow got wrong — `agent` was a free string, so
 // whatever an evaluator wrote became a `subagent_type`, and a hallucinated name either failed to
 // spawn or silently degraded to a default nobody chose.
