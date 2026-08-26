@@ -36,7 +36,7 @@ Host já tem Bun **1.4.0**. O repo ainda pede `packageManager: bun@1.3.9`.
 
 ### Graph Powers (o plugin)
 
-Gates oficiais são **Python stdlib** (`hooks/test_hooks.py`) + uns `node *.mjs` de wiring. `packageManager: npm` aqui é correto: o repo não é app JS. Forçar `bun test` nesse repo seria o fallback errado do `bun-verify`.
+Gates oficiais são **Python stdlib** (`hooks/test_hooks.py`) + uns `node *.mjs` de wiring. `packageManager: npm` aqui é correto: o repo não é app JS. Forçar `bun test` nesse repo seria o fallback errado do resolver JS/TS.
 
 ### O que realmente come RAM/CPU
 
@@ -83,7 +83,7 @@ bunx turbo run check test --filter=<app tocado>
 
 Diff só em `apps/web` → não type-checka a API. Contrato do gate continua `tsgo` + Vitest.
 
-Arquivos: `Projects/neondash/.claude/config.json` (`tooling.commands` ou `verify-supplements`), skill `bun-verify` documentando `--filter`.
+Arquivos: `Projects/neondash/.claude/config.json` (`tooling.commands` ou `verify-supplements`), resolver JS/TS documentando `--filter`.
 
 ### 3. Alinhar Bun 1.4 no NeonDash — experimental, A/B
 
@@ -111,9 +111,9 @@ Arquivos: `Projects/neondash/.claude/config.json` (`tooling.commands` ou `verify
 
 ## Tarefas (quando autorizar)
 
-### Task 1 — Documentar `/verify quick` como default no eixo bun-verify
+### Task 1 — Documentar `/verify quick` como default no resolver JS/TS
 
-**Files:** `Projects/graph-powers/skills/bun-verify/SKILL.md`, `commands/verify.md` (1 parágrafo).
+**Files:** `Projects/graph-powers/skills/debugger/SKILL.md`, `commands/verify.md` (1 parágrafo).
 
 Critério: o texto diz explicitamente que full = agentes = caro.
 

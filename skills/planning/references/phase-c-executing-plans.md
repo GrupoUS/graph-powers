@@ -1,261 +1,124 @@
-# Phase C — Executing-plans
+# Phase C — Execute
 
-> Sequential guide for the third phase of the planning chain.
-> **Direct-invokes `superpowers:subagent-driven-development` as the engine** — fresh subagent per
-> task, two-stage review, continuous execution — executed through this plugin's `/implement`.
-> For inline execution the engine is `superpowers:executing-plans` instead.
-
----
+> Canonical execution engine for the planning chain. `/implement` resolves the plan and invokes
+> this phase; no independent execution skill or workflow is required.
 
 ## Entry contract
 
-- Phase B complete. `<plan dir>/PLAN.md` GATE-2-approved and user-approved.
-- Tier **L5+** (at L4 the plan is the deliverable; the user invokes `/implement` when ready).
-- Branch is `${git.workBranch}`. **Never a protected branch.**
+- Phase B is complete: `<plan dir>/PLAN.md` passed its required review and the user approved it.
+- Tier is **L5+** (at L4, the approved plan is the deliverable until the user invokes `/implement`).
+- The current branch is `${git.workBranch}` and is not protected.
 
 ## Exit contract
 
-- Every task verified with evidence, every phase gate met, `/verify quick` PASS, `/evolve auto` run.
-- Stop at "reviewed working tree ready". Git actions stay separate and need current-turn
-  authorization. **Never auto-merge.**
+Every task has implementation, one task review and evidence; every phase gate is met; the final
+declared gates and `/verify quick` pass; `/evolve auto` is run. Stop with reviewed, unstaged
+working-tree changes. Stage, commit, push, PR and merge require separate current-turn approval.
 
-## Loop contract
+## Step 1 — Validate and lease
 
-> Model and guards: `references/loop-engineering.md`.
+For `--dry-run`, validate without creating state:
 
-- **trigger:** plan approved, tier L5+, branch `${git.workBranch}`.
-- **goal (binary):** *per task* — implementer PASS **AND** GATE A PASS **AND** GATE B PASS **AND**
-  its `EVIDENCE` line carries real output; *per phase* — every gate box checked with evidence;
-  *overall* — `/verify quick` PASS and `/evolve auto` done.
-- **terminal:** overall goal PASS → "reviewed working tree ready", stop. Any guard trips → escalate.
-
----
-
-## Step 1 — Invoke the engine, then `/implement`
-
-**`Skill("superpowers:subagent-driven-development")`** first — it loads the doctrine (read the plan
-once, per-task implementer → spec review → quality review, no inter-task pause). Then:
-
-```
-/implement <plan dir>
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
 
-`/implement` parses the checkbox tasks and their `Owns` / `Needs` / `CHECK` fields, and the
-`[SEQUENTIAL]` / `[PARALLEL-SAFE]` phase markers. The Phase B format is exactly its expected input.
-The engine supplies the *why*; `/implement` and the steps below supply the *how*.
+The command returns exit `0` only for a structured plan and emits normalized JSON with `tasks`,
+phase `gates` and `writeLease`; invalid plans return exit `2`. A legacy unstructured plan is rejected
+and routed to `/plan`, never inferred. The validator checks unique IDs, task and gate fields,
+checked-box evidence, existing dependencies, the `reads` payload, acyclic dependencies, task count,
+phase-gate coverage and `Owns` conflicts. File overlap is valid only when a dependency makes the
+tasks sequential.
 
-## Step 2 — Rolling dispatch
+For a real run, atomically validate and acquire the plan-scoped lease before the first writer:
 
-One rule replaces the old three-barrier protocol, and it is what makes a plan of disjoint tasks run
-in the time of its longest chain rather than the sum of its waves:
-
-> **Dispatch every task whose `Needs` are verified and whose `Owns` collide with nothing in flight**,
-> up to `graphGuardrails.maxParallelWave`. **When a task returns, review it immediately** — GATE A,
-> then GATE B — and **its verification releases whatever it unblocked.** Never wait for a sibling
-> that this task does not read.
-
-Waiting for a whole wave before reviewing anything is the failure this replaces: the slowest task in
-a wave delayed every review in it, though the reviews were independent.
-
-### 2a — Implementer (fresh subagent, foreground, write-capable)
-
-```ts
-Agent({
-  subagent_type: <the task's Agent lane, prefixed graph-powers:>,
-  prompt: <§ Subagent prompt templates → Implementer, with the task block pasted verbatim>,
-})
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
 
-The subagent reads its own task block and nothing else — not the plan, not a sibling's output.
+`acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics. Its `paths`
+are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase progress ledger
+and this plan's task-review ledger. A concurrent controller can observe the same empty state, but
+only one atomic create wins; an existing lease for another plan is a conflict and is never merged or
+overwritten. Create the workspace only after acquisition.
 
-### 2b — GATE A — spec compliance (fresh, read-only). Only if 2a returned PASS.
+`--dry-run` performs validation and displays routing, dependencies and the lease that would be
+created, but does not create a workspace, write a lease or dispatch an agent.
 
-PASS → 2c. FAIL → append the gaps to the task block under `## Reviewer feedback` and re-dispatch 2a
-(max 3 retries per task across both gates). BLOCKED → halt that task, escalate; siblings continue.
+On resume, skip only tasks whose validator object has `checked: true` and non-pending evidence.
+Their dependencies count as verified. Validation rejects a checked task that still says
+`EVIDENCE: pending`; do not infer completion from a checkbox alone.
 
-### 2c — GATE B — code quality (fresh, read-only). Only if 2b returned PASS.
+## Step 2 — Rolling task loop
 
-Nits are FYI and never trigger a re-dispatch; only a cited rule or anti-pattern does. PASS → 2d.
+Dispatch every task whose `Needs` are verified and whose `Owns` paths collide with nothing in
+flight, up to `graphGuardrails.maxParallelWave`. Review each result immediately, then release the
+paths and dispatch newly unblocked work. A task with no dependency payload cannot be treated as
+independent.
 
-### 2d — Close the task
+For each task use one fresh implementer from `references/execution/implementer-prompt.md`, with the
+task block pasted verbatim. The worker follows the task's TDD status and does not write outside
+`Owns`. Handle its status explicitly: `PASS` continues to the focused check and review; `FAIL`
+re-dispatches only that task with the report and failed evidence, counting against
+`${graphGuardrails.maxRepatch}`; `BLOCKED` receives missing factual context once, otherwise stops and
+routes to `/debug recover`. Never retry unchanged.
 
-Run the task's own `CHECK`, paste the deciding output into its `EVIDENCE:` line, and check the box.
-**A checked box with `EVIDENCE: pending` is unmet** — the box is a claim and the evidence is the
-proof. Record changed paths, the base `HEAD` and the suggested conventional-commit subject; confirm
-nothing outside `Owns` changed; leave everything unstaged. Then dispatch what this task unblocked.
+After a PASS and green focused check, run `sdd.py package <PLAN_FILE> <TASK_BASE> HEAD` and give the
+resulting review package, task block and implementer report to one fresh read-only reviewer using
+`references/execution/task-reviewer-prompt.md`. It returns two verdicts in one review: compliance
+first, then quality/KISS. Preserve the package's printed working-tree snapshot as the next
+`TASK_BASE` and, when correction is required, as `FIX_BASE`. Package each correction as
+`FIX_BASE..HEAD` for `references/execution/correction-reviewer-prompt.md`. Correction count is
+limited only by `${graphGuardrails.maxRepatch}`; exhaustion routes to `/debug recover`.
 
-If a check turns out to be impossible, do not delete it: add `ABANDON: <task id> <reason>` and
-surface it in the report. Visible surrender is honest; silent scope-narrowing is not.
+Close a task only when the focused `CHECK` passes, changed paths are a subset of `Owns`, and the
+reviewer is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
+output (plus RED/GREEN/refactor evidence when TDD is required) and checks the task box. For either
+explicit exception status, retain its reason and run the applicable focused check. Implementers do
+not edit the plan. Append one row to the plan workspace's `task-reviews.md`: timestamp, task ID,
+package snapshot, reviewer verdict, correction count and deciding check output. Failed and blocked
+attempts get rows too, so resumption does not erase why a task was retried or stopped.
 
-## Step 3 — Continuous execution
+### Inline fallback
 
-Per the engine: *"Do not pause to check in between tasks. Execute all tasks without stopping. Only
-stop on: BLOCKED you cannot resolve, ambiguity that prevents progress, or all tasks complete."*
-Surface progress as status, not as an approval request.
+If the runtime has no Agent tool, review the plan critically and surface blocking concerns before
+code, then execute tasks sequentially in the main thread. Keep the same briefs, TDD status, focused
+checks, packages, evidence writes and stop conditions; self-review each task against both verdicts
+in the task-reviewer prompt and report that independent review was unavailable. If the Agent tool
+exists but a declared write-capable lane does not resolve, stop — do not silently replace it with a
+general agent or the main thread.
 
-## Step 4 — The phase gate, once per phase
+## Step 3 — Phase gates
 
-When every task in a phase is verified, work that phase's gate block. It holds the checks that are
-about the tree rather than one task — the repository-wide type-check and lint, "nothing outside the
-phase's `Owns` sets changed", and "the interfaces the next phase `Needs` exist and match".
+When all tasks in a phase are closed, execute that phase's normalized `gates` in plan order. For
+each gate, run its exact `CHECK`, require both a successful exit and its `EXPECT`, then have the
+controller replace `EVIDENCE: pending` with the deciding output and check the gate box. Do not close
+the phase until every gate for it is checked with non-pending evidence. Focused task checks run per
+task and are not replaced by the phase gate. Then append the phase checkpoint to
+`.graph-powers/logs/progress.md`: timestamp, canonical plan, phase, base `HEAD`, working-tree status,
+closed gate IDs and the next runnable or blocked task.
 
-**These commands run here and nowhere else.** A task that runs the whole project's type-check to
-prove one local claim pays for the whole project, once per task. Cross-task failures are resolved in
-a new sequential task; never by re-dispatching the batch.
+Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, repository-wide type-check and
+lint run once at each phase gate, never per task; serial full tests run once at the final boundary,
+using the project's declared `${tooling.commands}`. A missing command is `NOT DECLARED`, never a
+passing result.
 
-## Step 4.5 — Reasoning gate before escalation (L5+)
+## Step 4 — Final review and close
 
-When a task fails its **2nd** retry, invoke `mcp__sequential-thinking__sequentialthinking` to
-decompose the error surface — root cause, why the earlier fixes missed, candidate paths — **before**
-the 3rd attempt or `/debug recover`. It prevents a blind third retry burning the spawn cap.
+After all phase gates, resolve the merge base between the approved target branch and `HEAD`, then
+run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review package, the plan and
+task-review ledger to the separate read-only reviewer in
+`references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
+Minor findings and triage deferred or parked items. Then run `/verify quick`, followed by
+`/evolve auto` on PASS. On success or a safe abort, run `sdd.py release <PLAN_FILE>`; it removes only
+a lease whose canonical `plan` matches. If a final gate fails, leave the lease and working-tree
+state explicit until the failure is resolved or the plan is safely aborted.
 
-## Step 5 — Post-execution gate
+## Required invariants
 
-Every phase gate met → `/verify quick`. The gate commands are the ones the project declared in
-`tooling.commands`; one it did not declare is reported `NOT DECLARED`, never as passing. Plus the
-negative checks in `${rulesDir}/`, and a browser flow per `Skill("webapp-testing")` if UI changed and
-the project has a staging URL.
-
-## Step 6 — `/evolve auto`
-
-On `/verify quick` PASS: captures learnings, may append a row to `.graph-powers/logs/progress.md`
-with the base `HEAD` and working-tree status. It stages and commits nothing.
-
-## Step 7 — Closing message
-
-```
-Phase C complete.
-- Every task verified with evidence; every phase gate met
-- /verify quick PASS · /evolve auto done
-- Base HEAD: <SHA> · Suggested commit subject: <subject>
-- Working tree ready for review. Stage/commit/push/PR/merge need separate authorization.
-```
-
-**STOP.** Do not push, do not open a PR, do not merge.
-
----
-
-## Stopping conditions — phase-unique rows
-
-The shared table is `../SKILL.md § Stopping & red flags`; these are the rows that only apply here.
-
-| Condition | Action |
-|---|---|
-| `/verify quick` FAILs after every task passed | Halt — this is a cross-task interaction. Do not auto-fix inside the `/implement` loop |
-| A task's `Owns` set turns out to be wrong mid-flight | Halt that task, fix the plan, re-dispatch. Never let a subagent widen its own ownership |
-| A task returns PASS but its `CHECK` fails when re-run | Treat as FAIL and re-dispatch. Self-report never outranks the command |
-
----
-
-## Subagent prompt templates
-
-> Fill `{{...}}` per dispatch. Shared contract first, then one block per gate. All three return
-> < 2000 tokens; longer detail goes to `.claude/agent-memory/<agent>/`.
-
-### Shared dispatch contract
-
-- **One task = one fresh subagent.** No context carry-over between tasks.
-- **Subagents receive pasted content, not file paths** — the task block, the spec excerpt, the diff.
-  The implementer is the exception: it reads the files in its own `Owns`.
-- **Gate order:** implementer (write-capable) → spec reviewer (read-only) → quality reviewer
-  (read-only). Quality runs only after spec PASS.
-- **Re-dispatch:** FAIL with feedback appended under `## Reviewer feedback`. Max 3 retries per task
-  across both gates. BLOCKED → halt that task and escalate.
-
-### Implementer (write-capable)
-
-```
-You are an implementer subagent for `${project.name}`.
-
-## Scene context (read once, do not re-derive)
-
-Fill these from the project config before dispatching — a subagent inherits nothing, so a
-placeholder left here is a fact the implementer will invent.
-
-- Repo: `${project.name}`. Branch: `${git.workBranch}` — never a protected branch, never push, never merge.
-- Stack: `${project.stack}`. Package manager: `${tooling.packageManager}`, and no other.
-- Tests: `${tooling.commands.test}`. Type check: `${tooling.commands.typeCheck}`. Never substitute a different tool.
-- Line endings: LF only. Before handoff: `${tooling.commands.format}` on every file you edited.
-- The project's non-negotiables: `${chain.hardRules}` and `${chain.invariants}`, plus whatever in
-  `${rulesDir}/` matches the paths you own. These are the project's, declared in its config — this
-  prompt does not carry a list of its own.
-
-## Your task
-{{the task block from the plan, verbatim: title, Owns, Needs, CHECK, EXPECT, Steps}}
-
-## What you MUST do
-1. Read every file in `Owns` before editing it.
-2. Follow the Steps in order; do not skip the TDD ones (failing test → RED → implement → GREEN).
-3. Run your task's `CHECK` and report its output verbatim — that output becomes the plan's EVIDENCE.
-4. Run `${tooling.commands.format}` on every file you edited. Leave everything unstaged.
-5. Return the structured report below.
-
-## What you MUST NOT do
-- Read the plan file or another task's block. Your work is self-contained.
-- Write any path outside `Owns` — if you need one, STOP and return BLOCKED.
-- Run the whole project's type-check or lint. That is the phase gate's job, not yours.
-- Stage, commit, push, open a PR, merge, use `--no-verify`, or `git commit --amend`.
-
-## Return contract (< 2000 tokens)
-### Status        PASS | FAIL | BLOCKED
-### Changed paths - <path> …            (must be a subset of Owns)
-### CHECK output  <the deciding lines, verbatim — this is the evidence>
-### Git state     base HEAD <short SHA> · suggested subject <conventional-commit subject> · unstaged YES/NO
-### Summary       2-5 sentences: what you did, and why EXPECT now matches.
-### Next          (empty unless BLOCKED — then what is blocking)
-```
-
-### Spec reviewer (read-only — GATE A)
-
-```
-You are a spec-compliance reviewer for `${project.name}`. Verify the diff fulfills the task block —
-nothing else. You are NOT reviewing code quality, style, naming, comments or test design.
-
-## Task block           {{paste the task block, including CHECK and EXPECT}}
-## Implementer's diff   {{paste the full diff}}
-## Claimed evidence     {{paste the implementer's CHECK output + Git state + Summary}}
-
-## What to check
-1. `EXPECT` genuinely matches the reported `CHECK` output — and that output could not appear on failure.
-2. Changed paths are a subset of `Owns`. A surprise file is a FAIL, not a nit.
-3. No scope creep: no "while I was here" refactor, no extra feature, no unscoped fix.
-4. No silent omission — every sub-item of the task appears in the diff.
-5. The evidence proves the criterion. A passing type-check alone proves nothing about behaviour.
-
-## Return contract (< 1000 tokens)
-### Verdict            PASS | FAIL | BLOCKED
-### Criterion          <restate EXPECT> · Met? YES/NO/PARTIAL · Evidence: <diff lines / output>
-### Ownership check    PASS / FAIL — <name any path outside Owns>
-### Missing items      - <what the task asked for that the diff does not deliver>
-### Recommendation     PASS → "Proceed to the quality reviewer." · FAIL → "Re-dispatch with these gaps." · BLOCKED → describe it.
-```
-
-### Code-quality reviewer (read-only — GATE B)
-
-```
-You are a code-quality reviewer for `${project.name}`. The diff already passed spec compliance — do
-NOT re-check the task. Catch maintainability, project conventions, security and testability.
-
-## The project's non-negotiables (each violation = FAIL)
-{{paste ${chain.hardRules} and ${chain.invariants} from the project config, plus the rules in
-${rulesDir}/ that match the touched paths. If the project declared none, say so and review on the
-general criteria below only — do not invent conventions it never adopted.}}
-
-## Implementer's diff   {{paste the full diff}}
-
-## Also check
-- Anti-patterns from `Skill("debugger")` → `../../debugger/references/anti-patterns.md`, where they
-  match the touched files.
-- Test design: tests exist and exercise the criterion rather than mocking it away.
-- Error handling at boundaries · self-descriptive naming · no premature abstraction · comments only
-  for a non-obvious WHY · no backwards-compatibility shim nobody asked for.
-- Security boundaries: injection, auth scope, secrets, data that crosses a tenant.
-
-## Return contract (< 1500 tokens)
-### Verdict             PASS | FAIL | BLOCKED
-### Rule check          - <rule>: PASS/FAIL — <evidence>   (only rules the diff touches)
-### Anti-pattern check  PASS / FAIL — <name it>
-### Test design check   PASS / FAIL — <name the gap>
-### Nits (FYI only)     - <nit>    (never triggers a re-dispatch on its own)
-### Recommendation      PASS → "Close the task." · FAIL → "Re-dispatch with these violations." · BLOCKED → describe it.
-```
+- One reviewer per task; the final reviewer is a separate role.
+- No task or phase gate is checked while `EVIDENCE` is pending.
+- Tests go through the real production interface. Trivial functions need no direct test when their
+  consumer-visible behaviour is covered.
+- Type-check and lint run once at each phase gate; serial full tests run once at the final boundary.
+- Do not stage, commit, push, publish, open a PR or merge.

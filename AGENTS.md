@@ -78,11 +78,15 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 350 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails in a sandbox
+python3 skills/planning/scripts/test_sdd.py # structured plans, TDD and review packaging
+python3 skills/skill-improve/scripts/test_run_evals.py # eval runner path and CLI contract
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
+python3 .github/test_file_references.py      # negative tests for the live-file reference gate
+python3 .github/check_file_references.py     # every live Markdown path resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 python3 .github/check_context_budget.py     # what each command costs before it does anything
 python3 .github/check_listing_budget.py     # what the plugin costs before anything is invoked
@@ -117,17 +121,17 @@ from inventing work.
 | Directory | What it is | Who consumes it |
 |---|---|---|
 | `agents/` | subagents, one `.md` with frontmatter each | Claude Code by `subagent_type`; Codex via generated `.codex/agents/*.toml` |
-| `skills/` | skills, one folder with a `SKILL.md` each | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
-| `commands/` | commands, exposed as `/<name>` | the user; Codex gets them as generated skills |
-| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
-| `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
+| `skills/` | skills, one folder with a `SKILL.md` each — read `skills/AGENTS.md` first | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
+| `commands/` | commands, exposed as `/<name>`. No node: each file is its own entry document, and `.claude/rules/artifacts.md` loads on any edit | the user; Codex gets them as generated skills |
+| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB. No node: `references/shared-context.md` is already the index | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
+| `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` — read `hooks/AGENTS.md` first | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
 | `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
-| `codex/` | the generators for the Codex side | `bin/graph-powers.mjs` |
+| `codex/` | the generators for the Codex side. No node: cardinal 7 is the rule and each generator's docstring is its map | `bin/graph-powers.mjs` |
 | `schema/` | the contract for each project's config | editors, and the setup playbook |
 | `templates/` | starting points a project copies and adapts | the setup playbook |
 | `examples/` | starting configs per stack | people, by copying |
 | `DESIGN.md` · `PRODUCT.md` · `REVIEW.md` | **specs, not documentation.** What the host project's counterparts must contain, and how the agent builds or improves them | `AGENT_SETUP.md § 6` |
-| `docs/` · `CONTRIBUTING.md` | this plugin's own architecture, audience and review process | people |
+| `docs/` · `CONTRIBUTING.md` | this plugin's own architecture, audience and review process. No node: prose for people, and `README.md` is its index | people |
 
 ### 2026-08-24 Turbo dry-json EPIPE abort cascade
 
@@ -137,7 +141,7 @@ from inventing work.
 SIGABRT, bun aborted. Three coredumps. No tests ran.
 **Cause:** Rust `println!` panics on EPIPE. The Bash tool is a pipe. `turbo/bin/turbo` then
 `process.kill(pid, signal)`.
-**Solution:** Hook denies the Bash form. Script `skills/bun-verify/scripts/turbo_dry_json.py`
+**Solution:** Hook denies the Bash form. Script `skills/debugger/scripts/turbo_dry_json.py`
 writes JSON to `.graph-powers/cache/` and prints the path. Anti-pattern 37 on the debugger
 catalogue. Hosts inherit the rule via `templates/rules/stability.md`.
 

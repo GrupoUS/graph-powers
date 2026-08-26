@@ -7,7 +7,7 @@ workflow_type: parallelization
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/050-tool-usage.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 
 > Research-only mode: findings, no edits, no fixes. This is the discovery half of the planning
@@ -33,12 +33,14 @@ workflow_type: parallelization
 
 ## Setup
 
-```typescript
-Skill("superpowers:using-superpowers");           // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
-Skill("superpowers:dispatching-parallel-agents"); // explorer + librarian = parallel batch with distinct scope
-```
+The local method bootstrap governs skill selection; `070-parallel-agent-spawn.md` governs the
+explorer + librarian batch.
 
-If the research scope is open-ended (user says "should we build X?" / "how should we approach Y?" / no concrete artifact requested), also invoke `Skill("superpowers:brainstorming")` to frame the right questions before research. Skip when the user asked a concrete factual question (`how does library X handle Y?`).
+If the research scope is open-ended (user says "should we build X?" / "how should we approach Y?" /
+no concrete artifact requested), use the destination and fog framing in
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md` before research. Do not enter Phase B;
+the research answer is the deliverable. Skip this when the user asked a concrete factual question
+(`how does library X handle Y?`).
 
 ## Execution
 

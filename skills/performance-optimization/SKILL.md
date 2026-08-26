@@ -268,7 +268,7 @@ Anti-patterns, all four observed:
 - No optimization on intuition. A profile or a measurement, or it does not happen.
 - One bottleneck at a time, re-measured the same way.
 - No claim of improvement without before/after evidence
-  (`Skill("superpowers:verification-before-completion")`).
+  (`${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`).
 - No scope expansion into an unrelated refactor.
 - A schema change is proposed, never applied from this pack. Apply is `/implement` § 7.5,
   and only when `${database.applyPolicy}` is `optIn` with current-turn approval.

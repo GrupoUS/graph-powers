@@ -304,8 +304,8 @@ def main() -> int:
                      "autonomy": {"allowPackageManagers": ["bun"]}})
     npm = {"tool_name": "Bash", "tool_input": {"command": "npm install"}}
     bun = {"tool_name": "Bash", "tool_input": {"command": "bun install"}}
-    bunx = {"tool_name": "Bash", "tool_input": {"command": "bunx impeccable install"}}
-    npx = {"tool_name": "Bash", "tool_input": {"command": "npx impeccable install"}}
+    bunx = {"tool_name": "Bash", "tool_input": {"command": "bunx agent-browser open"}}
+    npx = {"tool_name": "Bash", "tool_input": {"command": "npx agent-browser open"}}
     check("npm runs when the project declares nothing",
           call("smart_bash_approver", npm, pm_free)[0], "allow")
     check("npm is refused when the project declared bun only",
@@ -565,19 +565,19 @@ def main() -> int:
         ("scoped turbo tests", "turbo run test --filter=web"),
         ("type-check", "turbo run check --filter=api"),
         ("the wrapper script",
-         "python -X utf8 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+         "python -X utf8 skills/debugger/scripts/turbo_dry_json.py --task test"),
         ("the wrapper under py -3",
-         "py -3 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+         "py -3 skills/debugger/scripts/turbo_dry_json.py --task test"),
     ]:
         check(f"...but {label} still runs",
               call("smart_bash_approver", bash(cmd), auton)[0] != "deny", True)
 
     check("guarded runs the turbo_dry_json wrapper without asking",
           call("smart_bash_approver",
-               bash("python -X utf8 skills/bun-verify/scripts/turbo_dry_json.py --task test"),
+               bash("python -X utf8 skills/debugger/scripts/turbo_dry_json.py --task test"),
                a)[0], "allow")
 
-    script = HOOKS.parent / "skills" / "bun-verify" / "scripts" / "turbo_dry_json.py"
+    script = HOOKS.parent / "skills" / "debugger" / "scripts" / "turbo_dry_json.py"
     empty = Path(tempfile.mkdtemp(prefix="gp-no-turbo-"))
     missing = subprocess.run(
         [sys.executable, str(script), "--task", "test"],
@@ -589,6 +589,537 @@ def main() -> int:
     check("...and does not print a JSON object on stdout",
           not missing.stdout.lstrip().startswith("{"), True)
     shutil.rmtree(empty, ignore_errors=True)
+
+    print("### The intent layer is a file set with a gate, and the gate can fail")
+    # Three shell scripts (`find | wc`, `grep`, `bc`) became one Python file so that the gate
+    # exists on every shell an install lands on. What needs proving is not that the report prints,
+    # it is that `check` exits 1 on each thing Codex, Cursor or Grok would trip over — and exits 0
+    # on a tree with none of them, because a gate that fails the correct tree gets switched off.
+    intent = HOOKS.parent / "skills" / "intent-layer" / "scripts" / "intent_layer.py"
+
+    def intent_run(fixture: Path, *argv: str, timeout: float = 30) -> tuple[int, str]:
+        try:
+            r = subprocess.run(
+                [sys.executable, str(intent), *argv],
+                cwd=str(fixture), capture_output=True, encoding="utf-8", errors="replace",
+                timeout=timeout, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return 124, "intent-layer timed out"
+        return r.returncode, r.stdout
+
+    def intent_write(fixture: Path, rel: str, body: str, *, size: int = 0) -> None:
+        # `size` pads with one long line: the cap and the Codex chain are byte counts, and a
+        # fixture that says "15,000 bytes" should be exactly that, not "about".
+        if size:
+            body = body + "x" * (size - len(body.encode("utf-8")) - 1) + "\n"
+        target = fixture / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+
+    root_linking_api = (
+        "# Fixture\n\nA project with one package.\n\n## Where things live\n\n"
+        "| Path | Node |\n|---|---|\n| packages/api | `packages/api/AGENTS.md` |\n"
+    )
+    api_node = "The HTTP API: routes, handlers and their tests.\n\n## Rules\n\n- keep handlers thin\n"
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    code, out = intent_run(fx, "state")
+    check("an empty directory is state: none, and still exit 0 — it is a report",
+          (code, "state: none" in out), (0, True))
+
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    check("a root whose table links one child with a purpose line is complete",
+          "state: complete" in intent_run(fx, "state")[1], True)
+    code, out = intent_run(fx, "check")
+    check("...and the gate passes on it", (code, out.rstrip().endswith("intent layer: OK")),
+          (0, True))
+
+    intent_write(fx, "packages/web/AGENTS.md", "The web app: pages, layouts, islands.\n")
+    check("a child no ancestor links to makes the state partial",
+          "state: partial" in intent_run(fx, "state")[1], True)
+    code, out = intent_run(fx, "check")
+    check("...and the gate fails, naming the orphan",
+          (code, "packages/web/AGENTS.md" in out and "no ancestor" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md",
+                 root_linking_api + "| services/billing | `services/billing/AGENTS.md` |\n")
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    code, out = intent_run(fx, "check")
+    check("a downlink to a node that does not exist fails the gate",
+          (code, "does not resolve" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", "The {{AREA}} package.\n")
+    code, out = intent_run(fx, "check")
+    check("a placeholder the setup left behind fails the gate",
+          (code, "unresolved placeholder" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node, size=17_000)
+    code, out = intent_run(fx, "check")
+    check("a 17,000-byte node is over the 4k-token cap", (code, "cap 4000" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # A long generated line with no downlink is ordinary input: lockfiles, minified artefacts and
+    # copied schemas can all produce one. Link discovery must rule it out before running the more
+    # expressive path regexes; otherwise the bare-path expression backtracks quadratically.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "# Root\n\nThe root.\n", size=200_000)
+    code, out = intent_run(fx, "check", timeout=5)
+    check("a long line without AGENTS.md is rejected by the cap without a regex timeout",
+          (code, "cap 4000" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # A fixed-tail prefilter is not enough: once a valid tail exists, the bare-token regex still
+    # retries its repeated segment from every character on a generated line. The valid-tail case
+    # must stay linear too, even though the node will ultimately fail both the size and link gates.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "x" * 50_000 + " missing/AGENTS.md\n")
+    code, out = intent_run(fx, "check", timeout=5)
+    check("a long line ending in AGENTS.md is rejected without a regex timeout",
+          (code, "cap 4000" in out and "does not resolve" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # Three nodes of 15,000 bytes, every one under the per-node cap, on one path. Codex reads
+    # them root-to-cwd as a single 45,000-byte instruction and stops at 32,768 — so the tree
+    # fails as a whole while every node passes alone. The middle node links its child by the
+    # node-relative spelling, which is the resolution order the script promises.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "# Root\n\nThe root.\n\nSee `a/AGENTS.md`.\n", size=15_000)
+    intent_write(fx, "a/AGENTS.md", "Area a. See `b/AGENTS.md`.\n", size=15_000)
+    intent_write(fx, "a/b/AGENTS.md", "Area a/b.\n", size=15_000)
+    code, out = intent_run(fx, "check")
+    check("a root-to-leaf chain over 32 KiB fails even when every node is under the cap",
+          (code, "32,768" in out and "cap 4000" not in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    intent_write(fx, "templates/AGENTS.md", "# {{X}}\n\n{{X}} template.\n")
+    check("a template full of placeholders fails the gate when it is in scope",
+          intent_run(fx, "check")[0], 1)
+    check("...and --exclude takes it, and its parent directory, out of scope",
+          intent_run(fx, "check", "--exclude", "templates")[0], 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    intent_write(fx, "packages/api/CLAUDE.md", "Only Claude reads this.\n")
+    code, out = intent_run(fx, "check")
+    check("a CLAUDE.md in a subdirectory is a warning, not a failure",
+          (code, "WARN" in out and "Claude-only" in out), (0, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # No `.git` here, so `git ls-files` exits non-zero and the os.walk fallback is what counts —
+    # which is the path an unpacked tarball or a fresh `mkdir` takes, and the one a lockfile can
+    # only distort if the basename filter is missing.
+    # The thresholds are tokens, and tokens are bytes / 4: the 20k node line is 80,000 bytes, the
+    # 64k split line is 256,000. So 90,000 bytes earns a node and nothing more; 270,000 earns both.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    for i in range(3):
+        intent_write(fx, f"big/mod{i}.ts", "export const x = 1;\n", size=90_000)
+    intent_write(fx, "mid/mod.ts", "export const z = 3;\n", size=90_000)
+    intent_write(fx, "small/index.ts", "export const y = 2;\n", size=3_000)
+    intent_write(fx, "small/package-lock.json", "{}\n", size=500_000)
+    code, out = intent_run(fx, "measure")
+    rows = {line.split()[0]: line for line in out.splitlines() if line.strip()}
+    check("measure runs on the walk fallback when there is no git", "files from walk" in out, True)
+    check("270,000 bytes of .ts with no node is NODE + SPLIT",
+          rows.get("big", "").endswith("NODE + SPLIT"), True)
+    check("90,000 bytes of .ts with no node is NODE, and not yet a split",
+          rows.get("mid", "").endswith("  NODE"), True)
+    check("3,000 bytes of .ts is below the node threshold",
+          rows.get("small", "").endswith("—"), True)
+    check("...and a 500,000-byte lockfile beside it does not count",
+          "  0.7k  " in rows.get("small", ""), True)
+    check("measure exits 0 — it is a report", code, 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # What an adversarial pass found on the first version, each one a correct tree reported as
+    # broken or a broken one reported as fine. A route group, a scoped package and an accented
+    # directory are ordinary paths; the ASCII-only charset the first regex used truncated
+    # `módulos/AGENTS.md` to `dulos/AGENTS.md` and reported three orphans on a linked tree.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md",
+                 "# Fixture\n\nOwns it.\n\n| PT | `módulos/AGENTS.md` |\n| G | [d](app/(dashboard)/AGENTS.md) |\n"
+                 "| R | (dashboard)/AGENTS.md |\n| D | [slug]/AGENTS.md |\n"
+                 "| S | packages/@acme/ui/AGENTS.md |\n| W | packages\\web\\AGENTS.md |\n"
+                 "Old copy: docs/AGENTS.md.bak and AGENTS.md~ are not nodes.\n\n"
+                 "```\nadd packages/new/AGENTS.md here\n```\n")
+    for rel in ("módulos", "app/(dashboard)", "(dashboard)", "[slug]",
+                "packages/@acme/ui", "packages/web"):
+        intent_write(fx, f"{rel}/AGENTS.md", f"Owns {rel}.\n")
+    code, out = intent_run(fx, "check")
+    check("route groups, scoped packages, accents and a Windows-separator downlink all resolve",
+          (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
+    check("...and a path inside a fence, a .bak and a ~ copy are neither links nor dangles",
+          "7 nodes checked, 0 failures" in out, True)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # The same dangling token twice on one line was two FAIL lines with one line number.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "Owns it. See `gone/AGENTS.md` and gone/AGENTS.md again.\n")
+    code, out = intent_run(fx, "check")
+    check("a dangling downlink written twice on one line is one failure",
+          (code, out.count("does not resolve")), (1, 1))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # Metadata is not a purpose line: YAML frontmatter, an HTML comment and a table row each
+    # passed as one, so a child made of headings and a table got through.
+    for label, body in [
+        ("YAML frontmatter", "---\ntitle: api\n---\n# api\n\n## Entry points\n\n## Contracts\n"),
+        ("an HTML comment", "<!-- generated\n by a tool -->\n# api\n\n## Entry points\n\n## Contracts\n"),
+        ("a table row", "# api\n\n| a | b |\n|---|---|\n## Entry points\n"),
+    ]:
+        fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+        intent_write(fx, "AGENTS.md", root_linking_api)
+        intent_write(fx, "packages/api/AGENTS.md", body)
+        code, out = intent_run(fx, "check")
+        check(f"{label} is not a purpose line", (code, "no purpose line" in out), (1, True))
+        shutil.rmtree(fx, ignore_errors=True)
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", "---\ntitle: api\n---\n# api\n\nOwns the API.\n")
+    check("...and a purpose line right after the frontmatter still counts",
+          intent_run(fx, "check")[0], 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # PowerShell 5.1's `>` writes UTF-16. Decoded as UTF-8 that is NUL-interleaved text in which
+    # no placeholder is visible, so the gate said OK on a root full of them. A BOM in front of `#`
+    # made a heading read as a purpose line.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    (fx / "AGENTS.md").write_bytes("# {{project_name}}\n\nOwns {{thing}}.\n".encode("utf-16"))
+    code, out = intent_run(fx, "check")
+    check("a UTF-16 node is reported unreadable, not clean", (code, "not UTF-8" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    (fx / "packages" / "api").mkdir(parents=True)
+    (fx / "packages" / "api" / "AGENTS.md").write_text(
+        "# api\n\n## Entry points\n\n## Contracts\n", encoding="utf-8-sig")
+    code, out = intent_run(fx, "check")
+    check("a BOM does not turn a heading into a purpose line",
+          (code, "no purpose line" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # Rounding and the cap: 16,001 bytes is over 4,000 tokens, and a count one token under a
+    # threshold must not print as the threshold.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node, size=16_001)
+    check("16,001 bytes is over the 4k cap — tokens round up, never down",
+          intent_run(fx, "check")[0], 1)
+    intent_write(fx, "packages/api/AGENTS.md", api_node, size=16_000)
+    check("...and 16,000 bytes is exactly at it", intent_run(fx, "check")[0], 0)
+    intent_write(fx, "mid/mod.ts", "export const z = 3;\n", size=79_996)
+    code, out = intent_run(fx, "measure")
+    row = next((line for line in out.splitlines() if line.startswith("mid ")), "")
+    check("19,999 tokens prints as 19.9k beside its `—`, not as 20.0k",
+          ("19.9k" in row, row.endswith("—")), (True, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # Round 2 of the adversarial pass, on the round-1 fixes: a link earlier on the row swallowed
+    # the real path, prose between two code spans read as one path, a convention sentence
+    # (`packages/*/AGENTS.md`) dangled, and the quotes a word processor writes glued to the token.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md",
+                 "# Fixture\n\nOwns it.\n\n"
+                 "| Api | [src](packages/api/src/) | `packages/api/AGENTS.md` |\n"
+                 "| Web | [docs](https://docs.example.com/web) | “apps/web/AGENTS.md” |\n"
+                 "| Adm | `apps/adm/` | **apps/adm/AGENTS.md** |\n"
+                 "| Docs | [d](<my docs/AGENTS.md>) | [e](my%20docs/AGENTS.md) |\n"
+                 "Run `bun test` first; the map is packages/core/AGENTS.md; then `bun build`.\n"
+                 "Every package carries a `packages/*/AGENTS.md`; a new one is `packages/<name>/AGENTS.md`.\n"
+                 "<!-- services/old/AGENTS.md was retired -->\n")
+    for rel in ("packages/api", "apps/web", "apps/adm", "my docs", "packages/core"):
+        intent_write(fx, f"{rel}/AGENTS.md", f"Owns {rel}.\n")
+    code, out = intent_run(fx, "check")
+    check("a link before the path, two code spans, curly quotes, bold, a space and %20 all resolve",
+          (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
+    check("...and a glob, a <name> placeholder and a path in an HTML comment are prose, not dangles",
+          "6 nodes checked, 0 failures" in out, True)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-root-"))
+    fx = container / "repo"
+    outside = container / "outside"
+    fx.mkdir()
+    outside.mkdir()
+    intent_write(fx, "AGENTS.md", "# Root\n\nOwns it. See `../outside/AGENTS.md`.\n")
+    intent_write(outside, "AGENTS.md", "Outside this repository.\n")
+    code, out = intent_run(fx, "check")
+    check("a real downlink outside the project root is still rejected",
+          (code, "does not resolve" in out), (1, True))
+    shutil.rmtree(container, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-case-"))
+    intent_write(fx, "AGENTS.md", "# Root\n\nOwns it. See `Packages/AGENTS.md`.\n")
+    intent_write(fx, "packages/AGENTS.md", "Owns packages.\n")
+    try:
+        (fx / "Packages").symlink_to(fx / "packages", target_is_directory=True)
+    except OSError as error:
+        print(f"SKIP: case-canonicalisation symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "check")
+        check("an existing differently-cased spelling resolves to the discovered node",
+              (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-node-link-"))
+    fx = container / "repo"
+    fx.mkdir()
+    outside_node = container / "outside-secret.md"
+    outside_node.write_text("Outside secret: {{EXFILTRATED}}.\n", encoding="utf-8")
+    try:
+        (fx / "AGENTS.md").symlink_to(outside_node)
+    except OSError as error:
+        print(f"SKIP: node symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "check")
+        check("a symlinked node outside the root is rejected without reading its contents",
+              (code, "symbolic link" in out, "EXFILTRATED" in out), (1, True, False))
+    shutil.rmtree(container, ignore_errors=True)
+
+    for label, body in [
+        ("a *** rule", "# A\n***\n| t | t |\n|---|---|\n"),
+        ("a - - - rule", "# A\n- - -\n| t | t |\n|---|---|\n"),
+        ("a fenced command", "# A\n```bash\nbun test\n```\n| t | t |\n|---|---|\n"),
+        ("an indented code line", "# A\n\n    bun test\n\n| t | t |\n"),
+    ]:
+        fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+        intent_write(fx, "AGENTS.md", root_linking_api)
+        intent_write(fx, "packages/api/AGENTS.md", body)
+        code, out = intent_run(fx, "check")
+        check(f"{label} is not a purpose line", (code, "no purpose line" in out), (1, True))
+        shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    (fx / "packages" / "api").mkdir(parents=True)
+    (fx / "packages" / "api" / "AGENTS.md").write_bytes("Owns the API: módulos.\n".encode("latin-1"))
+    code, out = intent_run(fx, "check")
+    check("a Latin-1 node is reported as not UTF-8, with the byte offset",
+          (code, "not UTF-8" in out and "offset" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    for d in ("a", "b", "c"):
+        intent_write(fx, f"{d}/x.ts", "export const x = 1;\n", size=90_000)
+    code, out = intent_run(fx, "measure", "--top", "1")
+    check("a truncated table says how many rows --top hid",
+          (code, "more directories below --top 1" in out), (0, True))
+    code, out = intent_run(fx, "measure", "--threshold", "70000", "--split", "64000")
+    check("a threshold above the split is refused, not printed as NODE + SPLIT", code, 2)
+    invalid_positive_flags = [
+        ("measure", "--threshold", value)
+        for value in ("0", "-1")
+    ] + [
+        ("measure", "--split", value)
+        for value in ("0", "-1")
+    ] + [
+        ("check", flag, value)
+        for flag in ("--max-node-tokens", "--codex-cap")
+        for value in ("0", "-1")
+    ]
+    check("explicit size and threshold flags must be positive integers",
+          [intent_run(fx, *argv)[0] for argv in invalid_positive_flags],
+          [2] * len(invalid_positive_flags))
+    code, out = intent_run(fx, "check", "--exclude", "nothing-here")
+    check("an --exclude that hid nothing says so",
+          (code, "note: --exclude nothing-here matched nothing" in out), (0, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    windows_intent = str(intent).replace("/", "\\")
+    check("guarded runs the plugin's resolved intent_layer.py without asking",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state .'), a)[0], "allow")
+    check("...and the gate under the Windows launcher",
+          call("smart_bash_approver",
+               bash(f'py -3 "{intent}" check .'), a)[0], "allow")
+    check("...but arbitrary Python -X options do not inherit the read-only allowance",
+          call("smart_bash_approver",
+               bash(f'python -X dev "{intent}" check .'), a)[0], "ask")
+    check("...and the plugin-root placeholder emitted by the skill",
+          call("smart_bash_approver",
+               bash('python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/intent-layer/scripts/intent_layer.py" measure .'),
+               a, env={"CLAUDE_PLUGIN_ROOT": str(HOOKS.parent)})[0], "allow")
+    check("...but CLAUDE_PLUGIN_ROOT cannot redirect that allowance to another tree",
+          call("smart_bash_approver",
+               bash('python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/intent-layer/scripts/intent_layer.py" measure .'),
+               a, env={"CLAUDE_PLUGIN_ROOT": str(a)})[0], "ask")
+    # The setup playbook defines PLUGIN in the environment. The hook accepts that placeholder only
+    # while its value resolves to the root beside this hook; the command cannot choose the root.
+    check("...and the quoted plugin-root path the playbook emits",
+          call("smart_bash_approver",
+               bash('python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .'),
+               a, env={"PLUGIN": str(HOOKS.parent)})[0], "allow")
+    check("...and the single-quoted spelling a PowerShell user types",
+          call("smart_bash_approver",
+               bash(f"py -3 '{windows_intent}' check ."),
+               a)[0], "allow")
+    check("...but PLUGIN cannot redirect that allowance to another tree",
+          call("smart_bash_approver",
+               bash('python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .'),
+               a, env={"PLUGIN": str(a)})[0], "ask")
+    check("...and an attacker-owned launcher with a trusted basename still asks",
+          call("smart_bash_approver",
+               bash(f'"{a / "python"}" -X utf8 "{intent}" state .'), a)[0], "ask")
+    check("...and a background command cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . & untrusted-tool marker'), a)[0], "ask")
+    check("...and output redirection cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . > marker.txt'), a)[0], "ask")
+    check("...and process substitution cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . <(untrusted-tool marker)'), a)[0], "ask")
+    check("...but an unrelated Python script with the same filename still asks",
+          call("smart_bash_approver",
+               bash("python -X utf8 untrusted/intent_layer.py state ."), a)[0], "ask")
+    check("...and so does that unrelated script under the Windows launcher",
+          call("smart_bash_approver",
+               bash("py -3 untrusted\\intent_layer.py check ."), a)[0], "ask")
+    check("...and a matching directory suffix cannot hide an unrelated POSIX script",
+          call("smart_bash_approver",
+               bash("python -X utf8 untrusted/skills/intent-layer/scripts/intent_layer.py state ."),
+               a)[0], "ask")
+    check("...or hide one under the Windows launcher",
+          call("smart_bash_approver",
+               bash("py -3 untrusted\\skills\\intent-layer\\scripts\\intent_layer.py check ."),
+               a)[0], "ask")
+    check("...but the interpreter with the script only named inside -c still asks",
+          call("smart_bash_approver",
+               bash('python -X utf8 -c "import intent_layer"'), a)[0], "ask")
+
+    # The project's `intentLayer` block: exclusions and deferrals declared once, in the config,
+    # instead of retyped on every run — and a deferral refused until the nearest ancestor node
+    # names the directory, because a decision nobody can read is a default.
+    def intent_cfg(fixture: Path, block: object) -> None:
+        (fixture / ".graph-powers").mkdir(exist_ok=True)
+        (fixture / ".graph-powers" / "config.json").write_text(
+            json.dumps({"intentLayer": block}), encoding="utf-8")
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", root_linking_api + "| big | `big/` | no node: its index is the map |\n")
+    intent_write(fx, "packages/api/AGENTS.md", api_node)
+    intent_write(fx, "templates/AGENTS.md", "# {{X}}\n")
+    intent_write(fx, "big/x.ts", "export const x = 1;\n", size=100_000)
+    check("without the block, the template fails the gate and the heavy directory is a candidate",
+          (intent_run(fx, "check")[0], "candidates: 1" in intent_run(fx, "state")[1]), (1, True))
+    intent_cfg(fx, {"exclude": ["templates"], "deferred": ["big"]})
+    code, out = intent_run(fx, "state")
+    check("intentLayer.exclude hides the template and intentLayer.deferred retires the candidate",
+          (code, "state: complete" in out and "deferred: 1" in out), (0, True))
+    check("...and the gate passes with the deferral explained in the root",
+          intent_run(fx, "check")[0], 0)
+    check("...and measure shows the deferred row as deferred, not NODE",
+          "deferred" in next((l for l in intent_run(fx, "measure")[1].splitlines()
+                              if l.startswith("big ")), ""), True)
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    code, out = intent_run(fx, "check")
+    check("a deferral no ancestor node names fails the gate, naming where to write it",
+          (code, "no ancestor AGENTS.md names it" in out and "write `big/` in AGENTS.md" in out),
+          (1, True))
+    # The directory grows a node and the root links it: the deferral is now stale, which is a
+    # warning — the tree is fine, the config is behind it.
+    intent_write(fx, "AGENTS.md", root_linking_api + "| big | `big/` | `big/AGENTS.md` |\n")
+    intent_write(fx, "big/AGENTS.md", "Owns big.\n")
+    code, out = intent_run(fx, "check")
+    check("a deferred directory that grew a node is a stale deferral — warned, not failed",
+          (code, "stale" in out), (0, True))
+    intent_cfg(fx, {"exclude": ["templates"], "deferred": ["gone"]})
+    check("a deferred directory that does not exist is a warning",
+          "not a directory" in intent_run(fx, "check")[1], True)
+    (fx / "big" / "AGENTS.md").unlink()
+    intent_cfg(fx, {"threshold": 30000})
+    code, out = intent_run(fx, "measure")
+    check("intentLayer.threshold moves the line: 25k tokens is under a 30k threshold",
+          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("—"), True)
+    code, out = intent_run(fx, "measure", "--threshold", "20000")
+    check("...and a flag on the command line wins over the block",
+          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("NODE"), True)
+    (fx / ".graph-powers" / "config.json").write_text("{not json", encoding="utf-8")
+    check("a config with a typo is the defaults, not a traceback",
+          intent_run(fx, "state")[0], 0)
+    # The root still links `big/AGENTS.md`, which was just removed; put the root back to the shape
+    # that links only the api node, so the only thing between this tree and OK is the exclusion.
+    intent_write(fx, "AGENTS.md", root_linking_api)
+    intent_cfg(fx, {"exclude": ["templates"]})
+    check("--exclude adds to the block's list instead of replacing it",
+          intent_run(fx, "check", "--exclude", "big")[0], 0)
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-config-precedence-"))
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    (fx / ".graph-powers").mkdir()
+    (fx / ".graph-powers" / "config.json").write_text("{}", encoding="utf-8")
+    (fx / ".claude").mkdir()
+    (fx / ".claude" / "config.json").write_text(
+        json.dumps({"intentLayer": {"threshold": 12345}}),
+        encoding="utf-8",
+    )
+    code, out = intent_run(fx, "measure")
+    check("the canonical config shadows the legacy file instead of merging two project configs",
+          (code, "node >= 20.0k" in out, "12.3k" in out), (0, True, False))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-config-thresholds-"))
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    intent_cfg(fx, {"threshold": 70000, "split": 64000})
+    state_code, _ = intent_run(fx, "state")
+    measure_code, measure_out = intent_run(fx, "measure")
+    check_code, _ = intent_run(fx, "check")
+    check("an invalid config threshold pair falls back atomically instead of breaking every command",
+          ((state_code, measure_code, check_code),
+           "node >= 20.0k · split >= 64.0k" in measure_out),
+          ((0, 0, 0), True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-config-link-"))
+    fx = container / "repo"
+    fx.mkdir()
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    outside_config = container / "outside-config.json"
+    outside_config.write_text(
+        json.dumps({"intentLayer": {"deferred": ["EXTERNAL_CONFIG_VALUE"]}}),
+        encoding="utf-8",
+    )
+    (fx / ".graph-powers").mkdir()
+    try:
+        (fx / ".graph-powers" / "config.json").symlink_to(outside_config)
+    except OSError as error:
+        print(f"SKIP: config symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "state")
+        check("a config symlink outside the project root is ignored",
+              (code, "EXTERNAL_CONFIG_VALUE" in out), (0, False))
+    shutil.rmtree(container, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-config-path-"))
+    fx = container / "repo"
+    fx.mkdir()
+    (container / "outside").mkdir()
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    intent_cfg(fx, {
+        "exclude": ["../outside"],
+        "deferred": ["../outside", "C:\\outside"],
+    })
+    code, out = intent_run(fx, "check")
+    check("config paths cannot traverse above the root or select a Windows drive",
+          (code, "../outside" in out, "C:/outside" in out), (0, False, False))
+    shutil.rmtree(container, ignore_errors=True)
 
     print("### `git restore` is decided by its flag set, not by a substring")
     # The floor exempted `restore` with a lookahead for the TEXT `--staged`, and the safe list

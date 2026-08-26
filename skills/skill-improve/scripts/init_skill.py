@@ -3,12 +3,16 @@
 Skill Initializer - Creates a new skill from template
 
 Usage:
-    init_skill.py <skill-name> --path <path>
+    init_skill.py <skill-name> --path <parent-directory>
 
 Examples:
-    init_skill.py my-new-skill --path skills/public
-    init_skill.py my-api-helper --path skills/private
-    init_skill.py custom-skill --path /custom/location
+    init_skill.py my-new-skill --path skills
+    init_skill.py my-api-helper --path .claude/skills
+
+The scaffold is a starting point: every TODO is meant to be replaced, and the frontmatter it writes
+already has the shape the validator accepts — a quoted single-line description with no colon-space
+and no brackets — so that copying its shape does not reproduce the one YAML mistake that once left
+four command files unregistered without anything noticing.
 """
 
 import re
@@ -32,7 +36,7 @@ def is_valid_kebab_case(name):
 
 SKILL_TEMPLATE = """---
 name: {skill_name}
-description: TODO Write a trigger-oriented description starting with "Use when..." Example: "Use when creating a new skill, initializing a skill directory, or generating skill templates." Keep it under 1024 characters.
+description: "TODO Write a trigger-oriented description that starts with Use when, naming the conditions and the phrases users actually type. Keep it a quoted single line under 1024 characters, with no colon-space, no angle brackets and no square brackets. Replace this whole value before shipping."
 ---
 
 # {skill_title}
@@ -92,6 +96,47 @@ EXAMPLE_ASSET = """# Placeholder for {skill_name} assets
 Delete this file if not needed. Add templates, images, fonts, or other files here.
 """
 
+# One positive and one negative case, in the shape `run_evals.py` reads. Both are placeholders:
+# the runner scores them, so a skill shipped with these untouched fails its own trigger gate.
+EXAMPLE_EVALS = """{{
+  "skill_name": "{skill_name}",
+  "notes": "TODO at least 3 positive and 3 negative cases; negatives at the border with the real competitor.",
+  "evals": [
+    {{
+      "id": "pos-TODO",
+      "polarity": "positive",
+      "prompt": "TODO a prompt a real user would type that must fire this skill",
+      "expected_output": "TODO what success looks like",
+      "assertions": [
+        {{ "id": "A01", "description": "The skill fires.", "check": "regex: (?i){skill_name}\\\\b", "critical": true }}
+      ]
+    }},
+    {{
+      "id": "neg-TODO",
+      "polarity": "negative",
+      "prompt": "TODO a near-miss prompt that shares words with this skill and must route elsewhere",
+      "expected_output": "TODO where it routes instead",
+      "assertions": [
+        {{ "id": "A01", "description": "Routes to the competitor, stated positively.", "check": "regex: (?i)TODO-competitor-name", "critical": true }}
+      ]
+    }}
+  ]
+}}
+"""
+
+EXAMPLE_LEARNING = """# learning.md — round history for `{skill_name}`
+
+One entry per round: hypothesis, change, measurement, verdict. A round with no measured number is a
+hunch with markdown around it. A round that changed nothing still gets an entry saying so.
+
+## Round 1 — YYYY-MM-DD · TODO one-line subject
+
+**Hypothesis:** TODO what you expected before looking.
+**Change:** TODO what you did.
+**Measurement:** TODO command output, quoted. Numbers, not adjectives.
+**Verdict:** TODO kept, refuted, or partial — and what the evidence killed.
+"""
+
 
 def title_case_skill_name(skill_name):
     """Convert hyphenated skill name to Title Case for display."""
@@ -139,63 +184,72 @@ def init_skill(skill_name, path):
 
     skill_md_path = skill_dir / "SKILL.md"
     try:
-        skill_md_path.write_text(skill_content)
+        # Explicit encoding everywhere: without it `write_text` uses the locale code page, and a
+        # scaffold written on Windows carries the em dashes below as mojibake.
+        skill_md_path.write_text(skill_content, encoding="utf-8")
         print("✅ Created SKILL.md")
     except Exception as e:
         print(f"❌ Error creating SKILL.md: {e}")
         return None
 
-    # Create resource directories with example files
+    # The two files the anatomy calls for in any skill in regular use, then the optional
+    # resource directories with one example each.
     try:
-        # Create scripts/ directory with example script
+        evals_dir = skill_dir / "evals"
+        evals_dir.mkdir(exist_ok=True)
+        (evals_dir / "evals.json").write_text(EXAMPLE_EVALS.format(skill_name=skill_name), encoding="utf-8")
+        print("✅ Created evals/evals.json")
+
+        (skill_dir / "learning.md").write_text(EXAMPLE_LEARNING.format(skill_name=skill_name), encoding="utf-8")
+        print("✅ Created learning.md")
+
         scripts_dir = skill_dir / "scripts"
         scripts_dir.mkdir(exist_ok=True)
         example_script = scripts_dir / "example.py"
-        example_script.write_text(EXAMPLE_SCRIPT.format(skill_name=skill_name))
+        example_script.write_text(EXAMPLE_SCRIPT.format(skill_name=skill_name), encoding="utf-8")
         example_script.chmod(0o755)
         print("✅ Created scripts/example.py")
 
-        # Create references/ directory with example reference doc
         references_dir = skill_dir / "references"
         references_dir.mkdir(exist_ok=True)
         example_reference = references_dir / "api_reference.md"
-        example_reference.write_text(EXAMPLE_REFERENCE.format(skill_title=skill_title))
+        example_reference.write_text(EXAMPLE_REFERENCE.format(skill_title=skill_title), encoding="utf-8")
         print("✅ Created references/api_reference.md")
 
-        # Create assets/ directory with example asset placeholder
         assets_dir = skill_dir / "assets"
         assets_dir.mkdir(exist_ok=True)
         example_asset = assets_dir / "example_asset.txt"
-        example_asset.write_text(EXAMPLE_ASSET.format(skill_name=skill_name))
+        example_asset.write_text(EXAMPLE_ASSET.format(skill_name=skill_name), encoding="utf-8")
         print("✅ Created assets/example_asset.txt")
     except Exception as e:
-        print(f"❌ Error creating resource directories: {e}")
+        print(f"❌ Error creating resource files: {e}")
         return None
 
     # Print next steps
     print(f"\n✅ Skill '{skill_name}' initialized successfully at {skill_dir}")
     print("\nNext steps:")
-    print("1. Edit SKILL.md to complete the TODO items and update the description")
-    print(
-        "2. Customize or delete the example files in scripts/, references/, and assets/"
-    )
-    print("3. Run the validator when ready to check the skill structure")
+    print("1. Edit SKILL.md to complete the TODO items and replace the description")
+    print("2. Write the real cases in evals/evals.json; the placeholders fail the trigger gate on purpose")
+    print("3. Customize or delete the example files in scripts/, references/, and assets/")
+    print("4. Run quick_validate.py, then run_evals.py --response-dir, before shipping")
 
     return skill_dir
 
 
 def main():
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 4 or sys.argv[2] != "--path":
-        print("Usage: init_skill.py <skill-name> --path <path>")
+        print("Usage: init_skill.py <skill-name> --path <parent-directory>")
         print("\nSkill name requirements:")
         print("  - Hyphen-case identifier (e.g., 'data-analyzer')")
         print("  - Lowercase letters, digits, and hyphens only")
         print("  - Max 40 characters")
         print("  - Must match directory name exactly")
         print("\nExamples:")
-        print("  init_skill.py my-new-skill --path skills/public")
-        print("  init_skill.py my-api-helper --path skills/private")
-        print("  init_skill.py custom-skill --path /custom/location")
+        print("  init_skill.py my-new-skill --path skills")
+        print("  init_skill.py my-api-helper --path .claude/skills")
         sys.exit(1)
 
     skill_name = sys.argv[1]

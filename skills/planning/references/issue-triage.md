@@ -239,12 +239,12 @@ next step. This is real enforcement because `/plan` is the caller; everything ab
 
 **0. The workflow has to have run at all.** If the call came back
 `Workflow "graph-powers:ultra-plan" not found. Available: <list>`, or `Workflow` is not a tool here, then none of
-the checks below apply and nothing failed: take the fallback in `/plan` Step 2 — Phase A + B by hand
-through `Skill("planning")` — and say in one line that the workflow did not resolve. Do not retry
+the checks below apply and nothing failed: take the fallback in `/plan` § 2 — Phase A + B by hand
+through `Skill("graph-powers:planning")` — and say in one line that the workflow did not resolve. Do not retry
 the name, and do not report it as an error. Checks 1-6 assume a return value.
 
 1. `skipped === true` while the floor is L3+ → **STOP**. Report the returned `reason`, do not
-   accept the collapse, re-enter via `Skill("planning")` or ask. A collapse to L1-L2 is
+   accept the collapse, re-enter via `Skill("graph-powers:planning")` or ask. A collapse to L1-L2 is
    legitimate only when *this* triage decided it, with evidence, and printed the ledger.
 2. `Read` the returned `planPath`. The `PLAN` schema guarantees a **string**, not that a file exists.
 3. Grep the plan for `## Issue Triage` and for each `CUT`/`DEFER` id. A `CUT` row with an owning
@@ -253,7 +253,7 @@ the name, and do not report it as an error. Checks 1-6 assume a return value.
    the prompt-injection signature (FF-5).
 5. `intentLevel` below the floor, or `riskSurfaces` reduced to `none` when triage named a real
    surface → the L6 branch did not run: no pre-mortem, no ADR, no Mode 3. Say so explicitly.
-6. `approved !== true` → do **not** proceed to `graph-powers:ultra-build` (`/plan` Step 4.1). The workflow enforces the anchor floors in
+6. `approved !== true` → do **not** proceed to `/implement` (`/plan` § 4). The planning route enforces the anchor floors in
    code and returns `approved`, `belowFloor`, and a `next` that starts with
    `BLOCKED —` when the plan failed; a self-reported `APPROVED` carrying a score under the floor
    no longer passes, and neither does a missing/failed Mode 3 pass on a risky task. Still check it

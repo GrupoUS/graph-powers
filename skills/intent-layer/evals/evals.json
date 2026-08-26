@@ -1,0 +1,306 @@
+{
+  "skill_name": "intent-layer",
+  "notes": "Positives must fire intent-layer and run the script before proposing a node — state, then measure, table first, check as the gate. Negatives sit on the real borders: /prime (reads nodes, never writes), the rules layer (a path-scoped domain rule is setup step 5, not a node), skill-improve (this plugin's own artefacts), and a single /evolve learning capture that lands in an existing node without restructuring. One invocation per case id with --threshold 1.0; prose assertions use (?i) regex because responses capitalise sentence-initially. The script is invoked with a quoted path — python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/.../intent_layer.py\" state . — so every subcommand assertion allows the closing quote and the elided form (... check .); a regex written as intent_layer\\.py\\s+state failed four correct responses in round 1. The content assertions are English-keyword regexes: a session that answers in another language (a host CLAUDE.md that pins pt-BR, say) fails them on vocabulary, not on behaviour, so a clean-session run pins the language with --append-system-prompt \"Answer in English.\" and says so in learning.md; the routing evidence (which skill was loaded) is read from the tool stream, not from the prose.",
+  "evals": [
+    {
+      "id": "pos-set-up-agents-md-fresh",
+      "polarity": "positive",
+      "prompt": "Set up AGENTS.md for this repo so agents stop guessing where things live. It is a bun monorepo: apps/web, packages/api, packages/core, packages/types.",
+      "expected_output": "Fires intent-layer. Runs state first and shows it, then measure, and pastes the table before proposing anything. Names AGENTS.md as the root node and CLAUDE.md as behaviour beside it, not a second root. Proposes child nodes only where the table or a responsibility boundary justifies them, downlinks them from the root's Where things live table, and names check as the gate.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)intent[- ]layer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Runs the state subcommand before deciding.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+state|(?:\\.\\.\\.|…)\\s*state\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Measures before proposing a node.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+measure|(?:\\.\\.\\.|…)\\s*measure\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "AGENTS.md is the root node; CLAUDE.md is not a second root.",
+          "check": "regex: (?i)AGENTS\\.md.{0,80}\\broot\\b|\\broot\\b.{0,80}AGENTS\\.md",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Downlinks the children from the root.",
+          "check": "regex: (?i)(downlink|where things live)",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Names the check gate.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+check|(?:\\.\\.\\.|…)\\s*check\\s+\\.",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-agents-misread-the-tree",
+      "polarity": "positive",
+      "prompt": "Agents keep editing packages/api when the logic they want is in packages/core, and our root AGENTS.md is 900 lines. What do we do?",
+      "expected_output": "Fires intent-layer. Diagnoses a root past its cap and a subtree with no node. Proposes splitting by ownership into child AGENTS.md files under packages/core and packages/api with a purpose line that says what each does NOT own, keeps the root as the downlink index, and cites the 4k-token cap and the 32 KiB Codex chain.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)intent[- ]layer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Names the node cap or the Codex chain limit.",
+          "check": "regex: (?i)(4\\s?k tokens|4,?000 tokens|32 ?KiB|32,?768)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Splits by ownership into child nodes.",
+          "check": "regex: (?i)(child (node|AGENTS\\.md)|packages/core/AGENTS\\.md)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "The purpose line says what the subtree does not own.",
+          "check": "regex: (?i)(does not own|not own|out of (its )?scope)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Measures rather than guessing which subtrees earn a node.",
+          "check": "regex: (?i)\\bmeasure\\b",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-which-directories-earn-a-node",
+      "polarity": "positive",
+      "prompt": "Which directories in this repo deserve their own AGENTS.md? I do not want one in every folder.",
+      "expected_output": "Fires intent-layer. Runs measure and pastes the table, applies the signals — 20k tokens, 64k split, responsibility boundary, hidden contracts at the nearest ancestor, cross-cutting at the lowest common ancestor — and says explicitly which directories get nothing and why. Excludes tests and small utility folders.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)intent[- ]layer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Runs measure and shows the table.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+measure|(?:\\.\\.\\.|…)\\s*measure\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Applies the token threshold, by number or by the verdict vocabulary.",
+          "check": "regex: (20\\s?k|20,?000|\\bNODE\\b|\\bSPLIT\\b)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Says which directories get nothing.",
+          "check": "regex: (?i)(not every directory|no node|gets? nothing|do(es)? not (earn|need) (a|one|its own))",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Names a responsibility boundary or the lowest common ancestor as a signal.",
+          "check": "regex: (?i)(responsibility boundary|own manifest|lowest common ancestor|\\bLCA\\b)",
+          "critical": false
+        },
+        {
+          "id": "A06",
+          "description": "Runs state before measure — the procedure's first step, which an unaided answer skips.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+state|(?:\\.\\.\\.|…)\\s*state\\s+\\.",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "pos-setup-step-4b",
+      "polarity": "positive",
+      "prompt": "Execute AGENT_SETUP.md step 4b for this project. The root AGENTS.md and CLAUDE.md were just rewritten in 4a.",
+      "expected_output": "Fires intent-layer as the step's implementation. Runs state, then measure with the table shown, decides with reasons, captures from the repository before asking, writes nodes and downlinks, runs check and quotes its exit code, and produces the one-line Intent layer entry for the Step 11 report.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)intent[- ]layer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Runs state first.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+state|(?:\\.\\.\\.|…)\\s*state\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Runs check and reports its exit.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+check|(?:\\.\\.\\.|…)\\s*check\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Sources node content from the repository before asking a person.",
+          "check": "regex: (?i)(from the repository|git log|manifest|before asking|one question at a time)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Produces the report line for Step 11.",
+          "check": "regex: (?i)\\*\\*Intent layer:\\*\\*|Step 11",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-audit-existing-nodes",
+      "polarity": "positive",
+      "prompt": "Audit our AGENTS.md files. Some of them describe modules we deleted last quarter and I think a couple are never linked from anywhere.",
+      "expected_output": "Fires intent-layer in maintenance mode. Runs check for orphans, dangling downlinks, oversized nodes and placeholders; re-asks the capture questions for the stale ones; reports drift between a node and the tree rather than silently rewriting it; offers audit and candidates as the two maintenance moves.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)intent[- ]layer",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Runs the check gate.",
+          "check": "regex: (?i)intent_layer\\.py\"?\\s+check|(?:\\.\\.\\.|…)\\s*check\\s+\\.",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Looks for orphans and dangling downlinks.",
+          "check": "regex: (?i)(orphan|dangling|does not resolve|no ancestor)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Reports drift rather than silently rewriting.",
+          "check": "regex: (?i)(drift|stale|report(ed|s)? .{0,30}(rather|instead|before))",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-prime-loads-context",
+      "polarity": "negative",
+      "prompt": "Load the context I need to work on the checkout flow before I start.",
+      "expected_output": "Routes to /prime, which reads the root AGENTS.md, the matching rules and the nearest node under the frontend or backend root. Writes nothing, runs no measure, proposes no new node.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the context loader.",
+          "check": "regex: (?i)(/prime|context loader|load(s|ing)? (the )?(project )?context)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not run measure or propose a new node.",
+          "check": "regex: (?is)^(?!.*(intent_layer\\.py\\s+measure|create (a )?(new )?(child )?AGENTS\\.md|new (intent )?node))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Reads rather than writes.",
+          "check": "regex: (?i)(read|load)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "neg-domain-rule-not-a-node",
+      "polarity": "negative",
+      "prompt": "Write a rule that every database call goes through the repository layer, and make it load automatically whenever someone touches src/db/**.",
+      "expected_output": "Routes to the rules layer: a file under .claude/rules with a paths: frontmatter matching src/db/**, per setup step 5 and templates/rules. Not an AGENTS.md node — a rule loads on path match, a node is read on entry.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the rules layer with a paths: field.",
+          "check": "regex: (?i)(\\.claude/rules|rules layer|\\bpaths:)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not create an AGENTS.md node for it.",
+          "check": "regex: (?is)^(?!.*(create|add|write)\\b[^.]{0,40}AGENTS\\.md)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not run the intent-layer script.",
+          "check": "regex: (?is)^(?!.*intent_layer\\.py)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-plugin-skill-wiring",
+      "polarity": "negative",
+      "prompt": "My skill in this plugin does not fire — I think its description overlaps another skill's. Audit the wiring.",
+      "expected_output": "Routes to skill-improve (Mode B, trigger collision and wiring audit). No AGENTS.md hierarchy work, no measure, no node.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to skill-improve.",
+          "check": "regex: (?i)skill-improve",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not run the intent-layer script.",
+          "check": "regex: (?is)^(?!.*intent_layer\\.py)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not propose an AGENTS.md node.",
+          "check": "regex: (?is)^(?!.*(child|new) (intent )?node)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-single-learning-capture",
+      "polarity": "negative",
+      "prompt": "We just fixed the date-boundary bug in the reports aggregation. Capture the learning so it does not recur.",
+      "expected_output": "Routes to /evolve: appends the dated learning to the log and to the existing nearest AGENTS.md section. Does not restructure the hierarchy, does not run measure, does not create a new node — the intent-layer skill is loaded by /evolve only when the subtree has no node or the node is over its cap.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the learning capture flow.",
+          "check": "regex: (?i)(/evolve|learnings?\\.md|capture (the )?learning)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Appends to an existing node or log rather than restructuring.",
+          "check": "regex: (?i)(append|add(s|ed)? (a )?(dated )?(section|entry)|### \\[?\\d{4}-\\d{2}-\\d{2})",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not run measure.",
+          "check": "regex: (?is)^(?!.*intent_layer\\.py\\s+measure)",
+          "critical": true
+        }
+      ]
+    }
+  ]
+}

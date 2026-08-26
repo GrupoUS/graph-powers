@@ -5,6 +5,9 @@ AGENT_STOP
 .graph-powers/cache/
 .graph-powers/installed.json
 .claude/settings.local.json
+# Scan artefacts of `skill-improve` Mode B (inventory, graph, contract, captured eval responses).
+# The skill may write there freely because nothing there is authored; it is regenerated per round.
+.claude/audit/
 
 # Generated for Codex: these embed this machine's plugin path and are regenerated
 # per machine by `bunx graph-powers --target codex`.

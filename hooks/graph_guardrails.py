@@ -38,8 +38,8 @@ G4  write lease      - when `.graph-powers/logs/write-lease.json` exists, `Write
                        outside the declared paths is denied. That file is how the
                        orchestrator declares file ownership before a parallel
                        wave; without it this check stands down entirely. The
-                       producer is `/plan` Step 4.2, from the `writeLease` array
-                       `workflows/ultra-build.js` returns.
+                       producer is planning Phase C, from the `writeLease` array
+                       `skills/planning/scripts/sdd.py validate` returns.
 
 What it deliberately does NOT enforce, and why
 ----------------------------------------------
@@ -48,14 +48,14 @@ here: a hook cannot tell a subagent from the main thread — they run in-process
 with the same `CLAUDE_CODE_SESSION_ID` and the same PID (verified empirically,
 see the same note in `git_commit_gate.py`). G4 enforces the actionable half —
 "touch only the files you own" — and the structural half lives where the
-violation is actually born, in `workflows/ultra-build.js`
-(`splitByFileOwnership`), which re-slices a wave so two tasks claiming the same
-path never run in parallel.
+violation is actually born, in planning Phase C. Its `sdd.py validate` preflight
+rejects concurrent tasks that claim the same path before any wave or lease exists.
 
 *A spend ceiling in an interactive session.* The CLI exposes `--max-budget-usd`
-in print mode only (`claude --help`, 2.1.235 — there is no `--max-turns` either).
+in print mode only (`claude --help`, 2.1.245 — there is no `--max-turns` either).
 G2/G3 are the controllable proxy in-session; the real ceiling belongs on the
-headless wrapper that `${CLAUDE_PLUGIN_ROOT}/skills/second-opinion/` uses.
+headless engine of `graph-powers:evaluator` Mode 5, the second opinion
+(`${CLAUDE_PLUGIN_ROOT}/references/rubrics/evaluator-rubric.md`).
 
 Contract
 --------

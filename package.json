@@ -1,6 +1,6 @@
 {
   "name": "graph-powers",
-  "version": "1.9.5",
+  "version": "1.10.6",
   "description": "A shared harness for Claude Code, Codex CLI, Cursor and Grok CLI: agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in one config file and the plugin adapts.",
   "license": "MIT AND Apache-2.0",
   "type": "module",

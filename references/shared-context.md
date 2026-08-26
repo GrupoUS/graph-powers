@@ -13,7 +13,7 @@ measured against a worktree of the pre-split tree with the same script.
 | § | under `${CLAUDE_PLUGIN_ROOT}/references/shared/` | Carries |
 |---|---|---|
 | 0 | `000-config-loader.md` | how a command resolves `${…}` placeholders from the project's config |
-| 0.5 | `005-superpowers-bootstrap.md` | the meta-router, and why it runs before any other skill |
+| 0.5 | `005-method-bootstrap.md` | the method floor: skill before action, plan/TDD execution minimum, KISS/YAGNI |
 | 0.7 | `007-path-conventions.md` | where plans, maps and runtime state are written |
 | 1 | `010-quality-gates.md` | which gate runs after a task, after a phase, and at the end |
 | 1.5 | `015-verification-gate.md` | no completion claim without an exit code from this session |

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'ultra-verify',
   description: 'Adversarial loop-until-done verification of the working tree vs the plan: gates+scope → simplify (folds dead-code cleanup) → multi-lens skeptics (folds the perf scan) → completeness → bounded fix loop (root-cause first, re-patch cap). Combats self-preferential bias, agentic laziness and goal drift. Token-lean: skeptics bracket the loop rather than running per round, folded checks are surface-gated, an empty diff exits early, and the final confirm re-runs only the lenses that flagged. Commits nothing.',
-  whenToUse: 'After ultra-build, to verify the working tree against the approved plan before committing. Pass { planPath, config }, or the plan path as a plain string; args.deep enables the networked render-health scan when the project declares one. Always terminates (max rounds + re-patch cap); never commits.',
+  whenToUse: 'After /implement, to verify the working tree against the approved plan before committing. Pass { planPath, config }, or the plan path as a plain string; args.deep enables the networked render-health scan when the project declares one. Always terminates (max rounds + re-patch cap); never commits.',
   phases: [{ title: 'Gates', model: 'haiku' }, { title: 'Simplify' }, { title: 'Adversarial verify' }, { title: 'Completeness' }, { title: 'Fix loop' }],
 }
 
@@ -172,7 +172,7 @@ const DBG_GUIDE = `${cfg.pluginRoot}/skills/debugger/references/anti-patterns.md
 const PERF_GUIDE = `${cfg.pluginRoot}/commands/perf.md`
 const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-bun-tsgo-gates.md`
 
-// Same lane set as ultra-plan and ultra-build. Kept as an enum on every `agent` field below: this
+// The executable lane set for ultra-verify. Kept as an enum on every `agent` field below: this
 // is the one thing the upstream copies of this workflow got wrong — `agent` was a free string, so
 // whatever an evaluator wrote became a `subagent_type`, and a hallucinated name either failed to
 // spawn or silently degraded to a default nobody chose.

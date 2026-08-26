@@ -46,8 +46,9 @@ No artefact names a product, domain, table, external provider, branch or variabl
 varies per project comes from `.graph-powers/config.json` through the contract in
 `schema/config.schema.json`.
 
-Paths between artefacts inside the same skill are relative (`references/x.md`). Paths to another
-part of the plugin go through `${CLAUDE_PLUGIN_ROOT}/...`, because a bare `references/x.md` read
+Paths between artefacts inside the same skill are relative (`references/<file>.md`). Paths to another
+part of the plugin go through `${CLAUDE_PLUGIN_ROOT}/...`, because a bare
+`references/<file>.md` read
 from a command resolves against the wrong directory. Paths into the host project go through
 `${rulesDir}` and the other config placeholders.
 

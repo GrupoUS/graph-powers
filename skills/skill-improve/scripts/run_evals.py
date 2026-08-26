@@ -5,18 +5,28 @@ run_evals.py — Binary Assertion Eval Runner for Skills
 Inspired by karpathy/autoresearch: clear binary metrics, autonomous loop.
 Runs assertions from evals.json against an agent response file.
 
-Usage:
-    python3 run_evals.py \
-        --skill-path ${CLAUDE_PLUGIN_ROOT}/skills/meta-api-integration/SKILL.md \
-        --evals-path ${CLAUDE_PLUGIN_ROOT}/skills/meta-api-integration/evals.json \
-        --response-file /tmp/agent_response.txt \
-        [--test-case T01] \
-        [--threshold 0.95] \
-        [--json-output /tmp/eval_results.json]
+Usage, one case against the response captured for it (the honest single-case mode):
+    python3 run_evals.py --skill-path <skill-dir> --evals-path <skill-dir>/evals/evals.json --response-file .claude/audit/eval-responses/resp-<case-id>.txt --test-case <case-id> --threshold 1.0
+
+Usage, every case, each against its own response (the honest multi-case mode):
+    python3 run_evals.py --skill-path <skill-dir> --evals-path <skill-dir>/evals/evals.json --response-dir .claude/audit/eval-responses --threshold 1.0
+
+    --response-dir reads resp-<case-id>.txt for every case in the file, prints one line per
+    case, and exits 0 only when every case reaches the threshold. A case whose response file
+    is missing is a FAILED case, never a skipped one: a loop that skips what it cannot find
+    reports green over the cases it never measured.
+
+Default mode (no --test-case and no --response-dir) flattens the assertions of EVERY case
+against ONE response, so a positive `contains: X` and a negative `not_contains: X` cancel
+out and the ceiling lands near 81% on correct artefacts. The runner warns on stderr when a
+multi-case file is run that way; the mode is kept only for single-case files.
 
 Exit codes:
-    0 — pass_rate >= threshold (default 0.95)
-    1 — pass_rate < threshold or error
+    0 — no critical assertion failed AND pass_rate >= threshold (default 0.95), for the case or
+        for every case under --response-dir
+    1 — a failed critical assertion (fatal at any threshold), a rate below the threshold, a case
+        with nothing machine-checkable, a missing response, an unknown assertion id, an invalid
+        check, or an error
 """
 
 import argparse
@@ -24,6 +34,8 @@ import json
 import re
 import sys
 from pathlib import Path
+
+SAFE_CASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 def normalize_evals(doc: dict) -> dict:
@@ -81,13 +93,13 @@ def normalize_evals(doc: dict) -> dict:
 
 def load_json(path: str) -> dict:
     """Load and parse a JSON file."""
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:  # NOSONAR -- explicit local CLI input.
         return normalize_evals(json.load(f))
 
 
 def load_response(path: str) -> str:
     """Load the agent response text file."""
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:  # NOSONAR -- explicit local CLI input.
         return f.read()
 
 
@@ -115,18 +127,58 @@ def run_assertion(assertion: dict, response: str) -> dict:
     # Manual assertions carry no machine predicate at all (the `expectations` shape).
     # Short-circuit BEFORE parse_check: fabricating a "manual: <text>" string only to
     # re-parse it here would encode data into syntax for no gain.
+    description = assertion.get("description", "")
     if assertion.get("manual"):
         return {
             "id": assertion["id"],
-            "description": assertion["description"],
+            "description": description,
             "type": "manual",
             "critical": False,
             "manual": True,
             "passed": None,
-            "detail": f"MANUAL — revise a mao: {assertion['description']}",
+            "detail": f"MANUAL — review by hand: {description}",
         }
 
-    check_type, raw_value = parse_check(assertion["check"])
+    # An assertion with no `check`, or a check with no `type: value` colon, used to surface as a
+    # traceback — a red row nobody could tell apart from a crashed runner. It is a failed
+    # assertion with a detail that names the defect, so the table stays readable.
+    check = assertion.get("check")
+    if not isinstance(check, str) or ":" not in check:
+        return {
+            "id": assertion["id"],
+            "description": description,
+            "type": "invalid",
+            "critical": assertion.get("critical", False),
+            "manual": False,
+            "passed": False,
+            "detail": (
+                "INVALID assertion: no `check` key"
+                if check is None
+                else f"INVALID assertion: check {check!r} has no `type: value` colon"
+            ),
+        }
+
+    check_type, raw_value = parse_check(check)
+    try:
+        passed, detail = _evaluate(check_type, raw_value, response)
+    except (ValueError, re.error) as exc:
+        # `word_count_max: many`, `contains_one_of: not-json`, `regex: (unclosed` — a value the
+        # check cannot parse used to raise out of the run. json.JSONDecodeError is a ValueError.
+        passed, detail = False, f"INVALID assertion: check {check!r} cannot be evaluated ({exc})"
+
+    return {
+        "id": assertion["id"],
+        "description": description,
+        "type": assertion.get("type", "unknown"),
+        "critical": assertion.get("critical", False),
+        "manual": False,
+        "passed": passed,
+        "detail": detail,
+    }
+
+
+def _evaluate(check_type: str, raw_value: str, response: str) -> tuple[bool, str]:
+    """Evaluate one parsed check against the response. Raises on an unparseable value."""
     passed = False
     detail = ""
 
@@ -163,15 +215,7 @@ def run_assertion(assertion: dict, response: str) -> dict:
         detail = f"Unknown check type: {check_type}"
         passed = False
 
-    return {
-        "id": assertion["id"],
-        "description": assertion["description"],
-        "type": assertion.get("type", "unknown"),
-        "critical": assertion.get("critical", False),
-        "manual": False,
-        "passed": passed,
-        "detail": detail,
-    }
+    return passed, detail
 
 
 def run_eval_suite(
@@ -197,7 +241,16 @@ def run_eval_suite(
                 "available": [tc["id"] for tc in evals.get("test_cases", [])],
             }
         assertion_ids = test_case["expected_assertions"]
-        assertions_to_run = [assertions_map[aid] for aid in assertion_ids if aid in assertions_map]
+        # An unknown id used to be filtered out silently, so a case whose ids were all mistyped
+        # ran zero assertions and reported pass_rate 0.0 over an empty table — indistinguishable
+        # at a glance from a real failure. It is an error that names the ids.
+        unknown = [aid for aid in assertion_ids if aid not in assertions_map]
+        if unknown:
+            return {
+                "error": f"Test case '{test_case_id}' references unknown assertion ids: {unknown}",
+                "available_assertions": sorted(assertions_map),
+            }
+        assertions_to_run = [assertions_map[aid] for aid in assertion_ids]
     else:
         assertions_to_run = evals["assertions"]
 
@@ -253,7 +306,114 @@ def print_results(summary: dict) -> None:
     print(f"{'─' * 60}\n")
 
 
+def run_response_dir(evals: dict, response_dir: Path, threshold: float) -> tuple[list[dict], bool]:
+    """
+    Run every case against its own captured response, `resp-<case-id>.txt` under response_dir.
+
+    The multi-case form of the only honest mode: one case per response keeps polarity intact,
+    where default mode flattens a positive `contains` and a negative `not_contains` on the same
+    token into a cancellation. A missing response is a failed case, never a skipped one.
+    """
+    rows: list[dict] = []
+    all_ok = True
+    cases = evals.get("test_cases", [])
+    if not cases:
+        # Zero cases would exit 0 having measured nothing — the exact green-over-nothing this
+        # mode exists to prevent.
+        return [_failed_row("(none)", "the eval file declares no test cases; nothing was measured")], False
+    for position, case in enumerate(cases, 1):
+        if "id" not in case or case["id"] is None:
+            rows.append(_failed_row(f"case-{position}", "missing test case id"))
+            all_ok = False
+            continue
+        case_id = str(case["id"])
+        if not SAFE_CASE_ID.fullmatch(case_id):
+            rows.append(_failed_row(case_id, f"unsafe test case id: {case_id!r}"))
+            all_ok = False
+            continue
+        path = response_dir / f"resp-{case_id}.txt"
+        if path.is_symlink():
+            rows.append(_failed_row(case_id, f"response file is a symlink: {path}"))
+            all_ok = False
+            continue
+        if not path.exists():
+            rows.append(_failed_row(case_id, f"response file not found: {path}"))
+            all_ok = False
+            continue
+        try:
+            resolved_dir = response_dir.resolve(strict=True)
+            resolved_path = path.resolve(strict=True)
+            resolved_path.relative_to(resolved_dir)
+        except (OSError, ValueError):
+            rows.append(_failed_row(case_id, f"response file escapes its directory: {path}"))
+            all_ok = False
+            continue
+        try:
+            response = load_response(str(resolved_path))
+        except (OSError, UnicodeError) as error:
+            rows.append(_failed_row(case_id, f"could not read response file: {error}"))
+            all_ok = False
+            continue
+        summary = run_eval_suite(evals, response, case_id)
+        if "error" in summary:
+            rows.append(_failed_row(case_id, summary["error"]))
+            all_ok = False
+            continue
+        if summary["total_assertions"] == 0:
+            rows.append(_failed_row(case_id, "no machine-checkable assertions — a gate cannot pass on manual review"))
+            all_ok = False
+            continue
+        summary["ok"] = summary["critical_failures"] == 0 and summary["pass_rate"] >= threshold
+        all_ok = all_ok and summary["ok"]
+        rows.append(summary)
+    return rows, all_ok
+
+
+def _failed_row(case_id: str, error: str) -> dict:
+    return {
+        "test_case": case_id,
+        "error": error,
+        "total_assertions": 0,
+        "passed": 0,
+        "failed": 0,
+        "manual": 0,
+        "critical_failures": 0,
+        "pass_rate": 0.0,
+        "results": [],
+        "ok": False,
+    }
+
+
+def print_case_table(rows: list[dict], threshold: float) -> None:
+    """One line per case, then only the failed assertions — a table for a glance, not a log."""
+    print(f"\n{'=' * 60}")
+    print(f"  EVAL RESULTS, per case  (threshold {threshold:.0%})")
+    print(f"{'=' * 60}\n")
+    for row in rows:
+        status = "PASS" if row["ok"] else "FAIL"
+        if row.get("error"):
+            print(f"  {status}  {row['test_case']:<34} {row['error']}")
+            continue
+        print(
+            f"  {status}  {row['test_case']:<34} {row['passed']}/{row['total_assertions']}"
+            f"  ({row['pass_rate']:.0%}, critical failures {row['critical_failures']})"
+        )
+        for r in row["results"]:
+            if not r.get("manual") and not r["passed"]:
+                print(f"           x {r['id']}: {r['detail']}")
+    ok = sum(1 for r in rows if r["ok"])
+    print(f"\n{'─' * 60}")
+    print(f"  Cases: {len(rows)}  |  Passed: {ok}  |  Failed: {len(rows) - ok}")
+    print(f"{'─' * 60}\n")
+
+
 def main():
+    # The report prints non-ASCII glyphs; on a console whose code page is not UTF-8 that is an
+    # encoding error at the first row, which reads as a crashed runner. Replace, never raise.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Run binary assertion evals against an agent skill response.",
         epilog="Inspired by karpathy/autoresearch — clear metrics, autonomous loop.",
@@ -268,10 +428,16 @@ def main():
         required=True,
         help="Path to the evals.json file with assertions and test cases",
     )
-    parser.add_argument(
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument(
         "--response-file",
-        required=True,
-        help="Path to text file containing the agent's output to evaluate",
+        default=None,
+        help="Text file with the agent's output for ONE case (pair it with --test-case)",
+    )
+    source.add_argument(
+        "--response-dir",
+        default=None,
+        help="Directory holding resp-<case-id>.txt for EVERY case; each case runs against its own response",
     )
     parser.add_argument(
         "--test-case",
@@ -284,23 +450,43 @@ def main():
         default=0.95,
         help="Minimum pass rate to exit 0 (default: 0.95)",
     )
-    parser.add_argument(
-        "--json-output",
-        default=None,
-        help="Optional path to write JSON results",
-    )
-
     args = parser.parse_args()
+    if args.response_dir and args.test_case:
+        parser.error("--test-case selects one case; --response-dir already runs every case")
 
     # Validate paths
-    for label, path in [("skill", args.skill_path), ("evals", args.evals_path), ("response", args.response_file)]:
+    for label, path in [
+        ("skill", args.skill_path),
+        ("evals", args.evals_path),
+        ("response", args.response_file or args.response_dir),
+    ]:
         if not Path(path).exists():
             print(f"ERROR: {label} file not found: {path}", file=sys.stderr)
             sys.exit(1)
 
     # Load inputs
     evals = load_json(args.evals_path)
+
+    if args.response_dir:
+        rows, ok = run_response_dir(evals, Path(args.response_dir), args.threshold)
+        print_case_table(rows, args.threshold)
+        if ok:
+            print("  PASSED: every case reached the threshold")
+            sys.exit(0)
+        print("  FAILED: at least one case is below the threshold or has no response file")
+        sys.exit(1)
+
     response = load_response(args.response_file)
+    cases = evals.get("test_cases", [])
+    if not args.test_case and len(cases) > 1:
+        print(
+            f"WARNING: default mode flattens the assertions of all {len(cases)} cases against one "
+            "response, so a positive `contains` and a negative `not_contains` on the same token "
+            "cancel out and the pass rate cannot reach 100% on correct artefacts. "
+            "Use --test-case <id> for one case, or --response-dir <dir> for every case against "
+            "its own response.",
+            file=sys.stderr,
+        )
 
     # Run evaluation
     summary = run_eval_suite(evals, response, args.test_case)
@@ -310,18 +496,22 @@ def main():
         print(f"ERROR: {summary['error']}", file=sys.stderr)
         if "available" in summary:
             print(f"Available test cases: {summary['available']}", file=sys.stderr)
+        if "available_assertions" in summary:
+            print(f"Available assertion ids: {summary['available_assertions']}", file=sys.stderr)
         sys.exit(1)
 
     # Print results
     print_results(summary)
 
-    # Write JSON output if requested
-    if args.json_output:
-        with open(args.json_output, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2)
-        print(f"  JSON results written to: {args.json_output}")
-
-    # Exit code based on threshold
+    # Exit code: a failed critical assertion fails the run at any threshold; the threshold then
+    # decides the non-critical ones. Before this, `critical` was a label in the printed report
+    # and a case could fail its one critical assertion out of twenty and still exit 0 at 0.95.
+    if summary["total_assertions"] == 0:
+        print("  ❌ FAILED (no machine-checkable assertions — nothing was measured)")
+        sys.exit(1)
+    if summary["critical_failures"] > 0:
+        print(f"  ❌ FAILED ({summary['critical_failures']} critical assertion(s) failed — fatal at any threshold)")
+        sys.exit(1)
     if summary["pass_rate"] >= args.threshold:
         print(f"  ✅ PASSED (pass_rate {summary['pass_rate']:.2%} >= threshold {args.threshold:.2%})")
         sys.exit(0)

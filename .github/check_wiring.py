@@ -9,13 +9,14 @@ the model reads the instruction, finds nothing, and carries on with less than it
 The audit that motivated this found ten of them in a repository whose CI was already green,
 including an agent that has never existed and three phases of `/verify` that were never written.
 
-Six checks, and each one exists because a real reference was wrong in exactly that way:
+Seven checks, and each one exists because a real reference was wrong in exactly that way:
 
     subagent_type   an agent the plugin does not ship
     Workflow(name)  a workflow the plugin does not ship
     Skill(name)     a skill the plugin does not ship
     § N / Phase N   a section of another file that is not in it
     ${rulesDir}/x   a rule template the plugin does not ship
+    ${CLAUDE_PLUGIN_ROOT}/x  a plugin-owned path that no longer exists
     plugin:name     an artefact of ANOTHER plugin that nobody declared — the one class this gate
                     used to skip on principle, until eleven citations of `codex:rescue` proved
                     that "cannot verify" had been read as "do not look"
@@ -52,19 +53,7 @@ EXTERNAL_ROUTES = {
     "codex:codex-cli-runtime",
     "codex:codex-result-handling",
     "codex:gpt-5-4-prompting",
-    # superpowers — the method layer this harness bootstraps from. Declared in README.md.
-    # Each one checked against superpowers 6.3.0 `skills/`. Four more were nearly added here from
-    # memory — condition-based-waiting, defense-in-depth, root-cause-tracing, webapp-testing — and
-    # none of the four exists in that tree. That is the whole point of the set: a declaration is
-    # only worth anything if somebody opened the other plugin before writing the line.
-    "superpowers:using-superpowers", "superpowers:brainstorming",
-    "superpowers:systematic-debugging", "superpowers:test-driven-development",
-    "superpowers:verification-before-completion", "superpowers:dispatching-parallel-agents",
-    "superpowers:requesting-code-review", "superpowers:receiving-code-review",
-    "superpowers:writing-plans", "superpowers:subagent-driven-development",
-    "superpowers:executing-plans", "superpowers:using-git-worktrees",
-    "superpowers:writing-skills",
-    # code-review — bundled with the CLI, best-effort by design (`/pr-review § 3C`).
+    # code-review — optional official plugin, best-effort by design (`/pr-review § 3E`).
     "code-review:code-review",
 }
 
@@ -73,9 +62,11 @@ EXTERNAL_ROUTES = {
 # namespace and would otherwise be read as a missing `skills/<name>/SKILL.md` here. Checked by hand
 # against the upstream tree before the line was written, exactly as EXTERNAL_ROUTES requires.
 EXTERNAL_SKILLS = {
-    # elayadesign/ai-design-skills @ main, MIT — `skills/landing-page-design/SKILL.md`, the only
-    # skill that repository ships. Declared in README.md; installed by AGENT_SETUP.md § Step 1.
-    "landing-page-design",
+    # emilkowalski/skills @ main, MIT — `skills/emil-design-eng/SKILL.md` and
+    # `skills/apple-design/SKILL.md`, both present in the upstream tree (checked 2026-08-26 against
+    # the GitHub tree API). Optional supplements to `skills/animate`: `/design` loads them when
+    # installed and says so when absent. Declared in README.md.
+    "emil-design-eng", "apple-design",
 }
 
 # `plugin:skill` is the shape itself, written out in prose that explains the shape. It is not a
@@ -402,6 +393,7 @@ def main() -> int:
     skill_re = re.compile(r"""Skill\(\s*["']([^"']+)["']""")
     workflow_re = re.compile(r"""Workflow\(\s*\{[^}]*?name:\s*["']([^"']+)["']""")
     rules_re = re.compile(r"\$\{rulesDir\}/([A-Za-z0-9._-]+\.md)")
+    plugin_path_re = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9._/-]+)")
 
     for path in scan_files():
         text = read(path)
@@ -466,6 +458,15 @@ def main() -> int:
                 problems.append(
                     f"{path}:{lineno(text, m.start())}: ${{rulesDir}}/{name} — the shipped template is "
                     f"`{lower[name.lower()]}`. On a case-sensitive filesystem this never resolves."
+                )
+
+        for m in plugin_path_re.finditer(text):
+            target = m.group(1)
+            checked += 1
+            if not os.path.exists(target):
+                problems.append(
+                    f"{path}:{lineno(text, m.start())}: ${{CLAUDE_PLUGIN_ROOT}}/{target} — "
+                    "no such plugin-owned path"
                 )
 
         for m in list(section_re.finditer(text)) + list(phase_re.finditer(text)):

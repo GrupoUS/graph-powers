@@ -798,7 +798,7 @@ function writeConfig() {
 
   const reportBlockedGates = () => {
     for (const blocked of d.blockedGates) {
-      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/bun-verify/references/low-resource-js-ts-gates.md.`);
+      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/debugger/references/low-resource-js-ts-gates.md.`);
     }
   };
 
@@ -1175,7 +1175,7 @@ ${AGENT_PROMPT.split("\n")
   .map((l) => `       ${dim(l)}`)
   .join("\n")}
 
-     It installs the required external plugins, writes or improves your config, rules and
+     It checks optional integrations and workflow binaries, writes or improves your config, rules and
      instructions, and — the step that decides whether any of this changes anything — cleans the
      local copies that currently shadow the plugin. It stops for your approval before every write.
 

@@ -86,10 +86,12 @@ kill in a minute beats a probable one that takes an hour to test.
 
 If the decomposition keeps returning the same branch, the problem may be the session rather than
 the bug: by the third attempt the thread has spent many turns justifying one reading, and every
-further hypothesis is generated inside it. `${CLAUDE_PLUGIN_ROOT}/skills/second-opinion/SKILL.md`
-runs the question in a Claude session that never saw this conversation, bounded in dollars rather
-than in trust. It is slow and it costs money, which is why it belongs here — at the point where a
-fourth wrong attempt costs more.
+further hypothesis is generated inside it. Spawn `graph-powers:evaluator` in **Mode 5**, the second
+opinion: an agent that starts from its prompt and nothing else, on a question written to carry the
+case and not the argument. How to write that question, the two engines, and the dollar ceiling
+only the headless one has are in `${CLAUDE_PLUGIN_ROOT}/references/rubrics/evaluator-rubric.md`,
+Mode 5. It is slow and it costs money, which is why it belongs here — at the point where a fourth
+wrong attempt costs more.
 
 ---
 

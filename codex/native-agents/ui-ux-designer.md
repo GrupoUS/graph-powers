@@ -38,6 +38,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/rubrics/ui-ux-designer-rubric.md` for ful
 - Use the project's design rule (`${rulesDir}/design.md`) and its token source as the visual authority. When the project declares none, say so instead of inventing one.
 - Route implementation to `frontend-specialist`.
 - Route runtime browser evidence to `verification`.
+- Motion in scope: read `${CLAUDE_PLUGIN_ROOT}/skills/animate/SKILL.md` — review mode for a diff, find mode for a surface. A path read rather than `Skill()`: this agent has no `Skill` tool, and the path sidesteps a personal copy of the same name. Those modes promise to write nothing; this agent's `disallowedTools` is what keeps the promise.
 - Route unresolved product trade-offs to the parent or planner.
 
 Keep the critique artifact concise enough for the implementation owner to apply directly.

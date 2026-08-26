@@ -90,9 +90,9 @@ Expected outcome: <the concrete deliverable>
 The omission line is the one that earns its place. An included skill announces itself; a skill that
 should have been loaded and was not leaves no trace at all.
 
-When the scope is ambiguous — nobody named the agent, two could plausibly own the work, or the
-deliverable is not a concrete change — run `Skill("superpowers:brainstorming")` before locking the
-choice. Skip it when the agent is named or the matrix is unambiguous.
+When the deliverable itself is ambiguous, run `Skill("graph-powers:planning")` Phase A light before locking the
+choice. When only the agent is ambiguous, use the assignment matrix and ask one clarifying question
+only if evidence cannot decide. Skip both when the agent is named or the matrix is unambiguous.
 
 Every spawned prompt then carries these seven sections. Not six, and not a paraphrase — §7
 consolidates mechanically, and it can only do that when every return has the same shape.

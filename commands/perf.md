@@ -7,7 +7,7 @@ workflow_type: orchestrator-workers
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` and `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` only for `fix`, the one mode that spawns agents and runs gates.
 
 ## What this file is, and is not
@@ -30,10 +30,10 @@ restate it here.
 ## 0. Setup (every mode)
 
 ```typescript
-Skill("superpowers:using-superpowers");              // bootstrap, per 005
-Skill("superpowers:verification-before-completion"); // every PASS/FAIL claim cites a captured score or exit code
-Skill("performance-optimization");                    // method, targets, pack catalogue
+Skill("performance-optimization"); // method, targets, pack catalogue
 ```
+
+Every PASS/FAIL claim follows `015-verification-gate.md`: captured measurement or exit code first.
 
 From `.graph-powers/config.json`: `${project.stagingUrl}` (default target, override with `url=`) ·
 `${tooling.buildTool}` · `${tooling.packageManager}` · literal `${tooling.commands.*}` gates ·
@@ -111,8 +111,7 @@ as a pass, per `015-verification-gate.md`.
 
 ### 2.5 Auto-fix loop (`/perf fix`)
 
-Invoke `Skill("superpowers:dispatching-parallel-agents")` before the batch — distinct scope, one
-shared return contract.
+Follow `070-parallel-agent-spawn.md` for the batch — distinct scope, one shared return contract.
 
 1. Measure the baseline across the key routes. **Capture it**; it is what the closing claim is
    measured against.
@@ -123,8 +122,8 @@ shared return contract.
    that route's scores, CWV and failing audits; its file scope; the project's own web rules from
    `${rulesDir}/`; the top 3 opportunities by `overallSavingsMs`; the gates from
    `010-quality-gates.md`.
-5. Re-measure with the same tool and the same strategy. Report before → after → delta.
-   `Skill("superpowers:verification-before-completion")` is what closes it: no delta, no claim.
+5. Re-measure with the same tool and the same strategy. Report before → after → delta. The evidence
+   gate closes it: no delta, no claim.
 
 ### 2.6 Compare (`/perf compare baseline.json after.json`)
 

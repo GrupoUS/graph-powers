@@ -25,6 +25,25 @@
   "autonomy": {
     "level": "autonomous",
     "destructiveFloor": true,
-    "git": { "commit": "auto", "push": "auto", "protectedBranch": "auto" }
+    "git": {
+      "commit": "auto",
+      "push": "auto",
+      "protectedBranch": "auto"
+    }
+  },
+  "intentLayer": {
+    "exclude": [
+      "templates"
+    ],
+    "deferred": [
+      "references",
+      "codex",
+      "commands",
+      "skills/planning",
+      "skills/skill-improve",
+      "docs",
+      "skills/debugger",
+      "skills/intent-layer"
+    ]
   }
 }

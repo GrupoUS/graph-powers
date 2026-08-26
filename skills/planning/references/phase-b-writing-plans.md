@@ -1,13 +1,16 @@
 # Phase B — Writing-plans
 
-> Sequential guide for the second phase of the planning chain.
-> **Direct-invokes `superpowers:writing-plans` as the engine** and wraps it with harness deltas.
+> Canonical plan-authoring method for the planning chain. It turns an approved design authority
+> into a plan a zero-context implementer can execute without inventing paths, interfaces, tests or
+> scope.
 
 ---
 
 ## Entry contract
 
-- Phase A complete. Spec at `<plan dir>/spec.md`, GATE-1-approved + user-approved.
+- Direct route: Phase A complete, with `<plan dir>/spec.md` GATE-1-approved and user-approved.
+- `ultra-plan` route: the exact Step 0 handoff blocks and chosen approach are the design authority;
+  the generated plan still waits for `/plan`'s human gate.
 - Task tier is **L4+** (L3 skips Phase B). Tier ladder: `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 - Branch is `${git.workBranch}`.
 
@@ -15,31 +18,35 @@
 
 - Plan at `<plan dir>/PLAN.md`, one directory per plan
   (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`).
-- GATE 2 (evaluator Mode 1) PASS. User approved. Proceed to `phase-c-executing-plans.md`.
+- Self-review PASS and user approved. At L5+, GATE 2 (evaluator Mode 1) also PASS before Phase C.
 
 ## Loop contract
 
 > Model: `references/loop-engineering.md`. Guards, caps and the anchors are defined there, once.
 
 - **trigger:** Phase A complete, tier L4+.
-- **goal (binary):** `PLAN.md` exists **AND** it carries the seven contract sections of Step 5
-  **AND** GATE 2 meets the calibration anchors (`loop-engineering.md § Calibration anchors`)
-  **AND** every task declares `Owns` and `Needs` **AND** user approved.
-- **body:** `superpowers:writing-plans` generates → `graph-powers:evaluator` Mode 1 scores → revise inline.
+- **goal (binary):** `PLAN.md` exists **AND** it carries every required section from Step 5
+  **AND** every task declares `Owns` and `Needs` **AND** Step 6 passes **AND** user approved. At L5+,
+  GATE 2 must also meet the calibration anchors (`loop-engineering.md § Calibration anchors`).
+- **body:** map files and interfaces → write independently testable tasks → self-review → evaluator
+  Mode 1 → correct.
 - **terminal:** goal PASS → Phase C. Any guard trips → escalate to user.
 
 ---
 
-## Engine — invoke `superpowers:writing-plans`
+## Before tasks — scope and file map
 
-**Invoke `Skill("superpowers:writing-plans")`** and let it drive the core loop. Do NOT reimplement its
-rules — the engine owns them:
+If the design authority contains independent subsystems, stop and propose one plan per independently
+useful, testable slice. A long input is not automatically several plans; a slice is independent only when a
+reviewer could accept it while rejecting its neighbour.
 
-| The engine owns | the harness wraps (the deltas below) |
-|---|---|
-| bite-sized TDD task granularity · mandatory plan header · exact file paths · no-placeholders rule · plan self-review · execution-handoff offer | the task grammar with `Owns`/`Needs`/`CHECK` (Step 1) · phase envelopes in layer order (Step 2) · ownership check (Step 3) · dispatch matrix (Step 4) · the seven contract sections (Step 5) · GATE 2 (Step 7) · **intercept the engine's execution-handoff** → Phase C via `/implement` (Step 9) |
+Map every file the work creates or modifies, its single responsibility, and the interfaces between
+files. Follow the repository's existing layout. Split a touched file only when the change needs that
+seam now; do not reorganize the tree for hypothetical future work.
 
-The numbered steps are the **harness deltas in execution order** — interleave with the engine.
+KISS and YAGNI bind the plan: fold setup, scaffolding, config and docs into the task whose
+deliverable needs them. Do not create a task, abstraction, flag or compatibility path without a
+current requirement or consumer.
 
 ---
 
@@ -54,13 +61,14 @@ proves the work happened.
   Owns: <full paths this task is the sole writer of>
   Needs: T1.2 (reads: <the type, file or exported symbol it consumes>) | none
   Agent: <lane> · Skill: <domain skill | none> · Effort: mechanical | design
+  TDD: <required | not-applicable (<motivo>) | exception-approved (<motivo>)>
   CHECK: <command, scoped to this task>
   EXPECT: <string or /regex/ that can only appear on success>
   EVIDENCE: pending
   Steps:
     1. Read <file> to confirm <pre-state>
-    2. Write failing test at <test-path> asserting <criterion> — confirm RED
-    3. Implement minimal code at <impl-path> — confirm GREEN
+    2. [required] Write failing test at <test-path> asserting <criterion> — confirm RED
+    3. [required] Implement the minimal change at <impl-path> — confirm GREEN
   Risk: low | medium | high      (L6+ only)
 ```
 
@@ -69,12 +77,12 @@ ownership is declared here rather than inferred at dispatch time. The rule and i
 `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md § One writer per file`.
 
 **`Needs:` carries its payload.** Name what this task reads from that one. An arrow whose payload you
-cannot name is a false edge — delete it, and the two tasks run together. This is the same test
-`/plan § Step 2.5` applies to the execution graph; here it is where the scheduler reads it.
+cannot name is a false edge — delete it, and the two tasks run together. The execution graph in Step
+5 visualizes the same contract; this field is what the scheduler reads.
 
 **`CHECK` / `EXPECT` / `EVIDENCE` replace a sentence with a command.**
 
-- `CHECK` is **scoped to this task** — the one test, the one grep, the one probe. Repository-wide
+- `CHECK` is **scoped to this task** — the one test, the one search, the one probe. Repository-wide
   gates belong to the phase gate (Step 2), not to every task.
 - `EXPECT` is a substring of the command's output, or a `/regex/`. Match the line that can only
   appear on success (`8/8 passed`), never one that appears either way (`done`).
@@ -89,14 +97,19 @@ cannot name is a false edge — delete it, and the two tasks run together. This 
 `graph-powers:frontend-specialist` · `graph-powers:debugger` · `graph-powers:performance-optimizer` ·
 `graph-powers:mobile-developer` · `graph-powers:verification`. A lane whose root the project does not
 have is not routable — no `mobileRoot`, no mobile lane. `main` means the main thread and is valid
-only in the human chain: the workflows have no main-thread lane and silently reroute it, so a plan
-headed for `ultra-build` never writes it.
+only in the human chain; Phase C's dispatcher uses the declared routable lane and never silently
+reroutes an invalid one.
 
 **`Effort:`** picks the model tier per
 `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md § Model and effort per unit of work`.
 
 **`Steps:`** are required when a subagent owns the task — it reads this block and nothing else — and
-omitted when the main thread does.
+omitted when the main thread does. Give exact paths, signatures, commands and expected results.
+Include code or test snippets when a fragile or novel step would otherwise force the implementer to
+make a design decision; do not paste boilerplate the repository already supplies. For
+`TDD: required`, Steps must include observed RED, minimum GREEN and refactoring while green. For
+`TDD: not-applicable (...)` or `TDD: exception-approved (...)`, omit RED/GREEN steps and retain the
+reason in the task block. Those are the only three accepted TDD forms; do not infer an exception.
 
 ### Atomicity, tested from both sides
 
@@ -112,8 +125,8 @@ one usually missing:
 Also disqualifying: `TBD`, a placeholder path, "similar to T2.1", "implement X" as a whole task, and
 an acceptance nobody can run ("looks right" is not a check).
 
-**Dependency check (L4+ MUST · L3 SHOULD):** when the `Needs` edges are not obvious from the paths,
-`mcp__sequential-thinking__sequentialthinking` before Step 2. **Agent ↔ skill lookup:** `dispatch-matrix.md`.
+**Dependency check:** when a `Needs` edge is not obvious from the paths, name the exact payload before
+Step 2. If none exists, delete the edge. **Agent ↔ skill lookup:** `dispatch-matrix.md`.
 
 ## Step 2 — Phase envelopes, and the gate that closes each one
 
@@ -133,20 +146,28 @@ Phases group tasks in layer-dependency order (`references/layer-map.md`) and car
   EVIDENCE: pending
 - [ ] **G2.2** — the project still type-checks and lints as a whole
   CHECK: ${tooling.commands.typeCheck} then ${tooling.commands.lint}
-  EXPECT: <the success line>
+  EXPECT: <the declared success output>
   EVIDENCE: pending
 - [ ] **G2.3** — nothing outside this phase's Owns sets changed
+  CHECK: <portable changed-path comparison against this phase's Owns union>
+  EXPECT: <the exact no-out-of-scope-paths result>
+  EVIDENCE: pending
 - [ ] **G2.4** — the interfaces the next phase Needs exist and match
+  CHECK: <focused interface probes named by the next phase's Needs payloads>
+  EXPECT: <the exact interface success result>
+  EVIDENCE: pending
 ```
 
 **Why the gate exists at all:** a dozen locally perfect tasks can still be a broken repository, and
-nothing in a per-task check would notice. The gate is where integration is proven — and it is also
-where the whole-project commands run, **once per phase instead of once per task**. A twelve-task
-plan that type-checks twelve times is paying twelve times for one fact.
+nothing in a per-task check would notice. Each phase gate proves its task evidence, ownership and
+interfaces. Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, repository-wide
+type-check and lint run once at each phase gate, never per task; serial full tests run at the final
+boundary. Add a final-phase `G*.5` block with the declared serial test command, its exact success
+output and `EVIDENCE: pending`; it is executable evidence, not prose.
 
-Phase order = layer dependency: `Schema → Service → Router → Registration → Webhook → Shared types →
-UI primitives → Components → Pages → Verification`. Never presentation before data; never integration
-before the components compile.
+Order only layers the project declares in `references/layer-map.md` or `${rulesDir}/layer-map.md`.
+Preserve dependency direction — data contracts before their consumers, integration after the units
+it connects, verification after the changed path exists — and never invent an absent layer.
 
 ## Step 3 — Ownership check on every `[PARALLEL-SAFE]` phase
 
@@ -172,14 +193,15 @@ One table, read before any task block, so the reader sees the graph before the p
 
 **Path:** `${paths.planDir}/YYYY-MM-DD-<slug>/PLAN.md` (today, UTC), one directory per plan.
 
-Seven sections are a contract, not a style. `/plan § Step 0.8` mandates them and `/verify § 3` reads
-the first three **verbatim** — a plan without them degrades verification to a generic gate run:
+The sections below are the contract, not a style. `/verify § 3` reads the reuse ledger, regression
+watchlist and rollback **verbatim**; without them verification degrades to a generic gate run.
 
 ```markdown
 # <Feature> — implementation plan
 
 **Date:** YYYY-MM-DD · **Branch:** `${git.workBranch}` · **Baseline:** <short SHA>
 **Tier:** L<n> · **Risk surface:** <none | the surfaces from chain.riskSurfaces>
+**Design authority:** <approved spec path | ultra-plan: embedded Step 0 handoff + chosen approach>
 
 ## Destination
 <the observable condition for "arrived" — "done when X is true", never "improve X">
@@ -220,42 +242,50 @@ Nothing is staged or committed. The plan is a working-tree artifact until a pers
 
 ## Step 6 — Plan self-review
 
-Fix inline, re-scan after each fix:
+Fix inline once, then run the checklist once more:
 
 - [ ] Every task: non-empty `Owns`, a `Needs` with a named payload or `none`, a runnable `CHECK`
       with an `EXPECT` that cannot match on failure.
 - [ ] Every `[PARALLEL-SAFE]` phase passes the ownership check (Step 3).
-- [ ] Every phase ends with a gate, and the whole-project commands appear **only** there.
-- [ ] The seven contract sections are present and non-empty (`## Not yet specified` may say it is empty).
+- [ ] Every phase ends with a gate; repository type-check and lint appear once per phase, while
+      serial full tests appear only at the final phase gate.
+- [ ] Every `G*` block has a runnable `CHECK`, decisive `EXPECT` and `EVIDENCE: pending`; each task
+      phase number has at least one matching gate number.
+- [ ] Every in-scope design requirement maps to a task; no task serves an out-of-scope row.
+- [ ] Names and signatures consumed later exactly match what earlier tasks produce.
+- [ ] Every required section is present and non-empty (`## Not yet specified` may say it is empty).
+- [ ] Every watchlist row has a proof command and an owner phase.
+- [ ] Every execution-graph edge names the payload its destination reads; parallel siblings have
+      disjoint `Owns` sets.
+- [ ] Every not-yet-specified row is still fog or became an evidence-backed decision, never an
+      assumed task.
 - [ ] No `TBD`, no placeholder path, no "similar to T…", no mega-task.
 - [ ] Phase order matches `references/layer-map.md`.
 - [ ] Agent lanes are routable; no `main` in a plan headed for a workflow.
 - [ ] Fan-out per phase ≤ `graphGuardrails.maxParallelWave`.
 - [ ] L6+: `## Risk` and an ADR present.
 
-## Step 7 — GATE 2 — evaluator Mode 1
+## Step 7 — GATE 2 — evaluator Mode 1 (L5+)
 
-```ts
-Agent({
-  subagent_type: "graph-powers:evaluator",
-  prompt: "Mode 1 Plan Review. Plan at <path>. Critique: ambiguities, missing edge cases, layer-ordering violations, Owns overlaps inside one phase, Needs edges with no named payload, gate placement, agent-lane fitness, atomicity, whether each EXPECT can only match on success. Return: PASS / FAIL+specifics / BLOCKED. < 2000 tokens.",
-})
-```
+Dispatch `graph-powers:evaluator` in Mode 1 with the seven-section prompt from
+`${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md § 4`. It reads the design authority and plan,
+checks the Step 6 list, scores the calibration anchors, writes nothing, and returns the canonical
+Context Handoff.
 
-**PASS** → Step 8. **FAIL** → revise inline, scored against `loop-engineering.md § Calibration
-anchors`. **BLOCKED** → surface to the user. **L6+:** GATE 3 (evaluator Mode 3, architecture) between
-Step 7 and Step 8.
+At L4, skip this gate unless the user asks for a second review. At L5+, **PASS** → Step 8;
+**FAIL** → revise inline, scored against `loop-engineering.md § Calibration anchors`;
+**BLOCKED** → surface to the user. **L6+:** run GATE 3 (evaluator Mode 3, architecture) between Step
+7 and Step 8.
 
 ## Step 8 — User approval
 
-> "Plan saved at `<plan dir>/PLAN.md`. evaluator Mode 1 returned PASS. Approve to proceed to Phase C?"
+> "Plan saved at `<plan dir>/PLAN.md` and its required review passed. Approve execution, or stop at the plan?"
 
 Wait for an explicit yes. On a revision request → revise, re-run Step 6, re-run Step 7.
 
 ## Step 9 — Transition
 
-The engine ends by offering an execution choice. **Intercept it** — this chain always routes to Phase
-C via `/implement`.
+At L4, stop at the approved plan. At L5+, continue only after the Step 8 approval:
 
 ```
 "Phase B complete. Plan ready at <plan dir>/PLAN.md. Invoking Phase C."
@@ -265,8 +295,8 @@ C via `/implement`.
 
 ## Risk — pre-mortem + ADR (L6+)
 
-> L6+, architecture decisions, multi-module, breaking or security work. Skip below that unless the
-> change is breaking, security-sensitive or can lose data.
+> Use for L6+ or a real risk surface: breaking contracts, security, irreversible data or more than
+> one viable architecture. Skip otherwise.
 
 **Pre-mortem.** "Two days later, the feature broke. What happened?" Sweep the failure surfaces:
 build and type-check (schema drift, stale generated types, lockfile) · logic (null, race, off-by-one,

@@ -7,7 +7,7 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md`
 
 ---
@@ -24,9 +24,7 @@ workflow_type: prompt-chaining
 
 ## 1. First action
 
-```typescript
-Skill("superpowers:using-superpowers"); // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
-```
+Apply the local method bootstrap loaded above, then continue in the selected mode.
 
 ---
 
@@ -80,15 +78,24 @@ Generic mapping (the project overrides it in `${rulesDir}/` when it has its own 
 - Performance changes → `performance-optimization`
 - Skill files themselves, or harness wiring → `skill-improve`
 
-Ask user which skills to update if multiple are relevant and not obvious.
+The matrix selects methodology, not write ownership. Apply its `Write ownership` section before
+§ 4: split the result into writable project-owned skills and method-only global/plugin skills.
+Ask the user which writable skills to update if multiple are relevant and not obvious. A global
+method can still guide the work, but it is never a destination for this project's learning.
 
 ---
 
 ## 4. Improve skills
 
-If this learning calls for editing or creating a SKILL.md (skill body change, new reference doc, frontmatter `description:` update), invoke `Skill("skill-improve")` first. Its Mode A owns the authoring loop, and `${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/references/testing-skills.md` carries the RED-GREEN-REFACTOR discipline — pressure-test the skill against a subagent before committing. Skip if the learning only adds a new entry to an existing `references/` markdown without changing the SKILL.md body.
+If this learning calls for editing or creating a writable project-owned `SKILL.md` (skill body
+change, new reference doc, frontmatter `description:` update), invoke `Skill("skill-improve")`
+first. Its Mode A owns the authoring loop, and
+`${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/references/testing-skills.md` carries the
+RED-GREEN-REFACTOR discipline — pressure-test the skill against a subagent before committing.
+Skip if the learning only adds a new entry to an existing project-owned `references/` markdown
+without changing the `SKILL.md` body.
 
-For each selected skill, add to `references/` or the relevant SKILL.md section:
+For each writable project-owned skill, add to `references/` or the relevant `SKILL.md` section:
 
 ```markdown
 ## Case: [Bug/Problem Name]
@@ -117,6 +124,9 @@ Categorize:
 | Known case | `references/` | Complex documented cases |
 | Quick reference | existing table | Quick tips |
 
+When no selected skill is project-owned, make no skill-file edit. Continue with §§ 5 and 7 so the
+learning still lands in the project, and report `Skills: none (global plugin unchanged)`.
+
 ---
 
 ## 5. Improve AGENTS.md (project-level)
@@ -127,6 +137,11 @@ Identify the target AGENTS.md from the modified file path:
 - Edits in `${paths.frontendRoot}/**` → frontend AGENTS.md if it exists
 - Edits in `${paths.schemaRoot}/**` → schema AGENTS.md if it exists
 - Otherwise → root `AGENTS.md`
+
+Load `Skill("graph-powers:intent-layer")` first only when the subtree the learning belongs to has no
+`AGENTS.md`, or the node it would land in is past 4k tokens — that skill decides whether the subtree
+earns a node and keeps the root's downlinks in step. A learning that fits an existing node is
+appended below without it.
 
 Add a new section:
 
@@ -181,7 +196,7 @@ this session take the next action from this file alone?
 Learning captured.
 
 Log:        .graph-powers/logs/learnings.md
-Skills:     [list, or none]
+Skills:     [project-owned list, or none (global plugin unchanged)]
 AGENTS.md:  [list, or none]
 ```
 

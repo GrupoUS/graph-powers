@@ -149,23 +149,60 @@ plugin loaders discover. The clone-based Codex installer reads that file and res
 
 ## 7. External plugins stay external
 
-**Decided:** `superpowers`, `impeccable` and the `landing-page-design` skill are required
-dependencies installed from their own channels, not vendored copies.
+**Decided:** nothing the commands depend on is external. The rule's name is kept because it still
+holds for what is optional — the `codex` and `code-review` plugins, Emil's two design skills — and
+because the history of how each required piece crossed the line is the argument for the rule's
+current shape. The craft layer that `impeccable` used to supply is
+now the plugin's own — `skills/designer/references/craft-passes.md` and `craft-floor.md`, written
+for this harness rather than copied — because a craft pass that needs a package runner, a plugin
+install and a hook merge in every project puts three setup steps in front of a design task, and
+each of them can be refused by this plugin's own guardrails.
 
-The third one tests the rule at its weakest point: `landing-page-design` is a single 16 KB
-`SKILL.md` under a licence that asks for nothing, so copying it into `skills/` would cost almost
-nothing and would read as convenience. It is still a copy that stops tracking upstream the day it
-lands, and the file is explicitly meant to be forked at its Design Values section — vendoring it
-would make this repository the owner of somebody else's palette. The install is one portable
-command in `AGENT_SETUP.md § Step 1`, and re-running it is the update.
+`landing-page-design` tested the rule at its weakest point, and on 2026-08-26 it crossed to the
+other side. Through 1.9.x it stayed external because it is a single 16 KB `SKILL.md` meant to be
+forked at its design values, and a verbatim copy would have made this repository the owner of
+somebody else's palette. What reversed the decision was measured rather than argued. Installed as a
+personal skill it is listed in every session with a description claiming *any* web UI, so it
+out-triggered `designer` and the project's design rule on dashboards, where its canon is wrong. A
+personal-scope name also shadows any plugin skill of the same name, so the "only for a landing
+surface" gate in `/design` could not be enforced from here. And the values that made it somebody
+else's palette are exactly the ones this harness overrides. So it entered the way the debugger
+references did — as adapted material recorded in `NOTICE`, the page system kept and the visual
+canon demoted to a fallback that carries its reasons — and not as a snapshot.
 
 The first version of this repository shipped a 3.3 MB snapshot of impeccable — 70% of the package,
 one minor version behind what its own registry served, with no licence file and no attribution.
 That is the divergence problem this repository exists to end, reproduced inside the fix for it.
 
-**The trade-off, stated plainly:** the plugin now has runtime dependencies it does not control. The
-answer is not to vendor them back; it is that the setup playbook installs them, names their
-versions, and tells the user how to keep them current.
+`superpowers` was the last required external, and the one the rule was written around: through
+1.9.x it stayed a plugin installed from its own marketplace because it was actively maintained
+upstream and shipped for both harnesses. Three measured facts reversed that on 2026-08-26. Nine of
+the ten commands opened with one of its skills and called twelve more — 151 references in 37 files
+— so without the install `/plan`, `/debug` and `/implement` stopped mid-run; a dependency nine
+commands cannot run without is not tooling around the harness, it is the harness. It ships for
+Claude Code and Codex only, so on Cursor and Grok "four harnesses, one source" was true of the
+guardrails and false of the method. And `check_context_budget.py` charged every one of those
+calls zero bytes, because none matched a local path: the heaviest load in the command set was the
+one the gate could not see. So its method layer entered the way the debugger references did —
+adapted, recorded in `NOTICE`, rewritten where upstream contradicts this harness (routine commits,
+a model passed at dispatch, shell scripts, a merge/PR menu at the end) — and the gates now price
+what they always cost.
+
+**The trade-off, stated plainly:** the method layer no longer tracks upstream. A fix Jesse Vincent
+ships reaches this plugin only when somebody reads the release notes and ports it; the price of
+that is a periodic diff against upstream, and the price of the alternative was a harness that did
+not run on two of its four targets.
+
+The `intent-layer` skill is the other side of the same rule, and it is worth saying why it is not a
+contradiction. Upstream (crafter-station/skills, MIT) ships three shell scripts, which cardinal 8
+bans from anything an agent executes, and a "one root file, pick `CLAUDE.md` or `AGENTS.md`" rule
+that this harness's root pair contradicts by design. A copy that tracked upstream would therefore be
+wrong on every machine that installs it. So it enters the way the debugger references did — as
+adapted material recorded in `NOTICE`, deliberately not tracking upstream because it no longer says
+the same thing — rather than as an install-by-copy dependency. The test is not "is it small enough
+to vendor"; it is "would the upstream bytes be correct here". For `landing-page-design` they stopped
+being correct the day the harness had an owner for every value in it; for `intent-layer` they never
+were.
 
 ---
 
@@ -209,7 +246,7 @@ problem again, now inside a single repository.
 Edit` becomes `sandbox_mode = "read-only"`. Denying only `Edit` — as the planner does, to keep
 `Write` for its plan file — is therefore not expressible, and correctly does not become a sandbox.
 
-And `workflows/` does not cross at all: Codex has no equivalent of `Workflow({name})`, so the three
+And `workflows/` does not cross at all: Codex has no equivalent of `Workflow({name})`, so the two
 orchestrations are Claude Code only. This is the one place the "one source" rule bends, and it bends
 in the safe direction — nothing is hand-maintained twice; a capability simply exists on one side.
 What matters is that the chain is an accelerator, not a floor: under Codex, `/plan`, `/implement` and
@@ -226,7 +263,8 @@ Recorded so they do not come back as proposals:
   tell a subagent from the main thread — same session identifier, same process. What can be done,
   and is, is the actionable half: "only write to the files you declared". That half was armed and
   unarmed at the same time until 1.3.0 — the hook read a lease file nothing ever wrote. The producer
-  is now `/plan` Step 4.2, from the disjoint file sets `workflows/ultra-build.js` already computes.
+  is now planning Phase C, from the validated `writeLease` emitted by
+  `skills/planning/scripts/sdd.py`.
 - **A spend ceiling in an interactive session.** The CLI exposes a dollar budget only in `--print`
   mode. The spawn and round ceilings are the substitute that is controllable inside the session.
 - **A turn limit per subagent.** The field exists in frontmatter, was tested both possible ways, and

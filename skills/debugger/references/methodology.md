@@ -1,9 +1,9 @@
 # Steps 4–6 — Fix: Instrument → Fix + regression test → Verify & cleanup
 
 > Back half of the **diagnose-first** chain (mattpocock `diagnosing-bugs` §4–§6). Front half is
-> `references/diagnose.md`. Which superpowers skill opens each Step, and the gates each one carries,
-> are in `Skill("debugger") § Engine` — not restated here. What follows are worked examples; the
-> discipline lives in those skills.
+> `references/diagnose.md`. Which gate opens each Step — the parallel-spawn pattern, TDD, the
+> verification gate — is in `Skill("debugger") § Engine`, not restated here. What follows is the
+> discipline of Steps 4–6 with its worked examples.
 
 ## Contents
 
@@ -31,7 +31,10 @@ Map each probe to a **specific prediction** from a Step 3 hypothesis (which valu
 ## Step 5 — Fix + regression test (P5)
 
 ### 1. Create the failing test on the real seam (RED)
-The test must exercise the **actual production code path** that fails — not a happy-path stub, not a private helper called with synthetic args. If no correct seam exists, refactor to expose one *before* writing the test (still inside `Skill("superpowers:test-driven-development")` RED).
+The test must exercise the **actual production code path** that fails — not a happy-path stub, not
+a private helper called with synthetic args. If no correct seam exists, refactor to expose one
+*before* writing the test, under
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md`.
 ```typescript
 it("should reject an empty tenantId", () => {
   expect(() => service.create({ tenantId: "" })).toThrow();
@@ -63,6 +66,7 @@ const { data } = trpc.metrics.listForTenant.useQuery(
   { enabled: !!tenantId } // ← gate the query until the id exists
 );
 ```
+**When the chain cannot be read from the code, capture it at runtime:** log `new Error().stack` with the input, `cwd` and the relevant env values (tagged `DEBUG_BUG_<ID>`) **before** the suspect operation, not in its catch — a call that never returns leaves no after-log. In tests use `console.error`, not the app logger, which is usually suppressed there. The test file name in the captured stack is what names the trigger; the same test or parameter recurring across captures is the pattern.
 
 ### Git bisect for regressions
 ```bash
@@ -136,7 +140,7 @@ async function waitFor<T>(condition: () => T | undefined | null | false, descrip
 | Wait for count | `waitFor(() => items.length >= 5)` |
 | Wait for DOM | `waitFor(() => document.querySelector('.loaded'))` |
 
-**When an arbitrary timeout IS correct:** wait for the triggering condition first, *then* the timed behavior — and document the math (`setTimeout(r, 200) // 2 ticks at 100ms`).
+**When an arbitrary timeout IS correct:** wait for the triggering condition first, *then* the timed behavior — and document the math (`setTimeout(r, 200) // 2 ticks at 100ms`). Testing timing itself (debounce, throttle) is the one case where the delay is the subject. **Three mistakes:** polling every millisecond (10 ms is enough) · no timeout, so the loop never ends (always throw, naming the condition) · state read once before the loop (call the getter inside it).
 
 **Testing pyramid** — put the regression test at the cheapest layer that exercises the real seam: Unit (Vitest, ~70%, pure logic) → Integration (Vitest + tRPC, ~20%, routes/DB/auth) → E2E (`agent-browser` CLI, ~10%, critical journeys). Naming: `describe('[Component]')` › `it('[should] [behavior] [when condition]')`. Run via the project's declared test command (`${tooling.commands.test}`), never the runtime's bare test subcommand — Bun's native runner, for one, does not implement vitest's `vi.mocked`/`vi.hoisted`.
 

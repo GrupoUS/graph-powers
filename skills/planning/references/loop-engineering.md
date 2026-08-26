@@ -25,7 +25,7 @@ of them maps to a guard this skill already owns:
 | **No hard stopping condition** — loops forever | **HARD-STOP**: max iterations per artifact → escalate to user | `SKILL.md § Stopping & red flags` + each phase guide |
 | **Underspecified goal** — "looks good" is not checkable | **GOAL-GUARD**: refuse to enter the loop unless the goal is a binary PASS/FAIL criterion | this file (§ Calibration anchors) |
 | **Context overflow** — long sessions degrade | **CTX-GUARD**: at ~80K tokens, write a handoff + reset, resume from the artifact | this file (§ Context Reset Protocol) |
-| **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, retry cap 3 per task | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
+| **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, correction cap `${graphGuardrails.maxRepatch}` in Phase C | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
 
 ---
 
@@ -42,7 +42,7 @@ LOOP <phase>:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
     - CTX-GUARD : context > ~80K → handoff artifact + reset (§ Context Reset Protocol)
-    - COST-GUARD: width `graphGuardrails.maxParallelWave` / retry cap 3 per task
+    - COST-GUARD: width `graphGuardrails.maxParallelWave` / Phase C correction cap `${graphGuardrails.maxRepatch}`
   terminal: goal PASS → next phase | any guard trips → escalate / halt
 ```
 
@@ -99,7 +99,7 @@ At/above threshold → goal PASS → exit. Below → FAIL with actionable feedba
 
 > **Loop budget (cost control).** Thresholds give the loop a terminal; the budget keeps it from
 > running away. CTX-GUARD = the Context Reset Protocol (§ below) at ~80K tokens. COST-GUARD =
-> retry cap 3 per artifact + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
+> Phase C correction cap `${graphGuardrails.maxRepatch}` + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
 > "runaway spend".
 
 ---
@@ -251,9 +251,9 @@ read them as "all clauses true → exit".
 
 | Phase | Verifiable goal (binary) | Body | Guards |
 |---|---|---|---|
-| **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | `superpowers:brainstorming` → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable state change in Phase 0 framing → do not plan) · devil's-advocate at L6+ |
-| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** GATE 2 `graph-powers:evaluator` Mode 1 meets the 4 anchors **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved | `superpowers:writing-plans` → `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Executing-plans** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → GATE A → GATE B → close the task, and its verification releases what it unblocked (`subagent-driven-development`) | HARD-STOP 3 retries/task · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · seq-think gate before the 3rd retry |
+| **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect → clarify → compare → design → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable destination → do not plan) |
+| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** self-review passes **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved; at L5+, GATE 2 meets the 4 anchors | map files/interfaces → write tasks → self-review → at L5+ `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
+| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** task review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → task review → correction review when needed → close the task, and its verification releases what it unblocked | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · then `/debug recover` |
 
 ---
 
@@ -262,8 +262,8 @@ read them as "all clauses true → exit".
 - **Not an autonomous always-on agent.** The git rails hold: commit/push stay manual, the user
   approves every phase boundary and every merge (`${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md § 1`). The loop
   iterates *within* a phase toward its goal; it never auto-advances past a user-approval gate.
-- **Not a new engine.** The chain still direct-invokes the `superpowers` skills. Loop engineering
-  is a process wrapper — it encodes *how to iterate*, not domain knowledge.
+- **Not a second method.** Phase A and Phase B own their methods. Loop engineering adds only the
+  iteration and stop conditions.
 - **Not a license to skip framing.** GOAL-GUARD is upstream of the loop: if Phase A can't state a
-  binary goal, the answer is more framing (`phase-a-brainstorm.md § Phase 0 — Framing`), not a
+  binary goal, the answer is more framing (`step-0-inventory.md § 0.0`), not a
   looser loop.

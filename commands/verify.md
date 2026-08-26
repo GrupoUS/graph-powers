@@ -7,13 +7,13 @@ workflow_type: augmented-llm
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`
 
 Modes: `/verify` with **no arguments is `quick`** (gates + floor only — this is the default,
 because the agent batch is what burns RAM). `/verify full` runs the review agents.
 `/verify loop` hands the plan-measured half to `graph-powers:ultra-verify`, § 1.6.
-Load `Skill("bun-verify")` in § 0 when the change set is JS/TS.
+Apply the shared JS/TS resolver in § 0 when the change set is JS/TS.
 
 The single rule this command exists to enforce: **a gate is passing only if it ran in this session
 and exited zero.** A remembered pass is not a pass.
@@ -33,8 +33,8 @@ nothing is assumed:
 | Build | `${tooling.commands.build}` | field absent |
 
 **A gate with no declared command is reported as `NOT DECLARED`, never as passing** — except a
-JS/TS type-check or test inferred by `Skill("bun-verify")`, which is reported as
-`INFERRED (bun-verify)` and still must exit zero. Never infer `npx tsc` or `node --test`.
+JS/TS type-check or test inferred by the shared resolver, which is reported as
+`INFERRED (debugger)` and still must exit zero. Never infer `npx tsc` or `node --test`.
 See `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`.
 
 A missing script that exits non-zero as "script not found" reads exactly like a real failure, and a
@@ -89,9 +89,8 @@ restate the token list here). Report exactly one of `PASS` / `DRIFT` / `UNREACHA
 
 `/verify` never applies, under either `applyPolicy` value. Apply is `/implement` § 7.5.
 
-Load the domain skill for what changed — `Skill("debugger")` when chasing a failure,
-`Skill("performance-optimization")` when performance, security or SEO surfaces moved,
-`Skill("astro")` when `project.stack` names Astro.
+Load the domain skill for what changed — `Skill("debugger")` when chasing a failure, or
+`Skill("performance-optimization")` when performance, security or SEO surfaces moved.
 
 ### 0.1 The change set, and the surfaces it touched
 
@@ -133,8 +132,9 @@ the review checklist (§ 3) — share no data. § 2 runs `git status`, `git log`
 code. Written as `1 → 2 → 3` they looked sequential and were not, and that appearance is what turned
 free parallelism into wasted wall-clock.
 
-Invoke `Skill("superpowers:dispatching-parallel-agents")`, then dispatch **in one message**, every
-track `run_in_background: true`. Every agent below is read-only **by frontmatter**, never by a prose
+Follow `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, then dispatch **in one
+message**, every track `run_in_background: true`. Every agent below is read-only **by
+frontmatter**, never by a prose
 "do not fix" — the incident that rule comes from is in
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`.
 
