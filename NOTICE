@@ -57,6 +57,20 @@ Modifications by GrupoUS, as required by section 4(b) of that License:
                            only the decisions this harness owns.
 
 ================================================================================
+Apache License 2.0 and MIT — source-informed synthesis, not verbatim redistribution
+================================================================================
+
+  skills/designer/
+
+Written for Graph Powers after a comparative review of Anthropic's `frontend-design`
+(https://github.com/anthropics/skills, Apache-2.0, Copyright Anthropic, PBC), Paul Bakaus's
+Impeccable (https://github.com/pbakaus/impeccable, Apache-2.0), and Emil Kowalski's
+`emil-design-eng` and `apple-design` (https://github.com/emilkowalski/skills, MIT). No upstream
+file is redistributed verbatim. The direction sequence, defaults catalogue and craft passes are a
+new synthesis for this harness; the catalogue names the source compared for each family of design
+defaults so provenance remains inspectable.
+
+================================================================================
 MIT — adapted material, not redistributed verbatim
 ================================================================================
 
@@ -80,8 +94,8 @@ library, because this repository does not ship shell scripts.
 
   skills/planning/references/phase-a-brainstorm.md
   skills/planning/references/phase-b-writing-plans.md
-  skills/executing-plans/
-  skills/test-driven-development/
+  skills/planning/references/phase-c-executing-plans.md
+  skills/planning/references/execution/
   commands/pr-review.md § 4.1
   references/shared/005-method-bootstrap.md
   references/shared/015-verification-gate.md
@@ -91,15 +105,15 @@ Adapted from the skills of https://github.com/obra/superpowers (MIT, Copyright (
 Vincent), read at version 6.3.0: `brainstorming` and `writing-plans` (incorporated into the canonical
 Phase A and Phase B references of `skills/planning`, rather than shipped as overlapping skills),
 `subagent-driven-development` together with `executing-plans` and the reviewer template of
-`requesting-code-review` (merged into one skill, `executing-plans`, with a subagent-driven and an
-inline mode), `test-driven-development` with its `writing-good-tests.md`,
+`requesting-code-review` (folded into planning Phase C), `test-driven-development` with its
+`writing-good-tests.md` (folded into planning's execution references),
 `receiving-code-review` (folded into `/pr-review § 4.1`), and — folded into the shared references
 that already stated the rule here — `using-superpowers`, `verification-before-completion` and
 `dispatching-parallel-agents`.
 `systematic-debugging` and its companion notes were compared against `skills/debugger`, which had
 been written around them, and only what was missing was added there.
 Rewritten for this harness: the three shell scripts of `subagent-driven-development` became one
-Python standard-library script (`skills/executing-plans/scripts/sdd.py`); the visual companion (a
+Python standard-library script (`skills/planning/scripts/sdd.py`); the visual companion (a
 Node server and its shell scripts) was dropped; every routine "commit" step became a working-tree
 checkpoint that commits only with the user's approval in that turn; the model is chosen through the
 agent's own frontmatter rather than passed at dispatch; spec and plan paths follow this plugin's
@@ -139,7 +153,8 @@ the upstream visual canon, moved whole to `references/house-canon.md` as a fallb
 the host project's design authority, the `designer` direction contract and the `animate` rulebook;
 each value there carries its reason and is tagged craft or house taste. The upstream description,
 which claimed every web UI, was narrowed to landing and marketing surfaces. Two upstream claims
-were corrected against 2026 sources — FAQ rich results, and `text-wrap: pretty` support — and one
+were corrected against official 2026 sources — FAQ rich-result deprecation and current
+`text-wrap: pretty` support — and one
 rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
 
 ================================================================================
@@ -152,7 +167,7 @@ Two skills are optional supplements, installed by copy when wanted and never red
 
   emil-design-eng, apple-design   https://github.com/emilkowalski/skills   (MIT)
 
-Three further plugins are optional, and named where a command calls them:
+Two further plugins are optional, and named where a command calls them:
 
-  code-review   the bundled review skill invoked by /pr-review
+  code-review   the official optional review skill invoked by /pr-review
   codex         the Codex rescue and result-handling skills invoked by /debug and /research

@@ -147,8 +147,7 @@ const NO_SKILL = 'Do NOT invoke Skill("planning") — this workflow owns the orc
 const RO = 'Read-only — never write or commit.'
 
 // Only the lanes this repository actually has, so the plan cannot route a task to an agent with
-// nothing to work on. Kept identical to ultra-build's enum: a plan that names an agent ultra-build
-// cannot route is a plan that silently reassigns half its tasks.
+// nothing to work on. Planning Phase C consumes this same declared lane set from the plan.
 const LANES = [
   paths.frontendRoot && 'frontend-specialist',
   'debugger',
@@ -301,14 +300,14 @@ TASK: ${TASK}
 FRAME: ${JSON.stringify(frame)}
 RESEARCH: ${JSON.stringify(research).slice(0, 12000)}
 APPROACHES (anonymized on purpose — judge the tradeoffs, you are not told which lens produced which): ${JSON.stringify(approachesForSynthesis)}
-Pick + justify the best approach (graft good ideas from the runner-up). Write EVERY task in the grammar of ${SKILL}/phase-b-writing-plans.md § Step 1 — a \`- [ ] **T<n>** — <action>\` checkbox carrying \`Owns:\` (the paths this task alone writes), \`Needs:\` naming the task it reads AND what it reads from it, \`Agent:\` — MUST be one of ${LANES.join('|')} — and \`CHECK:\`/\`EXPECT:\`/\`EVIDENCE: pending\` in place of a prose acceptance line. \`Needs:\` with no payload named is a false edge: delete it and let the two tasks run together. Close every phase with its gate block, and put the whole-project commands THERE rather than inside each task. Those are the only values ultra-build can route: where phase-b-writing-plans.md and dispatch-matrix.md offer a wider list including "main", they are describing the human chain, which has a main-thread lane — this workflow does not, so ignore that column here and send docs/config/schema tasks to debugger.${schemaRule}${l6Extra}
+Pick + justify the best approach (graft good ideas from the runner-up). Write EVERY task in the grammar of ${SKILL}/phase-b-writing-plans.md § Step 1 — a \`- [ ] **T<n>** — <action>\` checkbox carrying \`Owns:\` (the paths this task alone writes), \`Needs:\` naming the task it reads AND what it reads from it, \`Agent:\` — MUST be one of ${LANES.join('|')} — one explicit \`TDD:\` status, and \`CHECK:\`/\`EXPECT:\`/\`EVIDENCE: pending\` in place of a prose acceptance line. \`Needs:\` with no payload named is a false edge: delete it and let the two tasks run together. Close every phase with its gate block, and put the whole-project commands THERE rather than inside each task. Those are the values planning Phase C validates and routes: where phase-b-writing-plans.md and dispatch-matrix.md offer a wider list including "main", they are describing the human chain, which has a main-thread lane — this workflow does not, so ignore that column here and send docs/config/schema tasks to debugger.${schemaRule}${l6Extra}
 Write the plan to ${PLAN_DIR}/<YYYY-MM-DD>-<slug>/PLAN.md — one plan is one directory, per ${cfg.pluginRoot}/references/shared/007-path-conventions.md — using today's date, which you already have — do NOT shell out for it. \`date +%F\` is coreutils: on Windows \`date\` either opens an interactive prompt asking for a new system date, or rejects the argument. The path is what the build step receives as its input, so an invented date is a broken handoff. The plan MUST carry, besides its phases: ## Destination, ## Reuse ledger, ## Regression watchlist, ## Execution graph, ## Verification with executable steps, ## Rollback, ## Out of scope and ## Not yet specified — /verify reads the ledger, the watchlist and the rollback verbatim, and a plan without them degrades it to a generic gate run. HARD: commit NOTHING — leave the file in the working tree only.
 Return planPath, recommendedApproach, taskCount, summary.`,
   { agentType: AG('project-planner'), phase: 'Synthesize', schema: PLAN, label: 'synthesize', model: M('project-planner') }
 )
 // No plan path = no plan. Stop before the review spawns: `PLAN.planPath` is `required` but the
 // schema still accepts "", and a review of "the plan at undefined" burns up to 4 opus agents and
-// can end with approved:true pointing at nothing (ultra-build treats "undefined" as a real path).
+// can end with approved:true pointing at nothing (`/implement` must reject such a route).
 if (!plan?.planPath) {
   throw new Error('ultra-plan: the synthesize agent returned no plan path — refusing to spend review spawns on a plan that does not exist')
 }
@@ -386,6 +385,6 @@ return {
   architectureVerdict: architecture?.verdict ?? null,
   openIssues: [...(review?.issues ?? []), ...(architecture?.issues ?? [])],
   next: approved
-    ? `Present the plan for human approval, then run ultra-build with ${plan?.planPath}`
-    : `BLOCKED — the plan did NOT pass review (${gateReasons.join(' · ')}). Do NOT run ultra-build yet: resolve openIssues in ${plan?.planPath}, then re-review. The plan file is on disk and uncommitted.`,
+    ? `Present the plan for human approval, then run /implement ${plan?.planPath}`
+    : `BLOCKED — the plan did NOT pass review (${gateReasons.join(' · ')}). Do NOT run /implement yet: resolve openIssues in ${plan?.planPath}, then re-review. The plan file is on disk and uncommitted.`,
 }

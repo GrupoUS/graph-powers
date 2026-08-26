@@ -327,21 +327,11 @@ SAFE_PATTERNS = [
     # an ask, and agents re-run the crashing line.
     re.compile(r"^python(3)?( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
     re.compile(r"^py -3( -X [^ ]+)?\s+\S*turbo_dry_json\.py(\s|$)"),
-    # intent-layer's AGENTS.md tree tool. The setup playbook (step 4b) and /evolve run its three
-    # subcommands — `state` and `measure` read, `check` is a gate that writes nothing — so under
-    # `guarded` each would otherwise ask, three times per install. It lives under the plugin root,
-    # not `scripts/` or `.claude/`, which is why the two script-path entries above do not cover it.
-    # The closing quote is part of the match: the playbook writes the path as
-    # `"$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .`, and `\S*` stops at the space
-    # AFTER the quote, so `\.py(\s|$)` never met the line that motivated the entry. The first
-    # version was written from the unquoted test fixture and passed its own test over the broken
-    # case; the audit that found it also found the same defect in the skill's eval assertions.
-    re.compile(r"^python(3)?( -X [^ ]+)?\s+\S*intent_layer\.py[\"']?(\s|$)"),
-    re.compile(r"^py -3( -X [^ ]+)?\s+\S*intent_layer\.py[\"']?(\s|$)"),
-    # `py` is the Windows launcher for the two entries above, and it gets the same rule for the
-    # same reason: what runs is the argument, not the command. A blanket `^py\s+-3(\s|$)` replaced
-    # these two for one release and made `py -3 -c "<anything>"` an allow — an interpreter with no
-    # script named is a permit for whatever the model decided to write on the line.
+    # `py` is the Windows launcher for the script-path entries above. A blanket
+    # `^py\s+-3(\s|$)` replaced these two for one release and made `py -3 -c "<anything>"` an
+    # allow — an interpreter with no script named is a permit for whatever the model decided to
+    # write on the line. The plugin-owned intent-layer script is handled separately by
+    # `_is_trusted_intent_layer_command`, which validates its real path rather than a suffix.
     re.compile(r'^py -3 "?\.claude[\\/]'),
     re.compile(r'^py -3 "?scripts[\\/]'),
     # Which interpreter a session has is a read, and `py` is missing from the version list below
@@ -598,6 +588,90 @@ def _ask(
 
 def _matches(patterns: list[re.Pattern[str]], command: str) -> bool:
     return any(pattern.search(command) for pattern in patterns)
+
+
+_PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+_INTENT_LAYER_SCRIPT = (
+    _PLUGIN_ROOT / "skills" / "intent-layer" / "scripts" / "intent_layer.py"
+).resolve()
+_INTENT_LAYER_ACTIONS = {"state", "measure", "check"}
+_SHELL_CONTROL_SYNTAX = re.compile(r"[<>|;&`\r\n]|\$\(|=\(")
+
+
+def _is_trusted_intent_layer_command(command: str, project_root: Path) -> bool:
+    """Whether one interpreter command targets this plugin's read-only intent-layer tool.
+
+    A filename or directory suffix is not an identity: a checkout can contain an unrelated
+    `untrusted/skills/intent-layer/scripts/intent_layer.py`. Resolve the candidate and compare it
+    with the script beside this hook. Literal plugin-root placeholders are expanded only from a
+    root this hook can prove; an arbitrary `$PLUGIN` value never becomes an allowance.
+    """
+    # The allowance covers one read-only Python process, not shell syntax attached to it. This is
+    # deliberately conservative around quoted metacharacters: an unnecessary approval is safer
+    # than trying to emulate Bash, PowerShell, cmd and zsh quoting inside a cross-platform hook.
+    if _SHELL_CONTROL_SYNTAX.search(command):
+        return False
+    try:
+        tokens = shlex.split(command, posix=(os.name != "nt"))
+    except Exception:
+        return False
+    if not tokens:
+        return False
+
+    # Exact launcher names preserve the existing safe-list contract. Accepting only the basename
+    # would let an attacker-owned `/path/python` borrow the trusted interpreter's identity.
+    launcher = tokens[0].strip("\"'").lower()
+    index = 1
+    if launcher in {"py", "py.exe"}:
+        if len(tokens) <= index or tokens[index] != "-3":
+            return False
+        index += 1
+    elif launcher not in {"python", "python3", "python.exe", "python3.exe"}:
+        return False
+
+    if len(tokens) > index and tokens[index] == "-X":
+        index += 2
+    if len(tokens) <= index + 1:
+        return False
+
+    raw_script = tokens[index].strip("\"'").replace("\\", "/")
+    action = tokens[index + 1].strip("\"'")
+    if action not in _INTENT_LAYER_ACTIONS:
+        return False
+
+    plugin_prefix = "${CLAUDE_PLUGIN_ROOT}/"
+    variable_prefix = "$PLUGIN/"
+    if raw_script.startswith(plugin_prefix):
+        configured_root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+        if not configured_root:
+            return False
+        try:
+            plugin_root = Path(configured_root).resolve()
+        except Exception:
+            return False
+        if plugin_root != _PLUGIN_ROOT:
+            return False
+        candidate = plugin_root / raw_script.removeprefix(plugin_prefix)
+    elif raw_script.startswith(variable_prefix):
+        configured_root = os.environ.get("PLUGIN")
+        if not configured_root:
+            return False
+        try:
+            plugin_root = Path(configured_root).resolve()
+        except Exception:
+            return False
+        if plugin_root != _PLUGIN_ROOT:
+            return False
+        candidate = plugin_root / raw_script.removeprefix(variable_prefix)
+    else:
+        candidate = Path(raw_script)
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+
+    try:
+        return candidate.resolve() == _INTENT_LAYER_SCRIPT
+    except Exception:
+        return False
 
 
 _GIT_RESTORE_PATTERN = re.compile(r"^git\s+restore\b(.*)$", re.DOTALL)
@@ -881,7 +955,9 @@ def _package_script_denial(
     return _js_gate_denial(bun_test.group(0).strip()) if bun_test else None
 
 
-def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | None]:
+def _classify(
+    command: str, policy: dict[str, typing.Any], project_root: Path
+) -> tuple[str, str | None]:
     """Return (allow|ask|deny, optional reason) for one shell segment.
 
     `policy` is whatever `_config.autonomy()` resolved: strings for the decisions, a bool for
@@ -944,6 +1020,12 @@ def _classify(command: str, policy: dict[str, typing.Any]) -> tuple[str, str | N
     if restore_kind == "unstage":
         return "allow", None
 
+    # The setup playbook and /evolve run these three read-only operations. Path identity is checked
+    # here, outside the regex list, so a matching suffix in an arbitrary tree cannot inherit the
+    # plugin script's allowance.
+    if _is_trusted_intent_layer_command(command, project_root):
+        return "allow", None
+
     if _matches(SAFE_PATTERNS, command):
         if PACKAGE_MANAGER_RE.match(command) and DANGEROUS_PM_PATTERN.search(command):
             return "deny", "BLOCKED: destructive package-manager command"
@@ -995,7 +1077,7 @@ def main() -> None:
         if script_reason:
             _deny(script_reason, event=event, codex_turn=codex_turn)
             return
-        decision, reason = _classify(segment, policy)
+        decision, reason = _classify(segment, policy, root)
         if decision == "deny":
             _deny(
                 reason or "BLOCKED: Dangerous command",

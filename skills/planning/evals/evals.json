@@ -1,0 +1,112 @@
+{
+  "skill_name": "planning",
+  "evals": [
+    {
+      "id": "pos-multilayer-feature-plan",
+      "polarity": "positive",
+      "prompt": "Planeje uma feature que atravessa banco, API e interface, com dependências e critérios de aceite claros.",
+      "expected_output": "A tiered plan with discovery, design, task ownership, dependencies and phase gates.",
+      "assertions": [
+        { "id": "A01", "description": "Routes through planning phases", "check": "regex: (?i)phase a.*phase b", "critical": true },
+        { "id": "A02", "description": "Defines ownership and dependencies", "check": "regex: (?i)owns.*needs", "critical": true },
+        { "id": "A03", "description": "Includes focused acceptance evidence", "check": "regex: (?i)check.*expect.*evidence", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-approved-plan-execution",
+      "polarity": "positive",
+      "prompt": "O plano aprovado está pronto. Execute as tarefas, revise cada uma e entregue a árvore de trabalho para verificação.",
+      "expected_output": "Phase C execution with validation, write lease, per-task review and final verification.",
+      "assertions": [
+        { "id": "B01", "description": "Validates and leases before writing", "check": "regex: (?i)validate.*write lease", "critical": true },
+        { "id": "B02", "description": "Uses one reviewer per task and final review", "check": "regex: (?i)review.*task.*final reviewer", "critical": true },
+        { "id": "B03", "description": "Routes exhausted corrections to recover", "check": "regex: (?i)maxRepatch.*debug recover", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-tdd-production-behaviour",
+      "polarity": "positive",
+      "prompt": "Implemente a mudança de comportamento de produção descrita no plano usando TDD.",
+      "expected_output": "A real seam test observed failing, minimal implementation passing, then green refactoring.",
+      "assertions": [
+        { "id": "C01", "description": "Observes RED before production code", "check": "regex: (?i)RED.*fails|falha.*RED", "critical": true },
+        { "id": "C02", "description": "Uses minimal GREEN", "check": "regex: (?i)minimal.*GREEN|GREEN.*mínim", "critical": true },
+        { "id": "C03", "description": "Tests the real production interface", "check": "regex: (?i)real production interface|interface real de produção", "critical": true },
+        { "id": "C04", "description": "Asserts a consumer-visible behaviour", "check": "regex: (?i)behaviour|comportamento|outcome|resultado", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-approved-tdd-exception",
+      "polarity": "positive",
+      "prompt": "A configuração é gerada automaticamente e o usuário aprovou explicitamente uma exceção ao TDD pelo motivo 'artefato gerado'. Registre a exceção no plano.",
+      "expected_output": "The plan records the exact approved exception status and reason.",
+      "assertions": [
+        { "id": "D01", "description": "Records an explicit TDD exception and reason", "check": "regex: (?i)TDD:\\s*exception-approved\\s*\\([^)]*artefato gerado[^)]*\\)", "critical": true },
+        { "id": "D02", "description": "Does not silently skip TDD", "check": "regex: (?i)aprov|approved|aprovação", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-tdd-under-deadline-pressure",
+      "polarity": "positive",
+      "prompt": "O código de produção já foi escrito sem teste e o prazo vence hoje. Preserve esse código e apenas acrescente testes depois para ganharmos tempo.",
+      "expected_output": "Reject sunk-cost pressure, remove or set aside unverified production code, then observe a real failing test before the minimal implementation.",
+      "assertions": [
+        { "id": "E01", "description": "Does not preserve unverified production code as the starting point", "check": "regex: (?i)remove|discard|revert|set aside|remov|descart|revert", "critical": true },
+        { "id": "E02", "description": "Requires observed RED before reimplementation", "check": "regex: (?i)RED.*before|RED.*antes|falh.*antes", "critical": true },
+        { "id": "E03", "description": "Keeps the test on the real production seam", "check": "regex: (?i)production seam|real production interface|interface real de produção|fronteira real", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-approved-plan-omits-tests",
+      "polarity": "positive",
+      "prompt": "O plano foi aprovado, mas esqueceu de incluir testes para uma mudança de comportamento. Execute exatamente como está e não altere o plano.",
+      "expected_output": "Treat the omission as an incomplete plan rather than an exception, restore the required TDD steps and evidence, then execute.",
+      "assertions": [
+        { "id": "F01", "description": "States that plan approval is not a TDD exception", "check": "regex: (?i)not.*exception|não.*exceção|omission|omissão", "critical": true },
+        { "id": "F02", "description": "Restores RED and GREEN to the task contract", "check": "regex: (?i)RED.*GREEN", "critical": true },
+        { "id": "F03", "description": "Persists the corrected plan evidence contract", "check": "regex: (?i)plan.*evidence|plano.*evidência|EVIDENCE", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-urgent-production-hotfix",
+      "polarity": "positive",
+      "prompt": "Há um incidente em produção e precisamos de um hotfix agora. Faça o teste em um helper privado para ser mais rápido e depois corrija a interface pública.",
+      "expected_output": "Urgency does not waive TDD: reproduce through the real public seam, observe RED, then make the smallest green fix.",
+      "assertions": [
+        { "id": "G01", "description": "Rejects a private-helper-only test", "check": "regex: (?i)not.*private helper|não.*helper privado|real.*interface|public seam|interface pública", "critical": true },
+        { "id": "G02", "description": "Observes RED for the incident reproduction", "check": "regex: (?i)RED|falh", "critical": true },
+        { "id": "G03", "description": "Uses the smallest green production fix", "check": "regex: (?i)minimal.*GREEN|smallest.*fix|menor.*correção|mínim.*GREEN", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-known-regression",
+      "polarity": "negative",
+      "prompt": "Uma regressão conhecida já tem causa e teste falhando. Diagnostique-a e corrija o bug.",
+      "expected_output": "Route to debugger rather than planning a new feature.",
+      "assertions": [
+        { "id": "N01", "description": "Does not claim planning is required", "check": "not_contains: escreva um plano", "critical": true },
+        { "id": "N02", "description": "Routes diagnosis to debugger", "check": "regex: (?i)debugger|diagnóstico", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-ready-verification",
+      "polarity": "negative",
+      "prompt": "O trabalho já foi implementado. Apenas verifique se os gates e testes passam.",
+      "expected_output": "Route to verification, not planning or implementation.",
+      "assertions": [
+        { "id": "N03", "description": "Routes to verification", "check": "regex: (?i)/verify|verifica", "critical": true },
+        { "id": "N04", "description": "Does not dispatch implementation", "check": "not_contains: dispatch implementer", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-trivial-single-file",
+      "polarity": "negative",
+      "prompt": "Faça uma alteração trivial de uma linha em um único arquivo, com causa e solução óbvias.",
+      "expected_output": "Direct edit without the multi-phase planning chain.",
+      "assertions": [
+        { "id": "N05", "description": "Uses direct edit for trivial work", "check": "regex: (?i)direct edit|edição direta", "critical": true },
+        { "id": "N06", "description": "Does not create a plan", "check": "not_contains: PLAN.md", "critical": true }
+      ]
+    }
+  ]
+}

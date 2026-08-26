@@ -71,6 +71,9 @@ jobs:
       - name: Guardrails — negative tests, every harness
         run: python3 hooks/test_hooks.py
 
+      - name: Structured planning and TDD contract
+        run: python3 skills/planning/scripts/test_sdd.py
+
       - name: Frontmatter parses, and name matches the file
         run: |
           python3 - <<'PY'

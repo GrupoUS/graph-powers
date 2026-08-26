@@ -159,10 +159,10 @@ If agents return contradictory findings or no definitive file:line → escalate 
 
 ### 1.6 Implement fix
 
-**Hard gate:** when Step 5 writes a patch, invoke `Skill("graph-powers:test-driven-development")` — a
-failing reproduction test on the real seam, watched fail, before the fix. No exemption by tier: the
-skill's Iron Law #3 has none, and a command that granted one would be the only place in this harness
-where "too small to test" is an argument.
+**Hard gate:** when Step 5 writes a patch, apply
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md`: a failing reproduction
+test on the real seam, watched fail, before the fix. Debugging a behaviour regression is
+`TDD: required`; any exception has to use one of the policy's explicit recorded statuses.
 
 - Fix the SOURCE, not the symptom
 - NEVER "while I'm here…" — scope creep kills debugging

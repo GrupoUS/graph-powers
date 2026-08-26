@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.10.1 — Planning owns the whole implementation loop
+
+### Changed — one authority for discovery, planning, execution and TDD
+
+`skills/planning` now carries Phase C as its execution engine, the production-seam TDD policy,
+good-test guidance and four separate prompts for implementation, task review, correction review
+and final review. Phase B records one explicit TDD status on every task; Phase C observes RED,
+writes the minimum GREEN, refactors under green tests, reviews compliance before KISS/quality, and
+uses `graphGuardrails.maxRepatch` before routing a non-converging fix to `/debug recover`.
+
+`/implement` is a thin adapter into that authority. It resolves and validates the approved plan,
+rejects the retired `--codex` and `--sprint=N` flags, and keeps `--dry-run` side-effect-free. The
+surviving chain is `ultra-plan → /implement → ultra-verify`; the commands remain the portable
+fallback on harnesses without workflows.
+
+### Added — structured plan validation and plan-scoped write leases
+
+`skills/planning/scripts/sdd.py validate` rejects malformed task graphs before dispatch: duplicate
+IDs, missing fields or dependency payloads, unknown dependencies, cycles, task ceilings and
+concurrent `Owns` collisions. Sequential reuse remains valid. Its normalized JSON supplies the
+tasks and write lease that Phase C alone creates and removes for the current plan.
+
+### Removed — duplicate method surfaces
+
+The standalone `executing-plans` and `test-driven-development` skills and the `ultra-build`
+workflow are gone without aliases. Live routes now point to planning Phase C and its execution
+references; historical changelog entries, dated plans and upstream attribution remain intact. The
+bundled inventory is 13 skills and 2 workflows.
+
 ## 1.10.0 — A direction pass that refuses the defaults
 
 ### Added — `skills/designer`, loaded by `/design` before `uxmaster`
@@ -142,8 +171,11 @@ marketing surfaces, so it no longer out-triggers `designer` on a dashboard.
 
 Measured against the siblings before writing: 45 collisions, 5 of them P0 in the visual canon,
 all resolved by precedence rather than by a second copy of a value. Two upstream claims corrected
-against 2026 sources — Google removed FAQ rich results in May 2026, and `text-wrap: pretty` is
-Chromium-only — and one upstream rule inverted: "organic" fake numbers made invented proof more
+against official sources — Google deprecated FAQ rich results effective May 7, 2026
+([Google Search update](https://developers.google.com/search/updates)), and Safari 26 joined
+Chromium in shipping `text-wrap: pretty`
+([WebKit](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/)) — and one upstream rule
+inverted: "organic" fake numbers made invented proof more
 plausible, which is the honesty gate's exact failure; numbers are now real or absent. Eight eval
 cases sit at the real borders; the round is in `skills/skill-improve/learning.md`.
 

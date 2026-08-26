@@ -105,6 +105,8 @@ Animate the backdrop's opacity alongside so the two read as one surface.
 
 ## Drawer, sheet
 
+The 500ms duration is the explicit large-distance exception: this drawer crosses the viewport.
+
 ```css
 .drawer {
   transform: translateY(0);

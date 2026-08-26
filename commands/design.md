@@ -7,7 +7,7 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`. Read
 > `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` only when the scope needs an
 > agent that § 2, § 3 and § 5 do not already name.
@@ -52,7 +52,6 @@ version of a page methodology is worse than none.
 ## 0. Context
 
 ```typescript
-Skill("superpowers:using-superpowers");   // meta — bootstrap (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`)
 Skill("design-fix");                      // fix only — baseline, classification, locked repair contract
 Skill("designer");                        // new/improve, and structural fix after design-fix reopens direction
 Skill("uxmaster");                        // UX judgement: conversion, onboarding, hierarchy

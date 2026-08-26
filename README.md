@@ -46,8 +46,9 @@ Read AGENT_SETUP.md from the graph-powers plugin (https://github.com/GrupoUS/gra
 ```
 
 That second step is not decoration. Installing wires the plugin in; the playbook is what makes
-it take effect — it installs the required external plugins, writes your project's parameters,
-improves the `CLAUDE.md` / `AGENTS.md` / rules you already have instead of replacing them, and
+it take effect — it checks optional integrations and workflow binaries, writes your project's
+parameters, improves the `CLAUDE.md` / `AGENTS.md` / rules you already have instead of replacing
+them, and
 removes the local copies that would otherwise keep shadowing the plugin. It stops for your approval
 before every write.
 
@@ -88,10 +89,10 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 ```
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
-  skills/       17 skills              .claude/rules/             <- only your domain
+  skills/       13 bundled skills      .claude/rules/             <- only your domain
   commands/     10 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
-  workflows/    3 orchestrations
+  workflows/    2 orchestrations
   references/   safety + execution floors
     shared/     18 shared patterns, loaded one at a time
   schema/       the config contract
@@ -115,7 +116,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 17 skills, 10 commands, 12 guardrails, 3 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 13 bundled skills, 10 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex native plugin: skills, commands-as-skills, subagents, guardrails and references | the versioned plugin cache shown by `codex plugin list --json` |
 | Codex clone fallback: skills and commands-as-skills | `~/.agents/skills/` |
 | Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
@@ -174,11 +175,12 @@ is operator posture and is not removed.
 
 ---
 
-## External plugins this builds on
+## Optional extensions
 
-Nothing required is external. The method layer — brainstorming, writing and executing plans,
-test-driven development, the evidence gate, parallel dispatch, receiving a review — ships in
-`skills/` and `references/shared/`, adapted from [obra/superpowers](https://github.com/obra/superpowers)
+Nothing required is external. The method layer — discovery, design, planning, execution and
+test-driven development — has one authority in `skills/planning`; the evidence gate, parallel
+dispatch and review protocol live in shared references and `/pr-review`. It is adapted from
+[obra/superpowers](https://github.com/obra/superpowers)
 (MIT) and recorded in `NOTICE`, the way `landing-page-design`, `animate` and `intent-layer`
 entered before it: nine of the ten commands stopped mid-run without that plugin, and a dependency
 nine commands cannot run without is not tooling around the harness, it is the harness. A copied
@@ -205,10 +207,10 @@ ones it did not choose — that is the setting keeping its lockfile from forking
 inside a bun project is denied by this plugin's own guardrail, correctly, and the fix is to use the
 runner the project already standardised on rather than to widen the allowlist.
 
-Three more plugins are optional, and only the commands that call them notice their absence:
-`code-review` (bundled with Claude Code, invoked by `/pr-review`), and the Codex plugin's
-`rescue` and `codex-result-handling` skills (invoked by `/debug` and `/research` when a second
-implementation pass is worth having).
+Two more plugins are optional, and only the commands that call them notice their absence:
+`code-review` from Claude's official plugin marketplace (invoked by `/pr-review`), and the Codex
+plugin's `rescue` and `codex-result-handling` skills (invoked by `/debug` and `/research` when a
+second implementation pass is worth having).
 
 Some skills also expect MCP servers (Context7 for library docs, Tavily for research,
 sequential-thinking for multi-step reasoning) and `bunx agent-browser` for browser verification.
@@ -389,8 +391,9 @@ Stop for my approval before each write, as the playbook instructs.
 ```
 
 Ten steps, every one of them with a stop before it writes: locate the plugin and back up →
-install the external plugins → read the repository → write or merge the config → improve
-`CLAUDE.md` and `AGENTS.md` → create or improve the rules layer → clean what shadows the plugin →
+check optional integrations and workflow binaries → read the repository → write or merge the
+config → improve `CLAUDE.md` and `AGENTS.md` → create or improve the rules layer → clean what
+shadows the plugin →
 audit `settings.json` → wire Codex → verify with output.
 
 > **Installing without cleaning the project's `.claude/` does nothing.** Precedence is

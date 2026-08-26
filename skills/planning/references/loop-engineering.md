@@ -25,7 +25,7 @@ of them maps to a guard this skill already owns:
 | **No hard stopping condition** — loops forever | **HARD-STOP**: max iterations per artifact → escalate to user | `SKILL.md § Stopping & red flags` + each phase guide |
 | **Underspecified goal** — "looks good" is not checkable | **GOAL-GUARD**: refuse to enter the loop unless the goal is a binary PASS/FAIL criterion | this file (§ Calibration anchors) |
 | **Context overflow** — long sessions degrade | **CTX-GUARD**: at ~80K tokens, write a handoff + reset, resume from the artifact | this file (§ Context Reset Protocol) |
-| **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, retry cap 3 per task | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
+| **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, correction cap `${graphGuardrails.maxRepatch}` in Phase C | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
 
 ---
 
@@ -42,7 +42,7 @@ LOOP <phase>:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
     - CTX-GUARD : context > ~80K → handoff artifact + reset (§ Context Reset Protocol)
-    - COST-GUARD: width `graphGuardrails.maxParallelWave` / retry cap 3 per task
+    - COST-GUARD: width `graphGuardrails.maxParallelWave` / Phase C correction cap `${graphGuardrails.maxRepatch}`
   terminal: goal PASS → next phase | any guard trips → escalate / halt
 ```
 
@@ -99,7 +99,7 @@ At/above threshold → goal PASS → exit. Below → FAIL with actionable feedba
 
 > **Loop budget (cost control).** Thresholds give the loop a terminal; the budget keeps it from
 > running away. CTX-GUARD = the Context Reset Protocol (§ below) at ~80K tokens. COST-GUARD =
-> retry cap 3 per artifact + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
+> Phase C correction cap `${graphGuardrails.maxRepatch}` + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
 > "runaway spend".
 
 ---
@@ -253,7 +253,7 @@ read them as "all clauses true → exit".
 |---|---|---|---|
 | **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect → clarify → compare → design → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable destination → do not plan) |
 | **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** self-review passes **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved; at L5+, GATE 2 meets the 4 anchors | map files/interfaces → write tasks → self-review → at L5+ `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Executing-plans** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** GATE A spec PASS **AND** GATE B quality PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → GATE A → GATE B → close the task, and its verification releases what it unblocked (`subagent-driven-development`) | HARD-STOP 3 retries/task · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · seq-think gate before the 3rd retry |
+| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** task review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → task review → correction review when needed → close the task, and its verification releases what it unblocked | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · then `/debug recover` |
 
 ---
 

@@ -13,8 +13,9 @@
 
 Graph Powers is a shared harness — agents, skills, commands and guardrails — that installs once and
 adapts to each project through one config file. Installing it changes nothing on its own. What
-changes things is this playbook: it installs the required external plugins, writes the project's
-parameters, **improves the instruction files that already exist** rather than replacing them, and
+changes things is this playbook: it checks optional integrations and workflow binaries, writes the
+project's parameters, **improves the instruction files that already exist** rather than replacing
+them, and
 removes the local copies that currently shadow the plugin.
 
 That last part is the step that decides whether any of this works, and it is the one that needs
@@ -175,7 +176,8 @@ turning `node "$PLUGIN/bin/graph-powers.mjs"` into `node /bin/graph-powers.mjs`:
 export PLUGIN=<the directory you just found>
 
 # PowerShell
-$env:PLUGIN = "<the directory you just found>"
+$PLUGIN = "<the directory you just found>"
+$env:PLUGIN = $PLUGIN
 
 # prove it before going on, on either
 python3 -c "import os,sys;p=os.environ.get('PLUGIN','');sys.exit(print('PLUGIN=' + p) if os.path.isfile(os.path.join(p,'AGENT_SETUP.md')) else 'PLUGIN does not point at a plugin root')"
@@ -199,10 +201,11 @@ BACKUP
 
 ---
 
-## Step 1 — Install what the harness depends on
+## Step 1 — Check optional integrations and workflow binaries
 
-Two kinds of dependency, and this step installs both: the **plugins** two commands can call into,
-both optional, and the **binaries** the skills shell out to. Neither is vendored. A copied snapshot
+No plugin is required. This step checks two **optional plugins** that commands can call into and the
+**binaries** documented workflows shell out to, then installs only what the user chooses or the
+workflow requires. Neither is vendored. A copied snapshot
 of somebody else's work goes stale and cannot be updated — which is the exact failure this harness
 exists to end, one level up.
 
@@ -211,8 +214,8 @@ the fastest way to know which halves of this step you can skip.
 
 **Nothing required is external.** The method layer the commands open with — discovery, design,
 writing and executing plans, test-driven development, the evidence gate, parallel dispatch,
-receiving a review — ships inside this plugin as `skills/planning`, `executing-plans`,
-`test-driven-development`, `commands/pr-review.md § 4.1` and
+receiving a review — ships inside this plugin as `skills/planning`,
+`commands/pr-review.md § 4.1` and
 `references/shared/005-method-bootstrap.md`, `015-verification-gate.md`,
 `070-parallel-agent-spawn.md`.
 `/design` needs nothing installed either: its direction, its craft passes and the landing-page
@@ -221,8 +224,8 @@ system are the plugin's own `designer` and `landing-page-design` skills.
 **There is no per-skill install.** Claude Code, native Codex, Cursor and Grok expose the plugin's
 whole `skills/` directory. The Codex clone fallback enumerates every skill directory and copies all
 of `references/`; it does not keep a hand-maintained allowlist. Installing or updating Graph Powers
-therefore installs `executing-plans`, `test-driven-development` and their references together. If
-either skill is missing, update or reinstall the plugin and restart the session — do not copy one
+therefore installs planning's Phase C, TDD policy and execution references together. If any part of
+that authority is missing, update or reinstall the plugin and restart the session — do not copy one
 folder by hand and create a version that cannot be updated as a unit.
 
 A `superpowers` plugin left from an earlier setup is not used by this harness any more — every
@@ -282,8 +285,8 @@ claude plugin update graph-powers
 
 | Plugin | Reached from | Without it |
 |---|---|---|
-| `codex@openai-codex` | `/debug` escalation (`commands/debug.md` § 1.3, § 1.6, § 1.7) and `/implement --codex` | escalation falls through to `/debug recover`; nothing hangs |
-| `code-review@claude-plugins-official` | `/pr-review` § 3C, already labelled best-effort | one of four review paths is missing; the other three still run |
+| `codex@openai-codex` | `/debug` escalation (`commands/debug.md` § 1.3, § 1.6, § 1.7) | escalation falls through to `/debug recover`; nothing hangs |
+| `code-review@claude-plugins-official` | `/pr-review` § 3E, already labelled best-effort | one review path is missing; the others still run |
 
 The `codex` plugin needs the `codex` binary as well — the plugin routes to it, and the agent it
 ships cannot run a CLI that is not installed. Install both or neither.
@@ -1998,8 +2001,9 @@ doc = json.loads(subprocess.run(
 entry = next((p for p in doc.get("installed", [])
               if p.get("pluginId") == "graph-powers@graph-powers" and p.get("enabled")), None)
 root = ((entry or {}).get("source") or {}).get("path")
-required = ("skills/executing-plans/SKILL.md",
-            "skills/test-driven-development/SKILL.md")
+required = ("skills/planning/SKILL.md",
+            "skills/planning/references/phase-c-executing-plans.md",
+            "skills/planning/references/execution/tdd-policy.md")
 missing = required if not root else tuple(r for r in required if not os.path.isfile(os.path.join(root, *r.split("/"))))
 print("method skills: " + ("present" if not missing else "MISSING " + ", ".join(missing)))
 raise SystemExit(bool(missing))

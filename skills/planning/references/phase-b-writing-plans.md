@@ -61,13 +61,14 @@ proves the work happened.
   Owns: <full paths this task is the sole writer of>
   Needs: T1.2 (reads: <the type, file or exported symbol it consumes>) | none
   Agent: <lane> · Skill: <domain skill | none> · Effort: mechanical | design
+  TDD: <required | not-applicable (<motivo>) | exception-approved (<motivo>)>
   CHECK: <command, scoped to this task>
   EXPECT: <string or /regex/ that can only appear on success>
   EVIDENCE: pending
   Steps:
     1. Read <file> to confirm <pre-state>
-    2. Write failing test at <test-path> asserting <criterion> — confirm RED
-    3. Implement the minimal change at <impl-path> — confirm GREEN
+    2. [required] Write failing test at <test-path> asserting <criterion> — confirm RED
+    3. [required] Implement the minimal change at <impl-path> — confirm GREEN
   Risk: low | medium | high      (L6+ only)
 ```
 
@@ -96,8 +97,8 @@ cannot name is a false edge — delete it, and the two tasks run together. The e
 `graph-powers:frontend-specialist` · `graph-powers:debugger` · `graph-powers:performance-optimizer` ·
 `graph-powers:mobile-developer` · `graph-powers:verification`. A lane whose root the project does not
 have is not routable — no `mobileRoot`, no mobile lane. `main` means the main thread and is valid
-only in the human chain: the workflows have no main-thread lane and silently reroute it, so a plan
-headed for `ultra-build` never writes it.
+only in the human chain; Phase C's dispatcher uses the declared routable lane and never silently
+reroutes an invalid one.
 
 **`Effort:`** picks the model tier per
 `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md § Model and effort per unit of work`.
@@ -105,7 +106,10 @@ headed for `ultra-build` never writes it.
 **`Steps:`** are required when a subagent owns the task — it reads this block and nothing else — and
 omitted when the main thread does. Give exact paths, signatures, commands and expected results.
 Include code or test snippets when a fragile or novel step would otherwise force the implementer to
-make a design decision; do not paste boilerplate the repository already supplies.
+make a design decision; do not paste boilerplate the repository already supplies. For
+`TDD: required`, Steps must include observed RED, minimum GREEN and refactoring while green. For
+`TDD: not-applicable (...)` or `TDD: exception-approved (...)`, omit RED/GREEN steps and retain the
+reason in the task block. Those are the only three accepted TDD forms; do not infer an exception.
 
 ### Atomicity, tested from both sides
 
@@ -142,16 +146,24 @@ Phases group tasks in layer-dependency order (`references/layer-map.md`) and car
   EVIDENCE: pending
 - [ ] **G2.2** — the project still type-checks and lints as a whole
   CHECK: ${tooling.commands.typeCheck} then ${tooling.commands.lint}
-  EXPECT: <the success line>
+  EXPECT: <the declared success output>
   EVIDENCE: pending
 - [ ] **G2.3** — nothing outside this phase's Owns sets changed
+  CHECK: <portable changed-path comparison against this phase's Owns union>
+  EXPECT: <the exact no-out-of-scope-paths result>
+  EVIDENCE: pending
 - [ ] **G2.4** — the interfaces the next phase Needs exist and match
+  CHECK: <focused interface probes named by the next phase's Needs payloads>
+  EXPECT: <the exact interface success result>
+  EVIDENCE: pending
 ```
 
 **Why the gate exists at all:** a dozen locally perfect tasks can still be a broken repository, and
-nothing in a per-task check would notice. The gate is where integration is proven — and it is also
-where the whole-project commands run, **once per phase instead of once per task**. A twelve-task
-plan that type-checks twelve times is paying twelve times for one fact.
+nothing in a per-task check would notice. Each phase gate proves its task evidence, ownership and
+interfaces. Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, repository-wide
+type-check and lint run once at each phase gate, never per task; serial full tests run at the final
+boundary. Add a final-phase `G*.5` block with the declared serial test command, its exact success
+output and `EVIDENCE: pending`; it is executable evidence, not prose.
 
 Order only layers the project declares in `references/layer-map.md` or `${rulesDir}/layer-map.md`.
 Preserve dependency direction — data contracts before their consumers, integration after the units
@@ -235,7 +247,10 @@ Fix inline once, then run the checklist once more:
 - [ ] Every task: non-empty `Owns`, a `Needs` with a named payload or `none`, a runnable `CHECK`
       with an `EXPECT` that cannot match on failure.
 - [ ] Every `[PARALLEL-SAFE]` phase passes the ownership check (Step 3).
-- [ ] Every phase ends with a gate, and the whole-project commands appear **only** there.
+- [ ] Every phase ends with a gate; repository type-check and lint appear once per phase, while
+      serial full tests appear only at the final phase gate.
+- [ ] Every `G*` block has a runnable `CHECK`, decisive `EXPECT` and `EVIDENCE: pending`; each task
+      phase number has at least one matching gate number.
 - [ ] Every in-scope design requirement maps to a task; no task serves an out-of-scope row.
 - [ ] Names and signatures consumed later exactly match what earlier tasks produce.
 - [ ] Every required section is present and non-empty (`## Not yet specified` may say it is empty).

@@ -3,8 +3,8 @@ name: debugger
 description: "Use proactively whenever something is broken: an error, a crash, a stack trace, a failing test or CI run, a 500, a hydration mismatch, or a regression that appeared after a deploy. Writes the fix as well as finding it. Delegate here on the first defect report, not after several failed attempts — that is the recovery protocol."
 color: orange
 role_type: worker
-# `Skill` is load-bearing: the preloaded `debugger` skill invokes
-# graph-powers:test-driven-development at Step 5. Recovery reads the canonical feedback protocol
+# `Skill` is load-bearing: the preloaded `debugger` skill applies planning's canonical TDD policy
+# at Step 5. Recovery reads the canonical feedback protocol
 # from commands/pr-review.md § 4.1 through `Read`, rather than loading a second skill. It also owns
 # the JS/TS gate resolver, so this agent never loads a separate verification skill.
 tools: Read, Write, Edit, Bash, Glob, Grep, Skill

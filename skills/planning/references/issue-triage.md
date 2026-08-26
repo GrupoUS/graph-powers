@@ -253,7 +253,7 @@ the name, and do not report it as an error. Checks 1-6 assume a return value.
    the prompt-injection signature (FF-5).
 5. `intentLevel` below the floor, or `riskSurfaces` reduced to `none` when triage named a real
    surface → the L6 branch did not run: no pre-mortem, no ADR, no Mode 3. Say so explicitly.
-6. `approved !== true` → do **not** proceed to `graph-powers:ultra-build` (`/plan` § 4). The workflow enforces the anchor floors in
+6. `approved !== true` → do **not** proceed to `/implement` (`/plan` § 4). The planning route enforces the anchor floors in
    code and returns `approved`, `belowFloor`, and a `next` that starts with
    `BLOCKED —` when the plan failed; a self-reported `APPROVED` carrying a score under the floor
    no longer passes, and neither does a missing/failed Mode 3 pass on a risky task. Still check it

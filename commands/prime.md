@@ -7,7 +7,7 @@ workflow_type: augmented-llm
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`
 >
 > Those three, and nothing else. A context loader that opens by loading the agent matrix and the
 > guardrail index has already lost the argument it is making. Spawning is the execution floor's, and
@@ -38,7 +38,9 @@ Plus optional project supplements under `${rulesDir}` (routing supplements, anti
 
 ## 0. Setup (every mode)
 
-`/prime` is a context loader — it does not mutate code, so it does NOT invoke the superpowers bootstrap itself. Instead, surface a one-line recommendation at the end of the output (per `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`): the **next** command should load `Skill("superpowers:using-superpowers")` as its first skill call.
+`/prime` is a context loader, so the method bootstrap's explicit exception applies: recommend that
+the **next** command apply `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` before
+its first action; do not invoke an implementation skill here.
 
 Read `.graph-powers/config.json`. Note `${paths.*}` and `${rulesDir}` for later loading.
 
@@ -127,7 +129,7 @@ Loaded:
 Supplements applied: {yes/no — list `${rulesDir}` supplement files actually loaded}
 Next on demand: {only the most relevant additional files}
 Ready for: {task description or "awaiting task"}
-Reminder: next command should open with Skill("superpowers:using-superpowers").
+Reminder: next command should apply 005-method-bootstrap.md before its first action.
 ```
 
 Keep summary under 120 words.

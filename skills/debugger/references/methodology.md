@@ -31,7 +31,10 @@ Map each probe to a **specific prediction** from a Step 3 hypothesis (which valu
 ## Step 5 — Fix + regression test (P5)
 
 ### 1. Create the failing test on the real seam (RED)
-The test must exercise the **actual production code path** that fails — not a happy-path stub, not a private helper called with synthetic args. If no correct seam exists, refactor to expose one *before* writing the test (still inside `Skill("graph-powers:test-driven-development")` RED).
+The test must exercise the **actual production code path** that fails — not a happy-path stub, not
+a private helper called with synthetic args. If no correct seam exists, refactor to expose one
+*before* writing the test, under
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md`.
 ```typescript
 it("should reject an empty tenantId", () => {
   expect(() => service.create({ tenantId: "" })).toThrow();

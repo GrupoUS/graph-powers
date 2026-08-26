@@ -175,7 +175,7 @@ Each of these produced a false P0 in the 2026-08-17 baseline audit:
 1. **Hook on disk not in settings = dead code.** Wrong twice. `~/.claude/hooks/protect_files.py`
    and `plan_validator.py` are imported as modules by `pre_write_guard.py:27-33`, which *is*
    declared. Grep for importers before calling a hook orphaned.
-2. **`skills:` count mismatch = missing SKILL.md.** `${CLAUDE_PLUGIN_ROOT}/skills/adhd` is a symlink into
+2. **`skills:` count mismatch = missing SKILL.md.** A `plugin-root/skills/adhd` path can be a symlink into
    `.agents/skills/`; `find` does not follow it but `[ -f ]` does. Check for symlinks.
 3. **Bare agent name in a code fence = dangling `subagent_type`.** Role labels defined in an
    earlier fence (`commands/debug.md:124-146`) are documentation, not spawns. Grep for the

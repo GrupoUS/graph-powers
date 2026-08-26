@@ -862,24 +862,61 @@ def main() -> int:
           (code, "note: --exclude nothing-here matched nothing" in out), (0, True))
     shutil.rmtree(fx, ignore_errors=True)
 
-    check("guarded runs intent_layer.py state without asking",
+    windows_intent = str(intent).replace("/", "\\")
+    check("guarded runs the plugin's resolved intent_layer.py without asking",
           call("smart_bash_approver",
-               bash("python -X utf8 skills/intent-layer/scripts/intent_layer.py state ."),
-               a)[0], "allow")
+               bash(f'python -X utf8 "{intent}" state .'), a)[0], "allow")
     check("...and the gate under the Windows launcher",
           call("smart_bash_approver",
-               bash("py -3 skills/intent-layer/scripts/intent_layer.py check ."), a)[0], "allow")
-    # The spelling the playbook actually emits — the path in double quotes, so the closing quote
-    # sits between `.py` and the space. The first regex was written from the unquoted fixture
-    # above and asked on every real invocation while this suite stayed green.
+               bash(f'py -3 "{intent}" check .'), a)[0], "allow")
+    check("...and the plugin-root placeholder emitted by the skill",
+          call("smart_bash_approver",
+               bash('python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/intent-layer/scripts/intent_layer.py" measure .'),
+               a, env={"CLAUDE_PLUGIN_ROOT": str(HOOKS.parent)})[0], "allow")
+    check("...but CLAUDE_PLUGIN_ROOT cannot redirect that allowance to another tree",
+          call("smart_bash_approver",
+               bash('python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/intent-layer/scripts/intent_layer.py" measure .'),
+               a, env={"CLAUDE_PLUGIN_ROOT": str(a)})[0], "ask")
+    # The setup playbook defines PLUGIN in the environment. The hook accepts that placeholder only
+    # while its value resolves to the root beside this hook; the command cannot choose the root.
     check("...and the quoted plugin-root path the playbook emits",
           call("smart_bash_approver",
                bash('python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .'),
-               a)[0], "allow")
+               a, env={"PLUGIN": str(HOOKS.parent)})[0], "allow")
     check("...and the single-quoted spelling a PowerShell user types",
           call("smart_bash_approver",
-               bash("py -3 'C:\\tools\\gp\\skills\\intent-layer\\scripts\\intent_layer.py' check ."),
+               bash(f"py -3 '{windows_intent}' check ."),
                a)[0], "allow")
+    check("...but PLUGIN cannot redirect that allowance to another tree",
+          call("smart_bash_approver",
+               bash('python -X utf8 "$PLUGIN/skills/intent-layer/scripts/intent_layer.py" state .'),
+               a, env={"PLUGIN": str(a)})[0], "ask")
+    check("...and an attacker-owned launcher with a trusted basename still asks",
+          call("smart_bash_approver",
+               bash(f'"{a / "python"}" -X utf8 "{intent}" state .'), a)[0], "ask")
+    check("...and a background command cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . & untrusted-tool marker'), a)[0], "ask")
+    check("...and output redirection cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . > marker.txt'), a)[0], "ask")
+    check("...and process substitution cannot trail the trusted script",
+          call("smart_bash_approver",
+               bash(f'python -X utf8 "{intent}" state . <(untrusted-tool marker)'), a)[0], "ask")
+    check("...but an unrelated Python script with the same filename still asks",
+          call("smart_bash_approver",
+               bash("python -X utf8 untrusted/intent_layer.py state ."), a)[0], "ask")
+    check("...and so does that unrelated script under the Windows launcher",
+          call("smart_bash_approver",
+               bash("py -3 untrusted\\intent_layer.py check ."), a)[0], "ask")
+    check("...and a matching directory suffix cannot hide an unrelated POSIX script",
+          call("smart_bash_approver",
+               bash("python -X utf8 untrusted/skills/intent-layer/scripts/intent_layer.py state ."),
+               a)[0], "ask")
+    check("...or hide one under the Windows launcher",
+          call("smart_bash_approver",
+               bash("py -3 untrusted\\skills\\intent-layer\\scripts\\intent_layer.py check ."),
+               a)[0], "ask")
     check("...but the interpreter with the script only named inside -c still asks",
           call("smart_bash_approver",
                bash('python -X utf8 -c "import intent_layer"'), a)[0], "ask")

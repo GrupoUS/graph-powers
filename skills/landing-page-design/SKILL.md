@@ -173,9 +173,9 @@ audits belong to the owners named below.
   links from the homepage and the feature pages, and the FAQ written in plain question-and-answer
   form, the form answer engines lift.
 - **What is not decided here.** Title and meta, `og:image`, structured data, crawlability belong to
-  `/perf seo`. One fact for that handoff: Google removed FAQ rich results from Search in May 2026,
-  so `FAQPage` markup is valid but buys no snippet — add it for machine readability, not for the
-  result page.
+  `/perf seo`. One fact for that handoff: Google deprecated FAQ rich results effective May 7, 2026
+  ([official update](https://developers.google.com/search/updates)), so `FAQPage` markup is valid
+  but buys no snippet — add it for machine readability, not for the result page.
 
 ## Ship floor
 

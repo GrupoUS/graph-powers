@@ -177,8 +177,7 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 #
 # 7,586 B came out of duplication, and no command lost content: the placeholder table in
 # `000-config-loader.md`, a third copy of the field list `schema/config.schema.json` owns, priced at
-# 9 command floors; and the domain-skill enumeration in `005-method-bootstrap.md` (then named
-# `005-superpowers-bootstrap.md`), which
+# 9 command floors; and the old domain-skill enumeration in `005-method-bootstrap.md`, which
 # `120-skill-invocation-order.md` owns, priced at 10.
 #
 # The other 30,604 B were never a real load — they were this script mismeasuring one, which is the

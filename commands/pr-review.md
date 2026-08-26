@@ -1,5 +1,5 @@
 ---
-description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Runs an adversarial evaluator, a security reviewer, the code-review skill and /debug audit in parallel, applies its built-in feedback protocol, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
+description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Combines an adversarial evaluator, a security reviewer, the code-review skill and /debug audit, applies its built-in feedback protocol, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
 workflow_type: prompt-chaining
 ---
 
@@ -7,7 +7,7 @@ workflow_type: prompt-chaining
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-superpowers-bootstrap.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md`
 
 ```
@@ -58,11 +58,6 @@ report.
 ---
 
 ## 0. Pre-flight
-
-```typescript
-Skill("superpowers:using-superpowers");
-Skill("superpowers:requesting-code-review");
-```
 
 Resolve the config (`${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`). Confirm the working tree state, the branch, the diff
 base, and — for a PR — `gh` auth and PR metadata.
@@ -128,8 +123,8 @@ Every unresolved field is a stop, not a placeholder.
 
 ## 3. Review paths (parallel)
 
-Invoke `Skill("superpowers:dispatching-parallel-agents")`, then dispatch **every applicable track in
-one message**, each `run_in_background: true`. Until 1.7.0 this section was titled "(parallel)" and
+Follow `070-parallel-agent-spawn.md`, then dispatch **every applicable track in one message**, each
+`run_in_background: true`. Until 1.7.0 this section was titled "(parallel)" and
 said "dispatch in one message" while naming no agent to dispatch — four prose headings and no
 `subagent_type` anywhere. The table below is the dispatch.
 
@@ -144,8 +139,11 @@ request; the incident behind that rule is in
 | 3B | `graph-powers:security-reviewer` | is it exploitable — tenant, personal data, authorization, secrets | sensitive surface touched, or `full` |
 | 3C | `graph-powers:explorer` | did this regress a hot path — N+1, `select *`, missing FK index, bundle growth | `api`, `schema` or `web` touched |
 | 3D | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport; motion via `animate` review mode | `web` touched |
-| 3E | `code-review:code-review` | the bundled skill's own lens | when the plugin is installed |
+| 3E | `code-review:code-review` | the optional skill's own lens | when the plugin is installed |
 | 3F | `/debug audit pr` | code quality, dependencies, technical debt on changed files | not `--quick`, not `--no-debug` |
+
+For 3E, when available, invoke `Skill("code-review:code-review")` on the same change set. It runs in
+this thread and returns `UNAVAILABLE` rather than being silently omitted when the skill cannot load.
 
 3C and 3D are new, and they are not inventions: `graph-powers:ultra-verify` has run
 `performance-regression` and `design-tokens-a11y` as built-in lenses all along. A review command
@@ -192,8 +190,9 @@ writes `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`; see the Iron Law note about what "re
 
 ### 4.1 Receiving feedback protocol
 
-This is the single source for handling code-review feedback. `/debug recover` and the review loops
-in `executing-plans` read this section; they do not restate it. Feedback is evaluated technically,
+This is the single source for handling code-review feedback. `/debug recover` and the Phase C
+review loops in `skills/planning/references/phase-c-executing-plans.md` read this section; they do
+not restate it. Feedback is evaluated technically,
 not performed socially: **verify before implementing, ask before assuming, correctness over
 comfort.**
 
@@ -286,7 +285,7 @@ even when the verdict is approve>
 |---|---|---|
 | evaluator (3A) | APPROVED / CHANGES_REQUESTED / SKIPPED | P0=<n> P1=<n> P2=<n> |
 | security-reviewer (3B) | PASS / FINDINGS / SKIPPED (+reason) | <n> |
-| performance-optimizer (3C) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
+| explorer, performance lens (3C) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
 | ui-ux-designer (3D) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
 | code-review skill (3E) | PASS / FINDINGS / UNAVAILABLE | <n> |
 | /debug audit pr (3F) | PASS / FINDINGS / SKIPPED | <n> |
@@ -341,7 +340,7 @@ Never commit. The fixes land in the working tree; the person commits them.
 | 2 bundle | yes | yes | yes | yes | yes |
 | 3A evaluator | yes | yes (+ source citation per finding) | skip | yes | yes |
 | 3B security-reviewer | yes | yes | only if sensitive surface | yes | yes |
-| 3C performance-optimizer | if surface touched | yes | skip | if surface touched | yes |
+| 3C explorer, performance lens | if surface touched | yes | skip | if surface touched | yes |
 | 3D ui-ux-designer | if `web` touched | yes | skip | if `web` touched | yes |
 | 3E code-review skill | yes | yes | skip | yes | yes |
 | 3F /debug audit pr | yes (skip on `--no-debug`) | yes (`--no-debug` overridden) | skip | limited | yes |

@@ -146,8 +146,9 @@ A curve not here comes from easing.dev or easings.co, never hand-rolled.
 | Modals, drawers | 200–500ms |
 | Marketing, explanatory | Can be longer |
 
-**UI stays under 300ms.** A 180ms dropdown feels more responsive than a 400ms one; after the first
-tooltip in a toolbar, the neighbours open instantly.
+**Frequent UI stays under 300ms.** A 180ms dropdown feels more responsive than a 400ms one; after
+the first tooltip in a toolbar, the neighbours open instantly. A modal or drawer may take up to
+500ms only when its larger travel distance is the stated reason.
 
 **A spring instead** when the motion is drag with momentum, an element that should feel alive, a
 gesture the user can interrupt or reverse, or decorative mouse-tracking. Springs carry velocity
@@ -230,8 +231,8 @@ each. The rejections are what separate the report from a wishlist.
 
 - **Visual direction** — palette, type, the look of the surface — is `designer`. This skill inherits
   the direction contract's motion mood (crisp, calm, playful, editorial) and tunes within it.
-- **The `/impeccable animate` craft pass** applies motion across a surface; this skill is the bar,
-  loaded by `/design` before the pass. `emil-design-eng` and `apple-design`, when installed, add
+- **The `/design` animate craft pass** applies motion across a surface; this skill is the bar,
+  loaded before the pass. `emil-design-eng` and `apple-design`, when installed, add
   the invisible details and the gesture materials.
 - **A broken animation** — an error, a snap where a transition used to be, a regression after an
   upgrade — is `/debug`. Review judges motion that runs.

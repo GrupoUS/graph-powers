@@ -54,9 +54,9 @@ Fixing it in one repository never reached the others. There was no copy — ther
 | | |
 |---|---|
 | **12 agents** | research, review, debugging, planning, verification, frontend, mobile, security, and an audit of the harness itself |
-| **19 skills** | process (planning, debugging, skill authoring and harness audit in one, the intent layer) and craft (visual direction, motion, landing pages, UX, performance, SEO, accessibility, browser testing) |
+| **13 bundled skills** | process (planning with execution and TDD, debugging, skill authoring and harness audit in one, the intent layer) and craft (visual direction, motion, landing pages, UX, performance, SEO, accessibility, browser testing); optional external supplements are not counted |
 | **10 commands** | from planning to verification, chained |
-| **3 workflows** | the plan → build → verify chain as deterministic orchestration: research fans out, implementation runs in disjoint-file waves, verification refutes from several angles at once |
+| **2 workflows** | optional deterministic accelerators for plan synthesis and adversarial verification; `/implement` and planning Phase C own execution in every harness |
 | **12 guardrails** | git rails, execution ceilings, file protection, kill switch — running on every harness from the same files |
 | **1 contract** | `schema/config.schema.json` — the parameters that make all of the above work in any repository |
 

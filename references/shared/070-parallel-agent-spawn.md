@@ -14,14 +14,15 @@ When invoking 2+ agents in parallel:
    `graphGuardrails.maxSpawnsPerSession` (default 25), which is the session TOTAL and is the one
    `hooks/graph_guardrails.py` refuses at. A run can hit the width limit many times and never
    approach the total, and only the total is enforced in code — the width is a design rule that
-   `workflows/ultra-build.js` applies when it slices a wave.
+   planning Phase C applies when it slices a wave.
 
 7. **One writer per file.** Units running at the same time own **disjoint** paths, declared per task
    (`Owns:`), never inferred at dispatch and never negotiated between two running agents. Overlap
    means the split is wrong: re-split by directory, route or component family, or move the shared
    thing into the plan's contract as its own task. Schema and migrations, cross-cutting singletons
    and global stylesheets are never parallel with anything — their ordering is load-bearing.
-   `workflows/ultra-build.js` enforces this in code; a plan that needs the re-slice was drawn wrong.
+   `skills/planning/scripts/sdd.py validate` rejects concurrent ownership collisions before Phase C
+   creates the write lease; a plan that needs the re-slice was drawn wrong.
 
 8. **The model comes from the agent, not the caller.** Each agent in `agents/` declares its tier
    (§2), and the `Agent` tool honours it — so a spawn passes no `model`. An override wins silently,

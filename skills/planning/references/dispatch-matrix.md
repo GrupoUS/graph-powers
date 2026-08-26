@@ -9,12 +9,12 @@
 
 1. **One writer per file.** Defined once in `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`; Phase B declares it per task as `Owns:` and its self-review checks it (`phase-b-writing-plans.md § Step 3`).
 2. **Read-only agents background.** `graph-powers:explorer`, `graph-powers:librarian` MUST run `run_in_background: true`; `graph-powers:verification` too when alongside write-capable agents.
-3. **Caps.** In-flight width is `graphGuardrails.maxParallelWave`, not a literal; beyond it, checkpoint with the user. Three attempts per hypothesis — the same failure a third time escalates to `graph-powers:evaluator` Mode 3 instead of being retried.
+3. **Caps.** In-flight width is `graphGuardrails.maxParallelWave`, not a literal; beyond it, checkpoint with the user. Correction rounds use only `${graphGuardrails.maxRepatch}`; after the cap, route to `/debug recover`.
 4. **Return budget < 2000 tokens.** Detail to `.claude/agent-memory/<agent>/`, summary index returned to main.
 5. **Subagent non-inheritance.** Agents do NOT auto-load project `CLAUDE.md` — embed critical rules in the agent prompt body or task block.
 
-> Full stopping-conditions table: `../SKILL.md § Stopping & red flags`, plus the phase-specific
-> rows in `phase-c-executing-plans.md § Stopping conditions`.
+> Full stopping-conditions table: `../SKILL.md § Stopping & red flags`; Phase C adds its execution
+> constraints in `phase-c-executing-plans.md § Required invariants`.
 
 ---
 

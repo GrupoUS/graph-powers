@@ -31,9 +31,10 @@ Read this after `SKILL.md § Precedence`, not before it.
   a term — `<cite>`, `<em>` and a taxonomic name keep their meaning. A display face whose intended
   optical weight is heavier is the direction contract's call, not this rule's.
 - **[craft] No orphaned words.** A single word never sits alone on the last line: `text-wrap:
-  balance` on headings, `text-wrap: pretty` on body copy. `balance` ships everywhere; `pretty` is
-  Chromium-only as of 2026 and degrades to normal wrapping elsewhere, so both cost nothing to ship
-  and neither is a fix a reader can rely on in Safari or Firefox.
+  balance` on headings, `text-wrap: pretty` on body copy. Both are progressive enhancement:
+  unsupported values fall back to normal wrapping. Chromium shipped `pretty` in Chrome 117
+  ([Chrome](https://developer.chrome.com/blog/css-text-wrap-pretty)); Safari 26 ships its own
+  implementation ([WebKit](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/)).
 - **[house] No hyphen as a dash.** Rewrite the phrase instead of reaching for `-` as punctuation in
   headings and labels. A compound word or a hyphenated product name keeps its hyphen — "read-only",
   "opt-in" — and a locale that hyphenates grammatically is not rewritten to satisfy an English
@@ -141,8 +142,8 @@ upstream specified, translated:
   `{ once: true }`, never an unthrottled `window.addEventListener('scroll')` — continuous reflow, and
   mobile pays for it. Fire once; re-animating on every scroll-by is a page fighting its reader.
   CSS scroll-driven animations (`animation-timeline: view()`) run on the compositor and ship in
-  Chromium and Safari 26, not Firefox, as of 2026 — the observer stays the baseline and the
-  timeline is the enhancement.
+  Chromium and Safari 26 — the observer stays the cross-browser baseline and the timeline is the
+  progressive enhancement.
 - **[house, catalogued default] The fade-up on every element** — `translate-y-16 blur-md opacity-0`
   resolving over 800ms as each element enters the viewport — is the catalogue's "same fade-up on
   every section: a page that moves everywhere moves nowhere", and `filter: blur` on every entering

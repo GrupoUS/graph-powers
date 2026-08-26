@@ -1,16 +1,16 @@
 ---
 name: planning
-description: "Use when deciding how to build or decompose a multi-step feature before code: implementation plans, architecture trade-offs, integrations, unclear ordering, or sprint scope. Loaded by /plan. Not for a known single-file fix."
+description: "Use when deciding how to build or decompose a multi-step feature, or when executing an approved plan with behaviour-first tests. Trigger on implementation plans, architecture trade-offs, integrations, unclear ordering, sprint scope, implement approved plan, TDD. Loaded by /plan and /implement. Not for a known single-file fix or diagnosis-only work."
 ---
 
 # Planning — discover → design → plan → execute
 
 ## Overview
 
-Produce an implementation-ready plan before code. This skill owns discovery, design and plan
-authoring in one chain: **Step 0** classifies and tier-gates, **Phase A** reaches an approved design,
-**Phase B** writes the executable plan, and **Phase C** hands an approved plan to the separate
-`graph-powers:executing-plans` skill. `/plan` is only the deterministic command entrypoint.
+Produce an implementation-ready plan before code. This skill is the sole authority for discovery,
+design, plan authoring, execution and TDD: **Step 0** classifies and tier-gates, **Phase A** reaches
+an approved design, **Phase B** writes the executable plan, and **Phase C** executes it. `/plan` and
+`/implement` are deterministic adapters only.
 
 > Read the phase guide END TO END before starting that phase — do not improvise from the summaries
 > below. Project context comes from `.graph-powers/config.json` (`paths.*`, `tooling.*`) plus an
@@ -27,6 +27,7 @@ authoring in one chain: **Step 0** classifies and tier-gates, **Phase A** reache
 | Fan-out width, background rule, one writer per file | `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` |
 | Destination, reuse ledger, blast radius and regression watchlist | `references/step-0-inventory.md` |
 | Loop primitive, four guards, calibration anchors, sprint contracts | `references/loop-engineering.md` |
+| TDD policy, good tests and execution prompts | `references/execution/` |
 
 ## Loop & guards
 
@@ -112,15 +113,15 @@ self-review.
 **Goal (loop exit):** `<plan dir>/PLAN.md` with every required section + the ownership check passes
 on every parallel phase + user approved; at L5+, GATE 2 also meets the calibration anchors.
 
-## Step 3 — Phase C: Executing-plans (L5+) → `references/phase-c-executing-plans.md`
+## Step 3 — Phase C: Execute (L5+) → `references/phase-c-executing-plans.md`
 
-**Engine:** `Skill("graph-powers:executing-plans")` in subagent-driven mode — fresh subagent per task, two-stage
-review, continuous execution — driven through `/implement <plan dir>`. The harness adds **rolling
-dispatch**: a task starts when its `Needs` are verified and its `Owns` collide with nothing in
-flight; it is reviewed the moment it returns (GATE A spec, then GATE B quality); and its
-verification releases whatever it unblocked. The phase gate runs once, when every task in that phase
-is verified. Stop at reviewed working-tree changes — stage, commit, push, PR and merge each need
-separate authorization in the current turn, and **nothing auto-merges**.
+**Engine:** this phase's rolling dispatcher — fresh implementer per task, one task reviewer, a
+separate correction reviewer when needed, and a separate final reviewer — driven through
+`/implement <plan dir>`. A task starts when its `Needs` are verified and its `Owns` collide with
+nothing in flight; focused checks run per task and complete repository gates run at each phase
+boundary. The phase creates a plan-scoped write lease from `sdd.py validate`; a lease from another
+plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR and merge
+each need separate authorization in the current turn, and **nothing auto-merges**.
 
 **Goal (loop exit):** every task verified with real evidence + every phase gate met + `/verify quick`
 PASS + `/evolve auto` done.
@@ -134,10 +135,10 @@ PASS + `/evolve auto` done.
 | GATE 1 | After the Phase A spec | `graph-powers:project-planner` | L4+ |
 | GATE 2 | After the Phase B plan | `graph-powers:evaluator` Mode 1 | L5+ |
 | GATE 3 | After the plan, before approval | `graph-powers:evaluator` Mode 3 | L6+ |
-| GATE A | After every implementer task PASS | `graph-powers:evaluator` (spec) | L5+, every task |
-| GATE B | After every GATE A PASS | `graph-powers:evaluator` (quality) | L5+, every task |
+| TASK REVIEW | After every implementer task PASS | one read-only reviewer: compliance first, then quality/KISS | L5+, every task |
 
-Every gate: 3 rejections on one artifact → escalate to the user.
+Phase review corrections use `${graphGuardrails.maxRepatch}`; exhaustion routes to `/debug recover`.
+Other phase-specific review guards are defined by their phase reference.
 
 ## Stopping & red flags
 
@@ -146,16 +147,15 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 
 | Signal | Action |
 |---|---|
-| 3 reviewer rejections on the same artifact | Escalate, halt the phase |
 | Fan-out would exceed `graphGuardrails.maxParallelWave` | Split the phase, or checkpoint with the user |
-| BLOCKED from a subagent / same hypothesis fails 3× | Surface it; escalate to `graph-powers:evaluator` — Mode 3 for an architecture blocker, Mode 5 when the same hypothesis keeps coming back — do not retry blind |
+| BLOCKED from a subagent / correction cap exhausted | Surface it and route to `/debug recover`; do not retry blind |
 | User typed "stop" / "wait" / "pause" | Halt immediately |
 | Scope keeps expanding mid-Phase A | Decompose into sub-projects; brainstorm only the first |
 | Parallel batch returns mixed PASS/FAIL | Keep the PASS diffs, re-dispatch only the FAIL |
 | Coding before the gate · a plan with `TBD` · an unlabeled assumption | Stop — run the gate, research the unknown, label `[ASSUMED]` |
 | A checked task box whose `EVIDENCE` reads `pending` | Unmet. Run the check, or abandon it in the open with a reason |
 | A review finding outside the plan's `## Destination`, `## Regression watchlist` or this diff | Report it under the verdict's notes. It does not become a task, does not reopen a round, and never grows the plan — the question is "does what was built hold?", never "what else could be built" |
-| The same finding survives its fix twice | Escalate with what was tried. A third patch on one item is how an adversarial pass turns into a loop with no floor (`graphGuardrails.maxRepatch`) |
+| The correction cap is exhausted | Escalate with what was tried to `/debug recover`; the cap is `${graphGuardrails.maxRepatch}`, never a second hard-coded limit |
 | Loop entered without a binary goal | GOAL-GUARD — state the PASS criterion first |
 | Context > ~80K and still looping | CTX-GUARD — handoff + reset (`loop-engineering.md § Context Reset Protocol`) |
 | Phase C on a protected branch · parallel writes to `${paths.schemaRoot}/**` | NEVER — switch to `${git.workBranch}`; schema is sequential |
@@ -171,7 +171,13 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 | `references/step-0-inventory.md` | Destination, reuse-first inventory, blast radius, watchlist | Step 0 (short form at L1-L2; full at L3+) |
 | `references/phase-a-brainstorm.md` | Brainstorming method, discovery, design dialogue, spec template | Step 1 (L3+) |
 | `references/phase-b-writing-plans.md` | Writing-plans method, task grammar, phase gates, plan contract, risk and ADR | Step 2 (L4+) |
-| `references/phase-c-executing-plans.md` | Rolling dispatch driver + subagent prompt templates | Step 3 (L5+) |
+| `references/phase-c-executing-plans.md` | Rolling dispatch driver, write lease and execution rules | Step 3 (L5+) |
+| `references/execution/tdd-policy.md` | Single TDD authority | Every `TDD: required` task |
+| `references/execution/writing-good-tests.md` | Behaviour-test guidance | When writing or changing tests |
+| `references/execution/implementer-prompt.md` | Write-capable task prompt | Each task dispatch |
+| `references/execution/task-reviewer-prompt.md` | Per-task compliance and quality review | Each completed task |
+| `references/execution/correction-reviewer-prompt.md` | Correction-round review | After a failed task review |
+| `references/execution/final-reviewer-prompt.md` | Whole-plan review | After all tasks and gates |
 | `references/loop-engineering.md` | Loop primitive, four guards, calibration anchors, sprint contracts, context reset | Once at chain entry; again when a loop will not converge |
 | `references/dispatch-matrix.md` | Planning-unique routing and parallel-safety by path | Every Phase B assignment |
 | `references/layer-map.md` | Layer ordering | Every Phase B phase ordering |

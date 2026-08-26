@@ -213,10 +213,10 @@
         },
         {
           "id": "A02",
-          "description": "Reopens the disk rather than trusting the inventory: a listing, a tool call, or a search into .claude.",
-          "check": "regex: (?i)(\\bls\\b|\\b(read|glob|grep)\\(|\\b(ls|grep|rg)\\b[^\\n]*\\.claude)",
+          "description": "Reopens the disk rather than trusting the inventory through the agent's portable Read, Glob or Grep tools.",
+          "check": "regex: (?:\\b(?:Read|Glob|Grep)\\(|`(?:Read|Glob|Grep)`|tool (?:Read|Glob|Grep))",
           "critical": false,
-          "note": "Round 4 measurement. The earlier `\\b(ls |find |grep |Read\\(|Glob\\()` was wrong in both directions: `find ` matched the case's own prompt echo 'the CLI says it cannot find', `grep ` matched 'grep is not needed here', and it missed 're-listed with `ls`' and 'reopened each file with Read and Glob'. This pattern accepts 'ls .claude/agents', '`ls`', 'Read(...)', 'grep -rn x .claude/' and rejects the prompt echo, 'grep is not needed here', 'skills', 'aliases', 'false'. Run against both lists before changing it again."
+          "note": "The distributed harness must not reward POSIX-only shell listings. Match explicit agent-tool evidence instead of prose verbs or commands such as ls, find and grep."
         },
         {
           "id": "A03",

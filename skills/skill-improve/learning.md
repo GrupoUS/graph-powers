@@ -385,8 +385,9 @@ row, both run against a throwaway HOME before being written down), `check_wiring
 siblings returned **45 collisions** (5 P0 — the "this file wins" precedence claim, the mandatory
 gradient headline, `transition-all duration-700`, the fade-up on every element, the mandatory
 tagline section — all in Part B) and 18 universal rules; a librarian verified 9 claims against
-primary sources: 5 hold, 2 outdated (Google removed FAQ rich results on 2026-05-07; `text-wrap:
-pretty` is Chromium-only per caniuse), 1 nuanced (`noindex` controls visibility, not crawl budget),
+primary sources: 5 hold, 2 outdated (Google deprecated FAQ rich results effective 2026-05-07;
+`text-wrap: pretty` ships in Chromium and Safari 26), 1 nuanced (`noindex` controls visibility, not
+crawl budget),
 1 unverifiable (FAQ 6–12 is convention). One upstream rule was inverted rather than adapted: the
 "organic" fake numbers (`47.2%`) that made invented proof more plausible.
 

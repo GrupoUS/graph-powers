@@ -12,7 +12,9 @@ Production-grade debugging — root-cause rigor, parallel sub-agent research, ag
 
 1. **No hypothesis without a reproducer.** Step 3 can't start until Step 1 produced a deterministic, agent-runnable feedback loop. *No loop → no hypothesis.*
 2. **No fix without confirmed root cause.** Understand *why* before changing code — otherwise fixes rerun blind.
-3. **No production code without a RED test on the real seam** (`Skill("graph-powers:test-driven-development")`). Fixes without RED are hopes, not fixes.
+3. **No production code without a RED test on the real seam**
+   (`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md`). Fixes without RED
+   are hopes, not fixes.
 4. **No "fixed" without fresh evidence** — gate suite exit-0 **plus** screenshot or DB check.
 5. **No scope expansion mid-incident** — log follow-ups; fix only what reproduces.
 
@@ -35,7 +37,7 @@ restate it elsewhere.**
 | Engine | Invoked at | the project wrap |
 |---|---|---|
 | `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` (read before the fan-out) | Step 2 | distinct scope + shared return contract for the pack's sub-agents |
-| `references/methodology.md § Step 5` + `Skill("graph-powers:test-driven-development")` | Step 5 (RED→GREEN gate) | Iron Law #3 real-seam RED before any prod edit |
+| `references/methodology.md § Step 5` + `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md` | Step 5 (RED→GREEN gate) | Iron Law #3 real-seam RED before any prod edit |
 | `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md` | Step 6 (before any "fixed" claim) | gate suite exit-0 + agent-browser/DB evidence |
 | `${CLAUDE_PLUGIN_ROOT}/commands/pr-review.md § 4.1` | Escalation / `/debug recover` | technical evaluation of reviewer feedback, not blind agreement |
 
@@ -81,7 +83,9 @@ through the shell tool's captured stdout. The failure mechanism and recovery are
 - **Exit:** root cause confirmed; rejected hypotheses disproved by evidence (not just the winner proven).
 
 ## Step 5 — Fix + regression test (P5) → `references/methodology.md`
-- Follow `references/methodology.md § Step 5`, then `Skill("graph-powers:test-driven-development")`: RED on the **real production seam** → watch fail → **single** fix GREEN → watch pass → gates. `Read` before edit; re-run type-check after each edit, revert on new failures.
+- Follow `references/methodology.md § Step 5`, then the planning TDD policy: RED on the **real
+  production seam** → watch fail → **single** fix GREEN → watch pass → gates. `Read` before
+  edit; re-run type-check after each edit, revert on new failures.
 - On a JS/TS edit loop, use the resolver's changed-only test; reserve its serial full suite for Step 6.
 - Add defense-in-depth at the right layer; re-run the Step 1 loop to confirm it's now green.
 - **Fix-shape check** (`references/structural-quality.md`): a fix that adds an ad-hoc conditional / one-off boolean to an unrelated flow is a symptom patch — prefer the fix at the model/boundary that **deletes** the special case.

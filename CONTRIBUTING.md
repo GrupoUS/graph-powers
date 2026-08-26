@@ -16,6 +16,7 @@ Run the gates. If one fails, the review stops here.
 ```bash
 claude plugin validate .
 python3 hooks/test_hooks.py
+python3 skills/planning/scripts/test_sdd.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun bin/graph-powers.mjs --help > /dev/null
