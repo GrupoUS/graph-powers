@@ -279,12 +279,23 @@ def load_config(root: Path) -> dict[str, object]:
     in this plugin: a missing file, a typo in the JSON, a block of the wrong type — the defaults,
     never a traceback. A gate that breaks on its own input teaches people to switch gates off.
     """
+    resolved_root = root.resolve()
     for rel in (".graph-powers/config.json", ".claude/config.json"):
         path = root / rel
-        if not path.is_file():
+        try:
+            resolved = path.resolve(strict=True)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return {}
+        try:
+            resolved.relative_to(resolved_root)
+        except ValueError:
+            return {}
+        if not resolved.is_file():
             continue
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(resolved.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
         block = data.get("intentLayer") if isinstance(data, dict) else None
@@ -301,7 +312,16 @@ def config_paths(cfg: dict[str, object], key: str) -> list[str]:
     value = cfg.get(key)
     if not isinstance(value, list):
         return []
-    return [normalise_pattern(str(v)) for v in value if isinstance(v, str) and normalise_pattern(str(v))]
+    paths: list[str] = []
+    for value_item in value:
+        if not isinstance(value_item, str):
+            continue
+        pattern = normalise_pattern(value_item)
+        if (not pattern or "\0" in pattern or re.match(r"^[A-Za-z]:", pattern)
+                or ".." in PurePosixPath(pattern).parts):
+            continue
+        paths.append(pattern)
+    return paths
 
 
 def normalise_pattern(raw: str) -> str:

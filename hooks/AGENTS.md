@@ -15,9 +15,9 @@ the rules a host project keeps under its own `.claude/rules/`.
 - `_config.py` — the only file in the plugin that knows projects differ. It reads the project's
   `.graph-powers/config.json` over the operator's `~/.graph-powers/config.json`, and resolves the
   project from the payload `cwd`, then the environment, then the git root.
-- `test_hooks.py` — 439 checks on 2026-08-26, run from the plugin root: every guardrail's violating
-  case and its mirrored legitimate case, two projects side by side, in temporary directories with
-  an empty HOME.
+- `test_hooks.py` — the sandboxed suite, run from the plugin root: every guardrail's violating case
+  and its mirrored legitimate case, two projects side by side, in temporary directories with an
+  empty HOME.
 
 ## Contracts and invariants
 

@@ -199,7 +199,11 @@ same three writes. Two of two runs that reached § 5 loaded it; zero of two that
 did. One thing the run surfaced that is not this
 skill's: `/evolve § 4` had the session propose writing the learning into the **plugin's** own
 `skills/debugger/references/` — a host-project learning aimed at a globally installed plugin
-directory. That is `commands/evolve.md`'s to fix, and it is reported rather than patched here.
+directory. The final PR review closed it in the shared skill-domain matrix: selecting a method no
+longer grants write ownership, and `/evolve` skips global/plugin destinations while keeping the
+learning in the host project's log and `AGENTS.md`. The same clean-session case then passed at
+$2.14 / 23 turns with a clean fixture: it selected `graph-powers:debugger` as method only, reported
+`Skills: none (global plugin unchanged)`, and proposed no plugin-file write.
 
 **Next round should measure:** whether a host project's setup actually writes
 `intentLayer.deferred` rather than leaving `partial` on the report, and the same nine cases from a

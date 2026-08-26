@@ -780,15 +780,23 @@
         },
         "exclude": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?![A-Za-z]:)(?!\\.\\.(?:[\\\\/]|$))(?!.*[\\\\/]\\.\\.(?:[\\\\/]|$))[^\\u0000]+$"
+          },
           "default": [],
-          "description": "fnmatch globs, POSIX-relative, matched against a directory and every parent: a subtree whose AGENTS.md is not a node — a template still carrying placeholders, a vendored example. Same shape as the script's --exclude, which adds to this list rather than replacing it."
+          "description": "fnmatch globs, normalized to POSIX-relative paths without a drive root or .. component, matched against a directory and every parent: a subtree whose AGENTS.md is not a node — a template still carrying placeholders, a vendored example. Same shape as the script's --exclude, which adds to this list rather than replacing it."
         },
         "deferred": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?![A-Za-z]:)(?!\\.\\.(?:[\\\\/]|$))(?!.*[\\\\/]\\.\\.(?:[\\\\/]|$))[^\\u0000]+$"
+          },
           "default": [],
-          "description": "Directories (POSIX-relative, no trailing slash) the project has decided do not earn a node although the measure says they would — because a file they already carry is the map, or a node would only repeat the root. state stops counting them as candidates and reaches complete; check fails if the nearest ancestor AGENTS.md does not mention the directory, and warns once the directory gains a node of its own, because then the deferral is stale."
+          "description": "Directories (POSIX-relative, no drive root, .. component or trailing slash) the project has decided do not earn a node although the measure says they would — because a file they already carry is the map, or a node would only repeat the root. state stops counting them as candidates and reaches complete; check fails if the nearest ancestor AGENTS.md does not mention the directory, and warns once the directory gains a node of its own, because then the deferral is stale."
         }
       },
       "additionalProperties": false

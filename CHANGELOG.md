@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.10.5 — Final review closes the ownership and publication gaps
+
+The final PR review fixed both actionable findings from the remote reviewer. A skipped
+case-canonicalisation fixture no longer evaluates stale variables when symlinks are unavailable,
+and an exclusive SDD lease is written, flushed and synced in a same-directory staging file before
+an atomic no-overwrite link publishes it. Deterministic regressions prove the canonical lease is
+never visible partially and an interrupted write leaves no canonical file.
+
+Intent-layer configuration now stays inside the project root: external config symlinks fall back
+to defaults, and traversal, drive-root, NUL and empty exclude/deferred paths are rejected by both
+the schema and runtime. `/evolve` also separates method selection from write ownership, so a host
+learning cannot be written into an installed global plugin; only project-owned skill files are
+writable, while the project log and `AGENTS.md` remain the durable destinations. Live documentation
+no longer embeds check or inventory counts that immediately drift from the gates.
+
 ## 1.10.4 — The plugin grows its own intent layer
 
 ### Added — `skills/AGENTS.md` and `hooks/AGENTS.md`, the first two child nodes of this repository
@@ -24,9 +39,11 @@ node the reader can replace by opening two files is weight.
 the project has decided does not earn a node. `state` stops counting it and reaches `complete`
 honestly; `check` refuses the deferral until the nearest ancestor `AGENTS.md` names the directory
 in backticks with the reason beside it, and warns when a deferred directory later grows a node.
-This repository declares its own five, with the reasons in the root's `Where things live` rows and
-in `skills/AGENTS.md`. Eleven tests in `hooks/test_hooks.py` cover the block, including the typo
-that has to fall back to the defaults.
+This repository declares eight deferrals: the five candidates above plus `docs/`,
+`skills/debugger/` and `skills/intent-layer/`, with the reasons in the root's `Where things live`
+rows and in `skills/AGENTS.md`. Regression tests in `hooks/test_hooks.py` cover the block,
+including malformed JSON, unsafe paths and an external config symlink, all of which fall back to
+the defaults.
 
 ### Changed — the clone installer does not ship `skills/AGENTS.md`
 

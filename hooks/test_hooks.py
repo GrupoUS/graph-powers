@@ -871,7 +871,7 @@ def main() -> int:
         print(f"SKIP: case-canonicalisation symlink unavailable: {error}")
     else:
         code, out = intent_run(fx, "check")
-    check("an existing differently-cased spelling resolves to the discovered node",
+        check("an existing differently-cased spelling resolves to the discovered node",
               (code, "no ancestor" in out, "does not resolve" in out), (0, False, False))
     shutil.rmtree(fx, ignore_errors=True)
 
@@ -1046,6 +1046,40 @@ def main() -> int:
     check("--exclude adds to the block's list instead of replacing it",
           intent_run(fx, "check", "--exclude", "big")[0], 0)
     shutil.rmtree(fx, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-config-link-"))
+    fx = container / "repo"
+    fx.mkdir()
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    outside_config = container / "outside-config.json"
+    outside_config.write_text(
+        json.dumps({"intentLayer": {"deferred": ["EXTERNAL_CONFIG_VALUE"]}}),
+        encoding="utf-8",
+    )
+    (fx / ".graph-powers").mkdir()
+    try:
+        (fx / ".graph-powers" / "config.json").symlink_to(outside_config)
+    except OSError as error:
+        print(f"SKIP: config symlink unavailable: {error}")
+    else:
+        code, out = intent_run(fx, "state")
+        check("a config symlink outside the project root is ignored",
+              (code, "EXTERNAL_CONFIG_VALUE" in out), (0, False))
+    shutil.rmtree(container, ignore_errors=True)
+
+    container = Path(tempfile.mkdtemp(prefix="gp-intent-config-path-"))
+    fx = container / "repo"
+    fx.mkdir()
+    (container / "outside").mkdir()
+    intent_write(fx, "AGENTS.md", "# Fixture\n\nOwns it.\n")
+    intent_cfg(fx, {
+        "exclude": ["../outside"],
+        "deferred": ["../outside", "C:\\outside"],
+    })
+    code, out = intent_run(fx, "check")
+    check("config paths cannot traverse above the root or select a Windows drive",
+          (code, "../outside" in out, "C:/outside" in out), (0, False, False))
+    shutil.rmtree(container, ignore_errors=True)
 
     print("### `git restore` is decided by its flag set, not by a substring")
     # The floor exempted `restore` with a lookahead for the TEXT `--staged`, and the safe list

@@ -78,7 +78,7 @@ These are the gates, and all of them pass before anything ships:
 
 ```bash
 claude plugin validate .                    # manifest and marketplace
-python3 hooks/test_hooks.py                 # guardrails, 350 checks in a sandbox
+python3 hooks/test_hooks.py                 # guardrails in a sandbox
 python3 skills/planning/scripts/test_sdd.py # structured plans, TDD and review packaging
 python3 skills/skill-improve/scripts/test_run_evals.py # eval runner path and CLI contract
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
@@ -122,11 +122,11 @@ from inventing work.
 |---|---|---|
 | `agents/` | subagents, one `.md` with frontmatter each | Claude Code by `subagent_type`; Codex via generated `.codex/agents/*.toml` |
 | `skills/` | skills, one folder with a `SKILL.md` each — read `skills/AGENTS.md` first | `Skill("<name>")`, namespaced as `graph-powers:<name>`; Codex reads the same files |
-| `commands/` | commands, exposed as `/<name>`. No node: ten files, each its own entry document, and `.claude/rules/artifacts.md` loads on any edit. No node: ten files, each its own entry document, and `.claude/rules/artifacts.md` loads on any edit | the user; Codex gets them as generated skills |
-| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB. No node: `references/shared-context.md` is already the index. No node: `references/shared-context.md` is already the index | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
+| `commands/` | commands, exposed as `/<name>`. No node: each file is its own entry document, and `.claude/rules/artifacts.md` loads on any edit | the user; Codex gets them as generated skills |
+| `references/` | plugin-owned shared content: the safety floor, the execution floor, audit prompts, the recovery protocol, and `shared/` — one file per shared pattern, so a command loads the ones it acts on rather than all 22 KB. No node: `references/shared-context.md` is already the index | agents and commands, by explicit read; the two floors are in force whether or not anyone reads them |
 | `hooks/` | `hooks.json` plus guardrails in Python and `_config.py` — read `hooks/AGENTS.md` first | discovered natively by Claude Code and Codex; the clone installer can also merge them into `.codex/hooks.json` |
 | `workflows/` | deterministic multi-agent orchestration, one `.js` each | Claude Code, as `graph-powers:<name>`; invoked by `commands/plan.md`. Loaded at session start — an install mid-session is invisible until restart |
-| `codex/` | the generators for the Codex side. No node: cardinal 7 is the rule and each generator's docstring is its map. No node: cardinal 7 is the rule and each generator's docstring is its map | `bin/graph-powers.mjs` |
+| `codex/` | the generators for the Codex side. No node: cardinal 7 is the rule and each generator's docstring is its map | `bin/graph-powers.mjs` |
 | `schema/` | the contract for each project's config | editors, and the setup playbook |
 | `templates/` | starting points a project copies and adapts | the setup playbook |
 | `examples/` | starting configs per stack | people, by copying |

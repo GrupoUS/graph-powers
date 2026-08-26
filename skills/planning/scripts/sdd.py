@@ -189,10 +189,46 @@ def _existing_secure_directory(root: Path, *parts: str) -> Path | None:
 
 
 def _write_text_no_symlink(target: Path, text: str, *, exclusive: bool = False) -> None:
-    """Write one state file without following a pre-existing final-component symlink."""
+    """Write state without following a symlink; publish exclusive files only when complete."""
     if target.is_symlink():
         fail(f"refusing symlink SDD output: {target.as_posix()}", 2)
-    flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if exclusive else os.O_TRUNC)
+    if exclusive:
+        try:
+            descriptor, staging_name = tempfile.mkstemp(
+                dir=target.parent,
+                prefix=f".{target.name}.",
+                suffix=".tmp",
+                text=True,
+            )
+        except OSError as error:
+            fail(f"cannot stage SDD state {target.as_posix()}: {error}", 2)
+        staging = Path(staging_name)
+        try:
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(text)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            except OSError as error:
+                fail(f"cannot write SDD state {target.as_posix()}: {error}", 2)
+            try:
+                os.link(staging, target)
+            except FileExistsError:
+                raise
+            except OSError as error:
+                fail(f"cannot publish SDD state {target.as_posix()}: {error}", 2)
+        finally:
+            try:
+                staging.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                # The canonical path is either absent or already complete; stale staging cannot
+                # impersonate the lease and must not turn a successful acquisition into failure.
+                pass
+        return
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(target, flags, 0o600)

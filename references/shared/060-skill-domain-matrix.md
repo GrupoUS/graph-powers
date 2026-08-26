@@ -1,6 +1,6 @@
 ## Section 6: Skill-to-Domain Matrix
 
-Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug audit`.
+Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug audit` and `/evolve`.
 
 | Domain / task signal | Primary skill | Supporting skills |
 |---|---|---|
@@ -21,3 +21,22 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 | Prompt engineering / LLM apps / RAG | `senior-prompt-engineer` | — |
 
 If domain isn't listed → no skill applies; use rules + tool docs directly.
+
+### Write ownership
+
+Selecting a skill chooses a method. It never grants permission to edit the files that implement
+that method.
+
+Before a flow writes a `SKILL.md`, `references/` entry or skill-owned learning file, resolve the
+canonical current-project root, `${CLAUDE_PLUGIN_ROOT}`, the source `SKILL.md` and every proposed
+destination. A skill is writable only when source and destination are contained by the current
+project root and neither resolves through a symlink outside it. Use canonical path containment,
+never a string-prefix comparison. If the plugin root differs from the current-project root, files
+inside the plugin root are installed harness files and stay read-only even when that installation
+is nested inside the project. The Graph Powers source checkout is the deliberate exception: when
+the two canonical roots are the same directory, its own skill files are project-owned.
+
+An unresolved path, a missing project root, a cache/global skill or a mixed set fails closed for
+the unsafe destinations. Keep the selected skill as methodology, update only project-owned skills,
+and put the durable host learning in the project's log and `AGENTS.md`. Report skipped global
+methods as `none (global plugin unchanged)` rather than silently mutating the shared installation.

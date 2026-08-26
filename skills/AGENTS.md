@@ -1,6 +1,6 @@
 # skills/
 
-Owns the skill folders the plugin ships (14 on 2026-08-26) — one `SKILL.md` each, plus the
+Owns the skill folders the plugin ships — one `SKILL.md` each, plus the
 `references/`, `scripts/`, `evals/` and `learning.md` a skill carries — and the contract every one
 of them meets. Does NOT own the commands (`../commands/`, exposed as `/name` and turned into skills
 for Codex), the agents (`../agents/`), or the shared patterns (`../references/shared/`) a skill
@@ -14,8 +14,8 @@ points at.
   point at `./skills/` wholesale. No per-skill registration exists anywhere: the folder is the
   registration.
 - `skill-improve/` — the authoring loop (Mode A) and the wiring audit (Mode B) every other skill
-  passes through before it enters. Its `scripts/quick_validate.py` and `scripts/run_evals.py` are
-  the validators the contracts below name.
+  passes through before it enters. Its `skill-improve/scripts/quick_validate.py` and
+  `skill-improve/scripts/run_evals.py` are the validators the contracts below name.
 
 ## Contracts and invariants
 
@@ -27,7 +27,8 @@ points at.
   description here drops somebody else's skill from the listing on a shared machine.
 - Body under 500 non-empty lines; detail in `references/`, loaded on demand and named from the
   body. A reference nothing points at is an orphan.
-- Paths inside a skill are relative (`references/x.md`); paths to the rest of the plugin go through
+- Paths inside a skill are relative (for example, its own references directory); paths to the rest
+  of the plugin go through
   `${CLAUDE_PLUGIN_ROOT}/…`; paths into the host project go through `${rulesDir}` and the other
   placeholders `../schema/config.schema.json` declares (`.github/check_placeholders.py`).
 - Every `Skill()`, `subagent_type`, workflow and `§` a skill cites resolves

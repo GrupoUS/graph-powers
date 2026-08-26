@@ -8,9 +8,13 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 from typing import TypedDict
+
+import sdd as sdd_module
 
 
 class TaskOutput(TypedDict):
@@ -325,6 +329,80 @@ class SddCliTests(unittest.TestCase):
             release = self.run_cli("release", str(winner))
             self.assertEqual(release.returncode, 0, release.stderr)
             self.assertFalse(lease_path.exists())
+
+    def test_exclusive_write_publishes_only_complete_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "write-lease.json"
+            entered_write = threading.Event()
+            continue_write = threading.Event()
+            errors: list[BaseException] = []
+            real_fdopen = sdd_module.os.fdopen
+
+            def delayed_fdopen(*args: object, **kwargs: object):
+                entered_write.set()
+                if not continue_write.wait(timeout=5):
+                    raise TimeoutError("test writer did not resume")
+                return real_fdopen(*args, **kwargs)
+
+            def write() -> None:
+                try:
+                    sdd_module._write_text_no_symlink(
+                        target,
+                        '{"plan": "PLAN.md"}\n',
+                        exclusive=True,
+                    )
+                except BaseException as error:  # pragma: no cover - asserted below
+                    errors.append(error)
+
+            with mock.patch.object(sdd_module.os, "fdopen", side_effect=delayed_fdopen):
+                writer = threading.Thread(target=write)
+                writer.start()
+                self.assertTrue(entered_write.wait(timeout=5))
+                try:
+                    self.assertFalse(
+                        target.exists(),
+                        "an exclusive state file became visible before its contents were written",
+                    )
+                finally:
+                    continue_write.set()
+                    writer.join(timeout=5)
+
+            self.assertFalse(writer.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(target.read_text(encoding="utf-8"), '{"plan": "PLAN.md"}\n')
+
+    def test_exclusive_write_failure_leaves_no_canonical_file(self) -> None:
+        class FailingWriter:
+            def __enter__(self) -> FailingWriter:
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+            def write(self, _text: str) -> None:
+                raise OSError("simulated interrupted write")
+
+        def failing_fdopen(descriptor: int, *_args: object, **_kwargs: object) -> FailingWriter:
+            sdd_module.os.close(descriptor)
+            return FailingWriter()
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "write-lease.json"
+            with (
+                mock.patch.object(sdd_module.os, "fdopen", side_effect=failing_fdopen),
+                mock.patch.object(
+                    sdd_module,
+                    "fail",
+                    side_effect=OSError("expected write failure"),
+                ),
+            ):
+                with self.assertRaises(OSError):
+                    sdd_module._write_text_no_symlink(
+                        target,
+                        '{"plan": "PLAN.md"}\n',
+                        exclusive=True,
+                    )
+            self.assertFalse(target.exists())
 
     def test_release_rejects_a_symlinked_state_parent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
