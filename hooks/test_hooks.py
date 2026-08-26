@@ -597,12 +597,15 @@ def main() -> int:
     # on a tree with none of them, because a gate that fails the correct tree gets switched off.
     intent = HOOKS.parent / "skills" / "intent-layer" / "scripts" / "intent_layer.py"
 
-    def intent_run(fixture: Path, *argv: str) -> tuple[int, str]:
-        r = subprocess.run(
-            [sys.executable, str(intent), *argv],
-            cwd=str(fixture), capture_output=True, encoding="utf-8", errors="replace",
-            timeout=30, check=False,
-        )
+    def intent_run(fixture: Path, *argv: str, timeout: float = 30) -> tuple[int, str]:
+        try:
+            r = subprocess.run(
+                [sys.executable, str(intent), *argv],
+                cwd=str(fixture), capture_output=True, encoding="utf-8", errors="replace",
+                timeout=timeout, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return 124, "intent-layer timed out"
         return r.returncode, r.stdout
 
     def intent_write(fixture: Path, rel: str, body: str, *, size: int = 0) -> None:
@@ -663,6 +666,16 @@ def main() -> int:
     intent_write(fx, "packages/api/AGENTS.md", api_node, size=17_000)
     code, out = intent_run(fx, "check")
     check("a 17,000-byte node is over the 4k-token cap", (code, "cap 4000" in out), (1, True))
+    shutil.rmtree(fx, ignore_errors=True)
+
+    # A long generated line with no downlink is ordinary input: lockfiles, minified artefacts and
+    # copied schemas can all produce one. Link discovery must rule it out before running the more
+    # expressive path regexes; otherwise the bare-path expression backtracks quadratically.
+    fx = Path(tempfile.mkdtemp(prefix="gp-intent-"))
+    intent_write(fx, "AGENTS.md", "# Root\n\nThe root.\n", size=200_000)
+    code, out = intent_run(fx, "check", timeout=5)
+    check("a long line without AGENTS.md is rejected by the cap without a regex timeout",
+          (code, "cap 4000" in out), (1, True))
     shutil.rmtree(fx, ignore_errors=True)
 
     # Three nodes of 15,000 bytes, every one under the per-node cap, on one path. Codex reads

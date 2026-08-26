@@ -74,6 +74,7 @@ MANIFESTS = frozenset({
 # prose between two code spans read as one path, and curly quotes glued to the token. The tail
 # keeps `AGENTS.mdx`, `AGENTS.md.bak`, `AGENTS.md~` and `AGENTS.md-old` from reading as a node.
 _TAIL = r"AGENTS\.md(?![A-Za-z0-9_~]|[.-][A-Za-z0-9])"
+DOWNLINK_TAIL_RE = re.compile(_TAIL)
 _SEG = r"(?:[^\s()\[\]`\"'<>|“”«»‘’*]|\([^\s()]*\)|\[[^\s\[\]]*\])"
 DOWNLINK_PATTERNS = (
     re.compile(r"\]\(<([^>\n]*?" + _TAIL + r")[^>\n]*>\)"),
@@ -91,6 +92,12 @@ RULE_RE = re.compile(r"^(?:[-*_]\s*){3,}$")
 
 def downlink_tokens(line: str) -> list[str]:
     """Every distinct downlink token on one line, in the order the shapes above find them."""
+    # The bare-path pattern is intentionally expressive, but applying its leading repeated segment
+    # to a long line with no viable suffix makes the regex engine retry from every character. Rule
+    # out that overwhelmingly common case with a fixed-tail scan first. This also rejects suffixes
+    # such as AGENTS.mdx before any of the path expressions can backtrack over the line.
+    if DOWNLINK_TAIL_RE.search(line) is None:
+        return []
     tokens: list[str] = []
     rest = line
     for pattern in DOWNLINK_PATTERNS:
