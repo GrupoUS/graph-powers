@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.10.2 — Review hardening
+## 1.10.3 — Review hardening
 
 PR review now keeps task briefs and review packages inside the plan workspace without following
 symlinks, rejects Git revision expressions and unsafe or symlinked eval responses, and removes the

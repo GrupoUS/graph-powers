@@ -79,7 +79,7 @@ database-schema surface is present in this change.
 | Change set | baseRef `d9b43477963c4d45d01a14a1d173a4c3a6b3e0bf` · confidence high · graph SKIPPED | graph database unavailable; diff and focused probes used |
 | Declared gates | PASS | 23/23 local gates pass; hooks, SDD 28/28, evals 6/6, file refs 7/7 |
 | Project blocking list (`REVIEW.md`) | NOT DECLARED | root `REVIEW.md` is a host-project spec per `AGENTS.md`; repository gates are in `AGENTS.md` |
-| CI checks | PENDING | remote CI and Sonar still describe old head `b4fa51a`; final head must rerun green |
+| CI checks | PENDING | Sonar's current-head failure was isolated to one false-positive Git subprocess sink; the justified suppression and CI must rerun green |
 | Comments triaged | implement=14 clarify=0 pushback=4 | Kilo review; CodeRabbit was unavailable because the repository is below its automatic-review threshold |
 
 ## Decision
@@ -94,5 +94,6 @@ remote checks.
 
 PR review completed on the corrected local tree. No P0-P2 finding remains, and all 23 local gates
 pass, including hooks, SDD 28/28, evals 6/6 and file-reference regressions 7/7. Kilo's 18 items were
-triaged as 14 implemented and 4 technical pushbacks. Remote CI and Sonar still refer to the old head;
-do not merge until the final pushed head reruns green.
+triaged as 14 implemented and 4 technical pushbacks. Sonar's sole Security Rating finding was a
+false-positive Git subprocess sink (fixed executable, argv list, validated refs, no shell); the
+final pushed head must rerun CI and Sonar green before merge.

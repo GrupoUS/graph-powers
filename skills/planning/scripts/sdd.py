@@ -110,7 +110,7 @@ def _agent_lane(agent: str) -> str:
 
 def git(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
+        return subprocess.run(  # NOSONAR -- fixed git argv; shell=False; variable refs validated.
             ["git", *args], cwd=str(cwd), env=env, capture_output=True,
             encoding="utf-8", errors="replace", check=False,
         )
