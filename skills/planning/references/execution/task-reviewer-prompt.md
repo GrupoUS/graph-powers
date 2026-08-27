@@ -12,7 +12,7 @@ Review [TASK ID] against its pasted task block and diff.
 Two verdicts with file:line evidence: compliance first, then quality.
 
 ## MANDATORY CONTEXT
-**Original request:** [ORIGINAL REQUEST]
+**Original request:** [LOSSLESS REQUEST SUMMARY]
 **Decisions already made:** [DECISIONS]
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C task [TASK ID] review, package [REVIEW PACKAGE].

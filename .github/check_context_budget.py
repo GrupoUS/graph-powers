@@ -197,7 +197,12 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 # (same release) took 300 B for its own matrix row, its `/pr-review` 3D cell and the `/design § 3`
 # call, which is conditional and so priced on the ceiling. Measured floor after both: 295,227 B.
 # Each row is a call site cardinal 4 requires; the alternative was a skill nothing routes to.
-FLOOR_CEILING = 300_000
+#
+# Lowered 300_000 -> 270_000 on 2026-08-27 after the agent-resolution failure path moved behind a
+# conditional reference and `/research` stopped repeating routing, tool and output contracts.
+# Measured floor: 264,493 B. `/research` itself fell 18,537 -> 14,213 B on the normal path; even
+# loading the 3,280 B recovery reference after a resolution failure leaves it at 17,493 B.
+FLOOR_CEILING = 270_000
 # Raised 440_000 -> 470_000 on 2026-08-20, and what bought the increase is two separate things.
 # 18_585 B of it was already over the old ceiling before this change and had no owner. The rest is
 # `commands/evolve.md` gaining `Skill("skill-improve")`, the first functional call site the

@@ -3,6 +3,59 @@
   "$id": "https://raw.githubusercontent.com/GrupoUS/graph-powers/main/schema/config.schema.json",
   "title": "Graph Powers — project configuration contract",
   "description": "What each repository declares in .graph-powers/config.json so the plugin can adapt to it. Every field has a safe default: a project without this file keeps working, just with the defaults. Point your config's $schema field here and your editor validates as you type. A project that only ever runs Claude Code may keep the file at .claude/config.json instead; both locations are supported, and the first existing file wins, .graph-powers first. The same file also works at ~/.graph-powers/config.json, where it states the operator's own posture for every repository they open; only the autonomy, graphGuardrails, protectedFiles and autoUpdate blocks are read from there, and a project's own file always outranks it.",
+  "definitions": {
+    "codexReasoningEffort": {
+      "type": "string",
+      "enum": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "codexProfileName": {
+      "type": "string",
+      "enum": [
+        "judge",
+        "architect",
+        "executor",
+        "verifier",
+        "scout"
+      ]
+    },
+    "codexModelEffortOverride": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoningEffort": {
+          "$ref": "#/definitions/codexReasoningEffort"
+        }
+      },
+      "additionalProperties": false
+    },
+    "codexAgentOverride": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/codexProfileName"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoningEffort": {
+          "$ref": "#/definitions/codexReasoningEffort"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
   "type": "object",
   "properties": {
     "project": {
@@ -289,11 +342,11 @@
     },
     "codex": {
       "type": "object",
-      "description": "Codex CLI specifics. Only read when generating .codex/ artefacts; ignored under Claude Code.",
+      "description": "Codex CLI model routing and generated artefacts; ignored under Claude Code. Model chooses the intelligence/cost tier, reasoning effort chooses that model's single-agent budget, and Ultra is a separate top-level proactive orchestration mode rather than a subagent effort.",
       "properties": {
         "model": {
           "type": "string",
-          "description": "Flat fallback model written into generated .codex/agents/*.toml when codex.models has no slug for the agent's tier. Left to the project because model names age faster than this plugin does.",
+          "description": "Legacy flat operator override for every generated Codex subagent. It outranks semantic defaults but remains below per-agent, profile and codex.models tier overrides.",
           "examples": [
             "gpt-5.6",
             "gpt-5.6-codex"
@@ -301,11 +354,11 @@
         },
         "models": {
           "type": "object",
-          "description": "One Codex slug per tier, chosen by the Claude model family the source agent declares in agents/*.md: opus -> heavy (judging, design, verification), sonnet -> standard, haiku -> light (scouts and lookups). Without this every generated subagent got the same model, so the agent that reads one config file spent the same window as the agent that reviews a plan. A tier left empty falls back to codex.model, and an absent map leaves the model out entirely, which makes the child inherit the session's.",
+          "description": "Legacy Claude-family tier overrides retained for migration: opus -> heavy, sonnet/fable -> standard, haiku -> light. A matching tier still outranks codex.model, but new installs use the semantic agent profiles in codex/model-policy.json when no explicit legacy choice exists.",
           "properties": {
             "heavy": {
               "type": "string",
-              "description": "Slug for the nodes that judge, design and verify.",
+              "description": "Legacy slug for source agents that declare the Claude heavy family.",
               "examples": [
                 "gpt-5.6-sol",
                 "gpt-5.6-codex"
@@ -313,7 +366,7 @@
             },
             "standard": {
               "type": "string",
-              "description": "Slug for ordinary implementation work.",
+              "description": "Legacy slug for source agents that declare the Claude standard family.",
               "examples": [
                 "gpt-5.6",
                 "gpt-5.6-codex"
@@ -321,7 +374,7 @@
             },
             "light": {
               "type": "string",
-              "description": "Slug for scouts, lookups and mechanical passes. Do not point this at a model on a rate-limit pool the account does not own — Codex's own cheap fallback bills the Spark / codex_bengalfox bucket, not the user's Codex window.",
+              "description": "Legacy slug for source agents that declare the Claude light family.",
               "examples": [
                 "gpt-5.6-luna",
                 "gpt-5.6-mini"
@@ -330,23 +383,79 @@
           },
           "additionalProperties": false
         },
+        "profile": {
+          "$ref": "#/definitions/codexProfileName",
+          "description": "Explicit global profile selection for generated subagents. Prefer a profile or agent override below when only part of the graph needs a different model. native-ultra is intentionally excluded because it is top-level-only."
+        },
+        "profiles": {
+          "type": "object",
+          "description": "Operator overrides for semantic profiles. Terra may be selected here when the operator wants it; Graph Powers never inserts it as an automatic Luna -> Terra -> Sol retry.",
+          "properties": {
+            "judge": {
+              "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "architect": {
+              "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "executor": {
+              "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "verifier": {
+              "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "scout": {
+              "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "native-ultra": {
+              "type": "object",
+              "description": "Explicit top-level Codex proactive orchestration profile. The native generator emits it as a separate <name>.config.toml selected by codex --profile; it is never valid on a Graph Powers subagent or inside deterministic /pr-review, ultra-plan or ultra-verify fan-out.",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasoningEffort": {
+                  "type": "string",
+                  "enum": [
+                    "ultra"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "agents": {
+          "type": "object",
+          "description": "Highest-precedence Codex overrides for individual Graph Powers agents. native-ultra is not a valid subagent profile.",
+          "properties": {
+            "debugger": { "$ref": "#/definitions/codexAgentOverride" },
+            "evaluator": { "$ref": "#/definitions/codexAgentOverride" },
+            "explorer": { "$ref": "#/definitions/codexAgentOverride" },
+            "frontend-specialist": { "$ref": "#/definitions/codexAgentOverride" },
+            "librarian": { "$ref": "#/definitions/codexAgentOverride" },
+            "mobile-developer": { "$ref": "#/definitions/codexAgentOverride" },
+            "performance-optimizer": { "$ref": "#/definitions/codexAgentOverride" },
+            "project-planner": { "$ref": "#/definitions/codexAgentOverride" },
+            "security-reviewer": { "$ref": "#/definitions/codexAgentOverride" },
+            "skill-improver": { "$ref": "#/definitions/codexAgentOverride" },
+            "ui-ux-designer": { "$ref": "#/definitions/codexAgentOverride" },
+            "verification": { "$ref": "#/definitions/codexAgentOverride" }
+          },
+          "additionalProperties": false
+        },
         "reasoningEffort": {
-          "type": "string",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "xhigh"
-          ],
-          "default": "high",
-          "description": "model_reasoning_effort for generated subagents. The node that judges runs high — a cheap judge produces a false positive other nodes 'correct', and the origin of the error is lost."
+          "$ref": "#/definitions/codexReasoningEffort",
+          "description": "Legacy global reasoning override for generated subagents. It outranks semantic defaults and now accepts Max. Ultra is excluded because it changes Codex orchestration behavior."
         },
         "skillsDir": {
           "type": "string",
           "default": ".agents/skills",
           "description": "Where the installer writes skills for Codex. Codex also reads ~/.agents/skills at user scope."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "chain": {
       "type": "object",
@@ -625,8 +734,53 @@
         "initialJsKb": {
           "type": "number"
         },
+        "preCommit": {
+          "type": "object",
+          "description": "Core commands run before agent-issued git commit. Omitted fields use enabled=true, every declared core command, worktree scope, a 120-second total budget and a five-minute success cache.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "typeCheck",
+                  "lint",
+                  "test",
+                  "build"
+                ]
+              },
+              "description": "Explicit subset of the fixed typeCheck, lint, test, build order. An empty list disables core execution without disabling the legacy audit."
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "worktree"
+              ],
+              "default": "worktree"
+            },
+            "timeoutTotal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600,
+              "default": 120,
+              "description": "Combined seconds for all core gates and, on commit, the legacy audit."
+            },
+            "cacheSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400,
+              "default": 300,
+              "description": "TTL for successful core-gate fingerprints. Zero disables the core cache."
+            }
+          },
+          "additionalProperties": false
+        },
         "preCommitAudit": {
-          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; anything else blocks it and shows the command's own output. Declare nothing and no audit runs — the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
+          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; an executed nonzero result blocks it with a fixed summary and never forwards checker output. Declare nothing and no audit runs — the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
           "oneOf": [
             {
               "type": "string",
@@ -641,8 +795,14 @@
                 "timeout": {
                   "type": "integer",
                   "minimum": 1,
+                  "maximum": 600,
                   "default": 120,
                   "description": "Seconds. A slow audit on every commit is a hook people disable."
+                },
+                "cache": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Opt in to the short-lived worktree success cache for this audit."
                 }
               },
               "required": [
@@ -824,12 +984,7 @@
         "codex": {
           "type": "boolean",
           "default": true,
-          "description": "Regenerate the Codex artefacts when the registry version moved. Skipped when it did not: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
-        },
-        "grok": {
-          "type": "boolean",
-          "default": true,
-          "description": "Update the Grok CLI plugin (grok plugin marketplace update, then grok plugin update). The new version applies at the next session start."
+          "description": "Regenerate the Codex clone artefacts when its tracked source moved. Native Codex, Cursor and Grok caches are client-owned and are never replaced by the SessionStart worker. Skipped when the clone did not move: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
         }
       },
       "additionalProperties": false

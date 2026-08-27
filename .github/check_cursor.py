@@ -27,6 +27,7 @@ def main() -> int:
     claude_plugin = load(ROOT / ".claude-plugin/plugin.json")
     cursor_plugin = load(ROOT / ".cursor-plugin/plugin.json")
     pkg = load(ROOT / "package.json")
+    claude_hooks = load(ROOT / "hooks/hooks.json")
     tracked = load(ROOT / "hooks/hooks-cursor.json")
 
     versions = {
@@ -96,8 +97,17 @@ process.stdout.write(JSON.stringify({
         for entries in tracked["hooks"].values()
         for entry in entries
     ]
-    if len(commands) != 11:
-        print(f"::error::expected 11 Cursor registrations (Claude's 14 minus PermissionRequest and Notification), found {len(commands)}")
+    expected_commands = sum(
+        len(group.get("hooks", []))
+        for event, groups in claude_hooks.get("hooks", {}).items()
+        if event not in skipped
+        for group in groups
+    )
+    if len(commands) != expected_commands:
+        print(
+            "::error::expected "
+            f"{expected_commands} generated Cursor registrations, found {len(commands)}"
+        )
         return 1
     joined = "\n".join(commands)
     if "tool_approver.py" in joined or "notify.py" in joined:
@@ -105,6 +115,14 @@ process.stdout.write(JSON.stringify({
         return 1
     if "smart_bash_approver.py" not in joined:
         print("::error::smart_bash_approver is missing from Cursor preToolUse")
+        return 1
+
+    stop = tracked["hooks"].get("stop", [])
+    if len(stop) != 1 or "stop_verify.py" not in stop[0].get("command", ""):
+        print("::error::Cursor stop must contain exactly the generated stop_verify registration")
+        return 1
+    if stop[0].get("loop_limit") != 5:
+        print("::error::Cursor stop_verify must cap automatic follow-ups at loop_limit 5")
         return 1
 
     catch_all = tracked["hooks"]["preToolUse"][0]
@@ -118,7 +136,7 @@ process.stdout.write(JSON.stringify({
 
     print(
         "cursor artefacts match emit; PermissionRequest and Notification skipped; "
-        "11 registrations; no plugin-root leak"
+        f"{len(commands)} registrations; bounded Stop follow-ups; no plugin-root leak"
     )
     return 0
 

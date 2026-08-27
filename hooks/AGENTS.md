@@ -8,8 +8,8 @@ the rules a host project keeps under its own `.claude/rules/`.
 
 ## Entry points
 
-- `hooks.json` — event → matcher → script, fourteen entries across `PreToolUse`,
-  `PermissionRequest`, `SessionStart`, `PostToolUse` and `Notification`. Claude Code and Grok
+- `hooks.json` — event → matcher → script, fifteen entries across `PreToolUse`,
+  `PermissionRequest`, `SessionStart`, `PostToolUse`, `Stop` and `Notification`. Claude Code and Grok
   discover it natively; `../codex/install.mjs` merges it into `~/.codex/hooks.json`;
   `hooks-cursor.json` is generated from it by `../cursor/install.mjs` and never edited by hand.
 - `_config.py` — the only file in the plugin that knows projects differ. It reads the project's
@@ -78,11 +78,11 @@ Adding a guardrail:
   wants the normal approval flow there declines to decide and lets `PermissionRequest` own it.
 - `graph_guardrails.py` counts spawns over a rolling window (`graphGuardrails.spawnWindowMinutes`),
   not since session start — a lifetime quota made a long session refuse to fan out.
-- `ultracite.py` runs the project's formatter after every edit and skips, never blocks, when the
-  tool is not installed; `session_context.py` names what is declared and not installed, so a gate
-  that cannot run is not reported as covered.
+- `ultracite.py` only formats after edits. `stop_verify.py` owns final lint: exit code decides,
+  unavailable tooling is an explicit fail-open skip, and a skipped gate is never reported covered.
 - `auto_update.py` records the throttle before it checks, so a failed check backs off instead of
-  retrying every session.
+  retrying every session. It owns only Claude and the stable Codex clone route; native Codex, Cursor
+  and Grok caches are foreground-only because an open process may retain the replaced hook path.
 - The suite creates its own empty HOME. A case that reads the real `~/.graph-powers/config.json`
   fails as six unrelated guarded-default failures, not as one honest one.
 

@@ -85,25 +85,12 @@ const PLUGIN_AGENTS = new Set([
 // to change, and `.github/check_workflows.mjs` asserts the set it draws from.
 const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 
-// ── Model tier ───────────────────────────────────────────────────────────────
-// Declared per call, never inherited (AGENTS.md cardinal 6). A workflow does NOT read the `model:`
-// line of `agents/<name>.md`: `agent()` without `model` takes the SESSION model, so an opus-pinned
-// specialist ran on whatever the user happened to be driving, and a haiku scout spent an opus
-// window. `M()` restores the tier the agent's own frontmatter declares; a mechanical unit may still
-// ask for a cheaper model explicitly (§2 of `references/shared/020-complexity-routing.md`) — that is
-// a downgrade, and downgrades are written literally so they read as deliberate.
-//
-// The set below is a second copy of what `agents/` already says, so it is checked rather than
-// trusted: `.github/check_workflows.mjs` fails a spawn that omits `model`, a set that drifts from
-// the frontmatter, and a light agent pinned to a heavy model.
-const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
-const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
-
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. The project's contract arrives passed in by the caller, or read by one cheap agent.
-const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot'], properties: {
+const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'scoutAgents'], properties: {
   pluginRoot: { type: 'string' },
+  scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
   workBranch: { type: 'string' },
   paths: { type: 'object', properties: {
     frontendRoot: { type: 'string' }, backendRoot: { type: 'string' },
@@ -132,9 +119,20 @@ const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot'], properties: {
   maxRepatch: { type: 'number' },
   maxFixRounds: { type: 'number' },
 } }
+const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents'], properties: {
+  scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
+} }
 
 async function resolveConfig() {
-  if (args?.config) return args.config
+  const supplied = args?.config && typeof args.config === 'object' ? args.config : null
+  if (Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length) return supplied
+  if (supplied) {
+    const policy = await agent(
+      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and return the agent names whose profile is "scout" as scoutAgents. Read-only; do not invent names.`,
+      { agentType: AG('explorer'), phase: 'Gates', schema: SCOUT_POLICY_SHAPE, label: 'config:policy', model: 'haiku' }
+    )
+    return { ...supplied, scoutAgents: policy?.scoutAgents }
+  }
   return await agent(
     `Two things, both read-only.
 
@@ -152,9 +150,10 @@ async function resolveConfig() {
      maxParallelWave <- graphGuardrails.maxParallelWave, else 5
      maxRepatch     <- graphGuardrails.maxRepatch, else 2
      maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
+     scoutAgents    <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
-    { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: M('explorer') }
+    { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
   )
 }
 
@@ -164,6 +163,15 @@ const commands = cfg.commands ?? {}
 const WORK_BRANCH = cfg.workBranch || 'main'
 const FIX_CAP = cfg.maxParallelWave ?? 5
 const REPATCH_CAP = cfg.maxRepatch ?? 2
+// The config bootstrap derives this set from codex/model-policy.json. Keep the workflow's model
+// values Claude-native: the semantic Codex policy belongs to the generators, while this workflow's
+// runtime still requires explicit haiku/opus tiers.
+const SCOUT_AGENTS = new Set(Array.isArray(cfg.scoutAgents) ? cfg.scoutAgents : [])
+const M = (name) => (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+
+if (!SCOUT_AGENTS.size) {
+  throw new Error('ultra-verify: config bootstrap returned no scoutAgents from codex/model-policy.json')
+}
 
 if (!cfg.pluginRoot) {
   throw new Error('ultra-verify: could not locate the graph-powers plugin root, so no agent can read the debugging catalogue. Pass it as args.config.pluginRoot.')

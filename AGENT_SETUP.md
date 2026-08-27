@@ -45,7 +45,8 @@ that project, and nothing else does.
 |---|---|
 | Claude Code plugin: agents, skills, commands, guardrails, workflows, shared references | registry under `~/.claude/plugins/installed_plugins.json` plus its versioned plugin cache (`--scope user`) |
 | Claude Code permission posture | `~/.claude/settings.json`; this is not the plugin payload |
-| Codex native plugin: skills, subagents, guardrails and references | source/cache reported by `codex plugin list --json`; Codex Desktop uses it only after the separate proof in Step 9 |
+| Codex native plugin: skills, guardrails and references | source/cache reported by `codex plugin list --json`; Codex Desktop uses it only after the separate proof in Step 9 |
+| Codex native companion roles | `<codex-home>/agents/*.toml`, explicitly emitted after native installation because the current plugin manifest has no agent-role resource |
 | Codex clone fallback: skills | `~/.agents/skills/` |
 | Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
 | Clone fallback machine-wide instruction block | `~/.codex/AGENTS.md` |
@@ -93,35 +94,26 @@ that the copy is now yours to keep in sync.
 
 ### Check before you install
 
-Global installation is idempotent, and skipping it when it is already there is the difference
-between a five-second setup and a needless one:
+Global installation is idempotent, but a registry row alone is not proof: it may point at a partial
+package, an older direct runner, or a cache path an open process retained before an update. First use
+the client's own inventory to learn which routes exist (`claude plugin list`,
+`codex plugin list --json`, `grok plugin list --json`). Do not select a Cursor cache by mtime or by
+"the first valid directory".
+
+After Step 0 establishes `PLUGIN`, run the shared read-only verifier. It reads Claude's exact scoped
+`installPath`, Codex's native inventory or clone manifest, every Cursor cache candidate, and Grok's
+reported `path`; then it opens the manifest and canonical hook file inside that exact package:
 
 ```bash
-# Already installed for this whole machine? Both harnesses, one answer.
-# Python rather than `cat ~/... 2>/dev/null`: `~` is not expanded by PowerShell and there is no
-# /dev/null on Windows, so the shell form reported "not installed" on every Windows machine —
-# which reads as a clean check and is really the check never running.
-python3 - <<'CHECK'
-import json, os
-claude = os.path.expanduser("~/.claude/plugins/installed_plugins.json")
-d = json.load(open(claude)) if os.path.exists(claude) else {"plugins": {}}
-hits = [(k, i) for k, v in d.get("plugins", {}).items() if k.startswith("graph-powers@")
-        for i in v if i.get("scope") == "user"]
-print("claude:", hits or "not installed globally")
-
-codex = os.path.expanduser("~/.codex/graph-powers-installed.json")
-print("codex clone install:",
-      json.load(open(codex)) if os.path.exists(codex) else "not installed")
-CHECK
-
-# The native Codex plugin is a different installation route from the clone manifest above.
-codex plugin list --json
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client all --project-dir .
 ```
 
-In the JSON, `graph-powers@graph-powers` with `installed: true` and `enabled: true` is the preferred
-Codex route. If that entry and the clone manifest both exist, do not proceed as though one were a
-backup of the other: they register the same hooks from different roots and both run. Step 9c
-migrates that state before project setup continues.
+`PASS` requires the exact registration set derived from the canonical source (fifteen native and
+twelve on Cursor in `1.12.0`), every guarded `runpy.run_path` runner, all target scripts, and the
+packaged planning/TDD method files. A corrupt Cursor candidate or
+two candidates claiming the highest version is an error, never a reason to fall back silently. If
+native Codex and the clone manifest both exist, the command fails because they register the same
+hooks from different roots; Step 9c migrates that state before setup continues.
 
 ---
 
@@ -170,9 +162,9 @@ Then locate the plugin on this machine, in this order, and **say which one you f
 
 1. `$GRAPH_POWERS`, if the variable is set;
 2. the `source.path` for enabled `graph-powers@graph-powers` in `codex plugin list --json`;
-3. `~/.claude/plugins/cache/graph-powers/graph-powers/*/` — prefer the highest version;
-4. `~/.cursor/plugins/cache/graph-powers/graph-powers/*/` — only a directory whose
-   `.cursor-plugin/plugin.json` names Graph Powers counts;
+3. the exact user-scope `installPath` from Claude's `installed_plugins.json` — never an unreferenced cache;
+4. Cursor is discovery-only here: `verify-hook-clients.py` inspects every dedicated cache candidate
+   and chooses the unique highest valid version; do not reproduce that algorithm by hand;
 5. the `path` for Graph Powers in `grok plugin list --json` (respect `GROK_HOME`);
 6. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
 7. if none exists, install it and say which route you took:
@@ -200,8 +192,9 @@ export PLUGIN=<the directory you just found>
 $PLUGIN = "<the directory you just found>"
 $env:PLUGIN = $PLUGIN
 
-# prove it before going on, on either
+# prove the source root, then inventory every installed client without writing anything
 python3 -c "import os,sys;p=os.environ.get('PLUGIN','');sys.exit(print('PLUGIN=' + p) if os.path.isfile(os.path.join(p,'AGENT_SETUP.md')) else 'PLUGIN does not point at a plugin root')"
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client all --project-dir .
 ```
 
 **Back up before the first write, and show the command you ran:**
@@ -337,7 +330,7 @@ skills is the middle class, so the real prerequisite list is far shorter than th
 
 #### `python3` is the name, and 3.10 is the floor
 
-All thirteen hook scripts — fourteen event registrations because the Bash approver also handles
+All fourteen hook scripts — fifteen event registrations because the Bash approver also handles
 `PermissionRequest` — spell the interpreter `python3`, with no fallback. Where it answers to
 `python` or `py -3` and not to `python3` — the common case on
 Windows — every guardrail fails to start. **Cardinal 3 makes hooks fail open**, so nothing reports
@@ -475,7 +468,7 @@ row("package manager", ", ".join(managers) or "NONE", "REQUIRED", "every per-cal
 
 print("-- on PATH --")
 for name, level, who in (
-    ("python3",       "REQUIRED",    "the literal name all 13 hook scripts / 14 registrations invoke"),
+    ("python3",       "REQUIRED",    "the literal name all 14 hook scripts / 15 registrations invoke"),
     ("git",           "REQUIRED",    "every command; the guardrails read the worktree"),
     ("node",          "REQUIRED",    "workflows, bin/, the Codex installer, 18+"),
     ("claude",        "REQUIRED",    "the harness; evaluator Mode 5 runs it headless"),
@@ -694,15 +687,16 @@ them. Never loosen the client first and hope hooks appear later.
    Show the diff. Do not touch `git`, `destructiveFloor`, `allowPackageManagers`, or
    any other key. A `guarded` project is left alone. A file with no `autonomy` block is
    left alone — inventing one would loosen a repository that never asked.
-4. **Claude Code permission mode.** Appenditively, in `~/.claude/settings.json` (user
-   install) or the project's settings file (project/local install): if
+4. **Claude Code permission mode — only after**
+   `verify-hook-clients.py --client claude --scope <scope> --probe-guardrail` passes. Appenditively,
+   in `~/.claude/settings.json` (user install) or the project's settings file (project/local install): if
    `permissions.defaultMode` is missing, `"auto"`, or `"default"`, set it to
    `"bypassPermissions"`, and set `"skipAutoPermissionPrompt": true` if it is not
    already true. The hook remains the gate — `deny` still blocks, the destructive
    floor still holds. Do not replace the `permissions.allow` array; append `"Bash"`
    if the level is autonomous and that entry is missing.
-5. **Cursor IDE Run Mode — only after the marketplace plugin is present.**
-   `~/.cursor/cli-config.json` is `cursor-agent`. The confirmation flood lives in the IDE, which
+5. **Cursor IDE Run Mode — only after** `verify-hook-clients.py --client cursor --probe-guardrail`
+   passes against the marketplace cache. `~/.cursor/cli-config.json` is `cursor-agent`. The confirmation flood lives in the IDE, which
    reads `~/.cursor/permissions.json`. Write, additively:
    `"approvalMode": "unrestricted"`, `"mcpAllowlist"` including `"*:*"`, `"terminalAllowlist"`
    including `"*"`. In `cli-config.json`, set `"approvalMode": "unrestricted"` and
@@ -713,7 +707,9 @@ them. Never loosen the client first and hope hooks appear later.
    the Cursor plugin cache is absent. If you are running the playbook without it, enforce the same
    ordering yourself. If a team dashboard still forces Auto-review, the
    person has to set Settings → Agents → Approvals & Execution → **Run Everything**.
-6. **Grok CLI approval.** Grok reads Claude-shaped plugins already; the confirmation flood lives in
+6. **Grok CLI approval — only after** `verify-hook-clients.py --client grok --probe-guardrail`
+   passes against the exact `grok plugin list --json` path. Grok reads Claude-shaped plugins already;
+   the confirmation flood lives in
    `config.toml` under `GROK_HOME` (falling back to `~/.grok`), which is user config only — a
    project `.grok/config.toml` cannot set
    `permission_mode`. Write, additively: `[ui] permission_mode = "always-approve"`,
@@ -724,45 +720,15 @@ them. Never loosen the client first and hope hooks appear later.
 7. **Prove it**, from the project directory, and show the output:
 
 ```bash
-python3 - <<'PROVE'
-import os, sys
-plugin = os.environ.get("PLUGIN")
-if not plugin:
-    sys.exit("PLUGIN is unset — set it from Step 0 before proving")
-sys.path.insert(0, os.path.join(plugin, "hooks"))
-import _config as gp
-from smart_bash_approver import _classify, command_segments, normalize_command
-policy = gp.autonomy(gp.load())
-print("config :", gp.config_path())
-print("level  :", policy["level"])
-print("bash   :", policy["bashDefault"])
-print("cleanup:", policy["cleanup"])
-print("tools  :", policy.get("toolDefault"))
-cmd = "python3 -c 'print(1)'"
-decisions = [_classify(s, policy) for s in command_segments(normalize_command(cmd))]
-print("probe  :", decisions)
-from pathlib import Path
-perm = Path.home() / ".cursor" / "permissions.json"
-if perm.exists():
-    import json
-    print("cursor :", json.loads(perm.read_text(encoding="utf-8")).get("approvalMode"))
-else:
-    print("cursor : (no permissions.json)")
-grok = Path.home() / ".grok" / "config.toml"
-if grok.exists():
-    mode = next((line.split("=", 1)[1].strip().strip('"') for line in grok.read_text(encoding="utf-8").splitlines()
-                 if line.strip().startswith("permission_mode")), "unset")
-    print("grok   :", mode)
-else:
-    print("grok   : (no config.toml)")
-PROVE
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client all --project-dir . --check-posture --probe-guardrail
 ```
 
-If `bash` is not `allow` under `autonomous`, the config is not being read or the repair
-did not land. Do not continue to Step 4 until it prints `allow`. If this machine has
-Cursor, `cursor` must print `unrestricted` — `cli-config.json` being unrestricted is not
-enough. If this machine has Grok, `grok` must print `always-approve`. Destructive commands must
-still deny (`rm -rf /` is the probe). Commit and push keep their own gates.
+The first line reports the effective config and `level`, `bashDefault`, `cleanup` and `toolDefault`.
+Under `autonomous`, all three defaults must be `allow`; do not continue to Step 4 otherwise. Each
+present client must then pass its exact package and posture: Claude `bypassPermissions`, both Cursor
+IDE/CLI modes `unrestricted`, and the active `GROK_HOME` mode `always-approve`. The direct probe
+invokes `git_commit_gate` with a synthetic command and requires a denial without creating a commit.
+Commit/push opt-ins and the destructive floor remain separate gates.
 
 To keep asking on every unclassified command, pass `--autonomy guarded` to the installer
 or set `"level": "guarded"`. Do not express that as `autonomous` plus `bashDefault: ask`.
@@ -1317,10 +1283,11 @@ Three things to get right, because they are the ones that go wrong quietly:
   `tsgo`, unbounded `--parallel`, or unbounded `--concurrent` into the config.
 
 **Leave `autoUpdate` alone unless the project asks otherwise.** At session start, at most once every
-twelve hours, a detached worker updates only the routes it actually implements: Claude Code, the
-Codex **clone** fallback, and Grok CLI. Native Codex and Cursor are not updated by this worker; use
-their marketplace/client update path and restart that client. Nothing waits on the network and
-nothing inside the project is touched. Do **not** add a second updater for a route already covered.
+twelve hours, a detached worker updates only the routes whose cache lifecycle it owns: Claude Code
+and the Codex **clone** fallback. Native Codex, Cursor and Grok are never replaced by this worker;
+update them in the foreground through their marketplace/client path, run the package verifier, and
+restart every process that loaded the old cache. Nothing waits on the network and nothing inside the
+project is touched. Do **not** add a second updater for a route already covered.
 
 Write the group only to turn something off, and say why in the same breath:
 
@@ -1626,16 +1593,22 @@ follow with their separate capability boundaries.
 ### Claude Code — install and prove before bypass posture
 
 `claude plugin list` must show one enabled user-scope `graph-powers@graph-powers`; project-scope
-copies are separate registrations, not backups. `claude plugin details graph-powers@graph-powers`
-must list the canonical `hooks/hooks.json`, thirteen scripts/fourteen registrations, and the current
-version. Run `node "$PLUGIN/bin/audit-settings.mjs"` before removing any accumulated project hook.
-
-Install/update with the qualified ID, then restart Claude Code — the command itself states that a
-restart is required:
+copies are separate registrations, not backups. Install/update with the qualified ID first:
 
 ```bash
 claude plugin update graph-powers@graph-powers
 ```
+
+Then prove the exact user `installPath` rather than a neighbouring cache directory:
+
+```bash
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client claude --scope user --project-dir . --probe-guardrail
+```
+
+It must report the canonical `hooks/hooks.json`, fourteen scripts/fifteen registrations and guarded
+runners. Only then apply Step 3's posture, run `node "$PLUGIN/bin/audit-settings.mjs"` before removing
+any accumulated project hook, and restart Claude Code — the update command itself states that a
+restart is required.
 
 Do not set `bypassPermissions` first. The plugin package, literal `python3`, direct hook regression
 and settings-duplication audit must pass before Step 3's Claude posture is applied. A process already
@@ -1649,7 +1622,7 @@ Five states are separate and each has its own proof:
 |---|---|---|
 | Plugin installed and enabled | `codex plugin list --json` contains enabled `graph-powers@graph-powers` | install with 9c |
 | Method skills packaged | Step 10 § 7b reports both skill files present in the listed plugin source | update or reinstall the plugin; never copy one skill separately |
-| Hooks discovered | `/hooks` lists fourteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
+| Hooks discovered | `/hooks` lists fifteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
 | Hooks approved | `/hooks` shows those entries enabled/trusted | approve them explicitly; installation never grants trust |
 | Hooks executing | `codex exec --skip-git-repo-check "reply with: ok"` reports `Completed` | use the diagnostic matrix in 9e |
 
@@ -1699,87 +1672,19 @@ entry survives a native install and gets blamed on it. Find it first, and report
 prints:
 
 ```bash
-python3 - <<'CODEX'
-import glob, json, os, re, shutil, sys
-
-home = os.path.expanduser("~")
-codex = os.path.join(home, ".codex")
-if not os.path.isdir(codex):
-    print("codex home: absent — nothing to check")
-    sys.exit(0)
-
-hooks_file = os.path.join(codex, "hooks.json")
-try:
-    doc = json.load(open(hooks_file, encoding="utf-8")) if os.path.exists(hooks_file) else {"hooks": {}}
-except (OSError, ValueError) as exc:
-    print(f"BLOCKS  {hooks_file} does not parse: {exc}")
-    sys.exit(1)
-
-# A path counts only where the command names it literally. The lookbehind drops the `%VAR%` and
-# `$VAR` forms, which the shell resolves and this process cannot.
-PATHS = re.compile(r"""(?<![\w%$])((?:[A-Za-z]:)?[\\/][^\s"';|&()]*\.(?:py|mjs|js|sh|ps1|exe|cmd|bat))""")
-DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
-KEYWORDS = {"if", "for", "while", "case", "test", "[", "{", "command", "then", "else", "do", ":"}
-windows_here = os.name == "nt"
-
-entries = [(event, h) for event, groups in doc.get("hooks", {}).items()
-           for g in groups for h in g.get("hooks", [])]
-blocks, risks, no_windows = [], [], []
-
-for event, hook in entries:
-    posix, windows = hook.get("command", ""), hook.get("commandWindows", "")
-    native, other = (windows or posix, posix) if windows_here else (posix, windows)
-    first = re.match(r"\s*([^\s]+)", native)
-    if first and first.group(1) not in KEYWORDS:
-        exe = first.group(1)
-        if not shutil.which(exe) and not os.path.exists(exe):
-            blocks.append(f"{event}: interpreter {exe!r} is not on PATH")
-    for path in set(PATHS.findall(native)):
-        if bool(DRIVE.match(path)) != windows_here:
-            blocks.append(f"{event}: the command this machine runs carries the other platform's path — {path}")
-        elif not os.path.exists(path):
-            blocks.append(f"{event}: command points at a file that is not here — {path}")
-    for path in set(PATHS.findall(other)):
-        if bool(DRIVE.match(path)) == windows_here:
-            risks.append(f"{event}: the other platform's command carries this platform's path — {path}")
-    if posix and not windows and PATHS.search(posix):
-        no_windows.append(event)
-
-config = os.path.join(codex, "config.toml")
-if os.path.exists(config):
-    text = open(config, encoding="utf-8", errors="replace").read()
-    notify = re.search(r"^notify\s*=\s*\[([^\]]*)\]", text, re.M)
-    if notify:
-        quoted = re.findall(r'"((?:[^"\\]|\\.)*)"', notify.group(1))
-        target = quoted[0].replace("\\\\", "\\") if quoted else ""
-        if target and not shutil.which(target) and not os.path.exists(target):
-            risks.append(f"notify names a command that is absent on this machine — {target}")
-    if re.search(r"^\[\[?hooks\.(?!state)[A-Za-z]", text, re.M):
-        risks.append("config.toml declares hooks as well as hooks.json — Codex loads both and warns")
-
-conflicts = [p for d in (codex, os.path.join(home, ".claude"))
-             for pattern in ("*conflicted*", "*sync-conflict*", "*conflicted copy*")
-             for p in glob.glob(os.path.join(d, pattern))]
-
-print(f"hooks.json: {len(entries)} entries")
-for line in blocks:
-    print(f"BLOCKS  {line}")
-for line in risks:
-    print(f"RISK    {line}")
-if no_windows:
-    print(f"NOTE    {len(no_windows)} hook(s) have no commandWindows and stay silent on Windows")
-if conflicts:
-    print(f"NOTE    {len(conflicts)} conflict cop(ies) from a file-sync tool in the Codex or Claude home")
-if not (blocks or risks):
-    print("every hook resolves on this machine")
-CODEX
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client codex-home --project-dir .
 ```
+
+The versioned checker parses the active `CODEX_HOME`, chooses `command` or `commandWindows` for this
+platform, resolves literal interpreters and paths, distinguishes a pre-`1.11.1` missing entrypoint
+from a guarded runner whose target is merely inert, inspects `notify`/duplicate hook declarations,
+and reports file-sync conflict copies. It writes nothing.
 
 | Severity | What it found | What you do about it |
 |---|---|---|
-| `BLOCKS` | a command **this** machine runs names an interpreter or a file that is not here | fix it before installing. On Codex this is a deny, not a warning, and it will be blamed on whatever was installed last |
-| `RISK` | the hook works here and is wrong on the machine this home syncs to; or `notify` names an absent binary; or hooks are declared twice | fix it now if the user works on two machines, and say so either way |
-| `NOTE` | hooks with no `commandWindows`, or conflict copies left by a file-sync tool | report it. Neither breaks this machine; both are how the next break arrives |
+| `BLOCKS` | the active command names a missing interpreter, a wrong-platform path, or a missing entrypoint without the guarded runner | fix it before installing. On Codex this can be read as a deny and blamed on whatever was installed last |
+| `RISK` | a guarded runner's target is absent (session usable but guardrail inert); the synced-platform command is wrong; `notify` is absent; or hooks are declared twice | restart/repair before claiming coverage, and say which guardrail was inert |
+| `NOTE` | an absolute hook has no `commandWindows`, or a file-sync tool left conflict copies | report it. Neither necessarily breaks this machine; both are how the next break arrives |
 
 **Do not install over a `BLOCKS` line, and do not delete the entry that produced it** — it belongs
 to another tool and the user may want it. Repair it, which is almost always one of two edits:
@@ -1798,15 +1703,54 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
-Then restart Codex and approve the fourteen registrations in `/hooks`. The native loader discovers
+Then restart Codex and approve the fifteen registrations in `/hooks`. The native loader discovers
 `hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
 copy in `~/.codex/hooks.json` is involved.
 
-**Proof that Codex is not spending the Spark / Bengal Fox window:**
-`.codex-plugin/plugin.json` `"agents"` is `./codex/native-agents/`, and those files have no
-`model: haiku` / `opus` / `sonnet`. If the row is missing or a Claude family is still pinned,
-regenerate with `node "$PLUGIN/codex/native-plugin.mjs"` and restart Codex. The child inherits
-the session model — the user's own Codex/Pro limit, not `codex_bengalfox`.
+The current upstream Codex plugin manifest has no `agents` resource, so marketplace installation
+alone cannot register custom roles. Do not retain an ignored `"agents"` field or claim that the
+cache is a config layer. Emit the native companion TOMLs explicitly instead:
+
+```bash
+node "$PLUGIN/codex/native-plugin.mjs" --out <codex-home>/agents
+```
+
+This writes roles only and does not create a second hooks/skills installation route. Each companion
+TOML carries explicit `model` and `model_reasoning_effort` resolved from
+`codex/model-policy.json`, and the clone TOML route calls the same resolver. Run both repository
+checks before installing a changed package:
+
+```bash
+bun "$PLUGIN/.github/check_codex_policy.mjs"
+python3 -X utf8 "$PLUGIN/.github/check_codex_native.py"
+```
+
+The default split is Sol Max for judges/architects, Luna Max for executors/verifier and Luna Medium
+for scouts. A Claude family in either output, session inheritance for a canonical agent, or a
+native-companion/clone mismatch is a failure. `codex.profiles.*`, `codex.agents.*` and the legacy
+`codex.model`, `codex.models.*`, `codex.reasoningEffort` fields are clone-generation overrides;
+`node "$PLUGIN/codex/native-plugin.mjs" --config .graph-powers/config.json --out <codex-home>/agents`
+renders the same overrides for the operator-managed native companion directory.
+
+The tracked `codex/native-agents/*.toml` files are portable snapshots, not runtime-ready config:
+the `--out` step resolves `${CLAUDE_PLUGIN_ROOT}` to `$PLUGIN` and its `skills/` and `references/`
+subtrees. The generated runtime directory must contain no `CLAUDE_PLUGIN_ROOT` token.
+
+Do not claim per-role permission parity that Codex does not implement. In Codex 0.150.1 the role
+layer applies model/reasoning settings but preserves the parent sandbox and exposes no per-role
+spawn deny. The generator deliberately omits ignored `sandbox_mode` keys and inserts an explicit
+limitation notice for source agents that deny Write. For a hard read-only audit, launch the entire
+parent session with `codex --sandbox read-only`; mixed writer/reviewer workflows have advisory
+read-only and leaf boundaries until upstream exposes those controls. Claude Code continues to
+enforce its own `disallowedTools` declarations.
+
+Ultra is not a subagent reasoning tier. `native-ultra` is reserved for an explicit top-level Codex
+session when Graph Powers is not simultaneously running its own deterministic `/pr-review`,
+`ultra-plan` or `ultra-verify` fan-out. Never put an evaluator on Ultra: its model fallback is Sol
+Max, while its leaf boundary remains an orchestrator instruction under the current role API. Emit
+the separate Codex v2 profile with
+`node "$PLUGIN/codex/native-plugin.mjs" --top-level-profile native-ultra --out <codex-home>`, then
+select it with `codex --profile native-ultra`. This does not alter any generated subagent role.
 
 **Fallback — clone installer:** use this only when the marketplace is unavailable or a
 project-scoped copy is required.
@@ -1817,8 +1761,9 @@ node "$PLUGIN/bin/graph-powers.mjs" --target codex          # global half + proj
 
 That same script takes `--update`: it fast-forwards the clone and reinstalls from it. Native Codex
 uses `codex plugin marketplace upgrade graph-powers`; compare the version in
-`codex plugin list --json` afterwards and restart every CLI/Desktop process that had already loaded
-the old definition. Do not run the clone updater against a marketplace cache.
+`codex plugin list --json`, re-emit `<codex-home>/agents` from the upgraded cache, and restart every
+CLI/Desktop process that had already loaded the old definition. Do not run the clone updater against
+a marketplace cache.
 
 It does the two halves in order, and **skips the global half when it is already there at this
 version** — so running it in a tenth project costs two files, not thirty.
@@ -1838,16 +1783,11 @@ same: repair the entry, do not delete it.
 
 **Migration from a clone install to the native plugin.** If `codex plugin list --json` reports the
 native plugin and `~/.codex/graph-powers-installed.json` also exists, stop before the write and show
-the manifest's `pluginRoot` and `hookCommands`. After approval, run the recorded clone's installer:
+the manifest's `pluginRoot` and `hookCommands`. After approval, run the current plugin's manifest-backed
+uninstaller (it reads that record; it does not depend on the old root still existing):
 
 ```bash
-python3 - <<'MIGRATE'
-import json, os, subprocess
-p = os.path.expanduser("~/.codex/graph-powers-installed.json")
-m = json.load(open(p, encoding="utf-8"))
-installer = os.path.join(m["pluginRoot"], "bin", "graph-powers.mjs")
-subprocess.run(["node", installer, "--uninstall"], check=True)
-MIGRATE
+node "$PLUGIN/bin/graph-powers.mjs" --uninstall
 ```
 
 The manifest makes this subtraction exact: Graph Powers entries are removed from the shared hooks
@@ -1960,7 +1900,7 @@ process.
    product exposes no evidence, report `Codex Desktop: UNVERIFIED` rather than borrowing the CLI row.
 2. After any plugin/cache update, fully quit Desktop and confirm the old app-server process exited;
    then open a new task in the repository.
-3. Verify plugin version, fourteen hook registrations/trust, and one harmless completed turn from
+3. Verify plugin version, fifteen hook registrations/trust, and one harmless completed turn from
    the Desktop task. If Desktop does not expose hook telemetry, say which half could not be proved.
 
 ### 9g — Wire Cursor, if the project uses it
@@ -1974,7 +1914,7 @@ Four states, each with its own proof:
 | State | Proof | If absent |
 |---|---|---|
 | Plugin in the Cursor cache | an installed cache entry contains `.cursor-plugin/plugin.json` for `graph-powers` | add the marketplace with `cursor-agent plugin marketplace add https://github.com/GrupoUS/graph-powers`, then install Graph Powers in Cursor; `--target cursor` does not install it |
-| Installed native hooks pointed at the generated file | that cached manifest points at `./hooks/hooks-cursor.json`, and the file has eleven registrations | update/reinstall the Cursor plugin; regenerate the repository source only when developing this plugin |
+| Installed native hooks pointed at the generated file | that cached manifest points at `./hooks/hooks-cursor.json`, and the file has twelve registrations | update/reinstall the Cursor plugin; regenerate the repository source only when developing this plugin |
 | IDE Run Mode unrestricted | `~/.cursor/permissions.json` `"approvalMode"` is `"unrestricted"` | only after the two rows above pass, run `node "$PLUGIN/bin/graph-powers.mjs" --target cursor`, then reload the window |
 | Team dashboard not overriding | Settings → Agents → Approvals & Execution shows **Run Everything** | the person has to click it; a file cannot beat a dashboard policy |
 
@@ -1984,9 +1924,17 @@ and push still ask. `rm -rf /` still denies. PermissionRequest and Notification 
 Cursor — `tool_approver` and `notify` are skipped on purpose, and `smart_bash_approver` still
 runs at `preToolUse`.
 
-Cursor watches hook files, but a marketplace update may also replace its cache root. Reload the
-Cursor window after an update; a new Agent chat alone proves Run Mode, not that the old process
-released its prior plugin path.
+Cursor watches hook files, but a marketplace update may also replace its cache root. Before writing
+Run Mode, run:
+
+```bash
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client cursor --project-dir . --probe-guardrail
+```
+
+The command inspects every dedicated cache directory and fails on a corrupt candidate or an
+ambiguous highest version; neither mtime nor "some valid cache" is accepted. Reload the Cursor
+window after an update; a new Agent chat alone proves Run Mode, not that the old process released
+its prior plugin path.
 
 ### 9h — Wire Grok CLI, if the project uses it
 
@@ -2010,8 +1958,15 @@ commit and push still ask. `rm -rf /` still denies. Grok has Notification; keep 
 `hooks/hooks.json`. Under `guarded`, clone discovery is still written while approval posture stays
 unchanged.
 
-Restart the Grok session after installation or update. An already-open session keeps its loaded
-plugin commands and permission mode.
+Before writing `always-approve`, prove the exact `path` returned by Grok and the active Grok home:
+
+```bash
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client grok --project-dir . --probe-guardrail
+```
+
+Grok updates are foreground-only: the `SessionStart` worker never replaces this client-owned cache.
+After installation or update, run the verifier, then restart Grok. An already-open session keeps its
+loaded plugin commands and permission mode.
 
 ### 9i — Zed: instructions work, Graph Powers hooks do not
 
@@ -2080,19 +2035,8 @@ for key, command in cmds.items():
     print(f'{key:12} {command!r:38} ' + (f'MISSING: {missing}' if missing else 'ok'))
 "    
 
-# 5. commit logic denies without creating a real commit; client discovery is proved separately
-python3 - <<'COMMIT_GATE'
-import json, os, subprocess, sys
-hook = os.path.join(os.environ["PLUGIN"], "hooks", "git_commit_gate.py")
-payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m guardrail-check"},
-           "cwd": os.getcwd()}
-r = subprocess.run([sys.executable, hook], input=json.dumps(payload), capture_output=True,
-                   encoding="utf-8", errors="replace", check=False)
-body = json.loads(r.stdout)
-decision = body["hookSpecificOutput"]["permissionDecision"]
-print("commit gate:", decision)
-raise SystemExit(r.returncode != 0 or decision != "deny")
-COMMIT_GATE
+# 5. commit logic is exercised by verify-hook-clients.py --probe-guardrail below. It invokes the
+#    installed package's git_commit_gate against a temporary guarded config; no real commit is made.
 
 # 6. the workflows are registered
 #    RESTART the session first — the workflow registry is built at startup, so a plugin
@@ -2105,32 +2049,9 @@ COMMIT_GATE
 #    Spawn one, in the new session, and read the error rather than guessing:
 #      Agent({ subagent_type: "graph-powers:explorer", prompt: "list the files in agents/" })
 
-# 7b. only if Step 9 ran: without invoking an execution skill, inspect the `source.path` for graph-powers in
-#     `codex plugin list --json`. A missing file means a stale or incomplete package, not a
-#     separate skill install.
-python3 - <<'METHOD_SKILLS'
-import json, os, subprocess
-doc = json.loads(subprocess.run(
-    ["codex", "plugin", "list", "--json"], capture_output=True, check=True,
-    encoding="utf-8", errors="replace").stdout)
-entry = next((p for p in doc.get("installed", [])
-              if p.get("pluginId") == "graph-powers@graph-powers" and p.get("enabled")), None)
-root = ((entry or {}).get("source") or {}).get("path")
-required = ("skills/planning/SKILL.md",
-            "skills/planning/references/phase-c-executing-plans.md",
-            "skills/planning/references/execution/tdd-policy.md",
-            "hooks/hooks.json")
-missing = required if not root else tuple(r for r in required if not os.path.isfile(os.path.join(root, *r.split("/"))))
-commands = []
-if root and not missing:
-    hooks = json.load(open(os.path.join(root, "hooks", "hooks.json"), encoding="utf-8"))
-    commands = [h["command"] for groups in hooks.get("hooks", {}).values()
-                for group in groups for h in group.get("hooks", [])]
-    if len(commands) != 14 or not all("runpy.run_path" in c for c in commands):
-        missing += ("14 fail-open hook registrations",)
-print("native package: " + ("present" if not missing else "MISSING " + ", ".join(missing)))
-raise SystemExit(bool(missing))
-METHOD_SKILLS
+# 7b, 9 and 10. One package/posture proof for Claude, Codex, Cursor and Grok.
+#     It also reports Zed as NOT ENFORCED instead of inventing a hook target.
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client all --project-dir . --check-posture --probe-guardrail
 
 # 8. Codex answers, and its hooks run — only if Step 9 ran
 codex doctor                                      # expected: 0 fail
@@ -2140,61 +2061,7 @@ codex exec --skip-git-repo-check "reply with: ok" # one line per hook, then the 
 #    and was stepped over. Neither is a finished state; § 9b names the entry behind either. A hook
 #    that appears in `/hooks` and in no output line is unapproved: approve it there.
 
-# 9. Cursor plugin payload AND IDE posture — only if this machine has ~/.cursor
-python3 - <<'CURSOR'
-import json, os, sys
-from pathlib import Path
-sys.path.insert(0, os.path.join(os.environ["PLUGIN"], "hooks"))
-import _config as gp
-autonomous = gp.autonomy(gp.load())["level"] == "autonomous"
-home = Path.home() / ".cursor"
-if not home.exists():
-    print("Cursor: skipped (no Cursor home)")
-    raise SystemExit(0)
-manifests = list((home / "plugins/cache/graph-powers/graph-powers").glob("*/.cursor-plugin/plugin.json"))
-if not manifests:
-    raise SystemExit("Cursor: Graph Powers plugin cache MISSING; posture must not be unrestricted")
-manifest_path = max(manifests, key=lambda p: p.stat().st_mtime)
-root = manifest_path.parents[1]
-manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-hooks = json.loads((root / "hooks/hooks-cursor.json").read_text(encoding="utf-8"))
-commands = [h["command"] for entries in hooks.get("hooks", {}).values() for h in entries]
-perms_path = home / "permissions.json"
-mode = json.loads(perms_path.read_text(encoding="utf-8")).get("approvalMode") if perms_path.exists() else "missing"
-print("Cursor:", manifest.get("version"), len(commands), "hooks; approvalMode", mode)
-raise SystemExit(len(commands) != 11 or not all("runpy.run_path" in c for c in commands)
-                 or (autonomous and mode != "unrestricted"))
-CURSOR
 
-# 10. Grok plugin payload AND posture — only if Grok is installed
-python3 - <<'GROK'
-import json, os, shutil, subprocess, sys
-from pathlib import Path
-sys.path.insert(0, os.path.join(os.environ["PLUGIN"], "hooks"))
-import _config as gp
-autonomous = gp.autonomy(gp.load())["level"] == "autonomous"
-if not shutil.which("grok"):
-    print("Grok: skipped (CLI absent)")
-    raise SystemExit(0)
-doc = json.loads(subprocess.run(["grok", "plugin", "list", "--json"], capture_output=True,
-                                encoding="utf-8", errors="replace", check=True).stdout)
-entry = next((p for p in doc if p.get("name") == "graph-powers" and p.get("status") == "installed"), None)
-if not entry:
-    raise SystemExit("Grok: Graph Powers plugin MISSING")
-root = Path(entry["path"])
-manifest = json.loads((root / ".grok-plugin/plugin.json").read_text(encoding="utf-8"))
-hooks = json.loads((root / "hooks/hooks.json").read_text(encoding="utf-8"))
-commands = [h["command"] for groups in hooks.get("hooks", {}).values()
-            for group in groups for h in group.get("hooks", [])]
-grok_home = Path(os.environ.get("GROK_HOME") or (Path.home() / ".grok"))
-config = (grok_home / "config.toml").read_text(encoding="utf-8")
-mode = next((line.split("=", 1)[1].strip().strip(chr(34)) for line in config.splitlines()
-             if line.strip().startswith("permission_mode")), "unset")
-print("Grok:", entry.get("version"), len(commands), "hooks; permission_mode", mode)
-raise SystemExit(manifest.get("hooks") != "./hooks/hooks.json" or len(commands) != 14
-                 or not all("runpy.run_path" in c for c in commands)
-                 or (autonomous and mode != "always-approve"))
-GROK
 ```
 
 Two client verdicts are explicit report gates rather than shell commands:
@@ -2248,10 +2115,10 @@ CLI get a new process/session. Zed has no Graph Powers hooks to reload.
 **Project:** <what was written here, and nothing else>
 **Claude hooks:** <version · package/discovery · restarted · live proof>
 **Codex CLI health:** <§ 9b before: n BLOCKS / n RISK> → <after: same, and what was repaired>
-**Codex CLI hooks:** <version · 14 discovered · approved/live | pending — guardrails inert>
+**Codex CLI hooks:** <version · 15 discovered · approved/live | pending — guardrails inert>
 **Codex Desktop:** <PASS with separate evidence | UNVERIFIED — why> — never inherited from CLI
-**Cursor:** <plugin version · 11 hooks · permissions approvalMode | skipped> — full window reload
-**Grok:** <plugin version · 14 hooks · active Grok-home permission_mode | skipped> — restarted
+**Cursor:** <plugin version · 12 hooks · permissions approvalMode | skipped> — full window reload
+**Grok:** <plugin version · 15 hooks · active Grok-home permission_mode | skipped> — restarted
 **Zed:** instructions/skills/editor settings <state> · Graph Powers hooks `NOT ENFORCED`
 **Verification:** <each check, with its result>
 **Backup:** <path> — restore with `rm -rf .claude && mv <backup> .claude`

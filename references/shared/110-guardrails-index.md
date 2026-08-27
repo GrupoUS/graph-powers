@@ -19,10 +19,12 @@ people to expect a block that never comes, or to be surprised by one that does.
 | Turbo `--dry=json` on a captured stdout pipe (EPIPE abort cascade) | `smart_bash_approver.py` | `Bash` | run debugger `turbo_dry_json.py` instead — not an env-var release |
 | The project's own pre-commit audit | `commit_audit_gate.py` | `Bash` | `<PREFIX>_ALLOW_AUDIT=1` |
 | Writes to `.env`, lockfiles, `.git/`, secrets, declared paths | `protect_files.py` | `Edit`/`Write` | nothing |
+| Final project-declared lint | `stop_verify.py` | `Stop` | `<PREFIX>_ALLOW_LINT=1` in the client environment |
 
 `<PREFIX>` is `git.optInPrefix` from the project's config, and it is per project on purpose: an
 approval given in one repository must not count in another. Every one of these fails **open** — a
-missing or malformed config falls back to the defaults rather than taking the session down.
+missing or malformed config falls back to defaults. Stop semantics: Claude=block; Cursor=bounded
+follow-up; Grok=passive; Codex=`NOT CONFIRMED`.
 
 **Releasing a gate, on any operating system.** The hook looks for the literal text `<KEY>=1` in the
 command, or for the variable in the environment (`hooks/_config.py`, `opted_in`). It never asks the
@@ -41,11 +43,8 @@ and then fails to run, which looks like the guardrail misbehaving and is not.
 Advisory, same registration, no denial: `auto_update.py`, `branch_session_notice.py`,
 `session_context.py` (SessionStart), `ultracite.py` (PostToolUse), `notify.py` (Notification).
 
-`ultracite.py` runs `tooling.commands.format` after an edit and `tooling.commands.lint` at a stop.
-Both need the tool they name to be installed and on PATH — the plugin runs the command and nothing
-more. A missing tool is skipped rather than swallowed, and `session_context.py` names it in the
-session tag (`NOT INSTALLED: lint needs \`oxlint\``); install globally so it works in every
-repository a session visits.
+`ultracite.py` formats edits; `stop_verify.py` runs the declared global lint and trusts its exit
+code. An unavailable command is skipped, never reported as covered.
 
 ### Convention — rules the project writes, and nobody enforces but you
 
@@ -57,7 +56,7 @@ repository a session visits.
 | UX floor | `${rulesDir}/ux.md` | user-facing changes |
 | Anything the project added | `${rulesDir}/` | as the file declares |
 | Known bug patterns | `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md` | debugging |
-| Formatter and linter | `${tooling.commands.lint}` | before every commit |
+| Other declared gates | `${tooling.commands}` | before commit/release |
 
 The plugin ships templates for the first four in `templates/rules/`. Rows for a project's own
 domain — its database invariants, its integrations, its tenancy model — are added there by the

@@ -13,12 +13,16 @@ The `MANDATORY CONTEXT` section of the seven that `${CLAUDE_PLUGIN_ROOT}/referen
 
 ```markdown
 ## MANDATORY CONTEXT
-**Original request:** <verbatim user message that started this session>
+**Original request:** <lossless summary; quote exactly when short or authoritative>
 **User decisions:** <approach choices made so far — e.g., "user chose Option B for the hero layout">
 **Prior agent findings:** <1-2 sentence summary from each completed agent — key facts only>
 **Current plan state:** <phase N, task X of Y — what has already been done>
 **Do NOT redo:** <what prior agents already covered — skip to avoid duplication>
 ```
+
+The summary preserves scope, constraints, exclusions, exact identifiers and user decisions. Quote
+the request exactly when it is already short or when its wording is authoritative: user text being
+transformed, authorization or safety wording, error strings, or prompt/contract text under test.
 
 **Why:** agents without context rediscover what the parent already knows. Wastes tokens, conflicts with prior decisions, multiplies parallel-spawn overhead. The 5-field block is the minimum viable handoff for any spawn.
 
@@ -133,5 +137,6 @@ When ≥2 agents run in a single message (parallel spawn pattern, `${CLAUDE_PLUG
 - ❌ Skill content dumps. Reference the skill name; don't paste its body.
 - ❌ Speculation without evidence. If `confidence ≤ 2`, mark it `BLOCKED` and ask.
 - ❌ "Done" without `qualityGates[]`. A claim of completion without evidence is the most common defect this schema prevents.
+- ❌ Burying outcomes or repeating facts: lead with outcome and evidence, state each fact once, and preserve exact paths, commands, errors, numbers, decisions and uncertainty. Safety and clarity override brevity.
 
 Owner: `senior-prompt-engineer` skill.

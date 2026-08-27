@@ -37,7 +37,7 @@
           {
             "type": "command",
             "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"${CLAUDE_PLUGIN_ROOT}/hooks/commit_audit_gate.py\"",
-            "timeout": 60
+            "timeout": 610
           }
         ]
       },
@@ -102,6 +102,17 @@
           {
             "type": "command",
             "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ultracite.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop_verify.py\"",
             "timeout": 30
           }
         ]

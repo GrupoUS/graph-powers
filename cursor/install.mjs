@@ -18,7 +18,9 @@
  * that already has one. preToolUse still runs the git gates and smart_bash_approver, which is
  * the half that stops a confirmation flood.
  *
- * User files are merged, never replaced. A permission list is somebody's decision.
+ * User files are merged, never replaced. A permission list is somebody's decision. A standalone
+ * autonomous run first calls the shared package verifier against Cursor's exact marketplace cache;
+ * `--emit-only` remains a pure generator and writes no posture.
  */
 
 import { existsSync } from "node:fs";
@@ -27,6 +29,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readJson, writeFile } from "../codex/lib.mjs";
+import { proofFailure, verifyHookClient } from "../bin/hook-client-verifier.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -95,6 +98,7 @@ export function buildCursorHooks(hookManifest) {
         const entry = { command: commandForCursor(hook.command) };
         if (matcher) entry.matcher = matcher;
         if (hook.timeout) entry.timeout = hook.timeout;
+        if (event === "Stop" || event === "SubagentStop") entry.loop_limit = 5;
         entries.push(entry);
       }
     }
@@ -234,6 +238,7 @@ export function install({
   autonomous = true,
   emit = false,
   emitOnly = false,
+  verified = false,
   log = () => {},
 } = {}) {
   const written = [];
@@ -258,6 +263,21 @@ export function install({
   }
 
   if (emitOnly) return { written, skipped, permChanged: [], cliChanged: [] };
+
+  if (autonomous && !dryRun && !verified) {
+    const proof = verifyHookClient({
+      client: "cursor",
+      pluginRoot,
+      projectDir: process.cwd(),
+      autonomy: "autonomous",
+      probe: true,
+    });
+    if (!proof.ok) {
+      throw new Error(
+        `Cursor hook package verification failed; unrestricted posture was not changed: ${proofFailure(proof)}`,
+      );
+    }
+  }
 
   const home = homedir();
   const permFile = join(home, ".cursor/permissions.json");
@@ -312,4 +332,11 @@ function main() {
 }
 
 const invoked = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invoked) main();
+if (invoked) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}

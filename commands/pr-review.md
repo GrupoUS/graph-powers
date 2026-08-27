@@ -128,6 +128,10 @@ Follow `070-parallel-agent-spawn.md`, then dispatch **every applicable track in 
 said "dispatch in one message" while naming no agent to dispatch — four prose headings and no
 `subagent_type` anywhere. The table below is the dispatch.
 
+**Codex routing note.** This command owns the deterministic review fan-out and its bounds; the
+semantic agent policy only selects the model lane for each dispatched role. Do not layer the
+top-level `native-ultra` orchestration policy on this fan-out.
+
 **Read-only by frontmatter, never by instruction.** Every agent here resolves with
 `disallowedTools: Write, Edit` or an allowlist without them. A prompt saying "do not fix" is a
 request; the incident behind that rule is in

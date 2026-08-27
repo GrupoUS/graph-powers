@@ -11,7 +11,7 @@ Implement [TASK ID]: [TASK TITLE]. Read every file in Owns before editing.
 Deliver the task's criterion, only within Owns, with the task CHECK and evidence.
 
 ## MANDATORY CONTEXT
-**Original request:** [ORIGINAL REQUEST]
+**Original request:** [LOSSLESS REQUEST SUMMARY]
 **Decisions already made:** [DECISIONS]
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C, task [TASK ID] of [TOTAL TASKS], base [BASE SHA], branch [WORK BRANCH].

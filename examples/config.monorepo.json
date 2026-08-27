@@ -45,13 +45,11 @@
     "applyPolicy": "optIn"
   },
   "codex": {
-    "model": "gpt-5.6",
-    "models": {
-      "heavy": "gpt-5.6-sol",
-      "standard": "gpt-5.6",
-      "light": "gpt-5.6-luna"
-    },
-    "reasoningEffort": "high"
+    "profiles": {
+      "judge": { "model": "gpt-5.6-sol", "reasoningEffort": "max" },
+      "executor": { "model": "gpt-5.6-luna", "reasoningEffort": "max" },
+      "scout": { "model": "gpt-5.6-luna", "reasoningEffort": "medium" }
+    }
   },
   "graphGuardrails": { "maxSpawnsPerSession": 25, "maxRoundsPerAgent": 8 }
 }

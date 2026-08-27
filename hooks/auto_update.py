@@ -16,21 +16,20 @@ The hook itself does almost nothing: it reads a throttle file and, at most once 
 starts a detached worker. It never waits for the network. SessionStart has a timeout, and a
 guardrail that delays every session start by a DNS lookup is a guardrail people uninstall.
 
-The worker asks each harness to update **itself**, through its own supported path:
+The worker asks only the routes whose cache lifecycle it can safely own to update:
 
   Claude Code   claude plugin marketplace update <mp> && claude plugin update <plugin>@<mp>
   Codex CLI     git -C <clone> pull --ff-only, then regenerate the artefacts from it
-  Grok CLI      grok plugin marketplace update && grok plugin update <plugin>
 
 The Codex worker half intentionally covers only the clone fallback: its install manifest records the
-stable directory this worker may fast-forward and regenerate. Native Codex marketplace plugins are
-client-owned and may replace a versioned cache while a process still retains old hook commands, so
-this SessionStart worker does not update them. Cursor is client-owned for the same reason.
+stable directory this worker may fast-forward and regenerate. Native Codex, Cursor and Grok plugins
+are client-owned and may replace a versioned cache while a process still retains old hook commands,
+so this SessionStart worker never updates them. Their foreground update and restart procedures live
+in AGENT_SETUP.md.
 
 Claude Code keeps the running version directory and picks a new one up at the next start; clone
-Codex artefacts keep a stable root and are read at startup. Grok uses its own updater and also needs
-a restarted session. The honest state after any update is "restart to apply"; native clients not
-owned here are documented separately in AGENT_SETUP.md.
+Codex artefacts keep a stable root and are read at startup. The honest state after any update is
+"restart to apply"; native clients not owned here are documented separately in AGENT_SETUP.md.
 
 What it will not do, at any setting: change anything in the project. Config, rules, AGENTS.md and
 the three authorities are the project's, and a background process is the last thing that should
@@ -117,7 +116,6 @@ def settings(cfg: dict[str, typing.Any]) -> dict[str, typing.Any]:
         else DEFAULT_INTERVAL_HOURS,
         "claude": node.get("claude") is not False,
         "codex": node.get("codex") is not False,
-        "grok": node.get("grok") is not False,
     }
 
 
@@ -188,7 +186,6 @@ def spawn_worker(opts: dict[str, typing.Any]) -> None:
         env = dict(os.environ)
         env["GRAPH_POWERS_UPDATE_CLAUDE"] = "1" if opts["claude"] else "0"
         env["GRAPH_POWERS_UPDATE_CODEX"] = "1" if opts["codex"] else "0"
-        env["GRAPH_POWERS_UPDATE_GROK"] = "1" if opts["grok"] else "0"
         # Detach, so the update outlives this hook and never holds the session open.
         # `start_new_session` is `setsid`, and CPython silently ignores it on Windows — the worker
         # then stays in the console's process group and dies with it, or holds it open. The two
@@ -313,9 +310,6 @@ def worker() -> int:
                 if code == 0:
                     notices.append(f"Codex artefacts regenerated at {head[:8]}")
 
-    if os.environ.get("GRAPH_POWERS_UPDATE_GROK") == "1" and which("grok"):
-        run(["grok", "plugin", "marketplace", "update"])
-        run(["grok", "plugin", "update", PLUGIN])
 
     after = registered_version()
     if notices or (before and after and before != after):
