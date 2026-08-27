@@ -13,8 +13,6 @@ Graph Powers read-only intent: this source agent denies Write and Edit. Codex ro
 Graph Powers leaf intent: this is a leaf judge. Never spawn, delegate to, or dispatch another agent. Ultra is forbidden for this role. Current Codex role files expose no per-role spawn deny, so this boundary is advisory and the orchestrator must refuse evaluator fan-out.
 
 
-
-
 # Evaluator — Adversarial Intelligence
 
 ## Role

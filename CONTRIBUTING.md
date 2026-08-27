@@ -21,7 +21,7 @@ python3 skills/planning/scripts/test_sdd.py
 python3 skills/skill-improve/scripts/test_run_evals.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
- bun .github/check_workflows.mjs             # workflow scripts parse and names match
+bun .github/check_workflows.mjs             # workflow scripts parse and names match
 bun .github/check_codex_policy.mjs          # semantic Codex routing, overrides and Ultra guard
 python3 .github/check_codex_native.py        # native companion/clone policy parity and drift
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
@@ -41,8 +41,8 @@ On Windows the interpreter is `python` or `py -3`, not `python3` — the Microso
 stub by that name which opens the Store and exits non-zero, so a gate looks like it ran and
 did not.
 
-The last one must come back empty: a machine path in the plugin breaks on everyone's machine except
-the one it was written on.
+The machine-path gate must come back empty: a local home path in the plugin breaks on everyone's
+machine except the one it was written on.
 
 ---
 

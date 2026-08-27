@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.12.1 — Codex companion roles match runtime boundaries
+
+Verification against the official Codex 0.150.1 binary closed three gaps in the initial semantic
+routing release. The native plugin manifest has no agent-role resource, so the ignored `"agents"`
+field is gone and the supported companion command emits the same twelve TOMLs into
+`<codex-home>/agents`. Runtime emission resolves every `${CLAUDE_PLUGIN_ROOT}` reference while the
+tracked snapshots remain machine-portable. Unknown extension agents also retain their legacy
+fallback instead of treating a missing semantic profile as an invalid `null` override.
+
+Codex role projection preserves the parent sandbox and has no per-role spawn deny. Generated roles
+therefore omit the ignored `sandbox_mode` key instead of presenting false enforcement. Source
+read-only and evaluator-leaf intent remains explicit in generated instructions; hard Codex
+read-only requires the entire parent session to be read-only, and mixed writer/reviewer fan-out is
+documented as advisory until upstream exposes a per-role capability boundary. The native and clone
+checks assert that limitation, resolved runtime paths and intent parity, and `/verify` now lists all
+twenty-one repository gates rather than leaving the Codex policy and companion checks CI-only.
+
 ## 1.12.0 — Codex routes agents by semantic role
 
 Codex native-companion TOML and clone-generated TOML now share one policy authority instead of inheriting
@@ -15,20 +32,8 @@ Ultra is represented only by the explicit top-level `native-ultra` profile. It i
 all generated subagents because Codex maps Ultra to proactive multi-agent orchestration; Graph
 Powers evaluators remain pinned to Sol Max and carry an explicit leaf instruction, so existing
 `/pr-review`, `ultra-plan` and `ultra-verify` fan-out bounds do not intentionally gain a second
-orchestration layer. New checks cover all twelve agents, extension-agent fallback, override
-precedence, invalid effort, permission-limit disclosure, companion/clone parity and drift.
-
-Current upstream Codex plugin manifests do not expose an agent-role resource, so the previously
-ignored `"agents"` field was removed instead of presenting false native discovery. The native route
-now documents and tests the supported companion step that emits the same twelve TOMLs into
-`<codex-home>/agents`; it writes no duplicate hooks or skills and resolves every Claude-only plugin
-path before runtime discovery.
-
-Codex 0.150.1's role projection preserves the parent sandbox and has no per-role spawn deny. The
-generator now omits the ignored `sandbox_mode` key instead of presenting false enforcement. Source
-read-only and evaluator-leaf intent remains explicit in generated instructions; hard Codex
-read-only requires the entire parent session to be read-only, and mixed writer/reviewer fan-out is
-documented as advisory until upstream exposes a per-role capability boundary.
+orchestration layer. New checks cover all twelve agents, override precedence, invalid effort,
+companion/clone model-effort parity and generated drift.
 
 The setup hardening in the same release adds one portable installed-package verifier for Claude
 Code, native/clone Codex, Cursor and Grok. The installer calls it before writing

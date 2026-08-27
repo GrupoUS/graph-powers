@@ -11,8 +11,6 @@ developer_instructions = '''
 Graph Powers read-only intent: this source agent denies Write and Edit. Codex role files inherit the parent sandbox and approval posture, so hard enforcement requires the entire parent review session to run read-only; in a write-capable mixed workflow this role boundary is advisory.
 
 
-
-
 # Security Reviewer — Exploitability-First
 
 ## Role
