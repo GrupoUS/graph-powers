@@ -156,18 +156,30 @@ the deploy: no RUM column, say "no data yet, retry after 24h", and do not fill i
 Render and effect correctness, dead code, dependency risk. **Advisory, never a CI gate** — it finds
 candidates, it does not decide what ships.
 
-The scanner is the project's own (`react-doctor` for React, or whatever its ecosystem provides).
-Read the command from `tooling.commands`, or from a project script named `doctor` / `analyze` /
-`audit`. **The project declares none → say so and stop.** Running a linter nobody configured
-produces findings nobody agreed to, and this plugin does not vendor a scanner or pin its rule list.
+The canonical source is `${tooling.commands.renderHealth}`. When present, execute its literal value
+exactly as declared: do not append flags, rewrite arguments, substitute the package manager, wrap the
+command, or install anything. When absent, fall back only to an already-declared project script named
+`doctor`, `analyze`, or `audit`; invoke exactly that script through `${tooling.packageManager}` with no
+extra flags. This fallback belongs only to `/perf doctor`; it does not synthesize `renderHealth`
+for the debugger or verify chain. Do not infer a command from dependencies or invent a scanner.
+React Doctor is one possible project choice, never a Graph Powers dependency. **Neither source
+exists → say so and stop.**
+
+Scanner output is advisory input to hypotheses: a finding is neither root cause nor authorization to
+auto-fix. Preserve uncertainty in empty or incomplete reports. Zero findings is `CLEAN` only when the
+scanner explicitly confirms it covered the requested scope; otherwise report `INCOMPLETE` or
+`NOT MEASURED` rather than a pass.
 
 The loop, and it is atomic on purpose:
 
 1. **Baseline** — run it, record score and error/warning counts verbatim.
 2. **Triage** — group by **file**, not by rule; sort by severity; honour existing suppressions.
-3. **Fix one file** — every related finding in that file, one pass. Never batch unrelated files.
+3. **Confirm, then fix one file** — check candidates against the code and intended behaviour; fix
+   only confirmed findings in that file, one pass. Never batch unrelated files.
 4. **Validate that file** — format, type check, then its own test, all from `tooling.commands`.
-5. **Re-scan** — counts must move. A plateau means what remains needs judgement, not another loop.
+5. **Re-scan** — counts must move. It is supplementary evidence, never a substitute for RED/GREEN,
+   declared gates, or browser evidence. A plateau means what remains needs judgement, not another
+   loop.
 6. **Stop** when what is left is deliberate. Do not chase 100: past a point the tool measures its
    own opinions.
 

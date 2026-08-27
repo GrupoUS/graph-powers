@@ -163,9 +163,9 @@
             },
             "renderHealth": {
               "type": "string",
-              "description": "An advisory render/effect health scan, run only under the verify chain's deep flag. Usually networked, which is why it is opt-in twice.",
+              "description": "An advisory render/effect health command. /perf doctor uses it when declared and alone owns any project-script fallback; frontend-debug may use it after its Step 1 reproducer, and ultra-verify may use it for a deep web-surface pass. Its literal value is executed without appended flags; when absent, frontend-debug and ultra-verify skip without installation or scanner inference.",
               "examples": [
-                "npx react-doctor --scope changed"
+                "bun run render-health"
               ]
             }
           }

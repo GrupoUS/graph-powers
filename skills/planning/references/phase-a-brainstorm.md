@@ -86,11 +86,51 @@ Consolidate the returned evidence, cross-check layer order, and surface only con
 change the design. Mark unresolved in-scope assumptions `[ASSUMED]`; unknowns that prevent a task
 list return to Step 0's fog gate instead of being guessed closed.
 
+## Optional divergent pass — gated
+
+This pass is expensive and off by default. Run it immediately when the user explicitly asks for
+"ADHD mode", a wide brainstorm or divergent ideation. Without opt-in, run it only when **all** hold:
+the problem has multiple viable answers, choosing the obvious answer wrongly is costly, and the user
+did not ask for a quick, standard, canonical, textbook or one-line answer. Otherwise go to Step 4.
+
+**Diverge without critique.** Select up to five frames within the wave width supplied by
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`: four problem-relevant and one
+wild when width allows; at reduced width, retain one wild. A smaller explicit request may use up to
+three. Useful frames fit in one pool: constraints/hardware · regulator/provability · novice/no
+conventions · attacker/failure
+inversion · biology/emergence · logistics/queues · game/feedback loops · markets/incentives · direct
+inversion · zero-resource or unlimited-resource extreme · remove the load-bearing assumption ·
+speedrunner/skips · on-call/operability.
+
+Dispatch one isolated, read-only background batch under
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`. Besides the required delegation
+wrapper, each branch receives only the problem, known constraints, one frame and this contract:
+
+> DIVERGE. Produce six terse, distinct ideas from this frame. Do not critique, rank or hedge. Ban the
+> first three obvious answers. Return only a JSON array of `{"text":"...","rationale":"..."}`.
+
+Keep branches mutually blind; never reveal one branch's output to another, because shared context
+anchors the set. Stop early when new ideas repeat existing shapes. Generate six ideas per selected
+frame; an explicitly small request uses four.
+
+**Converge separately.** After the batch, the main thread becomes the evaluator; generators never
+judge their own output (`references/loop-engineering.md § Generator-Evaluator Loop`). Score each idea
+0–10 on novelty, viability and fit; rank by `0.35N + 0.40V + 0.25F`, flag hidden-cost or premature-
+abstraction traps, and cluster 3–6 groups by underlying angle rather than wording. Exclude traps and
+take the top three. Deepen those in one second isolated parallel batch: 4–8 sentence sketch,
+load-bearing risk, first concrete step, and 3–5 variations, hybrids or unlocks.
+
+**Present proportionally.** For explicit wide ideation, show: brief → clustered pool with
+`[N# V# F#]` → 2–4 shortlisted options and separate traps → three deep dives → one wildcard
+provocation. Mark the non-obvious viable pick with `★`. For an automatic high-stakes pass, omit the
+full pool and carry only the shortlist, traps and deep dives into Step 4.
+
 ## Step 4 — Compare viable approaches
 
 When a real trade-off exists, present two or three approaches and lead with the recommendation. One
 approach is enough when repository constraints eliminate the others; say why instead of inventing
-contrast. Include reuse/extend or do-nothing when either can meet the destination.
+contrast. Include reuse/extend or do-nothing when either can meet the destination. If the divergent
+pass ran, use its shortlist here; do not reopen discarded branches.
 
 ```
 **Option N — <name>**

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.11.0 — Planning gains gated divergent ideation
+
+Phase A now offers one optional high-divergence pass for explicit wide brainstorming or decisions
+that are simultaneously open-ended, costly to get wrong and non-canonical. Isolated framed branches
+generate without critique; the main thread scores novelty, viability and fit, removes traps, clusters
+angles and deepens the strongest survivors before the existing approach comparison.
+
+The protocol stays inside the canonical brainstorming reference and reuses the shared spawn and
+loop contracts instead of copying them. Compact frame hints replace the source catalogue, quick or
+canonical requests keep the direct path, and new evals hold both sides of the gate. `NOTICE` records
+the MIT source.
+
+The debugger also routes scanner-led React cleanup to `/perf doctor` and treats the host-declared
+`renderHealth` command as optional post-reproducer evidence for concrete frontend incidents. Missing
+capability skips the debugger/verify probe without installation, while `/perf doctor` alone retains
+its project-script fallback. Scanner findings cannot bypass root-cause confirmation, RED/GREEN,
+project gates or browser evidence. Three RED/GREEN eval cases hold the route, ordering and no-install
+boundary without adding a scanner-specific skill, reference, script or dependency.
+
 ## 1.10.6 — Final review closes the ownership and publication gaps
 
 The final PR review fixed both actionable findings from the remote reviewer. A skipped

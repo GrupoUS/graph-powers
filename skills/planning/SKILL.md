@@ -1,6 +1,6 @@
 ---
 name: planning
-description: "Use when deciding how to build or decompose a multi-step feature, or when executing an approved plan with behaviour-first tests. Trigger on implementation plans, architecture trade-offs, integrations, unclear ordering, sprint scope, implement approved plan, TDD. Loaded by /plan and /implement. Not for a known single-file fix or diagnosis-only work."
+description: "Use when deciding how to build or decompose a multi-step feature, exploring high-stakes open-ended implementation alternatives, or executing an approved plan with behaviour-first tests. Trigger on implementation plans, architecture trade-offs, brainstorm, divergent ideation, ADHD mode, integrations, unclear ordering, sprint scope, implement approved plan, TDD. Loaded by /plan and /implement. Not for a known single-file fix or diagnosis-only work."
 ---
 
 # Planning — discover → design → plan → execute

@@ -99,6 +99,63 @@
       "type": "behavioral",
       "check": "contains_one_of: [\"screenshot\", \"evidence\", \"screenshot\", \"psql\", \"validation\", \"browser\"]",
       "critical": false
+    },
+    {
+      "id": "A15",
+      "description": "Scanner-led React cleanup without a concrete runtime symptom routes to /perf doctor",
+      "type": "behavioral",
+      "check": "regex: (?is)\\A(?!.*(?:not|never|não|nunca).{0,20}`?/perf doctor)(?=.*(?:route|redirect|use|run|execute|encaminh|rote|usar|execut).{0,100}`?/perf doctor).*\\Z",
+      "critical": true
+    },
+
+    {
+      "id": "A17",
+      "description": "The render-health probe runs only after the reproducer exists",
+      "type": "behavioral",
+      "check": "regex: (?is)(after|once|após|depois).{0,80}(reproducer|reproduction|reproducible|reproduzível|feedback loop).{0,200}(run|execute|executar|rode|rodar).{0,100}bun run doctor:changed",
+      "critical": true
+    },
+    {
+      "id": "A18",
+      "description": "Scanner findings remain evidence for hypotheses rather than automatic root causes",
+      "type": "behavioral",
+      "check": "regex: (?is)^(?=.*(scanner|finding|achado|alerta|diagnóstico).{0,160}(not|não).{0,80}(root cause|causa|prove|prova))(?=.*(not|não).{0,100}(authoriz|autoriza|auto.fix)).*$",
+      "critical": true
+    },
+    {
+      "id": "A19",
+      "description": "An absent render-health command is skipped without installing or inventing a scanner",
+      "type": "behavioral",
+      "check": "regex: (?is)\\A(?=.*(?:renderHealth|render.health).{0,120}(?:absent|ausente|not declared|não declar).{0,120}(?:skip|skipped|pular|ignorar))(?=.*(?:continue|continuar|does not block|não bloqueia).{0,160}(?:debug|incident|incidente|investiga)).*\\Z",
+      "critical": true
+    },
+    {
+      "id": "A20",
+      "description": "Render-health evidence supplements rather than replaces project gates and runtime evidence",
+      "type": "behavioral",
+      "check": "regex: (?is)(supplementary|supplemental|complementar|suplementar).{0,180}(run|execute|finish|finalize|executar|rodar|finalizar).{0,100}(gate|browser|navegador|runtime)",
+      "critical": true
+    },
+    {
+      "id": "A21",
+      "description": "The configured render-health command is executed literally",
+      "type": "behavioral",
+      "check": "regex: (?is)\\A(?=.*bun run doctor:changed)(?!.*doctor:changed\\s+--)(?!.*(?:npx|bunx|npm|pnpm|yarn)\\s+.*doctor:changed).*\\Z",
+      "critical": true
+    },
+    {
+      "id": "A22",
+      "description": "Concrete frontend incidents preserve the pack, root-cause, gate, and browser-evidence floors",
+      "type": "behavioral",
+      "check": "regex: (?is)\\A(?!.*(?:do not|don't|never|não|nunca|skip|pule)[^.!?\\r\\n]{0,30}(?:use|usar|execute|executar|run|rodar|capture|capturar|confirm|confirmar)[^.!?\\r\\n]{0,30}(?:frontend-debug|root cause|causa|gate|test|browser|navegador))(?=.*(?:use|choose|classif|follow|usar|escolh|seguir).{0,60}frontend-debug)(?=.*(?:confirm|establish|trace|confirmar|rastrear).{0,100}(?:root cause|causa|origem|por que))(?=.*(?:run|execute|finish|executar|rodar|finalizar).{0,100}(?:gate|type-check|lint|test))(?=.*(?:capture|collect|verify|recaptur|capturar|coletar|verificar).{0,100}(?:browser|navegador|screenshot|console)).*\\Z",
+      "critical": true
+    },
+    {
+      "id": "A23",
+      "description": "An absent capability is not replaced by an installation or invented scanner command",
+      "type": "behavioral",
+      "check": "regex: (?is)\\A(?!.*(?:should|must|need to|recommend|deve|precisa|recomend).{0,40}(?:install|instalar))(?!.*(?:^|[.!?;:]\\s+|but\\s+|mas\\s+)(?:install|instale|instalar)\\b)(?=.*(?:do not|don't|never|não|nunca).{0,40}(?:install|instalar))(?=.*(?:do not|don't|never|não|nunca).{0,60}(?:invent|infer)).*\\Z",
+      "critical": true
     }
   ],
   "test_cases": [
@@ -126,6 +183,21 @@
       "id": "T05",
       "input": "Full debug: a dashboard page shows stale metrics that don't update after creating a new record. Need to investigate the full stack from query/cache layer to API handler to ORM query.",
       "expected_assertions": ["A01", "A02", "A03", "A04", "A05", "A07", "A10", "A11", "A13", "A14"]
+    },
+    {
+      "id": "T06",
+      "input": "Run React Doctor across this React repository and fix its findings. There is no concrete runtime symptom; the project declares tooling.commands.renderHealth.",
+      "expected_assertions": ["A13", "A15"]
+    },
+    {
+      "id": "T07",
+      "input": "A React dashboard enters an infinite render loop after changing a filter. The project declares tooling.commands.renderHealth as 'bun run doctor:changed'. Diagnose and fix the runtime bug.",
+      "expected_assertions": ["A13", "A17", "A18", "A20", "A21", "A22"]
+    },
+    {
+      "id": "T08",
+      "input": "A React page has a hydration mismatch, but tooling.commands.renderHealth is absent. Should you install React Doctor before debugging it? Diagnose and fix the bug.",
+      "expected_assertions": ["A13", "A19", "A22", "A23"]
     }
   ]
 }

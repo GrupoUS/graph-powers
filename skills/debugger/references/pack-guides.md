@@ -38,6 +38,19 @@ Three of the four packs run the same eight moves; only the columns in the next t
 a `@ref` without a fresh `snapshot` — refs die on any DOM change. Browser mode, target URL and the
 `[HARD]` never-`close`-over-CDP rule all live in `Skill("webapp-testing")`; do not restate them here.
 
+Only after Step 1 has produced the runnable reproducer may a concrete React incident run the optional
+`${tooling.commands.renderHealth}` probe. Execute that command literally: append no flags, change no
+package manager, and do not install or invent a scanner. When it is absent, record `SKIPPED — not
+declared` and continue the incident without it.
+
+Treat each finding only as input to Step 3's ranked hypotheses. Confirm or disprove it against the
+reproducer and code; a scanner finding is neither root cause nor authorization to auto-fix. Empty or
+incomplete output is not a clean bill: zero findings is `CLEAN` only when the scanner explicitly
+confirmed it covered the requested scope; otherwise report the coverage gap.
+
+A post-fix re-scan is supplementary evidence. It never replaces real-seam RED/GREEN, declared gates,
+or required browser evidence.
+
 **`backend-debug` rules.** Confirm which procedure boundary the call actually crosses — generic
 authenticated, admin, or tenant-scoped. Check the input schema against what the client sends.
 Guard every `.returning()` destructure. Before citing any "never use transactions here" rule, read

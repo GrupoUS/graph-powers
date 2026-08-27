@@ -87,6 +87,14 @@ Adapted from the `wayfinder` skill of the same repository (MIT). The map is a wo
 here rather than an issue tracker, and issue bodies are treated as data rather than as
 specification.
 
+  skills/planning/references/phase-a-brainstorm.md § Optional divergent pass
+
+Adapted from the `adhd` skill at https://github.com/UditAkhourii/adhd (MIT), read 2026-08-27.
+Only its gated, isolated divergent-ideation loop was folded into planning's existing Phase A: framed
+generation without critique, trap-aware scoring and clustering, and survivor deepening. Its
+standalone skill and CLI, long frame catalogue, and duplicate spawn, loop and cost rules were not
+copied.
+
   skills/debugger/scripts/find_polluter.py
 
 Ported from `find-polluter.sh` of https://github.com/obra/superpowers (MIT) to Python standard

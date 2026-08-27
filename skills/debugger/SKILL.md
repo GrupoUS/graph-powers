@@ -118,7 +118,12 @@ through the shell tool's captured stdout. The failure mechanism and recovery are
 | `systematic-audit` | `audit`/`full` | Full cross-layer stability sweep | **YES** | **YES** | 4 parallel |
 | *(none)* | `recover` | evaluator-led recovery (no pack) | — | — | — |
 
-**Selection:** explicit pack name → use it; visual/UI/React → `frontend-debug`; 500/procedure/mutation → `backend-debug`; auth/role/tenant → `auth-db-debug`; "audit" or unclear → `systematic-audit`; ambiguous → **one** multiple-choice clarifying question. Per-pack flows: `references/pack-guides.md`.
+**Selection:** explicit pack name → use it; scanner-led React cleanup without a concrete runtime
+symptom → `/perf doctor`, never `systematic-audit`; a concrete visual/UI/React incident →
+`frontend-debug` (render-health probe policy: `references/pack-guides.md § Per-pack delta`);
+500/procedure/mutation → `backend-debug`; auth/role/tenant → `auth-db-debug`; "audit" or unclear →
+`systematic-audit`; ambiguous → **one** multiple-choice clarifying question. Per-pack flows:
+`references/pack-guides.md`.
 
 ## Common Root Causes Catalog
 

@@ -79,6 +79,44 @@
       ]
     },
     {
+      "id": "pos-explicit-divergent-ideation",
+      "polarity": "positive",
+      "prompt": "Use ADHD mode para explorar alternativas não óbvias para a arquitetura deste sistema, mesmo que a decisão ainda não seja de alto risco.",
+      "expected_output": "Explicit opt-in runs isolated critique-free divergence, then scored convergence and survivor deepening.",
+      "assertions": [
+        { "id": "H01", "description": "Uses isolated parallel divergence", "check": "regex: (?i)(parallel|paralel).*(isolat|isolad)|(isolat|isolad).*(parallel|paralel)", "critical": true },
+        { "id": "H02", "description": "Keeps criticism out of divergence", "check": "regex: (?is)(diverg).*(no critic|sem crítica|não.*critic|não.*avali)", "critical": true },
+        { "id": "H03", "description": "Scores novelty viability and fit", "check": "regex: (?i)(novelty|novidade).*(viability|viabilidade).*(fit|aderência|adequação)", "critical": true },
+        { "id": "H04", "description": "Excludes traps before selection", "check": "regex: (?i)(exclu|elimin|remov|descart).*(trap|armadilh)|(trap|armadilh).*(exclu|elimin|remov|descart)", "critical": true },
+        { "id": "H05", "description": "Deepens top or surviving ideas", "check": "regex: (?is)(top|surviv|sobreviv|melhor|finalist).*(deepen|aprofund)|(deepen|aprofund).*(top|surviv|sobreviv|melhor|finalist)", "critical": true },
+        { "id": "H06", "description": "Retains relevant and wild frames", "check": "regex: (?is)(relevant|relevante).*(wild|selvagem)|(wild|selvagem).*(relevant|relevante)", "critical": true },
+        { "id": "H07", "description": "Returns the explicit wide output", "check": "regex: (?is)(pool|conjunto).*(pontua|score).*(provoca|wildcard)", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-high-stakes-open-architecture",
+      "polarity": "positive",
+      "prompt": "Precisamos definir a API pública de um SDK que será difícil de mudar depois. Há várias arquiteturas plausíveis e nenhuma convenção do repositório decide entre elas. Explore antes de recomendar.",
+      "expected_output": "The unprompted gate recognizes an open-ended high-stakes non-canonical decision and runs the compact divergent protocol.",
+      "assertions": [
+        { "id": "I01", "description": "Recognizes the expensive gate as qualified", "check": "regex: (?is)(high.stakes|alto risco|cust.*err|difícil.*mudar).*(open|abert|múltipl|várias)|(open|abert|múltipl|várias).*(high.stakes|alto risco|cust.*err|difícil.*mudar)", "critical": true },
+        { "id": "I02", "description": "Runs isolated critique-free divergence", "check": "regex: (?is)(parallel|paralel).*(isolat|isolad).*(sem critic|não.*critic)|(isolat|isolad).*(sem critic|não.*critic).*(parallel|paralel)", "critical": true },
+        { "id": "I03", "description": "Scores then deepens survivors", "check": "regex: (?is)(novelty|novidade).*(viability|viabilidade).*(fit|aderência|adequação).*(deepen|aprofund)", "critical": true },
+        { "id": "I04", "description": "Clusters and commits to a shortlist", "check": "regex: (?is)(cluster|agrup).*(shortlist|lista curta|finalistas|recomenda)", "critical": true },
+        { "id": "I05", "description": "Uses the compact automatic output", "check": "regex: (?is)(automátic).*(apenas|omit|sem).*(shortlist|lista curta|pool|conjunto)", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-quick-canonical-answer",
+      "polarity": "negative",
+      "prompt": "Dê uma resposta rápida e canônica para esta decisão simples; quero apenas o padrão já usado no repositório.",
+      "expected_output": "Skip divergent fan-out and answer directly from the canonical repository pattern.",
+      "assertions": [
+        { "id": "N07", "description": "Uses the short direct route and existing pattern", "check": "regex: (?is)(rota curta|direct edit|edição direta|resposta direta).*(reutil|existing|existente|padrão)", "critical": true },
+        { "id": "N08", "description": "Keeps the canonical answer compact", "check": "word_count_max: 80", "critical": true }
+      ]
+    },
+    {
       "id": "neg-known-regression",
       "polarity": "negative",
       "prompt": "Uma regressão conhecida já tem causa e teste falhando. Diagnostique-a e corrija o bug.",

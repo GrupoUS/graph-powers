@@ -51,3 +51,28 @@ hook suite returned `EVERY GUARANTEE HELD`.
 
 **Verdict:** kept. The focused graph has zero references to the removed skill. Isolated trigger
 hit-rate remains unmeasured; this round did not dispatch evaluation agents.
+
+## Round 4 — 2026-08-27 · render health stays a capability, not a second debugger
+
+**Hypothesis:** React health scans need one optional capability inside the existing frontend pack;
+copying a vendor skill or playbook would duplicate `/perf doctor`, the root-cause engine and project
+gates while coupling every host to one scanner.
+
+**Change:** scanner-led cleanup now routes to `/perf doctor`; a concrete React incident may run the
+host-declared `tooling.commands.renderHealth` only after its reproducer exists. Findings feed ranked
+hypotheses, never automatic fixes, and a missing command skips the debugger/verify probe without
+installation. `/perf doctor` owns the atomic remediation loop and keeps its project-script fallback
+local; the schema names all three consumers without adding a mode, reference, script or dependency.
+
+**Measurement:** three new behaviour cases were captured against the previous skill and all exited 1
+under `--threshold 1.0`: T06 lacked the `/perf doctor` route, T07 lacked probe ordering and evidence
+semantics, and T08 lacked the explicit no-install skip. Against the revised skill, T06, T07 and T08
+all scored 100% and exited 0. The first GREEN run exposed four prose checks too narrow for a correct
+Portuguese response; after replacing phrase checks with action-bound assertions, the same RED
+artefacts still failed 3/3 and the GREEN artefacts passed 3/3. Three adversarial responses containing
+the expected keywords while choosing the wrong route, appending `--fix`, making gates unnecessary or
+recommending installation also failed 3/3.
+
+**Verdict:** kept. One configured command extends the existing method; absence removes only the
+optional evidence source. No React Doctor version, flag catalogue, output parser or remote prompt
+entered the plugin.
