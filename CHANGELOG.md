@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.12.0 — Codex routes agents by semantic role
+
+Codex native-agent TOML and clone-generated TOML now share one policy authority instead of inheriting
+the session model or treating every Claude `opus` agent as the same economic role. Judges and the
+architect default to Sol Max, iterative executors and verification to Luna Max, and scouts to Luna
+Medium. Claude frontmatter remains unchanged.
+
+Per-agent and profile overrides take precedence, while the existing flat model, heavy/standard/light
+tiers and global reasoning effort remain supported as explicit migration settings. Max is valid
+throughout the Codex schema. Terra remains operator-selectable but is not an automatic retry tier.
+
+Ultra is represented only by the explicit top-level `native-ultra` profile. It is guarded out of
+all generated subagents because Codex maps Ultra to proactive multi-agent orchestration; Graph
+Powers evaluators stay leaf judges on Sol Max, and existing `/pr-review`, `ultra-plan` and
+`ultra-verify` fan-out bounds do not gain a second orchestration layer. New checks cover all twelve
+agents, override precedence, invalid effort, read-only preservation, native/clone parity and drift.
+
+The setup hardening in the same release adds one portable installed-package verifier for Claude
+Code, native/clone Codex, Cursor and Grok. The installer calls it before writing
+`bypassPermissions`, `unrestricted` or `always-approve`; it rejects incomplete manifests, stale
+runners, missing method files, corrupt or ambiguous Cursor caches, disabled Claude installs, and
+simultaneous native/clone Codex routes. Codex clone installs marked `complete:false` are repaired
+instead of skipped. `GROK_HOME` is used consistently, and Grok cache updates are no longer attempted
+by the detached `SessionStart` worker: native Codex, Cursor and Grok updates are foreground-only and
+require a full client restart. Configs that explicitly carried the old `autoUpdate.grok` switch
+should remove that key; the schema no longer advertises a background operation the worker
+intentionally refuses to perform.
+
 ## 1.11.1 — Missing cached hook entrypoints fail open
 
 Codex replaces the previous native-plugin cache directory during an update, while sessions already

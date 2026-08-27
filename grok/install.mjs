@@ -20,7 +20,9 @@
  * lever; PreToolUse deny still blocks. Project `.grok/config.toml` cannot set permission_mode —
  * that key is user config only (`~/.grok/config.toml` or `$GROK_HOME/config.toml`).
  *
- * User files are merged, never replaced. A permission list is somebody's decision.
+ * User files are merged, never replaced. A permission list is somebody's decision. A standalone
+ * autonomous run first calls the shared verifier against this exact package root; `--emit-only`
+ * remains a pure generator and writes no posture.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -29,6 +31,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readJson, writeFile } from "../codex/lib.mjs";
+import { proofFailure, verifyHookClient } from "../bin/hook-client-verifier.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKETPLACE_GIT = "https://github.com/GrupoUS/graph-powers.git";
@@ -217,6 +220,7 @@ export function install({
   emit = false,
   emitOnly = false,
   discoverClone = true,
+  verified = false,
   log = () => {},
 } = {}) {
   const written = [];
@@ -239,6 +243,22 @@ export function install({
   }
 
   if (emitOnly) return { written, configChanged: [] };
+
+  if (autonomous && !dryRun && !verified) {
+    const proof = verifyHookClient({
+      client: "grok",
+      pluginRoot,
+      packageRoot: pluginRoot,
+      projectDir: process.cwd(),
+      autonomy: "autonomous",
+      probe: true,
+    });
+    if (!proof.ok) {
+      throw new Error(
+        `Grok hook package verification failed; always-approve posture was not changed: ${proofFailure(proof)}`,
+      );
+    }
+  }
 
   const home = process.env.GROK_HOME || join(homedir(), ".grok");
   const configFile = join(home, "config.toml");
@@ -282,4 +302,11 @@ function main() {
 }
 
 const invoked = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invoked) main();
+if (invoked) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}

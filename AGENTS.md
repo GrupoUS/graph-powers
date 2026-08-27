@@ -79,11 +79,14 @@ These are the gates, and all of them pass before anything ships:
 ```bash
 claude plugin validate .                    # manifest and marketplace
 python3 hooks/test_hooks.py                 # guardrails in a sandbox
+python3 .github/test_hook_clients.py        # installed packages gate permissive client posture
 python3 skills/planning/scripts/test_sdd.py # structured plans, TDD and review packaging
 python3 skills/skill-improve/scripts/test_run_evals.py # eval runner path and CLI contract
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
+bun .github/check_codex_policy.mjs           # semantic Codex routing, overrides and Ultra guard
+python3 .github/check_codex_native.py         # native/clone agent policy parity and generated drift
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/test_file_references.py      # negative tests for the live-file reference gate
 python3 .github/check_file_references.py     # every live Markdown path resolves

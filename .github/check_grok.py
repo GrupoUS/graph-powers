@@ -52,6 +52,15 @@ def main() -> int:
         print("::error::hooks/hooks.json is empty — Grok would load nothing")
         return 1
 
+    stop_commands = [
+        hook.get("command", "")
+        for group in claude_hooks["hooks"].get("Stop", [])
+        for hook in group.get("hooks", [])
+    ]
+    if len(stop_commands) != 1 or "stop_verify.py" not in stop_commands[0]:
+        print("::error::the shared Grok manifest lost the stop_verify lifecycle registration")
+        return 1
+
     generated = subprocess.run(
         [
             "bun",
@@ -127,7 +136,8 @@ process.stdout.write("ok");
 
     print(
         "grok artefacts match emit; hooks path is hooks.json; "
-        "TOML merge is additive and idempotent; guarded preserves approval posture and wires discovery"
+        "Stop wiring present (passive event); TOML merge is additive and idempotent; "
+        "guarded preserves approval posture and wires discovery"
     )
     return 0
 

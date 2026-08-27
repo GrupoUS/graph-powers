@@ -39,6 +39,12 @@ import {
   tomlString,
   writeFile,
 } from "./lib.mjs";
+import {
+  legacyCodexModelFor,
+  resolveCodexAgentPolicy,
+} from "./model-policy.mjs";
+
+export { CLAUDE_MODEL_FAMILIES, TIER_BY_MODEL, isCodexModelSlug } from "./model-policy.mjs";
 
 const MARKER_START = "<!-- graph-powers:start -->";
 const MARKER_END = "<!-- graph-powers:end -->";
@@ -47,9 +53,11 @@ const MANIFEST = ".graph-powers/installed.json";
 // ── hooks ────────────────────────────────────────────────────────────────────
 
 /**
- * Codex event names, payload shape and blocking semantics match Claude Code's, so the Python
- * files run unchanged. Only the wiring is regenerated, and only the plugin-root placeholder
- * has to be resolved — Codex does not export CLAUDE_PLUGIN_ROOT.
+ * The local Codex adapter preserves Claude's event names and payload shape, so the Python files
+ * run unchanged. Public Codex documentation does not currently confirm equivalent blocking
+ * semantics for every lifecycle event, including Stop; this generator proves wiring, not that
+ * external contract. Only the plugin-root placeholder must be resolved — Codex does not export
+ * CLAUDE_PLUGIN_ROOT.
  */
 export function buildHooks(hookManifest, pluginRoot) {
   const out = {};
@@ -220,8 +228,6 @@ export function emitHooks(path, merged, { dryRun = false, log = () => {}, writte
 
 // ── subagents ────────────────────────────────────────────────────────────────
 
-const JUDGING_ROLES = new Set(["evaluator", "researcher", "orchestrator"]);
-
 /**
  * `agents/*.md` -> `.codex/agents/<name>.toml`.
  *
@@ -230,43 +236,11 @@ const JUDGING_ROLES = new Set(["evaluator", "researcher", "orchestrator"]);
  * survives only as prose in the body is exactly the defect this plugin found in its own agents.
  */
 /**
- * Claude model families have no Codex equivalent, so a `model: opus` cannot travel as written.
- * What does travel is the *intent* behind it — this agent was given the strongest model, or the
- * cheapest one — and Codex expresses the same intent through reasoning effort.
- *
- * Ignoring the agent's own frontmatter, as the first version did, flattened twelve deliberately
- * different agents into twelve identical ones: the `haiku` scout and the `opus` evaluator came
- * out of the generator indistinguishable.
- */
-const EFFORT_BY_MODEL = { haiku: "low", sonnet: "medium", opus: "high" };
-const VALID_EFFORT = new Set(["low", "medium", "high", "xhigh"]);
-
-/** Claude Code family names. Codex has no haiku/sonnet/opus, and treating `haiku` as a
- *  model slug routes the child onto the Spark / `codex_bengalfox` pool instead of the
- *  user's own Codex limit. */
-export const CLAUDE_MODEL_FAMILIES = new Set(["haiku", "sonnet", "opus", "fable"]);
-
-/**
- * Claude family -> tier. The family an agent declares is the only place a tier is written down, so
- * it is what travels: `opus` means "this node judges, designs or verifies", `haiku` means "this
- * node is a scout". Codex has no such families, but it does have a strong model and a cheap one,
- * and `codex.models` in the project config is where those two names live.
- */
-export const TIER_BY_MODEL = { haiku: "light", sonnet: "standard", fable: "standard", opus: "heavy" };
-
-/**
- * The Codex slug a generated subagent gets: the tier its Claude family implies, else the project's
- * flat `codex.model`, else nothing (inherit the session model, which is what the first version did
- * for every agent alike).
- *
- * Without the tier the twelve agents came out of the generator on ONE model, so the scout that
- * reads a config file and the reviewer that judges a plan spent the same window. Effort alone does
- * not fix that: a cheap-effort call on the strong model is still billed as the strong model.
+ * Compatibility wrapper for callers that still ask for the old Claude-family tier mapping.
+ * Canonical Graph Powers agents use `resolveCodexAgentPolicy`; this function is not their default.
  */
 export function codexModelFor(claudeFamily, { model, models } = {}) {
-  const tier = TIER_BY_MODEL[String(claudeFamily ?? "").toLowerCase()];
-  const candidates = [tier ? models?.[tier] : null, model];
-  return candidates.find((m) => isCodexModelSlug(m)) ?? null;
+  return legacyCodexModelFor(claudeFamily, { model, models });
 }
 
 /**
@@ -282,6 +256,11 @@ export function readCodexSettings(projectDir) {
     readJson(join(projectDir, ".graph-powers/config.json")) ??
     readJson(join(projectDir, ".claude/config.json")) ??
     {};
+  return codexSettingsFromConfig(cfg);
+}
+
+/** Keep config extraction testable without manufacturing a project directory. */
+export function codexSettingsFromConfig(cfg = {}) {
   const codex = cfg.codex ?? {};
   const models = Object.fromEntries(
     Object.entries(codex.models ?? {}).filter(([, v]) => typeof v === "string" && v),
@@ -289,22 +268,16 @@ export function readCodexSettings(projectDir) {
   return {
     ...(Object.keys(models).length ? { models } : {}),
     ...(typeof codex.model === "string" && codex.model ? { model: codex.model } : {}),
+    ...(typeof codex.profile === "string" && codex.profile ? { profile: codex.profile } : {}),
+    ...(codex.profiles && typeof codex.profiles === "object" ? { profiles: codex.profiles } : {}),
+    ...(codex.agents && typeof codex.agents === "object" ? { agents: codex.agents } : {}),
     ...(typeof codex.reasoningEffort === "string" && codex.reasoningEffort
       ? { reasoningEffort: codex.reasoningEffort }
       : {}),
   };
 }
 
-export function isCodexModelSlug(model) {
-  const name = String(model ?? "").trim();
-  if (!name) return false;
-  const lower = name.toLowerCase();
-  if (CLAUDE_MODEL_FAMILIES.has(lower)) return false;
-  if (lower.startsWith("claude")) return false;
-  return true;
-}
-
-export function agentToToml(markdown, { model, models, reasoningEffort } = {}) {
+export function agentToToml(markdown, settings = {}, log = () => {}) {
   const { data, body } = parseFrontmatter(markdown);
   if (!data.name || !data.description) return null;
 
@@ -321,29 +294,26 @@ export function agentToToml(markdown, { model, models, reasoningEffort } = {}) {
     `description = ${tomlString(data.description)}`,
   ];
 
-  // The Codex model is a project-wide setting, never one written into the generator: a model name
-  // in code is a file that ages out the week the next model ships. Claude family names are not
-  // Codex slugs — writing them made the native plugin spend the Spark / Bengal Fox window.
-  //
-  // Which of the project's slugs this agent gets is not project-wide, though: it follows the tier
-  // the agent's own frontmatter declares, so `codex.models.light` reaches the scouts and
-  // `codex.models.heavy` reaches the nodes that judge.
-  const codexModel = codexModelFor(asList(data.model)[0], { model, models });
-  if (codexModel) lines.push(`model = ${tomlString(codexModel)}`);
-
-  // Effort, most specific source first: the agent said so; else its Claude model implies it; else
-  // the role is a judging one and judging wants headroom; else whatever the project configured.
-  const declared = String(asList(data.effort)[0] ?? "").toLowerCase();
-  const fromModel = EFFORT_BY_MODEL[String(asList(data.model)[0] ?? "").toLowerCase()];
-  const byRole = JUDGING_ROLES.has(String(asList(data.role_type)[0] ?? "")) ? "high" : null;
-  const effort = [declared, fromModel, byRole, reasoningEffort].find(
-    (e) => e && VALID_EFFORT.has(String(e)),
+  const policy = resolveCodexAgentPolicy(String(data.name), settings, data);
+  for (const warning of policy.warnings) log(`Codex policy: ${warning}`);
+  lines.push(
+    `# Codex policy: profile=${policy.profile ?? "legacy"}; model-source=${policy.modelSource}; effort-source=${policy.reasoningEffortSource}`,
   );
-  if (effort) lines.push(`model_reasoning_effort = ${tomlString(effort)}`);
+  if (policy.model) lines.push(`model = ${tomlString(policy.model)}`);
+  if (policy.reasoningEffort) {
+    lines.push(`model_reasoning_effort = ${tomlString(policy.reasoningEffort)}`);
+  }
 
   if (readOnly) lines.push(`sandbox_mode = "read-only"`);
 
-  lines.push("", `developer_instructions = ${tomlBlock(body)}`, "");
+  const developerInstructions = policy.leaf
+    ? [
+        "Graph Powers capability guard: this is a leaf judge. Never spawn, delegate to, or dispatch another agent. Ultra is forbidden for this role.",
+        "",
+        body,
+      ].join("\n")
+    : body;
+  lines.push("", `developer_instructions = ${tomlBlock(developerInstructions)}`, "");
   return lines.join("\n");
 }
 
@@ -443,15 +413,32 @@ export function codexPaths(scope, projectDir) {
       };
 }
 
-/** Is the harness already installed globally for Codex, at this version? */
+/** Is the global Codex install complete, executable, and at this version? */
 export function globallyInstalled(pluginRoot) {
   const paths = codexPaths("user", process.cwd());
   const manifest = readJson(paths.manifest);
   if (!manifest) return { installed: false };
   const pluginJson = readJson(join(pluginRoot, ".claude-plugin/plugin.json")) ?? {};
+  const hookManifest = readJson(join(pluginRoot, "hooks/hooks.json")) ?? {};
+  const expected = buildHooks(hookManifest, pluginRoot).added.map((entry) => entry.command);
+  const recorded = Array.isArray(manifest.hookCommands) ? manifest.hookCommands : [];
+  const installedHooks = readJson(paths.hooks) ?? {};
+  const installedCommands = new Set(
+    Object.values(installedHooks.hooks ?? {})
+      .flat()
+      .flatMap((group) => group.hooks ?? [])
+      .map((hook) => hook.command)
+      .filter((command) => typeof command === "string"),
+  );
+  const hooksComplete =
+    expected.length > 0 &&
+    expected.every((command) => recorded.includes(command) && installedCommands.has(command));
+  const complete = manifest.complete === true && hooksComplete;
   return {
     installed: true,
-    sameVersion: manifest.version === pluginJson.version,
+    sameVersion: complete && manifest.version === pluginJson.version,
+    complete,
+    hooksComplete,
     version: manifest.version,
     available: pluginJson.version,
     manifest: paths.manifest,
@@ -633,6 +620,7 @@ function writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written,
     const toml = agentToToml(
       rewrite(readFileSync(join(pluginRoot, "agents", file), "utf8")),
       codex,
+      log,
     );
     if (toml) emit(join(paths.agents, `${basename(file, ".md")}.toml`), toml);
   }

@@ -10,7 +10,8 @@ import sys
 
 REQUIRED = [
     "bin/graph-powers.mjs", "bin/audit-settings.mjs",
-    "codex/install.mjs", "codex/lib.mjs",
+    "bin/hook-client-verifier.mjs", "bin/verify-hook-clients.py",
+    "codex/install.mjs", "codex/lib.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
     "cursor/install.mjs",
     "grok/install.mjs",
     "hooks/hooks.json", "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",

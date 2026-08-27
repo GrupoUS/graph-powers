@@ -28,6 +28,8 @@ python3 .github/test_file_references.py      # negative tests for the live-file 
 python3 .github/check_file_references.py     # every live Markdown path resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
 bun .github/check_workflows.mjs             # workflow scripts parse, run dry, and name real agents
+bun .github/check_codex_policy.mjs          # semantic Codex routing, overrides and Ultra guard
+python3 .github/check_codex_native.py        # native/clone role TOML parity and generated drift
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
 ```
 
@@ -86,15 +88,17 @@ it trains people to ignore gates.
 **How to check:** did `hooks/test_hooks.py` gain both cases? Does the suite exit `0`? Does the
 violation case fail if you comment out the blocking line?
 
-### 5. Does it work on every harness?
+### 5. What does each harness actually support?
 
-The same Python file runs under Claude Code, Codex CLI, Cursor and Grok CLI. Claude exports `CLAUDE_PROJECT_DIR`;
-Codex and Cursor pass `cwd` in the payload. Grok passes camelCase `toolName` / `toolInput` /
-`workspaceRoot` and sets `GROK_WORKSPACE_ROOT`.
+One Python source is wired across Claude Code, Codex CLI, Cursor and Grok CLI, but equal bytes do
+not imply equal lifecycle semantics. Claude can hard-block `Stop`; Cursor requests bounded
+follow-ups; Grok's `Stop` is passive; Codex blocking parity is `NOT CONFIRMED`. Claude exports
+`CLAUDE_PROJECT_DIR`; Codex and Cursor pass project context in the payload; Grok sends camelCase
+fields and sets `GROK_WORKSPACE_ROOT`.
 
 **How to check:** does the hook read the payload through `_config` helpers (`bash_command`,
-`canonical_tool`, `file_path_from_payload`) rather than `payload["tool_input"]`? Does
-`test_hooks.py` cover the change with `harness="codex"` and `harness="grok"`? A guardrail that
+`canonical_tool`, `file_path_from_payload`) rather than `payload["tool_input"]`? Do tests prove the
+supported output contract for each client instead of only proving registration? A guardrail that
 resolves the wrong project denies and permits against somebody else's rules.
 
 If the change touches `agents/`, `commands/`, `hooks/hooks.json` or `.claude-plugin/plugin.json`, run

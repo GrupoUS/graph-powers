@@ -4,7 +4,8 @@
 Without `.codex-plugin/plugin.json`, Codex falls through to `.claude-plugin/` and loads
 `agents/*.md` including `model: haiku` / `model: opus`. Those are Claude families. Codex has
 no haiku; the cheap-model fallback is Spark, whose rate-limit bucket is `codex_bengalfox`
-("Bengal Fox") — not the user's own Codex window. The generator strips those lines.
+("Bengal Fox") — not the user's own Codex window. The generator replaces those lines through the
+same semantic model policy as the clone TOML route.
 
     bun codex/native-plugin.mjs
 """
@@ -12,16 +13,31 @@ no haiku; the cheap-model fallback is Spark, whose rate-limit bucket is `codex_b
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
-CLAUDE_MODEL_LINE = re.compile(
-    r"^model:\s*['\"]?(?:haiku|sonnet|opus|fable)['\"]?\s*(?:#.*)?$",
-    re.IGNORECASE | re.MULTILINE,
-)
+EXPECTED_POLICY = {
+    "evaluator": ("judge", "gpt-5.6-sol", "max"),
+    "security-reviewer": ("judge", "gpt-5.6-sol", "max"),
+    "skill-improver": ("judge", "gpt-5.6-sol", "max"),
+    "ui-ux-designer": ("judge", "gpt-5.6-sol", "max"),
+    "project-planner": ("architect", "gpt-5.6-sol", "max"),
+    "debugger": ("executor", "gpt-5.6-luna", "max"),
+    "frontend-specialist": ("executor", "gpt-5.6-luna", "max"),
+    "mobile-developer": ("executor", "gpt-5.6-luna", "max"),
+    "performance-optimizer": ("executor", "gpt-5.6-luna", "max"),
+    "verification": ("verifier", "gpt-5.6-luna", "max"),
+    "explorer": ("scout", "gpt-5.6-luna", "medium"),
+    "librarian": ("scout", "gpt-5.6-luna", "medium"),
+}
+READ_ONLY_AGENTS = {
+    "evaluator", "security-reviewer", "skill-improver", "ui-ux-designer", "explorer",
+    "librarian", "verification",
+}
 
 
 def load(path: Path) -> dict:
@@ -29,6 +45,38 @@ def load(path: Path) -> dict:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
+
+
+def assert_native_policy(name: str, data: dict, path: Path) -> None:
+    _profile, expected_model, expected_effort = EXPECTED_POLICY[name]
+    model = data.get("model")
+    effort = data.get("model_reasoning_effort")
+    if model != expected_model:
+        raise AssertionError(
+            f"{path.relative_to(ROOT)}: semantic policy mismatch for {name}: "
+            f"expected model {expected_model!r}, got {model!r}"
+        )
+    if effort != expected_effort:
+        raise AssertionError(
+            f"{path.relative_to(ROOT)}: semantic policy mismatch for {name}: "
+            f"expected effort {expected_effort!r}, got {effort!r}"
+        )
+    if effort == "ultra":
+        raise AssertionError(f"{path.relative_to(ROOT)}: Ultra must never be emitted for {name}")
+    if name in READ_ONLY_AGENTS:
+        assert data.get("sandbox_mode") == "read-only", (
+            f"{path.relative_to(ROOT)}: {name} lost the read-only sandbox"
+        )
+    else:
+        assert data.get("sandbox_mode") != "read-only", (
+            f"{path.relative_to(ROOT)}: write-capable {name} became read-only"
+        )
+    instructions = data.get("developer_instructions") or ""
+    assert instructions, f"{path.relative_to(ROOT)}: missing developer instructions"
+    if name == "evaluator":
+        assert "this is a leaf judge" in instructions, (
+            f"{path.relative_to(ROOT)}: evaluator lost the supported leaf-role instruction guard"
+        )
 
 
 def main() -> int:
@@ -61,6 +109,47 @@ def main() -> int:
         capture_output=True,
         encoding="utf-8",
     )
+    with TemporaryDirectory(prefix="graph-powers-native-ultra-") as tmp:
+        ultra_command = [
+            "bun",
+            "codex/native-plugin.mjs",
+            "--top-level-profile",
+            "native-ultra",
+            "--out",
+            tmp,
+        ]
+        first_ultra = subprocess.run(
+            ultra_command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        ultra_path = Path(tmp) / "native-ultra.config.toml"
+        if first_ultra.returncode != 0 or not ultra_path.is_file():
+            print(first_ultra.stderr)
+            print("::error::native-ultra top-level profile was not emitted")
+            return 1
+        first_contents = ultra_path.read_text(encoding="utf-8")
+        second_ultra = subprocess.run(
+            ultra_command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        second_contents = ultra_path.read_text(encoding="utf-8")
+        if second_ultra.returncode != 0 or first_contents != second_contents:
+            print(second_ultra.stderr)
+            print("::error::native-ultra top-level profile regeneration is not idempotent")
+            return 1
+        ultra_config = tomllib.loads(first_contents)
+        if ultra_config != {
+            "model": "gpt-5.6-sol",
+            "model_reasoning_effort": "ultra",
+        }:
+            print(f"::error::unexpected native-ultra profile: {ultra_config}")
+            return 1
     # --dry-run does not print JSON. Rebuild in-process via a small Bun snippet.
     built = subprocess.run(
         [
@@ -68,14 +157,20 @@ def main() -> int:
             "-e",
             """
 import { readFileSync } from "node:fs";
+import { agentToToml } from "./codex/install.mjs";
 import { buildMarketplace, buildNativeAgents, buildPluginManifest } from "./codex/native-plugin.mjs";
 const claude = JSON.parse(readFileSync(".claude-plugin/plugin.json", "utf8"));
 const market = JSON.parse(readFileSync(".claude-plugin/marketplace.json", "utf8"));
 const agents = buildNativeAgents(".");
+const cloneAgents = Object.fromEntries(Object.keys(agents).map((file) => [
+  file,
+  agentToToml(readFileSync(`agents/${file.replace(/\\.toml$/, ".md")}`, "utf8")),
+]));
 process.stdout.write(JSON.stringify({
   manifest: buildPluginManifest(claude),
   marketplace: buildMarketplace(market),
   agents,
+  cloneAgents,
 }));
 """,
         ],
@@ -104,20 +199,45 @@ process.stdout.write(JSON.stringify({
 
     errors = 0
     expected = set(data["agents"])
-    tracked = {p.name for p in native_dir.glob("*.md")}
+    tracked = {
+        p.name for p in native_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in {".md", ".toml"}
+    }
     if expected != tracked:
         print(f"::error::codex/native-agents file set mismatch: expected {sorted(expected)}, got {sorted(tracked)}")
         errors += 1
 
     for name, body in data["agents"].items():
         path = native_dir / name
+        agent_name = name.removesuffix(".toml")
         current = path.read_text(encoding="utf-8") if path.is_file() else ""
         want = body if body.endswith("\n") else body + "\n"
         if current != want:
             print(f"::error::{path.relative_to(ROOT)} is stale — run: bun codex/native-plugin.mjs")
             errors += 1
-        if CLAUDE_MODEL_LINE.search(current):
-            print(f"::error::{path.relative_to(ROOT)} still pins a Claude model family")
+        try:
+            expected_profile = EXPECTED_POLICY[agent_name][0]
+            if f"# Codex policy: profile={expected_profile};" not in current:
+                raise AssertionError(
+                    f"{path.relative_to(ROOT)}: missing policy-source trace for {expected_profile}"
+                )
+            native = tomllib.loads(current)
+            assert_native_policy(agent_name, native, path)
+            clone = tomllib.loads(data["cloneAgents"][name])
+            native_profile, native_model, native_effort = EXPECTED_POLICY[agent_name]
+            if clone.get("model") != native_model or clone.get("model_reasoning_effort") != native_effort:
+                raise AssertionError(
+                    f"{path.relative_to(ROOT)}: native/clone mismatch for {agent_name} "
+                    f"({native_profile}): native={native_model}/{native_effort}, "
+                    f"clone={clone.get('model')}/{clone.get('model_reasoning_effort')}"
+                )
+            native_read_only = native.get("sandbox_mode") == "read-only"
+            if (clone.get("sandbox_mode") == "read-only") != native_read_only:
+                raise AssertionError(
+                    f"{path.relative_to(ROOT)}: native/clone sandbox mismatch for {agent_name}"
+                )
+        except (AssertionError, KeyError, tomllib.TOMLDecodeError) as exc:
+            print(f"::error::{exc}")
             errors += 1
 
     source_agents = list((ROOT / "agents").glob("*.md"))
@@ -135,7 +255,7 @@ process.stdout.write(JSON.stringify({
     if errors:
         return 1
     print(
-        f"codex-native: {len(data['agents'])} agents, no Claude model families, "
+        f"codex-native: {len(data['agents'])} agents, semantic native/clone parity, "
         f"manifest {native_plugin.get('version')}"
     )
     return 0

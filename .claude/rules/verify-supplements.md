@@ -32,6 +32,7 @@ Run all of them, in this order, from the repository root. Every one exits 0 on s
 |---|---|---|---|
 | 1 | Manifest | `claude plugin validate .` | `plugin.json` or `marketplace.json` is malformed — the plugin will not load at all |
 | 2 | Guardrails | `python3 hooks/test_hooks.py` | a hook lost a guarantee. This is the declared `test` gate; it is listed here so the set is readable in one place |
+| 2b | Client package safety | `python3 .github/test_hook_clients.py` | an incomplete/stale client package could receive bypass, unrestricted or always-approve posture; or an interrupted Codex clone would be skipped |
 | 3 | Hook syntax | `python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"` | a hook would raise on import, and a hook that cannot start is a guardrail that is not running |
 | 4 | JSON | `python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"` | a config file is unparseable. Claude Code ignores such a file wholesale rather than erroring |
 | 5 | Workflows | `bun .github/check_workflows.mjs` | a workflow does not parse, or its `meta.name` disagrees with its filename, so the name will not resolve at runtime |

@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-"""ultracite.py - run the project's own formatter and linter, and nothing else.
+"""ultracite.py - run the project's own formatter, and nothing else.
 
 Branches on `hook_event_name` from the stdin payload:
 
   • PostToolUse (Write|Edit) → run `tooling.commands.format` on the edited file
-  • Stop                     → run `tooling.commands.lint` over the modified files and, on
-                               errors, block the stop with the tail of the output
+**It is opt-in by configuration.** A project that declares no formatter is not formatted.
 
-**Both are opt-in by configuration.** A project that declares no formatter is not formatted, and a
-project that declares no linter is not linted.
-
-**And both need the tool itself to be installed.** `tooling.commands.format` and
-`tooling.commands.lint` name a command; this hook runs it and nothing more. If the command is
-`bunx biome check --write` and `biome` is not on PATH, the run raises `FileNotFoundError`, this hook
+**The formatter needs the tool itself to be installed.** `tooling.commands.format` names the
+command; this hook runs it and nothing more. If the command is `bunx biome check --write` and
+`biome` is not on PATH, the run raises `FileNotFoundError`, this hook
 fails open as it must, and the session goes on editing files that are never formatted — for hours,
 with nothing on screen. So the miss is now detected before the run rather than swallowed after it,
 and `session_context.py` names it at the start of every session:
@@ -25,12 +21,7 @@ session is in, including one that does not carry them as dependencies.
     bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
     biome --version && oxlint --version   # both must answer
 
-A command routed through the package manager — `npm run lint` — is not checked: the tool is named
-in the project's manifest, not in the command, and a warning that guesses is worse than none. This used to shell out to `bunx biome format --write`
-and `bunx oxlint` unconditionally, which meant installing the plugin silently rewrote every edited
-file with one specific formatter's defaults — in repositories that had chosen Prettier, or dprint,
-or nothing — and downloaded that formatter from npm to do it. A harness may enforce the project's
-rules; it may not impose its author's.
+A harness may enforce the project's formatting command; it may not impose its author's.
 
 Why format only, never fix, on PostToolUse:
   `biome check --write` runs the linter + assists with auto-fix. Rules like
@@ -40,19 +31,17 @@ Why format only, never fix, on PostToolUse:
   steps and cascade errors. `biome format --write` only touches whitespace,
   indentation, quotes, semicolons, trailing commas, line width.
 
-  Lint auto-fix is intentionally never used here for the same reason: at Stop the lint is
-  read-only, and it reports rather than repairs.
+  Lint auto-fix is intentionally never used here for the same reason: the formatter only applies
+  the declared formatting rules to the edited file.
 
-Triggers:
+Trigger:
   PostToolUse (Write|Edit) — format mode
-  Stop                     — lint check mode
 
 Always fails open: any internal error → exit 0 (never wedge a session).
 """
 
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -75,11 +64,7 @@ except Exception:
 
 
 FORMATTABLE_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".astro", ".vue", ".svelte", ".py", ".go", ".rs"}
-LINT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
-MAX_LINT_FILES = 20
-LINT_TIMEOUT_S = 30
 FORMAT_TIMEOUT_S = 30
-GIT_DIFF_TIMEOUT_S = 10
 
 
 def read_input() -> dict[str, object]:
@@ -125,8 +110,6 @@ def run_format(data: dict[str, object]) -> None:
         pass
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Stop — run the declared linter over git-modified files; block on errors
 def argv_for(command: str) -> list[str]:
     """A declared command string, split into argv that starts on every platform.
 
@@ -148,90 +131,21 @@ def argv_for(command: str) -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def get_modified_files(cwd: str | None = None) -> list[str]:
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", "--diff-filter=ACM"],
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GIT_DIFF_TIMEOUT_S,
-            cwd=cwd,          # the project, not wherever this hook happens to have been started
-            check=False,
-        )
-        files = result.stdout.strip().splitlines()
-        return [f for f in files if f.endswith(LINT_EXTENSIONS)][:MAX_LINT_FILES]
-    except Exception:
-        return []
-
-
-def run_check(data: dict[str, object]) -> None:
-    # Avoid infinite stop-hook loop
-    if data.get("stop_hook_active") is True:
-        return
-
-    modified = get_modified_files()
-    if not modified:
-        return
-
-    cfg = gp.load(payload=data)
-    lint_command = ((cfg.get("tooling") or {}).get("commands") or {}).get("lint")
-    if not lint_command:
-        return  # the project declares no linter; there is nothing to enforce
-
-    if gp.missing_tool(str(lint_command)):
-        return  # declared but absent — reported at session start, never a reason to block a stop
-
-    try:
-        result = subprocess.run(
-            [*argv_for(lint_command), *modified],
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=LINT_TIMEOUT_S,
-            cwd=str(gp.project_dir(data)),
-            check=False,
-        )
-        raw_output = result.stdout + result.stderr
-    except Exception:
-        return  # a linter that cannot run does not get to block the session
-
-    error_match = re.search(r"(\d+) error", raw_output)
-    error_count = int(error_match.group(1)) if error_match else 0
-    if error_count <= 0:
-        return
-
-    truncated = "\n".join(raw_output.splitlines()[-30:])[:2000]
-    print(
-        json.dumps(
-            {
-                "decision": "block",
-                "reason": f"The project's linter reported {error_count} error(s). Fix them before stopping:\n\n{truncated}",
-            }
-        )
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Dispatch
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     data: dict[str, object] = read_input()
     event = gp.hook_event(data)
 
-    # Explicit override via CLI arg ("format" | "check") for manual testing
+    # Explicit override via CLI arg ("format") for manual testing
     if len(sys.argv) > 1:
         event_override = sys.argv[1].strip().lower()
         if event_override == "format":
             event = "PostToolUse"
-        elif event_override == "check":
-            event = "Stop"
 
     try:
         if event == "PostToolUse":
             run_format(data)
-        elif event == "Stop":
-            run_check(data)
         # Unknown / missing event: silent no-op (fail open)
     except Exception:
         pass

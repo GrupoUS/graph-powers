@@ -31,6 +31,9 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
+
+import stop_verify as stop_module
 
 HOOKS = Path(__file__).resolve().parent
 FAILS: list[str] = []
@@ -55,6 +58,47 @@ def mkproj(cfg: dict, *, location: str = ".graph-powers") -> Path:
     (d / location).mkdir(parents=True)
     (d / location / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     return d
+
+
+def init_git(proj: Path) -> None:
+    """Make a fixture repository whose status can be clean or deliberately dirty."""
+    for args in (
+        ["git", "init", "-q"],
+        ["git", "config", "user.email", "hooks-tests@example.invalid"],
+        ["git", "config", "user.name", "Hook Tests"],
+        ["git", "add", "."],
+        ["git", "commit", "-qm", "fixture"],
+    ):
+        subprocess.run(args, cwd=str(proj), check=True, capture_output=True,
+                       encoding="utf-8", errors="replace")
+
+
+def shell_quote(value: str) -> str:
+    """Quote a fixture path for the host shell, including Windows cmd.exe."""
+    if os.name == "nt":
+        return '"' + value.replace('"', '\\"') + '"'
+    return shlex.quote(value)
+
+
+def lint_fixture(*, code: int, output: str = "", command_suffix: str = "",
+                 stream: str = "stdout") -> Path:
+    """Create a git fixture with a deterministic linter command and one tracked source file."""
+    proj = mkproj({"git": {"optInPrefix": "FIXTURE"}, "tooling": {"commands": {"lint": "pending"}}})
+    runner = proj / "lint_fixture.py"
+    source = "import sys\n"
+    if output:
+        source += f"print({output!r}, end='', file=sys.{stream})\n"
+    source += f"raise SystemExit({code} if len(sys.argv) == 1 else 99)\n"
+    runner.write_text(source, encoding="utf-8")
+    cfg_path = proj / ".graph-powers" / "config.json"
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    executable = shell_quote(sys.executable)
+    script = shell_quote(str(runner))
+    cfg["tooling"]["commands"]["lint"] = f"{executable} {script}{command_suffix}"
+    cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+    (proj / "tracked.ts").write_text("const value = 1;\n", encoding="utf-8")
+    init_git(proj)
+    return proj
 
 
 def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude",
@@ -109,7 +153,7 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude",
 
 
 def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
-             harness: str = "claude"):
+             harness: str = "claude", run_cwd: Path | None = None):
     """Same call, but the whole stdout — for hooks that emit context rather than a decision."""
     env_full = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
                 **(env or {})}
@@ -131,7 +175,18 @@ def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
     r = subprocess.run(
         [sys.executable, str(HOOKS / f"{hook}.py")],
         input=json.dumps(payload), capture_output=True, encoding="utf-8", errors="replace",
-        env=env_full, cwd=str(proj), timeout=30, check=False,
+        env=env_full, cwd=str(run_cwd or proj), timeout=30, check=False,
+    )
+    return r.stdout, r.returncode
+
+
+def call_raw_input(hook: str, raw: str, proj: Path, *, env: dict | None = None):
+    """Invoke a hook with deliberately malformed stdin for its fail-open contract."""
+    env_full = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
+                "CLAUDE_PROJECT_DIR": str(proj), **(env or {})}
+    r = subprocess.run(
+        [sys.executable, str(HOOKS / f"{hook}.py")], input=raw, capture_output=True,
+        encoding="utf-8", errors="replace", env=env_full, cwd=str(proj), timeout=30, check=False,
     )
     return r.stdout, r.returncode
 
@@ -153,6 +208,16 @@ def main() -> int:
         for hook in group["hooks"]
     ]
     check("the hook manifest declares commands", bool(commands), True)
+    stop_commands = [command for event, command in commands if event == "Stop"]
+    check("Stop is registered exactly once", len(stop_commands), 1)
+    check("Stop registration points to stop_verify.py",
+          len([command for command in stop_commands if "stop_verify.py" in command]), 1)
+    stop_argv = shlex.split(stop_commands[0], posix=True) if stop_commands else []
+    stop_target = next((arg for arg in stop_argv if "stop_verify.py" in arg), "")
+    stop_target = stop_target.replace("${CLAUDE_PLUGIN_ROOT}", str(HOOKS.parent))
+    check("registered Stop entrypoint exists", Path(stop_target).is_file(), True)
+    ultracite_events = [event for event, command in commands if "ultracite.py" in command]
+    check("ultracite is PostToolUse formatter-only", ultracite_events, ["PostToolUse"])
     missing_root = Path(tempfile.mkdtemp(prefix="gp-removed-plugin-cache-"))
     shutil.rmtree(missing_root, ignore_errors=True)
     for index, (event, command) in enumerate(commands, 1):
@@ -178,6 +243,7 @@ def main() -> int:
                         "protectedBranches": ["main", "producao"]}})
     legacy = mkproj({"git": {"optInPrefix": "LEGACY"}}, location=".claude")
     no_config = Path(tempfile.mkdtemp(prefix="gp-no-config-"))
+    stop_projects: list[Path] = []
 
     commit = {"tool_name": "Bash", "tool_input": {"command": GIT_WRITE}}
     key_a = {"tool_name": "Bash", "tool_input": {"command": "PROJA_ALLOW_COMMIT=1 " + GIT_WRITE}}
@@ -1797,6 +1863,189 @@ def main() -> int:
     check("a missing linter exits 0 at Stop", rc, 0)
     check("...and does not block the stop", "block" in out, False)
 
+    print("### stop_verify — changeset-aware, exit-code-authoritative Stop verifier")
+
+    def stop(proj: Path, payload: dict | None = None, *, env: dict | None = None,
+             run_cwd: Path | None = None):
+        return call_raw("stop_verify", payload or {"hook_event_name": "Stop"}, proj, env=env,
+                        run_cwd=run_cwd)
+
+    def decoded(raw: str) -> dict:
+        try:
+            value = json.loads(raw)
+            return value if isinstance(value, dict) else {}
+        except Exception:
+            return {}
+
+    clean = lint_fixture(code=2)
+    stop_projects.append(clean)
+    out, rc = stop(clean)
+    check("a clean tree skips lint", (rc, out), (0, ""))
+
+    staged = lint_fixture(code=2)
+    stop_projects.append(staged)
+    (staged / "tracked.ts").write_text("const value = 2;\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.ts"], cwd=str(staged), check=True,
+                   capture_output=True, encoding="utf-8", errors="replace")
+    out, rc = stop(staged)
+    check("staged-only changes trigger lint", (rc, "DENY" in out), (0, True))
+
+    untracked = lint_fixture(code=2)
+    stop_projects.append(untracked)
+    (untracked / "notes with spaces é.md").write_text("new\n", encoding="utf-8")
+    out, rc = stop(untracked)
+    check("untracked Unicode and spaced paths trigger lint", (rc, "DENY" in out), (0, True))
+
+    outside_cwd = Path(tempfile.mkdtemp(prefix="gp-stop-outside-cwd-"))
+    stop_projects.append(outside_cwd)
+    out, rc = stop(untracked, run_cwd=outside_cwd)
+    check("payload project resolution survives invocation outside the repository",
+          (rc, "DENY" in out), (0, True))
+
+    renamed_deleted = lint_fixture(code=2)
+    stop_projects.append(renamed_deleted)
+    (renamed_deleted / "delete me.md").write_text("delete\n", encoding="utf-8")
+    subprocess.run(["git", "add", "delete me.md"], cwd=str(renamed_deleted), check=True,
+                   capture_output=True, encoding="utf-8", errors="replace")
+    subprocess.run(["git", "commit", "-qm", "add fixture"], cwd=str(renamed_deleted), check=True,
+                   capture_output=True, encoding="utf-8", errors="replace")
+    (renamed_deleted / "delete me.md").unlink()
+    subprocess.run(["git", "mv", "tracked.ts", "renamed file é.ts"], cwd=str(renamed_deleted),
+                   check=True, capture_output=True, encoding="utf-8", errors="replace")
+    subprocess.run(["git", "add", "-A"], cwd=str(renamed_deleted), check=True,
+                   capture_output=True, encoding="utf-8", errors="replace")
+    out, rc = stop(renamed_deleted)
+    check("renames and deletes trigger lint", (rc, "DENY" in out), (0, True))
+
+    many = lint_fixture(code=2)
+    stop_projects.append(many)
+    for index in range(21):
+        (many / f"untracked-{index:02d}.md").write_text("new\n", encoding="utf-8")
+    out, rc = stop(many)
+    check(">20 non-JS changes are not silently truncated", (rc, "DENY" in out), (0, True))
+
+    for code, output, stream, label, expected in [
+        (0, "", "stdout", "exit 0 with empty output allows", False),
+        (0, "warning: stylistic note\n", "stdout", "exit 0 with warnings allows", False),
+        (1, "0 errors\n", "stdout", "exit 1 with 0 errors blocks", True),
+        (1, "fatal diagnostic\n", "stdout", "exit 1 without error text blocks", True),
+        (2, "tool failed\n", "stdout", "exit 2 blocks", True),
+        (1, "stderr-only diagnostic\n", "stderr", "stderr-only nonzero blocks", True),
+        (1, "", "stdout", "empty nonzero blocks", True),
+    ]:
+        fixture = lint_fixture(code=code, output=output, stream=stream)
+        stop_projects.append(fixture)
+        (fixture / "tracked.ts").write_text("const value = 3;\n", encoding="utf-8")
+        out, rc = stop(fixture)
+        check(label, (rc, "DENY" in out), (0, expected))
+
+    compound = lint_fixture(
+        code=0,
+        command_suffix=f" && {shell_quote(sys.executable)} -c {shell_quote('raise SystemExit(2)')}",
+    )
+    stop_projects.append(compound)
+    (compound / "tracked.ts").write_text("const value = 4;\n", encoding="utf-8")
+    out, rc = stop(compound)
+    check("compound package-script-like command keeps its exit code", (rc, "DENY" in out), (0, True))
+
+    fix = lint_fixture(code=1, output="still broken\n")
+    stop_projects.append(fix)
+    (fix / "tracked.ts").write_text("const value = 5;\n", encoding="utf-8")
+    out, rc = stop(fix)
+    check("red run blocks", (rc, "DENY" in out), (0, True))
+    (fix / "lint_fixture.py").write_text(
+        "import sys\nraise SystemExit(0 if len(sys.argv) == 1 else 99)\n", encoding="utf-8")
+    out, rc = stop(fix)
+    check("a fix command makes the next run green", (rc, out), (0, ""))
+
+    warning = lint_fixture(code=0, output="warning: no errors\n")
+    stop_projects.append(warning)
+    (warning / "tracked.ts").write_text("const value = 6;\n", encoding="utf-8")
+    out, rc = stop(warning)
+    check("warning output does not masquerade as failure", (rc, "DENY" in out), (0, False))
+
+    secret_output = lint_fixture(code=1, output=("x" * 4000) + "\nSECRET_TOKEN=do-not-leak\n")
+    stop_projects.append(secret_output)
+    (secret_output / "tracked.ts").write_text("const value = 6;\n", encoding="utf-8")
+    out, rc = stop(secret_output)
+    check("failure diagnostics are bounded and redact secrets",
+          (rc, len(out) < 5000, "do-not-leak" not in out, "SECRET_TOKEN" not in out),
+          (0, True, True, True))
+
+    assessment_failure = mkproj({"tooling": {"commands": {"lint": "pending"}}})
+    stop_projects.append(assessment_failure)
+    runner = assessment_failure / "lint_fixture.py"
+    runner.write_text("import sys\nraise SystemExit(2 if len(sys.argv) == 1 else 99)\n", encoding="utf-8")
+    cfg_path = assessment_failure / ".graph-powers" / "config.json"
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    cfg["tooling"]["commands"]["lint"] = f"{shell_quote(sys.executable)} {shell_quote(str(runner))}"
+    cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+    (assessment_failure / "dirty.md").write_text("dirty\n", encoding="utf-8")
+    out, rc = stop(assessment_failure)
+    check("changeset assessment failure still runs the declared lint", (rc, "DENY" in out), (0, True))
+
+    absent_stop = mkproj({"tooling": {"commands": {"lint": "gp-no-such-stop-linter-xyz"}}})
+    stop_projects.append(absent_stop)
+    (absent_stop / "dirty.md").write_text("dirty\n", encoding="utf-8")
+    init_git(absent_stop)
+    (absent_stop / "dirty.md").write_text("changed\n", encoding="utf-8")
+    out, rc = stop(absent_stop)
+    check("missing linter fails open with explicit unavailable outcome",
+          (rc, "SKIP_UNAVAILABLE" in out, "lint" in out.lower()), (0, True, True))
+    out, rc = stop(absent_stop, {"status": "completed", "loop_count": 0})
+    check("Cursor unavailability does not start an automatic follow-up loop", (rc, out), (0, ""))
+
+    timeout = lint_fixture(code=0)
+    stop_projects.append(timeout)
+    (timeout / "tracked.ts").write_text("const value = 10;\n", encoding="utf-8")
+    with patch.object(stop_module.subprocess, "run", side_effect=subprocess.TimeoutExpired("lint", 1)):
+        outcome, message = stop_module.verify({"hook_event_name": "Stop", "cwd": str(timeout)})
+    check("lint timeout fails open with explicit timeout outcome",
+          (outcome, "lint" in message.lower()), (stop_module.TIMEOUT, True))
+
+    malformed = mkproj({"tooling": {"commands": {"lint": "pending"}}})
+    stop_projects.append(malformed)
+    out, rc = call_raw_input("stop_verify", "not json", malformed)
+    check("malformed Stop input fails open with explicit internal outcome",
+          (rc, "INTERNAL_ERROR" in out), (0, True))
+
+    active = lint_fixture(code=2)
+    stop_projects.append(active)
+    (active / "tracked.ts").write_text("const value = 7;\n", encoding="utf-8")
+    out, rc = stop(active, {"hook_event_name": "Stop", "stop_hook_active": True})
+    check("stop_hook_active allows without rerunning", (rc, out), (0, ""))
+
+    cursor = lint_fixture(code=1, output="cursor diagnostic\n")
+    stop_projects.append(cursor)
+    (cursor / "tracked.ts").write_text("const value = 8;\n", encoding="utf-8")
+    out, rc = stop(cursor, {"hook_event_name": "Stop", "status": "completed", "loop_count": 0})
+    cursor_body = decoded(out)
+    check("Cursor failure uses only followup_message", (rc, set(cursor_body),),
+          (0, {"followup_message"}))
+    check("Cursor failure includes lint follow-up", "lint" in cursor_body.get("followup_message", "").lower(), True)
+
+    project_a = lint_fixture(code=1, output="project A failed\n")
+    project_b = lint_fixture(code=1, output="project B failed\n")
+    stop_projects.extend((project_a, project_b))
+    project_a_cfg = json.loads((project_a / ".graph-powers" / "config.json").read_text(encoding="utf-8"))
+    project_b_cfg = json.loads((project_b / ".graph-powers" / "config.json").read_text(encoding="utf-8"))
+    project_a_cfg["git"]["optInPrefix"] = "PROJECTA"
+    project_b_cfg["git"]["optInPrefix"] = "PROJECTB"
+    (project_a / ".graph-powers" / "config.json").write_text(json.dumps(project_a_cfg), encoding="utf-8")
+    (project_b / ".graph-powers" / "config.json").write_text(json.dumps(project_b_cfg), encoding="utf-8")
+    (project_a / "tracked.ts").write_text("const value = 9;\n", encoding="utf-8")
+    (project_b / "tracked.ts").write_text("const value = 9;\n", encoding="utf-8")
+    (project_a / "lint_fixture.py").write_text(
+        "from pathlib import Path\n"
+        "Path('lint-was-invoked').write_text('ran', encoding='utf-8')\n"
+        "raise SystemExit(1)\n", encoding="utf-8")
+    out, rc = stop(project_a, env={"PROJECTA_ALLOW_LINT": "1"})
+    check("project A LINT opt-in allows without invoking lint",
+          (rc, out, (project_a / "lint-was-invoked").exists()), (0, "", False))
+    out, rc = stop(project_b, env={"PROJECTA_ALLOW_LINT": "1"})
+    check("project A LINT opt-in does not release project B",
+          (rc, "DENY" in out, "PROJECTB_ALLOW_LINT=1" in out), (0, True, True))
+
     # ── User-scope config: what a home directory may say about every repository on the machine ──
     #
     # This layer exists so a personal decision survives `git clone`, and it travels in exactly one
@@ -1970,7 +2219,7 @@ def main() -> int:
 
     for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_bun_auto,
               pm_npx, pm_both, grok_protected,
-              installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
+              installed, absent, indirect, fmt_absent, fmt_real, stop_absent, *stop_projects):
         shutil.rmtree(d, ignore_errors=True)
 
     print("\n" + ("FAILURES: " + ", ".join(FAILS) if FAILS else "EVERY GUARANTEE HELD"))

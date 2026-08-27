@@ -12,6 +12,25 @@ import os
 import sys
 import tomllib
 
+EXPECTED_POLICY = {
+    "evaluator": ("judge", "gpt-5.6-sol", "max"),
+    "security-reviewer": ("judge", "gpt-5.6-sol", "max"),
+    "skill-improver": ("judge", "gpt-5.6-sol", "max"),
+    "ui-ux-designer": ("judge", "gpt-5.6-sol", "max"),
+    "project-planner": ("architect", "gpt-5.6-sol", "max"),
+    "debugger": ("executor", "gpt-5.6-luna", "max"),
+    "frontend-specialist": ("executor", "gpt-5.6-luna", "max"),
+    "mobile-developer": ("executor", "gpt-5.6-luna", "max"),
+    "performance-optimizer": ("executor", "gpt-5.6-luna", "max"),
+    "verification": ("verifier", "gpt-5.6-luna", "max"),
+    "explorer": ("scout", "gpt-5.6-luna", "medium"),
+    "librarian": ("scout", "gpt-5.6-luna", "medium"),
+}
+READ_ONLY_AGENTS = {
+    "evaluator", "security-reviewer", "skill-improver", "ui-ux-designer", "explorer",
+    "librarian", "verification",
+}
+
 root, project, scope = sys.argv[1], sys.argv[2], sys.argv[3]
 codex_home = os.path.join(root, ".codex")
 skills_dir = os.path.join(root, ".agents/skills")
@@ -31,20 +50,38 @@ assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clob
 hook_names = {
     "auto_update", "branch_session_notice", "commit_audit_gate", "git_branch_gate",
     "git_commit_gate", "git_push_gate", "graph_guardrails", "notify", "protect_files",
-    "session_context", "smart_bash_approver", "tool_approver", "ultracite",
+    "session_context", "smart_bash_approver", "stop_verify", "tool_approver", "ultracite",
 }
 ours = [c for c in commands if any(f"/hooks/{name}.py" in c for name in hook_names)]
-assert len(ours) == 14, f"expected 14 Graph Powers registrations, found {len(ours)}"
+assert len(ours) == 15, f"expected 15 Graph Powers registrations, found {len(ours)}"
 assert {name for name in hook_names if any(f"/hooks/{name}.py" in c for c in ours)} == hook_names, \
     f"one of the {len(hook_names)} Graph Powers hook scripts is not registered"
 
 agents = sorted(glob.glob(os.path.join(codex_home, "agents/*.toml")))
 assert agents, f"no Codex subagents generated under {codex_home}"
 efforts = set()
+found = set()
 for path in agents:
     with open(path, "rb") as fh:
         d = tomllib.load(fh)
+    with open(path, encoding="utf-8") as fh:
+        raw_agent = fh.read()
     assert d.get("name") and d.get("description") and d.get("developer_instructions"), path
+    name = d["name"]
+    assert name in EXPECTED_POLICY, f"{path}: unknown Codex agent {name!r}"
+    profile, expected_model, expected_effort = EXPECTED_POLICY[name]
+    assert f"# Codex policy: profile={profile};" in raw_agent, (
+        f"{path}: missing policy-source trace for semantic profile {profile}"
+    )
+    assert d.get("model") == expected_model, (
+        f"{path}: semantic policy mismatch for {name}: expected model {expected_model!r}, "
+        f"got {d.get('model')!r}"
+    )
+    assert d.get("model_reasoning_effort") == expected_effort, (
+        f"{path}: semantic policy mismatch for {name}: expected effort {expected_effort!r}, "
+        f"got {d.get('model_reasoning_effort')!r}"
+    )
+    found.add(name)
     # A description that stopped at the first comma is the signature of the frontmatter reader
     # treating every key as a list. It is invisible in the file and fatal to discovery.
     assert len(d["description"]) > 40, f"{path}: description truncated -> {d['description']!r}"
@@ -53,7 +90,12 @@ for path in agents:
         f"{path}: Claude family {model!r} is not a Codex slug — it spends the Spark / "
         "Bengal Fox window instead of the user's own limit"
     )
+    if name in READ_ONLY_AGENTS:
+        assert d.get("sandbox_mode") == "read-only", f"{path}: {name} lost read-only sandbox"
+    else:
+        assert d.get("sandbox_mode") != "read-only", f"{path}: write-capable {name} is read-only"
     efforts.add(d.get("model_reasoning_effort"))
+assert found == set(EXPECTED_POLICY), f"expected exactly the 12 canonical agents, found {sorted(found)}"
 assert len(efforts) > 1, f"every subagent got the same reasoning effort ({efforts}) — frontmatter ignored"
 
 # `${CLAUDE_PLUGIN_ROOT}` is a Claude Code variable. Codex never sets it, so a copy that still

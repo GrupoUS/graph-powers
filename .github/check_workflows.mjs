@@ -18,6 +18,13 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { CODEX_AGENT_PROFILES } from "../codex/model-policy.mjs";
+
+const CODEX_SCOUT_AGENTS = new Set(
+  Object.entries(CODEX_AGENT_PROFILES)
+    .filter(([, profile]) => profile === "scout")
+    .map(([name]) => name),
+);
 
 /**
  * A workflow spawns the plugin's agents by their namespaced name (`graph-powers:explorer`), and
@@ -40,6 +47,30 @@ function checkAgentSet(path, source, onDisk) {
       problems.push(
         `AGENTS ${path}: agents/${name}.md exists but PLUGIN_AGENTS omits it — a spawn of it would go unnamespaced`,
       );
+  return problems;
+}
+
+/**
+ * Workflows remain Claude-native orchestration. Their cheap lane is supplied by the config
+ * bootstrap, which reads the canonical Codex policy JSON; the workflows must not grow a second
+ * list of scout names or leak GPT model slugs into Claude `agent()` calls.
+ */
+function checkPolicy(path, source) {
+  const problems = [];
+  if (source.includes("LIGHT_AGENTS"))
+    problems.push(`POLICY ${path}: duplicated LIGHT_AGENTS authority remains`);
+  if (!source.includes("scoutAgents"))
+    problems.push(`POLICY ${path}: config bootstrap does not carry scoutAgents`);
+  if (!source.includes("codex/model-policy.json"))
+    problems.push(`POLICY ${path}: scoutAgents is not derived from codex/model-policy.json`);
+  if (!source.includes("SCOUT_AGENTS") || !source.includes("cfg.scoutAgents"))
+    problems.push(`POLICY ${path}: model tier helper does not consume cfg.scoutAgents`);
+  if (!source.includes("SCOUT_POLICY_SHAPE") || !source.includes("return { ...supplied, scoutAgents: policy?.scoutAgents }"))
+    problems.push(`POLICY ${path}: supplied config has no scoutAgents bootstrap fallback`);
+  if (!source.includes("if (!SCOUT_AGENTS.size)"))
+    problems.push(`POLICY ${path}: missing non-empty scoutAgents guard before fan-out`);
+  if (/gpt-5\.6-(?:sol|terra|luna)/i.test(source))
+    problems.push(`POLICY ${path}: Claude workflow contains a Codex model slug`);
   return problems;
 }
 
@@ -96,6 +127,10 @@ function checkModels(path, spawned, agentModels) {
       );
       continue;
     }
+    if (CODEX_SCOUT_AGENTS.has(bare) && String(model).toLowerCase() !== "haiku")
+      problems.push(
+        `MODEL  ${path}: semantic scout ${agentType} must retain the Claude haiku lane, got \`${model}\``,
+      );
     const asked = TIER_ORDER.indexOf(String(model).toLowerCase());
     const pinned = TIER_ORDER.indexOf(String(declared).toLowerCase());
     if (declared && asked > pinned && pinned !== -1 && asked !== -1)
@@ -269,7 +304,8 @@ function sampleFor(schema) {
       return [sampleFor(schema.items ?? {})];
     default: {
       const out = {};
-      for (const [key, sub] of Object.entries(schema.properties ?? {})) out[key] = sampleFor(sub);
+      for (const [key, sub] of Object.entries(schema.properties ?? {}))
+        out[key] = key === "scoutAgents" ? [...CODEX_SCOUT_AGENTS] : sampleFor(sub);
       return out;
     }
   }
@@ -369,6 +405,15 @@ const RUN_REQUESTED = process.argv.slice(2).includes("--run");
 // is the check they exist for.
 const WILL_EXECUTE = !CHECKING_ONE_OFF || RUN_REQUESTED;
 
+function fallbackArgsFor(workflowName) {
+  return workflowName === "ultra-plan"
+    ? { task: "dry-run task", config: { pluginRoot: "plugin", planDir: "docs/plans" } }
+    : {
+        planPath: "dry-run/plan.md",
+        config: { pluginRoot: "plugin", maxParallelWave: 1, maxRepatch: 1, maxFixRounds: 1 },
+      };
+}
+
 const DIR = "workflows";
 if (!CHECKING_ONE_OFF && !existsSync(DIR)) {
   console.log("no workflows/ directory — nothing to check");
@@ -406,6 +451,15 @@ let failed = 0;
 for (const file of files) {
   const path = CHECKING_ONE_OFF ? file : join(DIR, file);
   const source = readFileSync(path, "utf8");
+
+  if (!CHECKING_ONE_OFF) {
+    const policyProblems = checkPolicy(path, source);
+    if (policyProblems.length) {
+      for (const problem of policyProblems) console.error(problem);
+      failed++;
+      continue;
+    }
+  }
 
   // Same wrapper the runtime applies: strip the ESM export (an `export` is illegal inside a
   // function body) and evaluate the rest as an async function body.
@@ -462,13 +516,32 @@ for (const file of files) {
         continue;
       }
 
-      const modelProblems = checkModels(path, spawned, agentModels);
-      if (modelProblems.length) {
+       const modelProblems = checkModels(path, spawned, agentModels);
+       if (modelProblems.length) {
         for (const problem of modelProblems) console.error(problem);
         failed++;
-        continue;
-      }
-    } catch (error) {
+         continue;
+       }
+
+        // Exercise the compatibility path used by callers that already pass project config but
+        // predate scoutAgents. It must spend only the existing one bootstrap spawn and retain the
+        // same deterministic fan-out bound as the ordinary invocation.
+        // oxlint-disable-next-line no-await-in-loop
+        const fallback = await dryRun(body, fallbackArgsFor(meta.name));
+        if (fallback.spawned.length > spawnCount) {
+          console.error(
+            `SPAWN  ${path}: config fallback expanded the fan-out from ${spawnCount} to ${fallback.spawned.length} spawns`,
+          );
+          failed++;
+          continue;
+        }
+        const fallbackModelProblems = checkModels(path, fallback.spawned, agentModels);
+        if (fallbackModelProblems.length) {
+          for (const problem of fallbackModelProblems) console.error(problem);
+          failed++;
+          continue;
+        }
+      } catch (error) {
       console.error(`RUN    ${path}: ${error.message}`);
       failed++;
       continue;

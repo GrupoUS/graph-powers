@@ -20,7 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,11 +33,17 @@ import {
 } from "../codex/install.mjs";
 import { install as installCursor } from "../cursor/install.mjs";
 import { install as installGrok } from "../grok/install.mjs";
+import {
+  proofFailure,
+  verifierPath,
+  verifyHookClient as runHookVerifier,
+} from "./hook-client-verifier.mjs";
 
 const PLUGIN = "graph-powers";
 const MARKETPLACE = "graph-powers";
 const DEFAULT_REPO = "GrupoUS/graph-powers";
 const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const HOOK_VERIFIER = verifierPath(PLUGIN_ROOT);
 
 // ── output ───────────────────────────────────────────────────────────────────
 const color = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -206,37 +212,8 @@ const codexVersion = cliVersion("codex");
 const cursorVersion = cliVersion("cursor-agent") || cliVersion("cursor");
 const cursorHome = existsSync(join(homedir(), ".cursor"));
 const grokVersion = cliVersion("grok");
-const grokHome = existsSync(join(homedir(), ".grok"));
-
-function cursorPluginInstall() {
-  const cache = join(homedir(), ".cursor/plugins/cache/graph-powers/graph-powers");
-  if (!existsSync(cache)) return null;
-  let best = null;
-  try {
-    for (const entry of readdirSync(cache, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const root = join(cache, entry.name);
-      const manifest = readJsonSafe(join(root, ".cursor-plugin/plugin.json"));
-      if (manifest?.name !== PLUGIN || manifest?.hooks !== "./hooks/hooks-cursor.json") continue;
-      const hooks = readJsonSafe(join(root, "hooks/hooks-cursor.json"));
-      const commands = Object.values(hooks?.hooks ?? {}).flatMap((entries) =>
-        (entries ?? []).map((hook) => String(hook?.command ?? "")),
-      );
-      const candidate = {
-        root,
-        version: String(manifest.version ?? "0"),
-        hookCount: commands.length,
-        failOpen: commands.length === 11 && commands.every((command) => command.includes("runpy.run_path")),
-      };
-      if (!best || candidate.version.localeCompare(best.version, undefined, { numeric: true }) > 0) {
-        best = candidate;
-      }
-    }
-  } catch {
-    // An unreadable cache is the same operational state as an absent plugin: do not loosen posture.
-  }
-  return best;
-}
+const grokHomeDir = process.env.GROK_HOME || join(homedir(), ".grok");
+const grokHome = existsSync(grokHomeDir);
 
 const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
 const targetWasAsked = flagValue("--target", null) !== null;
@@ -379,6 +356,39 @@ function claude(args, { capture = false } = {}) {
     cwd,
   });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+/** Ask the one portable verifier which exact package a client will execute. */
+function verifyHookClient(
+  client,
+  { packageRoot = null, expectedVersion = null, checkPosture = false, probe = true } = {},
+) {
+  return runHookVerifier({
+    client,
+    pluginRoot: PLUGIN_ROOT,
+    projectDir: cwd,
+    scope,
+    autonomy: autonomyLevel,
+    packageRoot,
+    expectedVersion,
+    checkPosture,
+    probe,
+  });
+}
+
+function requireHookProof(client, proof) {
+  if (!proof.ok) {
+    const details = proofFailure(proof);
+    die(
+      `${client} hook package verification failed; permissive posture was not changed.`,
+      details || `Run: python3 -X utf8 ${HOOK_VERIFIER} --client ${client}`,
+    );
+  }
+  const hooks = proof.body?.hooks?.registrations;
+  ok(
+    `${client} package ${proof.body?.version ?? "?"} proved at ${proof.body?.root ?? "?"}` +
+      (hooks === undefined ? "" : ` (${hooks} fail-open hooks)`),
+  );
 }
 
 // ── permissions ──────────────────────────────────────────────────────────────
@@ -782,10 +792,8 @@ function detectStack() {
 }
 
 /**
- * The Codex model and reasoning effort, from this project's config.
- *
- * Never a default written here. A model name in the installer is a file that ages out the week
- * the next model ships, and every machine that installed before then keeps generating the old one.
+ * Codex profile, model and reasoning overrides from this project's config. The defaults live in
+ * codex/model-policy.json; this reader carries only the operator layer into both generators.
  */
 function codexSettings() {
   return readCodexSettings(cwd);
@@ -895,7 +903,7 @@ step(++n, TOTAL, "Checking the environment");
   else if (cursorHome) ok("Cursor home present (~/.cursor)");
   else info("cursor not found");
   if (grokVersion) ok(`grok ${grokVersion}`);
-  else if (grokHome) ok("Grok home present (~/.grok)");
+  else if (grokHome) ok(`Grok home present (${grokHomeDir})`);
   else info("grok not found");
   // A missing CLI is only fatal when nobody said what to wire. With an explicit `--target` the
   // request is unambiguous, and generating the artefacts for a CLI that is not installed yet is a
@@ -924,7 +932,7 @@ step(++n, TOTAL, "Checking the environment");
     warn("Cursor is not on PATH and ~/.cursor is absent — permissions will still be written.");
   }
   if (wantGrok && !grokVersion && !grokHome) {
-    warn("Grok is not on PATH and ~/.grok is absent — config.toml will still be written.");
+    warn(`Grok is not on PATH and ${grokHomeDir} is absent — clone discovery will be configured.`);
   }
 
   // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
@@ -1016,6 +1024,15 @@ if (wantClaude) {
 
 if (wantClaude) {
   step(++n, TOTAL, `Permissions ${dim(`(${autonomyLevel})`)}`);
+  if (dryRun) {
+    warn("dry-run: the installed Claude package was not changed or certified; a real run verifies it first");
+  } else {
+    const expectedVersion = readJsonSafe(join(PLUGIN_ROOT, ".claude-plugin/plugin.json"))?.version;
+    requireHookProof(
+      "Claude Code",
+      verifyHookClient("claude", { expectedVersion, probe: true }),
+    );
+  }
   writePermissions(scope);
   if (autonomyLevel === "autonomous") {
     info(
@@ -1079,25 +1096,10 @@ if (wantCodex) {
 
 if (wantCursor) {
   step(++n, TOTAL, `Configuring Cursor approval posture ${dim(`(${autonomyLevel})`)}`);
-  const cursorPlugin = cursorPluginInstall();
-  if (!cursorPlugin && !dryRun) {
-    die(
-      "Cursor's Graph Powers plugin is not installed; unrestricted posture was not written.",
-      "Install Graph Powers from the Cursor marketplace, reload the window, then rerun --target cursor.",
-    );
-  }
-  if (cursorPlugin && !cursorPlugin.failOpen && !dryRun) {
-    die(
-      `Cursor plugin ${cursorPlugin.version} is stale or incomplete (${cursorPlugin.hookCount}/11 hooks).`,
-      "Update the Cursor marketplace plugin to Graph Powers 1.11.1+ and reload before changing posture.",
-    );
-  }
-  if (cursorPlugin?.failOpen) {
-    ok(`Cursor plugin ${cursorPlugin.version} found with 11 fail-open hooks before posture changed`);
-  } else if (cursorPlugin) {
-    warn(`dry-run: Cursor plugin ${cursorPlugin.version} lacks the 1.11.1 fail-open hook package`);
+  if (dryRun) {
+    warn("dry-run: Cursor cache was not certified; a real run rejects absent, corrupt, or ambiguous candidates");
   } else {
-    warn("dry-run: Cursor plugin cache is absent; a real run would stop here");
+    requireHookProof("Cursor", verifyHookClient("cursor", { probe: true }));
   }
   try {
     const result = installCursor({
@@ -1105,6 +1107,7 @@ if (wantCursor) {
       dryRun,
       emit: false,
       autonomous: autonomyLevel === "autonomous",
+      verified: !dryRun,
       log: (m) => info(String(m).replace(homedir(), "~")),
     });
     if (result.written.length) ok(`${result.written.length} Cursor path(s) written`);
@@ -1127,22 +1130,41 @@ if (wantGrok) {
   step(++n, TOTAL, `Wiring Grok ${dim(`(${autonomyLevel})`)}`);
   try {
     let nativeInstall = false;
-    if (grokVersion && !has("--skip-marketplace")) {
+    let proof = null;
+    if (!dryRun && grokVersion) {
+      proof = verifyHookClient("grok", { probe: true });
+      nativeInstall = proof.ok;
+    }
+
+    if (grokVersion && !has("--skip-marketplace") && !nativeInstall) {
       const add = grok(["plugin", "marketplace", "add", source], { capture: true });
       const addOut = `${add.stdout}${add.stderr}`;
       if (add.status === 0 || /already/i.test(addOut)) ok("Grok marketplace registered");
-      else warn(`Grok marketplace add failed — clone path will still be written. ${addOut.trim()}`);
+      else warn(`Grok marketplace add failed. ${addOut.trim()}`);
 
       const inst = grok(["plugin", "install", PLUGIN, "--trust"], { capture: true });
       const instOut = `${inst.stdout}${inst.stderr}`;
       if (inst.status === 0 || /already/i.test(instOut)) {
         ok("Grok plugin installed (--trust)");
-        nativeInstall = true;
+        if (!dryRun) {
+          proof = verifyHookClient("grok", { probe: true });
+          nativeInstall = proof.ok;
+        }
       } else {
-        warn(`Grok plugin install failed — config.toml still written. ${instOut.trim()}`);
+        warn(`Grok plugin install failed. ${instOut.trim()}`);
       }
     } else if (grokVersion && has("--skip-marketplace")) {
       info("Grok marketplace skipped by --skip-marketplace");
+    }
+
+    if (dryRun) {
+      warn("dry-run: Grok package was not changed or certified; a real run proves its exact path first");
+    } else if (nativeInstall) {
+      requireHookProof("Grok", proof);
+    } else {
+      if (proof?.body?.present) requireHookProof("Grok", proof);
+      proof = verifyHookClient("grok", { packageRoot: PLUGIN_ROOT, probe: true });
+      requireHookProof("Grok clone", proof);
     }
 
     const result = installGrok({
@@ -1151,11 +1173,12 @@ if (wantGrok) {
       emit: false,
       autonomous: autonomyLevel === "autonomous",
       discoverClone: !nativeInstall,
+      verified: !dryRun,
       log: (m) => info(String(m).replace(homedir(), "~")),
     });
     if (result.written.length) ok(`${result.written.length} Grok path(s) written`);
     else ok("Grok config.toml already matches plugin discovery and the requested posture");
-    info("~/.grok/config.toml is user-only. permission_mode cannot live in a project .grok/.");
+    info(`${grokHomeDir}/config.toml is user-only. permission_mode cannot live in a project .grok/.`);
     info("Do not also write user hooks/*.json under the Grok home — plugin hooks would run twice.");
     info("Git commit and push still ask. rm -rf / still denies.");
   } catch (e) {
@@ -1211,7 +1234,7 @@ if (wantCursor && !dryRun) {
 }
 
 if (wantGrok && !dryRun) {
-  const grokFile = join(process.env.GROK_HOME || join(homedir(), ".grok"), "config.toml");
+  const grokFile = join(grokHomeDir, "config.toml");
   const toml = existsSync(grokFile) ? readFileSync(grokFile, "utf8") : "";
   if (autonomyLevel === "autonomous" && /permission_mode\s*=\s*"always-approve"/.test(toml)) {
     ok("Grok permission_mode is always-approve");
