@@ -171,21 +171,22 @@ function ensureMarketplaceSource(text, { name, git }) {
 }
 
 export function mergeGrokConfig(current, { autonomous, pluginRoot, forgetClone = false } = {}) {
-  if (!autonomous) return { next: current ?? "", changed: [] };
   let text = typeof current === "string" ? current : "";
   const changed = [];
 
-  const mode = setTableKey(text, "ui", "permission_mode", "always-approve");
-  if (mode.changed) changed.push("ui.permission_mode");
-  text = mode.text;
+  if (autonomous) {
+    const mode = setTableKey(text, "ui", "permission_mode", "always-approve");
+    if (mode.changed) changed.push("ui.permission_mode");
+    text = mode.text;
 
-  const fetch = setTableKey(text, "features", "web_fetch", true);
-  if (fetch.changed) changed.push("features.web_fetch");
-  text = fetch.text;
+    const fetch = setTableKey(text, "features", "web_fetch", true);
+    if (fetch.changed) changed.push("features.web_fetch");
+    text = fetch.text;
 
-  const sub = setTableKey(text, "subagents", "enabled", true);
-  if (sub.changed) changed.push("subagents.enabled");
-  text = sub.text;
+    const sub = setTableKey(text, "subagents", "enabled", true);
+    if (sub.changed) changed.push("subagents.enabled");
+    text = sub.text;
+  }
 
   const enabled = mergeStringArrayKey(text, "plugins", "enabled", ["graph-powers"]);
   if (enabled.changed) changed.push("plugins.enabled");

@@ -4,10 +4,11 @@
  *
  *   bunx graph-powers        npx graph-powers
  *
- * What it does, in order: detects which harnesses are present, wires the plugin into each of
- * them, writes the operator's autonomy posture if it is missing, repairs a project config whose
- * `level: autonomous` is defeated by `bashDefault: ask`, writes Cursor's IDE Run Mode file when
- * Cursor is present, optionally writes a starting config, and verifies. Then it prints the one
+ * What it does, in order: detects which harnesses are present, wires the plugin where that CLI has
+ * a clone/native route, writes the operator's autonomy posture if it is missing, repairs a project
+ * config whose `level: autonomous` is defeated by `bashDefault: ask`, writes Cursor's IDE Run Mode
+ * file only after the Cursor plugin is installed separately, optionally writes a starting config,
+ * and verifies. Then it prints the one
  * thing that actually finishes the job — the prompt that hands AGENT_SETUP.md to the agent.
  *
  * What it deliberately does NOT do: delete a single file. Cleaning an existing `.claude/` is the
@@ -19,7 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,7 +72,7 @@ Stop for my approval before each write, as the playbook instructs.`;
 
 if (has("--agent-setup")) {
   console.log(
-    `\n${bold("Paste this into a Claude Code, Codex, Cursor, or Grok session opened in your project:")}\n`,
+    `\n${bold("Paste this into a Claude Code, Codex, Cursor, Grok, or Zed session opened in your project:")}\n`,
   );
   console.log(AGENT_PROMPT);
   console.log(`\n${dim(`The playbook itself: ${join(PLUGIN_ROOT, "AGENT_SETUP.md")}`)}\n`);
@@ -93,16 +94,17 @@ ${bold("USAGE")}
     codex plugin add graph-powers@graph-powers
   Prefer that route. This script is the fallback for unavailable marketplaces and project-scoped
   installs. Do not combine both routes: their hook registrations accumulate and run twice.
-  Cursor loads the tracked \`.cursor-plugin/\` from the same clone or marketplace; this script
-  writes the IDE permission file the marketplace cannot.
+  Cursor's marketplace installs the tracked \`.cursor-plugin/\`; this script does NOT install it.
+  It writes the IDE/CLI permission posture only after you have proved the plugin is present.
   Grok CLI reads \`.grok-plugin/\` and \`hooks/hooks.json\` (Claude's nested shape, not a second
-  list). This script writes ~/.grok/config.toml; do not also drop a user hooks.json.
+  list). This script writes the active Grok home config; do not also drop user hook files.
+  Zed has no Graph Powers hook target: it consumes project instructions/editor settings only.
 
 ${bold("OPTIONS")}
   --target <claude|codex|cursor|grok|both|all>
-                                 Which harness to wire. Default: autodetect from the CLIs and
-                                 from ~/.cursor / ~/.grok. \`both\` is Claude + Codex (the historical
-                                 pair). \`all\` is every harness this machine has a reason to wire.
+                                 Which harness to configure. Default: autodetect from the CLIs and
+                                 their homes. \`both\` is Claude + Codex (the historical pair). \`all\`
+                                 covers the four supported hook clients; it never invents Zed hooks.
   --scope <user|project|local>   Where to register. Default: user — install once, serve every
                                  project on this machine, including future ones.
                                  user    = ~/.claude/settings.json (recommended)
@@ -205,6 +207,36 @@ const cursorVersion = cliVersion("cursor-agent") || cliVersion("cursor");
 const cursorHome = existsSync(join(homedir(), ".cursor"));
 const grokVersion = cliVersion("grok");
 const grokHome = existsSync(join(homedir(), ".grok"));
+
+function cursorPluginInstall() {
+  const cache = join(homedir(), ".cursor/plugins/cache/graph-powers/graph-powers");
+  if (!existsSync(cache)) return null;
+  let best = null;
+  try {
+    for (const entry of readdirSync(cache, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const root = join(cache, entry.name);
+      const manifest = readJsonSafe(join(root, ".cursor-plugin/plugin.json"));
+      if (manifest?.name !== PLUGIN || manifest?.hooks !== "./hooks/hooks-cursor.json") continue;
+      const hooks = readJsonSafe(join(root, "hooks/hooks-cursor.json"));
+      const commands = Object.values(hooks?.hooks ?? {}).flatMap((entries) =>
+        (entries ?? []).map((hook) => String(hook?.command ?? "")),
+      );
+      const candidate = {
+        root,
+        version: String(manifest.version ?? "0"),
+        hookCount: commands.length,
+        failOpen: commands.length === 11 && commands.every((command) => command.includes("runpy.run_path")),
+      };
+      if (!best || candidate.version.localeCompare(best.version, undefined, { numeric: true }) > 0) {
+        best = candidate;
+      }
+    }
+  } catch {
+    // An unreadable cache is the same operational state as an absent plugin: do not loosen posture.
+  }
+  return best;
+}
 
 const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
 const targetWasAsked = flagValue("--target", null) !== null;
@@ -898,19 +930,27 @@ step(++n, TOTAL, "Checking the environment");
   // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
   // `engines` cannot express a Python requirement, so this is the only place it gets checked.
   const py = pythonProbe();
-  if (py) {
-    const version = py.text;
-    const [, major, minor] = /(\d+)\.(\d+)/.exec(version) ?? [];
-    if (Number(major) > 3 || (Number(major) === 3 && Number(minor) >= 10)) {
-      ok(version);
-    } else {
-      warn(
-        `${version} — the guardrails need Python 3.10 or newer; they will fail open and never run.`,
-      );
-    }
-  } else {
-    warn("python3 not found — the guardrails are Python stdlib and will not run without it.");
+  if (!py) {
+    die(
+      "Python 3.10+ is missing — no hook can start, so permission posture was not changed.",
+      "Install Python and make it available under the literal command name `python3`, then retry.",
+    );
   }
+  const version = py.text;
+  const [, major, minor] = /(\d+)\.(\d+)/.exec(version) ?? [];
+  if (!(Number(major) > 3 || (Number(major) === 3 && Number(minor) >= 10))) {
+    die(
+      `${version} is too old — hooks require Python 3.10 or newer.`,
+      "Upgrade Python before enabling bypass/unrestricted/always-approve posture.",
+    );
+  }
+  if (py.bin !== "python3") {
+    die(
+      `${version} answers as \`${py.bin}\`, but every hook command invokes \`python3\`.`,
+      "Add a working `python3` shim/alias on PATH first; otherwise the hooks fail open silently.",
+    );
+  }
+  ok(version);
 
   info(`target: ${target}`);
 }
@@ -1038,7 +1078,27 @@ if (wantCodex) {
 }
 
 if (wantCursor) {
-  step(++n, TOTAL, `Wiring Cursor ${dim(`(${autonomyLevel})`)}`);
+  step(++n, TOTAL, `Configuring Cursor approval posture ${dim(`(${autonomyLevel})`)}`);
+  const cursorPlugin = cursorPluginInstall();
+  if (!cursorPlugin && !dryRun) {
+    die(
+      "Cursor's Graph Powers plugin is not installed; unrestricted posture was not written.",
+      "Install Graph Powers from the Cursor marketplace, reload the window, then rerun --target cursor.",
+    );
+  }
+  if (cursorPlugin && !cursorPlugin.failOpen && !dryRun) {
+    die(
+      `Cursor plugin ${cursorPlugin.version} is stale or incomplete (${cursorPlugin.hookCount}/11 hooks).`,
+      "Update the Cursor marketplace plugin to Graph Powers 1.11.1+ and reload before changing posture.",
+    );
+  }
+  if (cursorPlugin?.failOpen) {
+    ok(`Cursor plugin ${cursorPlugin.version} found with 11 fail-open hooks before posture changed`);
+  } else if (cursorPlugin) {
+    warn(`dry-run: Cursor plugin ${cursorPlugin.version} lacks the 1.11.1 fail-open hook package`);
+  } else {
+    warn("dry-run: Cursor plugin cache is absent; a real run would stop here");
+  }
   try {
     const result = installCursor({
       pluginRoot: PLUGIN_ROOT,
@@ -1048,7 +1108,7 @@ if (wantCursor) {
       log: (m) => info(String(m).replace(homedir(), "~")),
     });
     if (result.written.length) ok(`${result.written.length} Cursor path(s) written`);
-    else ok("Cursor IDE permissions already match autonomous posture");
+    else ok("Cursor IDE/CLI approval posture already matches the requested level");
     if (result.skipped?.length) {
       info(
         `native Cursor hooks skip ${result.skipped.join(", ")} — preToolUse still gates the shell`,
@@ -1094,9 +1154,9 @@ if (wantGrok) {
       log: (m) => info(String(m).replace(homedir(), "~")),
     });
     if (result.written.length) ok(`${result.written.length} Grok path(s) written`);
-    else ok("Grok config.toml already matches autonomous posture");
+    else ok("Grok config.toml already matches plugin discovery and the requested posture");
     info("~/.grok/config.toml is user-only. permission_mode cannot live in a project .grok/.");
-    info("Do not also write ~/.grok/hooks/*.json — native plugin hooks would run twice.");
+    info("Do not also write user hooks/*.json under the Grok home — plugin hooks would run twice.");
     info("Git commit and push still ask. rm -rf / still denies.");
   } catch (e) {
     die(`failed to wire Grok: ${e.message}`);
@@ -1180,7 +1240,7 @@ ${AGENT_PROMPT.split("\n")
      local copies that currently shadow the plugin. It stops for your approval before every write.
 
 Updating later: ${dim(`node ${join(PLUGIN_ROOT, "bin/graph-powers.mjs")} --update`)}
-${dim("  (the harness also checks for itself at session start — see autoUpdate in the README)")}
+${dim("  (autoUpdate covers only the routes named in the README; native clients may need their own updater)")}
 
 Docs: ${dim(`https://github.com/${DEFAULT_REPO}#readme`)}
 `);

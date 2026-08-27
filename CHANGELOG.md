@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.11.1 — Missing cached hook entrypoints fail open
+
+Codex replaces the previous native-plugin cache directory during an update, while sessions already
+running retain the absolute hook commands they loaded. Those sessions could then invoke a deleted
+entrypoint; Python exited `2` on `ENOENT`, and Codex interpreted the failed hook process as a block
+on every tool call.
+
+Every hook declaration now uses a portable inline Python runner: it executes the real entrypoint
+when present and exits silently with `0` when that cached file has disappeared. Existing hook output
+and `SystemExit` behavior are preserved. A regression enumerates every command in `hooks/hooks.json`
+and proves a removed plugin root stays silent and fail-open. Sessions that loaded a direct command
+from a release before `1.11.1` still require one restart; subsequent cache replacements no longer
+reproduce the lockout.
+
+The setup playbook now proves each client independently before loosening its permission posture.
+Claude Code, Codex CLI, Codex Desktop, Cursor and Grok have separate package, cache, approval and
+restart evidence; Cursor's clone target no longer pretends to install its marketplace plugin, and
+the installer refuses unrestricted Cursor posture or any hook setup without the literal Python
+command the declarations invoke. Zed is reported honestly as instructions/editor integration only:
+this repository implements no native Zed lifecycle/tool hooks.
+
+Grok guarded mode now wires plugin discovery without changing approval posture, and Grok's real
+`workspaceRoot` payload reaches protected-branch push enforcement. Two adjacent POSIX opt-ins also
+release the ordinary and protected push rails exactly as the refusal message instructs. Regressions
+cover all three paths, while the playbook's installed-cache checks reject pre-fix hook packages.
+
 ## 1.11.0 — Planning gains gated divergent ideation
 
 Phase A now offers one optional high-divergence pass for explicit wide brainstorming or decisions

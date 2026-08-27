@@ -380,6 +380,23 @@ jobs:
           fakehome=$(mktemp -d)
           git -C "$project" init -q
           cd "$project"
+          if HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target cursor --skip-marketplace --autonomy autonomous; then
+            echo "::error::Cursor posture was loosened without an installed plugin"
+            exit 1
+          fi
+          test ! -f "$fakehome/.cursor/permissions.json"
+          python3 - "$fakehome" "${{ github.workspace }}" <<'PY'
+          import os, shutil, sys
+          home, plugin = sys.argv[1:]
+          root = os.path.join(home, ".cursor/plugins/cache/graph-powers/graph-powers/test")
+          os.makedirs(os.path.join(root, ".cursor-plugin"), exist_ok=True)
+          os.makedirs(os.path.join(root, "hooks"), exist_ok=True)
+          shutil.copy2(os.path.join(plugin, ".cursor-plugin/plugin.json"),
+                       os.path.join(root, ".cursor-plugin/plugin.json"))
+          shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
+                       os.path.join(root, "hooks/hooks-cursor.json"))
+          PY
           HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
             --target cursor --skip-marketplace --autonomy autonomous
           python3 - "$fakehome" <<'PY'
@@ -441,9 +458,12 @@ jobs:
           python3 - "$empty" <<'PY'
           import os, sys
           home = sys.argv[1]
-          assert not os.path.exists(os.path.join(home, ".grok/config.toml")), \
-              "guarded autonomy must not write always-approve"
-          print("guarded writes nothing")
+          path = os.path.join(home, ".grok/config.toml")
+          text = open(path, encoding="utf-8").read()
+          assert 'permission_mode = "always-approve"' not in text, text
+          assert 'enabled = ["graph-powers"]' in text, text
+          assert 'paths = [' in text, text
+          print("guarded preserves approval posture and wires plugin discovery")
           PY
 
       - name: Clone installer --target grok, from a project directory
@@ -503,6 +523,17 @@ jobs:
           "
           echo "── cursor from the same clone ──"
           cursorhome=$(mktemp -d)
+          python3 - "$cursorhome" "$clone/graph-powers" <<'PY'
+          import os, shutil, sys
+          home, plugin = sys.argv[1:]
+          root = os.path.join(home, ".cursor/plugins/cache/graph-powers/graph-powers/test")
+          os.makedirs(os.path.join(root, ".cursor-plugin"), exist_ok=True)
+          os.makedirs(os.path.join(root, "hooks"), exist_ok=True)
+          shutil.copy2(os.path.join(plugin, ".cursor-plugin/plugin.json"),
+                       os.path.join(root, ".cursor-plugin/plugin.json"))
+          shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
+                       os.path.join(root, "hooks/hooks-cursor.json"))
+          PY
           cd "$project"
           HOME="$cursorhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
             --target cursor --skip-marketplace > /dev/null

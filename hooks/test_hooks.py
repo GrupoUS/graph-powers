@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -56,7 +57,8 @@ def mkproj(cfg: dict, *, location: str = ".graph-powers") -> Path:
     return d
 
 
-def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: dict | None = None):
+def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude",
+         env: dict | None = None, run_cwd: Path | None = None):
     """Invoke a hook the way the named harness would.
 
     claude: CLAUDE_PROJECT_DIR in the environment, nothing in the payload.
@@ -72,7 +74,6 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
         env_full.pop("CLAUDE_PROJECT_DIR", None)
         env_full["GROK_WORKSPACE_ROOT"] = str(proj)
         env_full["GROK_HOOK_EVENT"] = "pre_tool_use"
-        body["cwd"] = str(proj)
         body["workspaceRoot"] = str(proj)
         if "tool_name" in body and "toolName" not in body:
             body["toolName"] = body.pop("tool_name")
@@ -93,7 +94,7 @@ def call(hook: str, payload: dict, proj: Path, *, harness: str = "claude", env: 
     r = subprocess.run(
         [sys.executable, str(HOOKS / f"{hook}.py")],
         input=json.dumps(body), capture_output=True, encoding="utf-8", errors="replace",
-        env=env_full, cwd=str(proj), timeout=30, check=False,
+        env=env_full, cwd=str(run_cwd if run_cwd is not None else proj), timeout=30, check=False,
     )
     out = r.stdout.strip()
     if not out:
@@ -119,7 +120,6 @@ def call_raw(hook: str, payload: dict, proj: Path, *, env: dict | None = None,
         env_full.pop("CLAUDE_PROJECT_DIR", None)
         env_full["GROK_WORKSPACE_ROOT"] = str(proj)
         env_full["GROK_HOOK_EVENT"] = "pre_tool_use"
-        payload["cwd"] = str(proj)
         payload["workspaceRoot"] = str(proj)
         if "tool_name" in payload and "toolName" not in payload:
             payload["toolName"] = payload.pop("tool_name")
@@ -144,6 +144,33 @@ def check(label: str, got, want) -> None:
 
 
 def main() -> int:
+    print("### Hook declarations fail open when a loaded cache entry disappears")
+    manifest = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
+    commands = [
+        (event, hook["command"])
+        for event, groups in manifest["hooks"].items()
+        for group in groups
+        for hook in group["hooks"]
+    ]
+    check("the hook manifest declares commands", bool(commands), True)
+    missing_root = Path(tempfile.mkdtemp(prefix="gp-removed-plugin-cache-"))
+    shutil.rmtree(missing_root, ignore_errors=True)
+    for index, (event, command) in enumerate(commands, 1):
+        argv = shlex.split(command, posix=True)
+        resolved = [
+            arg.replace("${CLAUDE_PLUGIN_ROOT}", str(missing_root))
+            for arg in argv[1:]
+        ]
+        result = subprocess.run(
+            [sys.executable, *resolved], input="{}", capture_output=True,
+            encoding="utf-8", errors="replace", timeout=30, check=False,
+        )
+        check(
+            f"{event} command {index} is silent when its cached entrypoint is gone",
+            (result.returncode, result.stdout, result.stderr),
+            (0, "", ""),
+        )
+
     # Two projects deliberately different in everything the plugin parameterises.
     a = mkproj({"git": {"optInPrefix": "PROJA", "workBranch": "dev-test",
                         "protectedBranches": ["main", "master"]}})
@@ -156,6 +183,25 @@ def main() -> int:
     key_a = {"tool_name": "Bash", "tool_input": {"command": "PROJA_ALLOW_COMMIT=1 " + GIT_WRITE}}
     key_b = {"tool_name": "Bash", "tool_input": {"command": "PROJB_ALLOW_COMMIT=1 " + GIT_WRITE}}
     read = {"tool_name": "Read", "session_id": "s"}
+
+    declared_commit = next(command for _, command in commands if "git_commit_gate.py" in command)
+    argv = shlex.split(declared_commit, posix=True)
+    resolved = [
+        arg.replace("${CLAUDE_PLUGIN_ROOT}", str(HOOKS.parent))
+        for arg in argv[1:]
+    ]
+    result = subprocess.run(
+        [sys.executable, *resolved], input=json.dumps(commit), capture_output=True,
+        encoding="utf-8", errors="replace", cwd=str(a), timeout=30, check=False,
+        env={**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME),
+             "CLAUDE_PROJECT_DIR": str(a)},
+    )
+    try:
+        decision = json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"]
+    except Exception:
+        decision = "??"
+    check("a present entrypoint still runs and preserves a legitimate denial",
+          (result.returncode, decision, result.stderr), (0, "deny", ""))
 
     print("### Git rails — every project has its own key")
     check("A denies a commit with no opt-in", call("git_commit_gate", commit, a)[0], "deny")
@@ -184,6 +230,28 @@ def main() -> int:
     native = {"toolName": "run_terminal_command", "toolInput": {"command": GIT_WRITE}}
     check("Grok run_terminal_command still denies commit",
           call("git_commit_gate", native, a, harness="grok")[0], "deny")
+
+    grok_protected = mkproj({"git": {"optInPrefix": "GROKPROJ", "workBranch": "dev-test",
+                                     "protectedBranches": ["main"]}})
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"], cwd=str(grok_protected),
+        capture_output=True, encoding="utf-8", errors="replace", timeout=30, check=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=Graph Powers Tests", "-c", "user.email=tests@example.invalid",
+         "-c", "commit.gpgsign=false", "commit", "--quiet", "--allow-empty", "-m", "fixture"],
+        cwd=str(grok_protected), capture_output=True, encoding="utf-8", errors="replace",
+        timeout=30, check=True,
+    )
+    grok_push = {"toolName": "run_terminal_command", "toolInput": {
+        "command": "GROKPROJ_ALLOW_PUSH=1 git push origin",
+    }}
+    check("Grok workspaceRoot keeps the checked-out protected branch behind PUSH_MAIN",
+          call("git_push_gate", grok_push, grok_protected, harness="grok",
+               run_cwd=EMPTY_HOME)[0], "deny")
+    check("Grok workspaceRoot accepts the separate PUSH_MAIN environment opt-in",
+          call("git_push_gate", grok_push, grok_protected, harness="grok",
+               env={"GROKPROJ_ALLOW_PUSH_MAIN": "1"}, run_cwd=EMPTY_HOME)[0], None)
 
     print("### Protected branches — 'producao' exists only in project B")
     prod = {"tool_name": "Bash", "tool_input": {"command": "git switch producao"}}
@@ -1025,8 +1093,8 @@ def main() -> int:
     check("...and the gate passes with the deferral explained in the root",
           intent_run(fx, "check")[0], 0)
     check("...and measure shows the deferred row as deferred, not NODE",
-          "deferred" in next((l for l in intent_run(fx, "measure")[1].splitlines()
-                              if l.startswith("big ")), ""), True)
+          "deferred" in next((line for line in intent_run(fx, "measure")[1].splitlines()
+                              if line.startswith("big ")), ""), True)
     intent_write(fx, "AGENTS.md", root_linking_api)
     code, out = intent_run(fx, "check")
     check("a deferral no ancestor node names fails the gate, naming where to write it",
@@ -1046,10 +1114,10 @@ def main() -> int:
     intent_cfg(fx, {"threshold": 30000})
     code, out = intent_run(fx, "measure")
     check("intentLayer.threshold moves the line: 25k tokens is under a 30k threshold",
-          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("—"), True)
+          next((line for line in out.splitlines() if line.startswith("big ")), "").endswith("—"), True)
     code, out = intent_run(fx, "measure", "--threshold", "20000")
     check("...and a flag on the command line wins over the block",
-          next((l for l in out.splitlines() if l.startswith("big ")), "").endswith("NODE"), True)
+          next((line for line in out.splitlines() if line.startswith("big ")), "").endswith("NODE"), True)
     (fx / ".graph-powers" / "config.json").write_text("{not json", encoding="utf-8")
     check("a config with a typo is the defaults, not a traceback",
           intent_run(fx, "state")[0], 0)
@@ -1375,6 +1443,14 @@ def main() -> int:
               call("git_commit_gate", {"tool_name": "Bash", "tool_input": {"command": cmd}}, a)[0], None)
     check("...and the same command without it is still refused",
           call("git_commit_gate", commit, a)[0], "deny")
+    protected_push = {
+        "tool_name": "Bash",
+        "tool_input": {"command": (
+            "PROJA_ALLOW_PUSH=1 PROJA_ALLOW_PUSH_MAIN=1 git push origin main"
+        )},
+    }
+    check("adjacent POSIX opt-ins release both push rails as instructed",
+          call("git_push_gate", protected_push, a)[0], None)
 
     # The key in an argument position is not an approval. Nobody typed an assignment in any of
     # these; the model wrote the project's own opt-in key into the payload of the very command
@@ -1893,7 +1969,7 @@ def main() -> int:
         shutil.rmtree(d_, ignore_errors=True)
 
     for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_bun_auto,
-              pm_npx, pm_both,
+              pm_npx, pm_both, grok_protected,
               installed, absent, indirect, fmt_absent, fmt_real, stop_absent):
         shutil.rmtree(d, ignore_errors=True)
 

@@ -240,7 +240,8 @@ registry in between would add an account, a token and a release for every fix, a
 ```
 
 Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
-unless you also use Codex or Cursor.
+unless you also use Codex, Cursor or Grok. Zed consumes instructions/editor settings only; this
+repository does not implement a Zed lifecycle/tool-hook target.
 
 ### Codex CLI — native plugin (recommended)
 
@@ -249,12 +250,15 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
-Restart Codex, open `/hooks`, and approve the thirteen Graph Powers registrations (twelve scripts;
+Restart Codex, open `/hooks`, and approve the fourteen Graph Powers registrations (thirteen scripts;
 the Bash approver is registered for two events). Installation makes the hooks discoverable;
 approval makes them executable. Then run the setup playbook in the project so
 its config, rules and authorities are established.
 
-Codex loads `.codex-plugin/` first. Native subagents come from `codex/native-agents/`, which is
+Codex loads `.codex-plugin/` first. Codex Desktop is not a second Graph Powers install route: some
+Desktop builds launch a bundled Codex `app-server` against the same Codex home, but the setup
+playbook requires a separate Desktop proof and full app restart instead of inheriting the CLI verdict.
+Native subagents come from `codex/native-agents/`, which is
 `agents/*.md` with Claude `model:` families removed, so a child inherits **your** Codex model and
 rate-limit window — not the Spark / Bengal Fox pool that `model: haiku` otherwise maps onto.
 
@@ -284,8 +288,9 @@ node codex/native-plugin.mjs --models heavy=gpt-5.6-sol,light=gpt-5.6-luna --out
 
 Cursor marketplace installs the same repository through `.cursor-plugin/plugin.json`. That is the
 plugin. The confirmation flood is not: the IDE reads `~/.cursor/permissions.json`, and
-`~/.cursor/cli-config.json` only covers `cursor-agent`. After installing the plugin, run the clone
-installer once (or the setup playbook Step 9g) so `approvalMode` is `unrestricted`. Reload the
+`~/.cursor/cli-config.json` only covers `cursor-agent`. **Install the marketplace plugin first.**
+`--target cursor` does not install it and now refuses to loosen posture when its cache is absent;
+after installation it writes the posture the marketplace cannot. Reload the
 window. If a team dashboard still forces Auto-review, set Settings → Agents → Approvals &
 Execution → **Run Everything**. Git commit/push still ask; `rm -rf /` still denies.
 
@@ -296,15 +301,24 @@ node ~/.graph-powers/src/bin/graph-powers.mjs --target cursor
 ### Grok CLI
 
 Grok marketplace installs the same repository through `.grok-plugin/plugin.json` and reads
-`hooks/hooks.json` directly. That is the plugin. The confirmation flood is
-`~/.grok/config.toml` `[ui] permission_mode = "always-approve"`. A project `.grok/config.toml`
-cannot set that key. After installing the plugin, run the clone installer once (or the setup
-playbook Step 9h). Restart the session. Do not write a user `~/.grok/hooks.json` that always
-allows. Git commit/push still ask; `rm -rf /` still denies.
+`hooks/hooks.json` directly. That is the plugin. The confirmation flood is `config.toml` under
+`GROK_HOME`, falling back to `~/.grok`, with `[ui] permission_mode = "always-approve"`. A project
+`.grok/config.toml` cannot set that key. After installing the plugin, run the clone installer once
+(or the setup playbook Step 9h). Restart the session. Do not add user `hooks/*.json` beside plugin
+hooks. Under guarded posture the installer still wires discovery without writing always-approve.
+Git commit/push still ask; `rm -rf /` still denies.
 
 ```bash
 node ~/.graph-powers/src/bin/graph-powers.mjs --target grok
 ```
+
+### Zed
+
+Graph Powers has no Zed plugin manifest or lifecycle/tool-hook target. Zed can read `AGENTS.md`,
+rules, skills and the `.zed/settings.json` editor/LSP setup, but native Zed tool calls are not
+intercepted by the commit, push, protected-file or destructive-command hooks. Report that surface
+as `NOT ENFORCED`; do not invent a Zed hook file. An external Claude/Codex/Cursor/Grok agent launched
+from Zed is verified under that external client's own row.
 
 ### Clone installer — fallback and project-scoped installs
 
@@ -323,7 +337,7 @@ wherever it actually ran from so updates find it again.
 
 | Option | What it does |
 |---|---|
-| `--target claude\|codex\|cursor\|grok\|both\|all` | Which harness to wire. Default: whatever it detects. `both` is Claude + Codex; `all` is every harness |
+| `--target claude\|codex\|cursor\|grok\|both\|all` | Which supported client to configure. Cursor still requires its marketplace plugin first; Zed has no hook target. `both` is Claude + Codex |
 | `--scope user` | Writes to `~/.claude/settings.json`. **Default** — one install serves every project on the machine |
 | `--scope project` | Writes to `.claude/settings.json`, versioned. Use when the team must get the harness by cloning the repository |
 | `--scope local` | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team |
@@ -340,17 +354,18 @@ A plugin is a copy, and a copy starts ageing the moment it is installed. Six mon
 machines run five versions of guardrails that were meant to be identical — which is the failure
 this harness exists to end, one level up. So it updates itself.
 
-At session start, at most once every twelve hours, a detached worker updates each harness through
-its own path:
+At session start, at most once every twelve hours, a detached worker updates only the routes it
+actually implements:
 
 | Harness | What runs | Applies |
 |---|---|---|
 | Claude Code | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers` | Next session start |
-| Codex CLI native plugin | `codex plugin marketplace upgrade graph-powers` | Next session start |
 | Codex CLI clone fallback | `git pull --ff-only` on the clone, then regenerate — only if it moved | Next session start |
+| Grok CLI | `grok plugin marketplace update`, then `grok plugin update graph-powers` | Restart Grok |
 
-Nothing waits on the network, and nothing inside your project is touched. The session after an
-update opens with one line saying what changed, printed once.
+Native Codex and Cursor are updated by their own marketplace/client path, not by this worker. After
+any native cache replacement, restart every process/task that had loaded the old hook definitions;
+a fresh process does not certify an already-open one. Nothing inside your project is touched.
 
 `--ff-only` is deliberate: a merge commit created by a background process is a state nobody chose,
 and a clone you have edited locally refuses to update and says so rather than rewriting itself.

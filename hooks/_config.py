@@ -724,6 +724,11 @@ def opt_in(action: str, cfg: dict[str, Any] | None = None) -> str:
 # command after a separator. Same idiom as `git_commit_gate._SEPARATOR`, and for the same reason —
 # a token's POSITION is what makes it syntax rather than text.
 _OPT_IN_POSITION = r"(?:^|[;&|(\n\r])\s*"
+# POSIX permits several assignments before one command. The protected-push instruction therefore
+# carries PUSH and PUSH_MAIN side by side; while checking the second key, the first is syntax that
+# must be traversed rather than mistaken for an argument. This prefix stays anchored at a command
+# boundary, so a key in a message, refspec or option still cannot release anything.
+_OPT_IN_LEADING_ASSIGNMENTS = r"(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
 # The other two shells do not write bare inline assignments, and the opt-in has to work in them or
 # it does not work on Windows at all. `set KEY=1 && …` is cmd.exe; `$env:KEY=1; …` is PowerShell.
 _OPT_IN_SHELL_PREFIX = r"(?:[Ss][Ee][Tt]\s+)?(?:\$env:)?"
@@ -752,7 +757,10 @@ def opted_in(action: str, command: str = "", cfg: dict[str, Any] | None = None) 
     if os.environ.get(key) == "1":
         return True
     try:
-        pattern = _OPT_IN_POSITION + _OPT_IN_SHELL_PREFIX + re.escape(key) + _OPT_IN_VALUE
+        pattern = (
+            _OPT_IN_POSITION + _OPT_IN_LEADING_ASSIGNMENTS
+            + _OPT_IN_SHELL_PREFIX + re.escape(key) + _OPT_IN_VALUE
+        )
         return re.search(pattern, command or "") is not None
     except Exception:
         # Cardinal 3, strict side: a key this cannot be compiled into is a key that releases

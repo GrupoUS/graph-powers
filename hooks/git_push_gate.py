@@ -175,9 +175,7 @@ def main() -> int:
         deny(REASON)
         return 0
 
-    raw_cwd = payload_dict.get("cwd")
-    cwd = raw_cwd if isinstance(raw_cwd, str) else None
-    branch = current_branch(cwd)
+    branch = current_branch(str(gp.project_dir(payload_dict)))
     touches_main = bool(MAIN_REF_RE.search(command)) or branch in set(gp.protected_branches())
 
     if touches_main and not gp.opted_in("PUSH_MAIN", command):

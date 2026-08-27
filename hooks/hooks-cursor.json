@@ -3,57 +3,57 @@
   "hooks": {
     "preToolUse": [
       {
-        "command": "python3 \"hooks/graph_guardrails.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/graph_guardrails.py\"",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/git_commit_gate.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/git_commit_gate.py\"",
         "matcher": "Shell",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/git_push_gate.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/git_push_gate.py\"",
         "matcher": "Shell",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/git_branch_gate.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/git_branch_gate.py\"",
         "matcher": "Shell",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/smart_bash_approver.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/smart_bash_approver.py\"",
         "matcher": "Shell",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/commit_audit_gate.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/commit_audit_gate.py\"",
         "matcher": "Shell",
         "timeout": 60
       },
       {
-        "command": "python3 \"hooks/protect_files.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/protect_files.py\"",
         "matcher": "Write|StrReplace|EditNotebook",
         "timeout": 10
       }
     ],
     "sessionStart": [
       {
-        "command": "python3 \"hooks/auto_update.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/auto_update.py\"",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/branch_session_notice.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/branch_session_notice.py\"",
         "timeout": 10
       },
       {
-        "command": "python3 \"hooks/session_context.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/session_context.py\"",
         "timeout": 10
       }
     ],
     "postToolUse": [
       {
-        "command": "python3 \"hooks/ultracite.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/ultracite.py\"",
         "matcher": "Write|StrReplace",
         "timeout": 30
       }

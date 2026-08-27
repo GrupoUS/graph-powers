@@ -100,11 +100,17 @@ if (!first.next.includes('name = "other"')) process.exit(5);
 const second = mergeGrokConfig(first.next, { autonomous: true, pluginRoot: "/tmp/gp-clone" });
 if (second.changed.length) process.exit(6);
 const guarded = mergeGrokConfig(seed, { autonomous: false, pluginRoot: "/tmp/gp-clone" });
-if (guarded.changed.length || guarded.next !== seed) process.exit(7);
+if (!guarded.next.includes('permission_mode = "ask"')) process.exit(7);
+if (guarded.next.includes('permission_mode = "always-approve"')) process.exit(8);
+if (!guarded.next.includes('enabled = ["graph-powers"]')) process.exit(9);
+if (!guarded.next.includes('paths = ["/tmp/gp-clone"]')) process.exit(10);
+if (!guarded.next.includes('name = "graph-powers"')) process.exit(11);
+if (!guarded.next.includes('git = "https://github.com/GrupoUS/graph-powers.git"')) process.exit(12);
+if (guarded.changed.join(",") !== "plugins.enabled,plugins.paths,marketplace.sources") process.exit(13);
 const noPath = mergeGrokConfig("", { autonomous: true, pluginRoot: null });
-if (noPath.next.includes("plugins.paths") || noPath.next.includes("paths =")) process.exit(8);
+if (noPath.next.includes("plugins.paths") || noPath.next.includes("paths =")) process.exit(14);
 const stripped = mergeGrokConfig(first.next, { autonomous: true, pluginRoot: "/tmp/gp-clone", forgetClone: true });
-if (stripped.next.includes("/tmp/gp-clone")) process.exit(9);
+if (stripped.next.includes("/tmp/gp-clone")) process.exit(15);
 process.stdout.write("ok");
 """,
         ],
@@ -121,7 +127,7 @@ process.stdout.write("ok");
 
     print(
         "grok artefacts match emit; hooks path is hooks.json; "
-        "TOML merge is additive and idempotent; guarded writes nothing"
+        "TOML merge is additive and idempotent; guarded preserves approval posture and wires discovery"
     )
     return 0
 

@@ -22,14 +22,15 @@ The worker asks each harness to update **itself**, through its own supported pat
   Codex CLI     git -C <clone> pull --ff-only, then regenerate the artefacts from it
   Grok CLI      grok plugin marketplace update && grok plugin update <plugin>
 
-The Codex half needs a clone because that is how Codex installs: the manifest written at install
-time records where it came from, and that is the directory this pulls. When the recorded path is
-not a git clone — a Claude Code plugin cache, say — the Codex half is skipped: the Claude half
-already updated those files, and guessing a second source is how two copies start disagreeing.
+The Codex worker half intentionally covers only the clone fallback: its install manifest records the
+stable directory this worker may fast-forward and regenerate. Native Codex marketplace plugins are
+client-owned and may replace a versioned cache while a process still retains old hook commands, so
+this SessionStart worker does not update them. Cursor is client-owned for the same reason.
 
-Neither of those touches the running session. Claude Code unpacks a new version directory and
-picks it up at the next start; the Codex artefacts are read at startup too. So the honest report
-is "updated — restart to apply", and that is what the next session prints, once.
+Claude Code keeps the running version directory and picks a new one up at the next start; clone
+Codex artefacts keep a stable root and are read at startup. Grok uses its own updater and also needs
+a restarted session. The honest state after any update is "restart to apply"; native clients not
+owned here are documented separately in AGENT_SETUP.md.
 
 What it will not do, at any setting: change anything in the project. Config, rules, AGENTS.md and
 the three authorities are the project's, and a background process is the last thing that should
