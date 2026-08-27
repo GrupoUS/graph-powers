@@ -231,9 +231,10 @@ export function emitHooks(path, merged, { dryRun = false, log = () => {}, writte
 /**
  * `agents/*.md` -> `.codex/agents/<name>.toml`.
  *
- * The one translation that carries meaning: `disallowedTools: Write, Edit` becomes
- * `sandbox_mode = "read-only"`. Codex has no per-tool denylist, and a read-only claim that
- * survives only as prose in the body is exactly the defect this plugin found in its own agents.
+ * Codex role projection currently applies model/reasoning settings but preserves the parent's
+ * sandbox and approval posture. Emitting `sandbox_mode` here would therefore advertise a boundary
+ * the runtime ignores. Read-only intent stays visible in the role instructions, and callers that
+ * need hard enforcement must run the entire parent review session read-only.
  */
 /**
  * Compatibility wrapper for callers that still ask for the old Claude-family tier mapping.
@@ -281,8 +282,7 @@ export function agentToToml(markdown, settings = {}, log = () => {}) {
   const { data, body } = parseFrontmatter(markdown);
   if (!data.name || !data.description) return null;
 
-  // Read-only means the agent cannot produce a file. Denying only `Edit` (as the planner does,
-  // to keep Write for its plan file) is not read-only, and sandboxing it as such would break it.
+  // Denying only `Edit` (as the planner does, to keep Write for its plan file) is not read-only.
   const denied = asList(data.disallowedTools).map((t) => String(t).toLowerCase());
   const readOnly = denied.includes("write");
 
@@ -304,14 +304,19 @@ export function agentToToml(markdown, settings = {}, log = () => {}) {
     lines.push(`model_reasoning_effort = ${tomlString(policy.reasoningEffort)}`);
   }
 
-  if (readOnly) lines.push(`sandbox_mode = "read-only"`);
-
-  const developerInstructions = policy.leaf
-    ? [
-        "Graph Powers capability guard: this is a leaf judge. Never spawn, delegate to, or dispatch another agent. Ultra is forbidden for this role.",
-        "",
-        body,
-      ].join("\n")
+  const capabilityNotices = [];
+  if (readOnly) {
+    capabilityNotices.push(
+      "Graph Powers read-only intent: this source agent denies Write and Edit. Codex role files inherit the parent sandbox and approval posture, so hard enforcement requires the entire parent review session to run read-only; in a write-capable mixed workflow this role boundary is advisory.",
+    );
+  }
+  if (policy.leaf) {
+    capabilityNotices.push(
+      "Graph Powers leaf intent: this is a leaf judge. Never spawn, delegate to, or dispatch another agent. Ultra is forbidden for this role. Current Codex role files expose no per-role spawn deny, so this boundary is advisory and the orchestrator must refuse evaluator fan-out.",
+    );
+  }
+  const developerInstructions = capabilityNotices.length
+    ? [...capabilityNotices, body].join("\n\n")
     : body;
   lines.push("", `developer_instructions = ${tomlBlock(developerInstructions)}`, "");
   return lines.join("\n");

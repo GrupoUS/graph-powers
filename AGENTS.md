@@ -86,7 +86,7 @@ python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
 bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
 bun .github/check_codex_policy.mjs           # semantic Codex routing, overrides and Ultra guard
-python3 .github/check_codex_native.py         # native/clone agent policy parity and generated drift
+python3 .github/check_codex_native.py         # native companion/clone policy parity and generated drift
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/test_file_references.py      # negative tests for the live-file reference gate
 python3 .github/check_file_references.py     # every live Markdown path resolves

@@ -12,7 +12,7 @@ Each prior finding is marked ADDRESSED or NOT ADDRESSED with file:line evidence,
 Critical or Important breakage.
 
 ## MANDATORY CONTEXT
-**Original request:** [ORIGINAL REQUEST]
+**Original request:** [LOSSLESS REQUEST SUMMARY]
 **Decisions already made:** [DECISIONS]
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C task [TASK ID], correction round [N].

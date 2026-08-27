@@ -105,7 +105,7 @@ consolidates mechanically, and it can only do that when every return has the sam
 <concrete deliverables and success criteria>
 
 ## MANDATORY CONTEXT
-**Original request:** <verbatim, or a short quote>
+**Original request:** <lossless summary; quote exactly when short or authoritative>
 **Decisions already made:** <what is locked>
 **Prior findings:** <summaries only>
 **Current state:** <phase / sprint / task>
@@ -178,8 +178,10 @@ what a batch does with a member that never returned — are one file, not a skil
 ## §8 — A name that does not resolve is a route, not a stop
 
 A plugin cannot guarantee its agents are registered in the session that is running. When a spawn
-fails to resolve, `030-agent-assignment-matrix.md` carries the two failure shapes, which of them is
-the caller's defect and which is a hook's, and the fallback order. The part that belongs in a floor:
+fails to resolve, conditionally load
+`${CLAUDE_PLUGIN_ROOT}/references/shared/035-agent-resolution-recovery.md`, which carries the two
+failure shapes, which of them is the caller's defect and which is a hook's, and the fallback order.
+The part that belongs in a floor:
 **the work still gets done, the route taken is stated in one line, and the name is not retried.**
 
 A write-capable agent has no fallback. Standing in for one with a general agent discards the

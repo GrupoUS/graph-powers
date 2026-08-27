@@ -11,7 +11,7 @@ Review the completed plan [PLAN] across [MERGE BASE]..[HEAD].
 Strengths, severity-ranked issues with file:line evidence, ledger triage and a readiness verdict.
 
 ## MANDATORY CONTEXT
-**Original request:** [ORIGINAL REQUEST]
+**Original request:** [LOSSLESS REQUEST SUMMARY]
 **Decisions already made:** [DECISIONS]
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C final review after all phase gates, range [MERGE BASE]..[HEAD].

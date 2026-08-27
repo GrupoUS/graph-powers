@@ -90,10 +90,17 @@ for path in agents:
         f"{path}: Claude family {model!r} is not a Codex slug — it spends the Spark / "
         "Bengal Fox window instead of the user's own limit"
     )
-    if name in READ_ONLY_AGENTS:
-        assert d.get("sandbox_mode") == "read-only", f"{path}: {name} lost read-only sandbox"
-    else:
-        assert d.get("sandbox_mode") != "read-only", f"{path}: write-capable {name} is read-only"
+    assert "sandbox_mode" not in d, (
+        f"{path}: unsupported per-role sandbox key would fake a boundary Codex does not apply"
+    )
+    read_only_notice = "Graph Powers read-only intent:" in d["developer_instructions"]
+    assert read_only_notice == (name in READ_ONLY_AGENTS), (
+        f"{path}: read-only intent does not match source authority for {name}"
+    )
+    if name == "evaluator":
+        assert "Graph Powers leaf intent:" in d["developer_instructions"], (
+            f"{path}: evaluator lost its explicit advisory leaf contract"
+        )
     efforts.add(d.get("model_reasoning_effort"))
 assert found == set(EXPECTED_POLICY), f"expected exactly the 12 canonical agents, found {sorted(found)}"
 assert len(efforts) > 1, f"every subagent got the same reasoning effort ({efforts}) — frontmatter ignored"

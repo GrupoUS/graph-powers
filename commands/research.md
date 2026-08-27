@@ -7,8 +7,7 @@ workflow_type: parallelization
 
 **ARGUMENTS**: $ARGUMENTS
 
-> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/050-tool-usage.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
+> **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/050-tool-usage.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
 
 > Research-only mode: findings, no edits, no fixes. This is the discovery half of the planning
 > chain, usable on its own when the question is what exists rather than what to build.
@@ -17,58 +16,31 @@ workflow_type: parallelization
 
 ## Agent routing (mandatory — choose by **where the answer lives**)
 
-> **`graph-powers:explorer` = the plugin's agent, `${CLAUDE_PLUGIN_ROOT}/agents/explorer.md`** — structured findings table with confidence scores (1-5), Knowledge Gaps, Librarian Requests.
-> **NOT the built-in `Explore`.** Use `subagent_type: "graph-powers:explorer"` (exact case).
-
-| Question type | Agent | Why |
-|---|---|---|
-| What exists in our codebase? | `graph-powers:explorer` | Filesystem |
-| How does this code pattern work? | `graph-powers:explorer` | Filesystem |
-| Which files need to change? | `graph-powers:explorer` | Filesystem |
-| How does this library/API work? | `graph-powers:librarian` | External |
-| What are best practices for X? | `graph-powers:librarian` | External |
-| Is this package behavior documented? | `graph-powers:librarian` | External |
+Follow `030-agent-assignment-matrix.md`: codebase, pattern, or file questions go to
+`graph-powers:explorer`; external library/API, best-practice, or package-documentation questions
+go to `graph-powers:librarian`. The explorer is the plugin agent at
+`${CLAUDE_PLUGIN_ROOT}/agents/explorer.md`, **not** the built-in `Explore`; use the exact
+namespaced `subagent_type`.
 
 ---
 
-## Setup
+## Setup and execution
 
-The local method bootstrap governs skill selection; `070-parallel-agent-spawn.md` governs the
-explorer + librarian batch.
+The method bootstrap governs skill selection and the parallel-spawn reference governs the batch.
+For open-ended wayfinding (for example, “should we build X?”), first use
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md`; do not enter Phase B because the
+research answer is the deliverable. Skip wayfinding for a concrete factual question.
 
-If the research scope is open-ended (user says "should we build X?" / "how should we approach Y?" /
-no concrete artifact requested), use the destination and fog framing in
-`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/wayfinding.md` before research. Do not enter Phase B;
-the research answer is the deliverable. Skip this when the user asked a concrete factual question
-(`how does library X handle Y?`).
+1. Fire `graph-powers:explorer` in background for codebase analysis (custom agent, **not** built-in `Explore`).
+2. If a library, package, or external API is mentioned, fire `graph-powers:librarian` in the same background batch.
+3. Continue local reading immediately; do not wait for agents. Collect their results when ready.
+4. Keep research-only behavior: findings, no edits or fixes. Reconcile sources, then report the structured output below.
 
-## Execution
+## External research driving rules
 
-1. Fire `graph-powers:explorer` (custom agent, **NOT** built-in `Explore`) in background for codebase analysis.
-2. Fire `graph-powers:librarian` in background for external documentation **IF** any library, package, or external API is mentioned.
-3. Continue reading immediately — do not wait for agents.
-4. Collect background results.
-5. Output structured findings table with confidence (1-5), source, impact.
-6. **Do NOT implement.** Research only.
-
----
-
-## Tool selection
-
-| Question | Tool | Rationale |
-|---|---|---|
-| API syntax, config options, framework patterns | **Context7** | Official docs — version-accurate |
-| Best practices, community patterns, broad/multi-subtopic | **`tavily_research`** (`model: auto`) | Agentic multi-source synthesis — default for planning research |
-| Single fact / version / quick CVE check | **`tavily_search`** (year + version) | Low-latency single-shot; `search_depth: advanced` when thorough |
-| Package CVEs, security advisories, maintenance | **`tavily_search`** or **`tavily_research`** | Realtime ecosystem (GHSA, Snyk, npm) |
-| Breaking changes in library vN | **Context7 → `tavily_research`** | Official migration → community pitfalls |
-| Comparing 2+ packages | **`tavily_research`** | Multi-source benchmarks, npm stats |
-| Multi-page docs / changelog intake | **`tavily_crawl`** / **`tavily_map`** | Crawl/map a docs tree; `tavily_extract` for a known URL |
-| Exact hook/function signatures, schemas | **Context7** | Always prefer over training |
-
-**Which tool for which question** is decided by `050-tool-usage.md`, loaded above — it is the one
-table, and this command does not carry a second opinion about it. What follows is only how to drive
-the ones this command reaches for, which that table does not cover.
+Tool choice is canonical in `050-tool-usage.md`. For external questions, use Context7 for API/docs
+and `tavily_research` for broad ecosystem research; run both when official documentation and
+community context are both needed.
 
 ### Tavily — writing the query
 
@@ -94,28 +66,18 @@ has a cutoff; the docs do not.
 
 ---
 
-## Approach
+## Reconciliation and output
 
-1. Classify: answer in codebase (graph-powers:explorer) or external (graph-powers:librarian)?
-2. External: API/docs question (Context7) or ecosystem state (`tavily_research` default)?
-3. Run both when question spans documentation + community context
-4. Verify key facts across sources — flag contradictions
-5. **When sources conflict or ≥3 findings must be reconciled** → invoke `mcp__sequential-thinking__sequentialthinking` to synthesize before reporting (L4+ MUST · L3 SHOULD)
-6. Confidence score reflects source quality: 1=speculation · 3=community · 5=official docs
+Classify each question by destination using the routing above. Verify important facts across
+sources and flag contradictions. When sources conflict or at least three findings need
+reconciliation, invoke `mcp__sequential-thinking__sequentialthinking` before reporting (L4+ MUST;
+L3 SHOULD). Confidence is 1=speculation, 3=community, 5=official documentation.
 
----
+Return actionable research only:
 
-## Output
-
-- Research methodology + queries used
-- Curated findings with source URLs
-- Credibility assessment of sources
-- Synthesis highlighting key insights
-- Contradictions or gaps identified
-- Data tables / structured summaries
-- Recommendations for further research
-
-Direct quotes for important claims. Actionable insights only.
+- **Findings** — methodology/queries, curated findings, source URLs, credibility, synthesis, and material tables; include direct quotes for important claims.
+- **Gaps** — contradictions, missing evidence, and unanswered questions; preserve the explorer's Knowledge Gaps and Librarian Requests.
+- **Recommended next step** — give one prioritized action by default; add follow-ups only when material to unresolved evidence or gaps.
 
 ---
 
@@ -132,4 +94,4 @@ Direct quotes for important claims. Actionable insights only.
 
 ## Recommended next step
 
-[One suggested action based on findings]
+[One prioritized next step by default; add follow-ups only when material to unresolved evidence or gaps]

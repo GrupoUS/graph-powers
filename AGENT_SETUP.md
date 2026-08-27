@@ -45,7 +45,8 @@ that project, and nothing else does.
 |---|---|
 | Claude Code plugin: agents, skills, commands, guardrails, workflows, shared references | registry under `~/.claude/plugins/installed_plugins.json` plus its versioned plugin cache (`--scope user`) |
 | Claude Code permission posture | `~/.claude/settings.json`; this is not the plugin payload |
-| Codex native plugin: skills, subagents, guardrails and references | source/cache reported by `codex plugin list --json`; Codex Desktop uses it only after the separate proof in Step 9 |
+| Codex native plugin: skills, guardrails and references | source/cache reported by `codex plugin list --json`; Codex Desktop uses it only after the separate proof in Step 9 |
+| Codex native companion roles | `<codex-home>/agents/*.toml`, explicitly emitted after native installation because the current plugin manifest has no agent-role resource |
 | Codex clone fallback: skills | `~/.agents/skills/` |
 | Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
 | Clone fallback machine-wide instruction block | `~/.codex/AGENTS.md` |
@@ -1706,9 +1707,16 @@ Then restart Codex and approve the fifteen registrations in `/hooks`. The native
 `hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
 copy in `~/.codex/hooks.json` is involved.
 
-**Proof of the Codex model policy:** `.codex-plugin/plugin.json` `"agents"` is
-`./codex/native-agents/`; each native TOML carries explicit `model` and
-`model_reasoning_effort` resolved from
+The current upstream Codex plugin manifest has no `agents` resource, so marketplace installation
+alone cannot register custom roles. Do not retain an ignored `"agents"` field or claim that the
+cache is a config layer. Emit the native companion TOMLs explicitly instead:
+
+```bash
+node "$PLUGIN/codex/native-plugin.mjs" --out <codex-home>/agents
+```
+
+This writes roles only and does not create a second hooks/skills installation route. Each companion
+TOML carries explicit `model` and `model_reasoning_effort` resolved from
 `codex/model-policy.json`, and the clone TOML route calls the same resolver. Run both repository
 checks before installing a changed package:
 
@@ -1719,15 +1727,28 @@ python3 -X utf8 "$PLUGIN/.github/check_codex_native.py"
 
 The default split is Sol Max for judges/architects, Luna Max for executors/verifier and Luna Medium
 for scouts. A Claude family in either output, session inheritance for a canonical agent, or a
-native/clone mismatch is a failure. `codex.profiles.*`, `codex.agents.*` and the legacy
+native-companion/clone mismatch is a failure. `codex.profiles.*`, `codex.agents.*` and the legacy
 `codex.model`, `codex.models.*`, `codex.reasoningEffort` fields are clone-generation overrides;
-`node "$PLUGIN/codex/native-plugin.mjs" --config .graph-powers/config.json --out <dir>` renders the
-same overrides for an operator-managed native directory.
+`node "$PLUGIN/codex/native-plugin.mjs" --config .graph-powers/config.json --out <codex-home>/agents`
+renders the same overrides for the operator-managed native companion directory.
+
+The tracked `codex/native-agents/*.toml` files are portable snapshots, not runtime-ready config:
+the `--out` step resolves `${CLAUDE_PLUGIN_ROOT}` to `$PLUGIN` and its `skills/` and `references/`
+subtrees. The generated runtime directory must contain no `CLAUDE_PLUGIN_ROOT` token.
+
+Do not claim per-role permission parity that Codex does not implement. In Codex 0.150.1 the role
+layer applies model/reasoning settings but preserves the parent sandbox and exposes no per-role
+spawn deny. The generator deliberately omits ignored `sandbox_mode` keys and inserts an explicit
+limitation notice for source agents that deny Write. For a hard read-only audit, launch the entire
+parent session with `codex --sandbox read-only`; mixed writer/reviewer workflows have advisory
+read-only and leaf boundaries until upstream exposes those controls. Claude Code continues to
+enforce its own `disallowedTools` declarations.
 
 Ultra is not a subagent reasoning tier. `native-ultra` is reserved for an explicit top-level Codex
 session when Graph Powers is not simultaneously running its own deterministic `/pr-review`,
-`ultra-plan` or `ultra-verify` fan-out. Never put an evaluator on Ultra: its safe leaf default is
-Sol Max. Emit the separate Codex v2 profile with
+`ultra-plan` or `ultra-verify` fan-out. Never put an evaluator on Ultra: its model fallback is Sol
+Max, while its leaf boundary remains an orchestrator instruction under the current role API. Emit
+the separate Codex v2 profile with
 `node "$PLUGIN/codex/native-plugin.mjs" --top-level-profile native-ultra --out <codex-home>`, then
 select it with `codex --profile native-ultra`. This does not alter any generated subagent role.
 
@@ -1740,8 +1761,9 @@ node "$PLUGIN/bin/graph-powers.mjs" --target codex          # global half + proj
 
 That same script takes `--update`: it fast-forwards the clone and reinstalls from it. Native Codex
 uses `codex plugin marketplace upgrade graph-powers`; compare the version in
-`codex plugin list --json` afterwards and restart every CLI/Desktop process that had already loaded
-the old definition. Do not run the clone updater against a marketplace cache.
+`codex plugin list --json`, re-emit `<codex-home>/agents` from the upgraded cache, and restart every
+CLI/Desktop process that had already loaded the old definition. Do not run the clone updater against
+a marketplace cache.
 
 It does the two halves in order, and **skips the global half when it is already there at this
 version** — so running it in a tenth project costs two files, not thirty.

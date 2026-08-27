@@ -14,3 +14,10 @@
 | `mcp__sequential-thinking__sequentialthinking` | Multi-step reasoning | L4+, ambiguous, 3+ file errors, irreversible | L1-L2, known patterns | Invoke BEFORE acting |
 | `Read / Grep / Glob` | Codebase exploration | Always prefer over bulk reads | Never overly broad Grep patterns | Grep to filter → Read for content |
 | `WebFetch` | Fetch web content | Official docs deep-dive, specific page | General research (Tavily) | `graph-powers:librarian` agent context only |
+
+### Bounded results
+
+Ask each tool for the smallest result scope that can support the decision. Keep the deciding
+excerpts, counts, paths, commands, errors, numbers, and uncertainty in context; point to the full
+artifact or source for everything else. This is selection guidance for context efficiency, not an
+enforced hard cap: widen the request when the evidence requires it.

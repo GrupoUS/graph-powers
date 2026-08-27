@@ -127,6 +127,14 @@ assert(equal(resolve("verification", { model: "flat-model", reasoningEffort: "lo
 }), "flat codex.model fallback was not accepted");
 assert(resolve("evaluator", { reasoningEffort: "max" }).effort === "max", "max override was not accepted");
 
+const extensionAgent = resolveCodexAgentPolicy(
+  "extension-agent",
+  {},
+  { name: "extension-agent", model: "opus", effort: "xhigh" },
+);
+assert(extensionAgent.profile === null && extensionAgent.reasoningEffort === "xhigh",
+  `unknown extension agent did not retain legacy fallback: ${JSON.stringify(extensionAgent)}`);
+
 let invalidRejected = false;
 try {
   resolveCodexAgentPolicy("evaluator", { reasoningEffort: "turbo" }, sourceAgent("evaluator", EXPECTED_POLICY.evaluator));
@@ -224,4 +232,4 @@ for (const name of Object.keys(EXPECTED_POLICY)) {
     `${name}: override effort differs between clone and native renderers`);
 }
 
-console.log(`codex-policy: ${Object.keys(EXPECTED_POLICY).length} defaults, overrides, native parity and Ultra guard checked`);
+console.log(`codex-policy: ${Object.keys(EXPECTED_POLICY).length} defaults, overrides, native-companion parity and Ultra guard checked`);

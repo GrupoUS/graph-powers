@@ -2,7 +2,7 @@
 
 ## 1.12.0 — Codex routes agents by semantic role
 
-Codex native-agent TOML and clone-generated TOML now share one policy authority instead of inheriting
+Codex native-companion TOML and clone-generated TOML now share one policy authority instead of inheriting
 the session model or treating every Claude `opus` agent as the same economic role. Judges and the
 architect default to Sol Max, iterative executors and verification to Luna Max, and scouts to Luna
 Medium. Claude frontmatter remains unchanged.
@@ -13,9 +13,22 @@ throughout the Codex schema. Terra remains operator-selectable but is not an aut
 
 Ultra is represented only by the explicit top-level `native-ultra` profile. It is guarded out of
 all generated subagents because Codex maps Ultra to proactive multi-agent orchestration; Graph
-Powers evaluators stay leaf judges on Sol Max, and existing `/pr-review`, `ultra-plan` and
-`ultra-verify` fan-out bounds do not gain a second orchestration layer. New checks cover all twelve
-agents, override precedence, invalid effort, read-only preservation, native/clone parity and drift.
+Powers evaluators remain pinned to Sol Max and carry an explicit leaf instruction, so existing
+`/pr-review`, `ultra-plan` and `ultra-verify` fan-out bounds do not intentionally gain a second
+orchestration layer. New checks cover all twelve agents, extension-agent fallback, override
+precedence, invalid effort, permission-limit disclosure, companion/clone parity and drift.
+
+Current upstream Codex plugin manifests do not expose an agent-role resource, so the previously
+ignored `"agents"` field was removed instead of presenting false native discovery. The native route
+now documents and tests the supported companion step that emits the same twelve TOMLs into
+`<codex-home>/agents`; it writes no duplicate hooks or skills and resolves every Claude-only plugin
+path before runtime discovery.
+
+Codex 0.150.1's role projection preserves the parent sandbox and has no per-role spawn deny. The
+generator now omits the ignored `sandbox_mode` key instead of presenting false enforcement. Source
+read-only and evaluator-leaf intent remains explicit in generated instructions; hard Codex
+read-only requires the entire parent session to be read-only, and mixed writer/reviewer fan-out is
+documented as advisory until upstream exposes a per-role capability boundary.
 
 The setup hardening in the same release adds one portable installed-package verifier for Claude
 Code, native/clone Codex, Cursor and Grok. The installer calls it before writing

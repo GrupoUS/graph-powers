@@ -19,6 +19,7 @@ measured against a worktree of the pre-split tree with the same script.
 | 1.5 | `015-verification-gate.md` | no completion claim without an exit code from this session |
 | 2 | `020-complexity-routing.md` | L1-L6, and the execution mode each one implies |
 | 3 | `030-agent-assignment-matrix.md` | task to agent, and which ones run in the background |
+| 3.5 | `035-agent-resolution-recovery.md` | recovery after a plugin agent name fails to resolve |
 | 4 | `040-wisc-context-load.md` | how much context `/prime` loads at each tier |
 | 4.5 | `045-context-staging.md` | how far into that tier to go, per domain, and when to stop |
 | 5 | `050-tool-usage.md` | which tool for which job, and when not to reach for one |

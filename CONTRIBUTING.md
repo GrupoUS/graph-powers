@@ -16,21 +16,25 @@ Run the gates. If one fails, the review stops here.
 ```bash
 claude plugin validate .
 python3 hooks/test_hooks.py
+python3 .github/test_hook_clients.py
 python3 skills/planning/scripts/test_sdd.py
 python3 skills/skill-improve/scripts/test_run_evals.py
 python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"
 python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"
-bun bin/graph-powers.mjs --help > /dev/null
-git ls-files | wc -l                       # a clone is the artefact; nothing is packed
-python3 .github/check_version_bump.py       # a shipped change bumps the version
+ bun .github/check_workflows.mjs             # workflow scripts parse and names match
+bun .github/check_codex_policy.mjs          # semantic Codex routing, overrides and Ultra guard
+python3 .github/check_codex_native.py        # native companion/clone policy parity and drift
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/test_file_references.py      # negative tests for the live-file reference gate
 python3 .github/check_file_references.py     # every live Markdown path resolves
 python3 .github/check_portability.py        # nothing POSIX-only in what an agent executes
-bun .github/check_workflows.mjs             # workflow scripts parse, run dry, and name real agents
-bun .github/check_codex_policy.mjs          # semantic Codex routing, overrides and Ultra guard
-python3 .github/check_codex_native.py        # native/clone role TOML parity and generated drift
+python3 .github/check_context_budget.py      # per-command context floor
+python3 .github/check_listing_budget.py      # shared skill-listing budget
 python3 .github/check_machine_paths.py      # no home directory reached a tracked file
+python3 .github/check_placeholders.py       # every placeholder is declared by the schema
+bun bin/graph-powers.mjs --help              # installer entry point still starts
+python3 .github/check_clone.py               # the clone is the artefact
+python3 .github/check_version_bump.py         # shipped changes bump the version
 ```
 
 On Windows the interpreter is `python` or `py -3`, not `python3` — the Microsoft Store ships a

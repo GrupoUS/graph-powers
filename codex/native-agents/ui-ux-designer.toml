@@ -6,9 +6,12 @@ description = "Use proactively whenever an interface changes or a new one appear
 # Codex policy: profile=judge; model-source=semantic-default; effort-source=semantic-default
 model = "gpt-5.6-sol"
 model_reasoning_effort = "max"
-sandbox_mode = "read-only"
 
 developer_instructions = '''
+Graph Powers read-only intent: this source agent denies Write and Edit. Codex role files inherit the parent sandbox and approval posture, so hard enforcement requires the entire parent review session to run read-only; in a write-capable mixed workflow this role boundary is advisory.
+
+
+
 
 # UI/UX Designer — Evidence-Based Critic
 

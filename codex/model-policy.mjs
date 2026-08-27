@@ -147,7 +147,7 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
   const override = agentOverride(settings, name);
   const profile = requestedProfile(name, settings, override, warnings);
   const profileDefault = profile ? CODEX_PROFILE_DEFAULTS[profile] : null;
-  const profileOverride = profile && settings?.profiles?.[profile];
+  const profileOverride = profile ? settings?.profiles?.[profile] : undefined;
   if (profileOverride !== undefined && (!profileOverride || typeof profileOverride !== "object")) {
     throw new Error(`Codex profile override ${profile} must be an object`);
   }

@@ -10,14 +10,17 @@
  * are Claude families. Codex has no haiku; the cheap-model fallback is Spark, whose rate-limit
  * bucket is `codex_bengalfox` ("Bengal Fox") — not the user's own Codex/Pro window.
  *
- * Native agents are Codex role TOML generated through the same translator as the clone fallback.
- * Markdown `model`/`effort` frontmatter is not a Codex role-config interface; TOML `model` and
- * `model_reasoning_effort` are. Neither route silently inherits the session model for a canonical
- * Graph Powers agent.
+ * Codex's current plugin manifest has no `agents` resource. Native marketplace installation can
+ * therefore carry the plugin's supported resources, but role files need an explicit companion emit
+ * into a Codex config layer's `agents/` directory. Those roles are Codex TOML generated through the
+ * same translator as the clone fallback. Markdown `model`/`effort` frontmatter is not a Codex
+ * role-config interface; TOML `model` and `model_reasoning_effort` are. Neither generated role route
+ * silently inherits the session model for a canonical Graph Powers agent.
  *
  *   .codex-plugin/plugin.json           <- .claude-plugin/plugin.json
  *   .codex-plugin/marketplace.json      <- .claude-plugin/marketplace.json
- *   codex/native-agents/<name>.toml     <- agents/<name>.md (Codex policy resolved)
+ *   codex/native-agents/<name>.toml     <- agents/<name>.md (tracked companion role source)
+ *   <codex-home>/agents/<name>.toml     <- same, via --out <codex-home>/agents
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -25,7 +28,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { agentToToml } from "./install.mjs";
-import { readJson, tomlString, writeFile } from "./lib.mjs";
+import { readJson, rewriteForCodex, tomlString, writeFile } from "./lib.mjs";
 import { resolveCodexTopLevelProfile } from "./model-policy.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -49,7 +52,6 @@ export function buildPluginManifest(claudeManifest) {
     license: claudeManifest.license,
     keywords: [...new Set([...(claudeManifest.keywords ?? []), "codex"])],
     skills: "./skills/",
-    agents: `./${NATIVE_AGENTS_DIR}/`,
     commands: "./commands/",
     hooks: "./hooks/hooks.json",
   };
@@ -72,10 +74,11 @@ export function listAgentFiles(pluginRoot) {
   return readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
 }
 
-export function buildNativeAgents(pluginRoot, settings = {}, log = () => {}) {
+export function buildNativeAgents(pluginRoot, settings = {}, log = () => {}, rewritePaths = null) {
   const files = {};
   for (const file of listAgentFiles(pluginRoot)) {
-    const src = readFileSync(join(pluginRoot, "agents", file), "utf8");
+    const source = readFileSync(join(pluginRoot, "agents", file), "utf8");
+    const src = rewritePaths ? rewriteForCodex(source, rewritePaths) : source;
     const toml = agentToToml(src, settings, log);
     if (toml) files[`${basename(file, ".md")}.toml`] = toml;
   }
@@ -146,15 +149,21 @@ export function install({
   const pluginManifest = buildPluginManifest(claudeManifest);
   const marketplace = buildMarketplace(claudeMarketplace);
   const settings = codexSettings ?? (models ? { models } : {});
-  const agents = buildNativeAgents(pluginRoot, settings, log);
-  // Where the agents land. Tracked defaults are generated from the repository policy; an operator
-  // can render project/profile overrides into a separate directory with `--config ... --out ...`.
+  const rewritePaths = outDir
+    ? {
+        skillsRef: join(pluginRoot, "skills"),
+        referencesRef: join(pluginRoot, "references"),
+        pluginRoot,
+      }
+    : null;
+  const agents = buildNativeAgents(pluginRoot, settings, log, rewritePaths);
+  // Where the companion roles land. Tracked defaults are generated from the repository policy; an
+  // operator makes them discoverable by emitting into a Codex config layer's `agents/` directory.
   const agentsRoot = outDir ? resolve(outDir) : join(pluginRoot, NATIVE_AGENTS_DIR);
 
   if (emit || emitOnly) {
-    // With `--out` the caller asked for THEIR agents, not a second copy of the plugin: the two
-    // manifests describe the tracked layout (`./codex/native-agents/`) and would be wrong anywhere
-    // else, so they are emitted for the tracked destination only.
+    // With `--out` the caller asked for THEIR roles, not a second copy of the plugin. Manifests
+    // describe the plugin root and are emitted only beside the tracked companion role source.
     const paths = [
       ...(outDir
         ? []
