@@ -34,13 +34,13 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ## Phase 1 — Trust boundary and fixed Stop output  [SEQUENTIAL]
 
-- [ ] **T1.1** — Add machine-local command trust and remove arbitrary Stop diagnostics
+- [x] **T1.1** — Add machine-local command trust and remove arbitrary Stop diagnostics
   Owns: hooks/command_trust.py, hooks/_config.py, hooks/stop_verify.py, hooks/ultracite.py, hooks/test_hooks.py
   Needs: none
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: high
   CHECK: `python3 hooks/test_hooks.py`
   EXPECT: `EVERY GUARANTEE HELD`
-  EVIDENCE: pending
+  EVIDENCE: RED `ModuleNotFoundError: command_trust`, old diagnostic forwarding and payload-based Cursor inference; GREEN `EVERY GUARANTEE HELD`, `AST_OK`, `0 portability problem(s)`, `no home-directory paths`, task review PASS
   TDD: required
   Steps:
     1. RED: add focused cases for canonical Git-root resolution, external canonical-config symlink rejection, approve/status/revoke, digest invalidation, corrupt registry and every automatic consumer; run the suite and record the intended failures.
@@ -52,10 +52,10 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ### Phase 1 gate
 
-- [ ] **G1.1** — Trust and Stop contracts are green
+- [x] **G1.1** — Trust and Stop contracts are green
   CHECK: `python3 hooks/test_hooks.py`
   EXPECT: `EVERY GUARANTEE HELD`
-  EVIDENCE: pending
+  EVIDENCE: `EVERY GUARANTEE HELD`; read-only task reviewer reported `T1.1 review: PASS`
 
 ## Phase 2 — Bounded pre-commit runner and attestation cache  [SEQUENTIAL]
 
@@ -144,29 +144,15 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
   EXPECT: version gate passes and no home-directory path reached a tracked file
   EVIDENCE: pending
 
-## Phase 5 — Fresh verification  [SEQUENTIAL]
+## Fresh verification after Phase 4
 
-- [ ] **T5.1** — Run the Graph Powers verification matrix and record the verdict
-  Owns: `docs/plans/2026-08-27-hook-hardening-next-steps/PLAN.md`
-  Needs: T4.1 (reads: completed implementation, synchronized version and all prior gate evidence)
-  Agent: graph-powers:verification · Skill: graph-powers:verify · Effort: high
-  CHECK: run every repository gate declared by `AGENTS.md`, the project verify supplement, Cursor/Grok generation checks and the benchmark smoke
-  EXPECT: all mandatory gates pass; Windows latency itself is NOT CONFIRMED locally and remains a report-only CI measurement
-  EVIDENCE: pending
-  TDD: not-applicable (fresh read-only verification task)
-  Steps:
-    1. Read `REVIEW.md`, the root gate list and `.claude/rules/verify-supplements.md` before executing checks.
-    2. Run fresh commands; do not reuse implementation output as final evidence.
-    3. Classify any unavailable external client check honestly; a repository-declared failure is not waived.
-    4. Record W1–W9 evidence and issue `VERIFIED`, `VERIFIED-WITH-NOTES` or `NEEDS-WORK`.
-  Risk: low (read-only, broad coverage)
-
-### Phase 5 gate
-
-- [ ] **G5.1** — Every destination claim has fresh evidence
-  CHECK: inspect T5.1 evidence against W1–W9 and the full repository gate list
-  EXPECT: no pending mandatory gate and no claim of locally measured Windows latency
-  EVIDENCE: pending
+The coordinator invokes `graph-powers-verify` after every implementation task and phase gate is
+complete. A read-only `graph-powers:verification` agent returns W1–W9 evidence; it owns no file and
+does not update this plan. The coordinator reads `REVIEW.md`, the root gate list and
+`.claude/rules/verify-supplements.md`, then runs fresh commands rather than reusing implementation
+output. Every repository-declared failure remains a failure. The final verdict is `VERIFIED`,
+`VERIFIED-WITH-NOTES` or `NEEDS-WORK`; Windows latency itself remains **NOT CONFIRMED** locally and
+is reported only by the CI job.
 
 ## Rollback
 

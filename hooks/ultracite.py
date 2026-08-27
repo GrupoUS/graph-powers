@@ -51,6 +51,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _config as gp
+import command_trust
 
 # The payload arrives on stdin as UTF-8, but Python decodes it with the locale code page unless
 # told otherwise — cp1252 on a Windows machine. A file path or a branch name outside that page
@@ -89,6 +90,11 @@ def run_format(data: dict[str, object]) -> None:
     if not file_path:
         return
     if Path(file_path).suffix.lower() not in FORMATTABLE_EXTENSIONS:
+        return
+
+    # A repository config can declare arbitrary shell commands. Require a separate machine-local
+    # approval for the exact config before even checking or launching the formatter.
+    if not command_trust.is_trusted(gp.project_dir(data)):
         return
 
     # Declared is not installed. Checking first turns "silently never formats" into a line

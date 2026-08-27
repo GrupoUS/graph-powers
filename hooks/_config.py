@@ -139,13 +139,30 @@ def project_dir(payload: dict[str, Any] | None = None) -> Path:
         for key in ("cwd", "workspaceRoot", "workspace_root"):
             cwd = payload.get(key)
             if isinstance(cwd, str) and cwd:
-                return Path(cwd)
+                return _canonical_project_start(Path(cwd))
     for var in ("CLAUDE_PROJECT_DIR", "GROK_WORKSPACE_ROOT"):
         env = os.environ.get(var)
         if env:
-            return Path(env)
+            return _canonical_project_start(Path(env))
     here = Path.cwd()
-    return _git_root(here) or here
+    return _canonical_project_start(here)
+
+
+def _canonical_project_start(start: Path) -> Path:
+    """Resolve a hook working directory to its enclosing Git root when possible.
+
+    The input remains as a best-effort path when it is missing so callers keep the fail-open
+    contract. Config and trust readers separately require strict existing paths before accepting
+    an identity, which means a stale payload cannot fall through to the process directory.
+    """
+    try:
+        if not start.is_dir():
+            return start
+        resolved = start.resolve(strict=True)
+        root = _git_root(resolved)
+        return root.resolve(strict=True) if root is not None else resolved
+    except Exception:
+        return start
 
 
 # Grok's matcher aliases Claude tool names onto its own. The payload still carries
@@ -316,14 +333,28 @@ def _coerce_list(value: Any, default: list[Any]) -> list[Any]:
 
 def config_path(root: Path | None = None) -> Path | None:
     """The project's config file, or None when the project declares nothing."""
-    root = root or project_dir()
+    root = _canonical_project_start(root or project_dir())
+    try:
+        canonical_root = root.resolve(strict=True)
+        if not canonical_root.is_dir():
+            return None
+    except Exception:
+        return None
     for rel in CONFIG_PATHS:
-        candidate = root / rel
+        candidate = canonical_root / rel
         try:
-            if candidate.is_file():
-                return candidate
+            # A present canonical path is authoritative, even when it is malformed or points
+            # outside the repository. In the latter case legacy config must not become a bypass.
+            if not candidate.exists() and not candidate.is_symlink():
+                continue
+            resolved = candidate.resolve(strict=True)
+            if not resolved.is_file():
+                return None
+            if not resolved.is_relative_to(canonical_root):
+                return None
+            return resolved
         except Exception:
-            continue
+            return None
     return None
 
 

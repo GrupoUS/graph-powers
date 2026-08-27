@@ -734,8 +734,53 @@
         "initialJsKb": {
           "type": "number"
         },
+        "preCommit": {
+          "type": "object",
+          "description": "Core commands run before agent-issued git commit. Omitted fields use enabled=true, every declared core command, worktree scope, a 120-second total budget and a five-minute success cache.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "typeCheck",
+                  "lint",
+                  "test",
+                  "build"
+                ]
+              },
+              "description": "Explicit subset of the fixed typeCheck, lint, test, build order. An empty list disables core execution without disabling the legacy audit."
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "worktree"
+              ],
+              "default": "worktree"
+            },
+            "timeoutTotal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600,
+              "default": 120,
+              "description": "Combined seconds for all core gates and, on commit, the legacy audit."
+            },
+            "cacheSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400,
+              "default": 300,
+              "description": "TTL for successful core-gate fingerprints. Zero disables the core cache."
+            }
+          },
+          "additionalProperties": false
+        },
         "preCommitAudit": {
-          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; anything else blocks it and shows the command's own output. Declare nothing and no audit runs — the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
+          "description": "A command run before `git commit` and `git push`. Exit 0 lets the commit proceed; an executed nonzero result blocks it with a fixed summary and never forwards checker output. Declare nothing and no audit runs — the plugin never picks a tool for the project, and never fetches one from the network on its own initiative. Released for one command with <PREFIX>_ALLOW_AUDIT=1.",
           "oneOf": [
             {
               "type": "string",
@@ -750,8 +795,14 @@
                 "timeout": {
                   "type": "integer",
                   "minimum": 1,
+                  "maximum": 600,
                   "default": 120,
                   "description": "Seconds. A slow audit on every commit is a hook people disable."
+                },
+                "cache": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Opt in to the short-lived worktree success cache for this audit."
                 }
               },
               "required": [

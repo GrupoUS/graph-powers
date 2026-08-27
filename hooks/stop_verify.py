@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 import typing
@@ -13,6 +12,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _config as gp
+import command_trust
 from _change_set import ChangeSet, collect_change_set
 
 try:
@@ -28,18 +28,11 @@ DENY = "DENY"
 ASK = "ASK"
 SKIP_NOT_DECLARED = "SKIP_NOT_DECLARED"
 SKIP_UNAVAILABLE = "SKIP_UNAVAILABLE"
+SKIP_UNTRUSTED = "SKIP_UNTRUSTED"
 INTERNAL_ERROR = "INTERNAL_ERROR"
 TIMEOUT = "TIMEOUT"
 
 LINT_TIMEOUT_S = 25
-MAX_DIAGNOSTIC_CHARS = 3000
-MAX_DIAGNOSTIC_LINES = 40
-
-_SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(?:[A-Za-z_][A-Za-z0-9_]*(?:token|secret|password|passwd|api[_-]?key|credential|cookie)"
-    r"[A-Za-z0-9_]*|token|secret|password|passwd|api[_-]?key|credential|cookie)"
-    r"\s*[:=]\s*[^\s,;]+"
-)
 
 
 def read_input() -> tuple[dict[str, Any], bool]:
@@ -53,22 +46,45 @@ def read_input() -> tuple[dict[str, Any], bool]:
         return {}, False
 
 
-def _is_cursor_payload(payload: dict[str, Any]) -> bool:
-    return (
-        isinstance(payload.get("status"), str)
-        and isinstance(payload.get("loop_count"), int)
-        and not isinstance(payload.get("loop_count"), bool)
-    )
+def _is_cursor_client() -> bool:
+    """Cursor is selected only by the marker emitted by its generated adapter."""
+    args = sys.argv[1:]
+    return any(args[index:index + 2] == ["--graph-powers-client", "cursor"]
+               for index in range(len(args) - 1))
 
 
-def _diagnostic(stdout: str, stderr: str) -> str:
-    """Keep useful tail context while preventing command output from becoming an env dump."""
-    combined = "\n".join(part for part in (stdout, stderr) if part)
-    safe = _SECRET_ASSIGNMENT.sub("[REDACTED]", combined)
-    lines = safe.splitlines()
-    if len(lines) > MAX_DIAGNOSTIC_LINES:
-        safe = "\n".join(lines[-MAX_DIAGNOSTIC_LINES:])
-    return safe[-MAX_DIAGNOSTIC_CHARS:]
+def _safe_opt_in(config: dict[str, Any]) -> str:
+    """Return a schema-shaped key; malformed config values never reach model-facing output."""
+    try:
+        key = gp.opt_in("LINT", config)
+        if key and key.isascii() and key[0].isalpha() and all(
+            char.isalnum() or char == "_" for char in key
+        ):
+            return key
+    except Exception:
+        pass
+    return "GRAPHPOWERS_ALLOW_LINT"
+
+
+def _safe_deny_message(message: str) -> str:
+    """Keep only the integer exit code and schema-shaped opt-in from a verifier result."""
+    marker = "lint failed with exit code "
+    if not isinstance(message, str) or not message.startswith(marker):
+        return "lint failed"
+    remainder = message[len(marker):]
+    code_text, separator, key_text = remainder.partition("; set ")
+    if not separator or not code_text or not (
+        code_text.isdigit() or (code_text.startswith("-") and code_text[1:].isdigit())
+    ):
+        return "lint failed"
+    if not key_text.endswith("=1 to allow"):
+        return "lint failed"
+    key = key_text[:-len("=1 to allow")]
+    if not key or not key.isascii() or not key[0].isalpha() or not all(
+        char.isalnum() or char == "_" for char in key
+    ):
+        return "lint failed"
+    return f"lint failed with exit code {code_text}; set {key}=1 to allow"
 
 
 def _lint_command(config: dict[str, Any]) -> tuple[str | None, str | None]:
@@ -105,7 +121,7 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
         config = gp.load(payload=payload)
         command, config_error = _lint_command(config)
         if config_error:
-            return _failed_open(INTERNAL_ERROR, config_error)
+            return _failed_open(INTERNAL_ERROR, "malformed Stop verifier configuration")
         if command is None:
             return _failed_open(SKIP_NOT_DECLARED, "no lint command is declared")
 
@@ -121,11 +137,13 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
                 project = gp.project_dir(payload)
             except Exception:
                 project = None
+        if project is None or not command_trust.is_trusted(project):
+            return _failed_open(SKIP_UNTRUSTED, "configured command is not approved")
         missing = gp.missing_tool(command)
         if missing:
-            return _failed_open(SKIP_UNAVAILABLE, f"declared linter is unavailable: {missing}")
+            return _failed_open(SKIP_UNAVAILABLE, "declared linter is unavailable")
 
-        lint_opt_in = gp.opt_in("LINT", config)
+        lint_opt_in = _safe_opt_in(config)
         if gp.opted_in("LINT", "", config):
             return ALLOW, "lint failure released by the project opt-in"
 
@@ -147,9 +165,8 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
             return _failed_open(SKIP_UNAVAILABLE, "declared linter could not be launched")
         if result.returncode == 0:
             return ALLOW, "linter passed"
-        detail = _diagnostic(result.stdout or "", result.stderr or "")
-        suffix = f"\n\n{detail}" if detail else ""
-        return DENY, f"linter exited with code {result.returncode}; set {lint_opt_in}=1 to allow{suffix}"
+        code = result.returncode if isinstance(result.returncode, int) else 1
+        return DENY, f"lint failed with exit code {code}; set {lint_opt_in}=1 to allow"
     except subprocess.TimeoutExpired:
         return _failed_open(TIMEOUT, "declared linter timed out")
     except (FileNotFoundError, PermissionError):
@@ -161,8 +178,17 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
 def _emit(outcome: str, message: str, payload: dict[str, Any]) -> None:
     if outcome in (ALLOW, SKIP_NOT_DECLARED):
         return
-    text = f"[{outcome}] {message}"
-    if _is_cursor_payload(payload):
+    fixed = {
+        SKIP_UNTRUSTED: "configured command is not approved",
+        SKIP_UNAVAILABLE: "declared linter is unavailable",
+        TIMEOUT: "declared linter timed out",
+        INTERNAL_ERROR: "Stop verifier failed internally",
+    }
+    summary = _safe_deny_message(message) if outcome == DENY else fixed.get(
+        outcome, "Stop verifier failed internally"
+    )
+    text = f"[{outcome}] {summary}"
+    if _is_cursor_client():
         if outcome != DENY:
             return
         print(json.dumps({"followup_message": text}))
