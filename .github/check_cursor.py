@@ -8,12 +8,17 @@ inside a single tree. The generator is `cursor/install.mjs`; this gate re-runs i
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+CLIENT_MARKER = "--graph-powers-client cursor"
+CLIENT_MARKER_PREFIX = "--graph-powers-client"
+CLIENT_MARKER_TOKENS = CLIENT_MARKER.split()
+STOP_SCRIPT = "hooks/stop_verify.py"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -23,12 +28,120 @@ def load(path: Path) -> dict[str, Any]:
     return data
 
 
+def shell_tokens(command: str) -> list[str] | None:
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return None
+
+
+def is_cursor_stop_command(command: str) -> bool:
+    tokens = shell_tokens(command)
+    if tokens is None or len(tokens) < 3:
+        return False
+    marker_pairs = sum(
+        tokens[index : index + 2] == CLIENT_MARKER_TOKENS
+        for index in range(len(tokens) - 1)
+    )
+    return (
+        tokens[-2:] == CLIENT_MARKER_TOKENS
+        and marker_pairs == 1
+        and tokens.count(STOP_SCRIPT) == 1
+        and tokens[-3] == STOP_SCRIPT
+    )
+
+
+def run_negative_generator_probes() -> bool:
+    probe = subprocess.run(
+        [
+            "bun",
+            "-e",
+            r'''
+import { buildCursorHooks } from "./cursor/install.mjs";
+const cases = [
+  ["malicious-marker", "python3 -X utf8 -c \"pass\" \"hooks/stop_verify.py\" --graph-powers-client cursor-malicious"],
+  ["fake-stop", "echo stop_verify.py"],
+];
+const rejected = cases.map(([name, command]) => {
+  try {
+    buildCursorHooks({ hooks: { Stop: [{ hooks: [{ type: "command", command }] }] } });
+    return { name, rejected: false };
+  } catch {
+    return { name, rejected: true };
+  }
+});
+process.stdout.write(JSON.stringify(rejected));
+''',
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    if probe.returncode != 0:
+        print(probe.stderr)
+        print("::error::Cursor generator negative probe could not run")
+        return False
+    rejected = json.loads(probe.stdout)
+    if {case.get("name") for case in rejected} != {"malicious-marker", "fake-stop"} or not all(
+        case.get("rejected") is True for case in rejected
+    ):
+        print("::error::Cursor generator must reject malicious marker and fake Stop commands")
+        return False
+    return True
+
+
 def main() -> int:
     claude_plugin = load(ROOT / ".claude-plugin/plugin.json")
     cursor_plugin = load(ROOT / ".cursor-plugin/plugin.json")
     pkg = load(ROOT / "package.json")
     claude_hooks = load(ROOT / "hooks/hooks.json")
     tracked = load(ROOT / "hooks/hooks-cursor.json")
+
+    if not run_negative_generator_probes():
+        return 1
+
+    source_text = (ROOT / "hooks/hooks.json").read_text(encoding="utf-8")
+    if CLIENT_MARKER_PREFIX in source_text:
+        print("::error::canonical hooks/hooks.json must remain marker-free")
+        return 1
+
+    tracked_commands = [
+        entry["command"]
+        for entries in tracked.get("hooks", {}).values()
+        for entry in entries
+    ]
+    tracked_stop = tracked.get("hooks", {}).get("stop", [])
+    tokenized = [shell_tokens(command) for command in tracked_commands]
+    marker_count = sum(
+        tokens.count(CLIENT_MARKER_TOKENS[0])
+        for tokens in tokenized
+        if tokens is not None
+    )
+    marker_pair_count = sum(
+        sum(
+            tokens[index : index + 2] == CLIENT_MARKER_TOKENS
+            for index in range(len(tokens) - 1)
+        )
+        for tokens in tokenized
+        if tokens is not None
+    )
+    if any(tokens is None for tokens in tokenized) or marker_count != 1 or marker_pair_count != 1:
+        print(
+            "::error::Cursor client marker must occur exactly once, with the exact cursor value"
+        )
+        return 1
+    if len(tracked_stop) != 1 or not is_cursor_stop_command(tracked_stop[0]["command"]):
+        print("::error::Cursor client marker must only appear on the generated stop verifier")
+        return 1
+    stop_command = tracked_stop[0]["command"]
+    if any(
+        CLIENT_MARKER_TOKENS[0] in tokens
+        for command, tokens in zip(tracked_commands, tokenized, strict=True)
+        if command != stop_command and tokens is not None
+    ):
+        print("::error::Cursor client marker must only appear on the generated stop verifier")
+        return 1
 
     versions = {
         "plugin.json": claude_plugin.get("version"),

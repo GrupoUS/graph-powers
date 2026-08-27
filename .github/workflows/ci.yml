@@ -480,6 +480,39 @@ jobs:
             --client grok --package-root "${{ github.workspace }}" --plugin-root "${{ github.workspace }}" \
             --project-dir "$project" --check-posture --autonomy autonomous
 
+  hook-benchmark-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: PreToolUse benchmark contract self-test
+        run: python .github/benchmark_hooks.py --self-test
+
+      - name: PreToolUse benchmark (report-only latency)
+        run: python .github/benchmark_hooks.py --warmups 3 --samples 20
+
+  hook-runtime-matrix:
+    name: Hook runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Guardrails and bounded-capture suite
+        run: python hooks/test_hooks.py
+
+      - name: Cross-platform benchmark contract
+        run: python .github/benchmark_hooks.py --self-test
+
   clone:
     runs-on: ubuntu-latest
     steps:

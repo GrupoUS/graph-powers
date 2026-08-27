@@ -42,6 +42,24 @@ the rules a host project keeps under its own `.claude/rules/`.
 - The declaration travels with the hook — `hooks.json`, with `${CLAUDE_PLUGIN_ROOT}` in the path.
   A hook on disk with no declaration never runs; a hook absent from the declaration may still be
   alive as a module imported by one that is present, so grep for an importer before calling it dead.
+- `command_trust.py` is the machine-local trust boundary shared by `ultracite.py`, `stop_verify.py`
+  and `commit_audit_gate.py`: it matches the canonical project/config identity and raw config
+  digest. Missing, malformed or changed approval is `SKIP_UNTRUSTED` and launches no configured
+  command. Use the active Python interpreter for `approve [PROJECT]`, `status [PROJECT]` or
+  `revoke [PROJECT]`; hook responses never expose a path-bearing approval command.
+- Model-facing responses are fixed summaries only: checker stdout/stderr, command text, local
+  paths and exception text never cross the hook boundary. Commit enforcement is agent-issued Bash
+  `git commit`/`git push` only: commit runs enabled declared core gates in the fixed order
+  `typeCheck` → `lint` → `test` → `build`, then the legacy audit, under one combined commit budget;
+  push runs the audit only under its audit timeout. `<PREFIX>_ALLOW_VERIFY=1` and
+  `<PREFIX>_ALLOW_AUDIT=1` are separate opt-ins.
+- The cache accepts only fresh matching green results; failures, timeouts, unavailable tools and
+  internal failures are never cached. The exact `.graph-powers/cache/precommit-verification.json`
+  artifact is excluded from its own worktree fingerprint.
+- Cursor gets only the generated `--graph-powers-client cursor` marker and loop limit `5`; Claude
+  blocks Stop. Codex has a Stop schema contract but Desktop/`exec`/UX/loop parity is
+  `NOT CONFIRMED`; Grok remains passive/unsupported. The Windows benchmark is report-only, not
+  telemetry; no dispatcher, Git-native hooks, staged snapshot or new lifecycle events are active.
 
 ## The usual change
 

@@ -11,11 +11,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, cast
 
 import _config as gp
 
@@ -153,34 +154,139 @@ def _remaining(deadline: float) -> float:
 
 def _git_to_temp(project: Path, args: list[str], deadline: float,
                  metadata_total: list[int]) -> _GitCapture | None:
-    remaining = _remaining(deadline)
-    if remaining <= 0:
-        return None
     temporary_path: Path | None = None
     stream: BinaryIO | None = None
+    process: subprocess.Popen[bytes] | None = None
+    reader: threading.Thread | None = None
+    output: BinaryIO | None = None
+    stop = threading.Event()
+    state = {"size": 0, "overflow": False, "error": False, "timeout": False}
+
+    def stop_process() -> None:
+        if process is None:
+            return
+        try:
+            process.kill()
+        except Exception:
+            try:
+                process.terminate()
+            except Exception:
+                pass
+
     try:
+        if _remaining(deadline) <= 0:
+            return None
+        if metadata_total[0] >= GIT_METADATA_CAP:
+            return None
         fd, temporary = tempfile.mkstemp(prefix=".gp-precommit-", suffix=".tmp")
         temporary_path = Path(temporary)
-        stream = os.fdopen(fd, "w+b")
-        result = subprocess.run(
-            ["git", *args], cwd=str(project), stdout=stream, stderr=subprocess.DEVNULL,
-            timeout=remaining, check=False,
+        capture_stream = os.fdopen(fd, "w+b")
+        stream = capture_stream
+        process = subprocess.Popen(
+            ["git", *args], cwd=str(project), stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         )
-        stream.flush()
-        size = stream.tell()
-        if result.returncode != 0 or size > GIT_METADATA_CAP:
+
+        raw_output = process.stdout
+        if raw_output is None:
             return None
-        metadata_total[0] += size
-        if metadata_total[0] > GIT_METADATA_CAP:
+        process_output = cast(BinaryIO, raw_output)
+        output = process_output
+
+        def drain_output() -> None:
+            try:
+                while not stop.is_set():
+                    room = min(GIT_METADATA_CAP - state["size"],
+                               GIT_METADATA_CAP - metadata_total[0])
+                    if room <= 0:
+                        if state["size"] >= GIT_METADATA_CAP:
+                            probe = process_output.read(1)
+                            if probe:
+                                state["overflow"] = True
+                        else:
+                            state["overflow"] = True
+                        break
+                    block = process_output.read(STREAM_CHUNK)
+                    if not block:
+                        break
+                    if stop.is_set():
+                        break
+                    if len(block) > room:
+                        state["overflow"] = True
+                        break
+                    if capture_stream.write(block) != len(block):
+                        state["error"] = True
+                        break
+                    state["size"] += len(block)
+                    metadata_total[0] += len(block)
+            except Exception:
+                state["error"] = True
+            finally:
+                stop.set()
+
+        reader = threading.Thread(target=drain_output, name="gp-precommit-capture", daemon=True)
+        reader.start()
+        while reader.is_alive():
+            remaining = _remaining(deadline)
+            if remaining <= 0:
+                state["timeout"] = True
+                stop.set()
+                stop_process()
+                break
+            reader.join(min(remaining, 0.05))
+
+        if state["overflow"]:
+            stop.set()
+            stop_process()
+        if reader.is_alive():
+            stop.set()
+            stop_process()
+            reader.join(1.0)
+        if reader.is_alive():
+            state["error"] = True
+
+        remaining = _remaining(deadline)
+        try:
+            process.wait(timeout=max(remaining, 0.001))
+        except subprocess.TimeoutExpired:
+            state["timeout"] = True
+            stop.set()
+            stop_process()
+            try:
+                process.wait(timeout=1.0)
+            except Exception:
+                state["error"] = True
+
+        if (state["overflow"] or state["error"] or state["timeout"] or
+                reader.is_alive() or process.returncode != 0):
+            return None
+        capture_stream.flush()
+        size = capture_stream.tell()
+        if size != state["size"] or size > GIT_METADATA_CAP:
             return None
         stream.seek(0)
-        capture = _GitCapture(temporary_path, stream, size)
+        capture = _GitCapture(temporary_path, capture_stream, size)
         stream = None
         temporary_path = None
         return capture
     except Exception:
         return None
     finally:
+        stop.set()
+        if process is not None:
+            try:
+                if process.poll() is None:
+                    stop_process()
+                process.wait(timeout=1.0)
+            except Exception:
+                pass
+        if reader is not None and reader.is_alive():
+            reader.join(1.0)
+        if output is not None:
+            try:
+                output.close()
+            except Exception:
+                pass
         if stream is not None:
             try:
                 stream.close()

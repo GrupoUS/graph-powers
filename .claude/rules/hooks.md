@@ -65,3 +65,26 @@ before the PR.
 The hook is declared once in `hooks/hooks.json`, with `${CLAUDE_PLUGIN_ROOT}` in the path. Codex and
 Cursor wiring is generated from it; Grok consumes it directly. A hook on disk with no lifecycle
 registration never runs — two audited projects had nine each in exactly that state.
+
+## Automatic commands and fixed output
+
+The formatter, Stop lint and commit runner share the machine-local command-trust registry. It is
+keyed by the canonical project/config identity and raw config digest; missing, malformed or changed
+approval is `SKIP_UNTRUSTED` and launches nothing. An operator invokes `command_trust.py` with the
+active Python interpreter and one action — `approve [PROJECT]`, `status [PROJECT]` or `revoke [PROJECT]`.
+Hook responses never emit that path-bearing command.
+
+Model-facing output is fixed: no checker stdout/stderr, command text, local paths or exception text.
+The commit runner covers agent-issued Bash `git commit`/`git push` only. Commit gates run the enabled
+declared core gates in the fixed order `typeCheck` → `lint` → `test` → `build`, then the legacy audit,
+under one combined commit budget; push runs the audit only under its audit timeout. Only fresh
+matching green results use the cache; the exact `.graph-powers/cache/precommit-verification.json`
+artifact is excluded from its own fingerprint, and failures, timeouts, unavailable tools and
+internal failures never become green cache entries. Use separate `<PREFIX>_ALLOW_VERIFY=1` and
+`<PREFIX>_ALLOW_AUDIT=1` opt-ins.
+
+Cursor receives the generated `--graph-powers-client cursor` marker and loop limit `5`; Claude blocks
+Stop. Codex has a Stop schema contract, but Desktop/`exec`/UX/loop parity remains `NOT CONFIRMED`;
+Grok remains passive/unsupported. The Windows benchmark is report-only evidence, not telemetry. A
+dispatcher, Git-native hooks, staged-snapshot execution and new lifecycle events remain deliberately
+inactive.

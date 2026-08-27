@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.12.2 — Trusted hooks and bounded agent-issued verification
+
+Project-configured formatter, Stop lint and commit commands now require the same machine-local
+approval for the canonical project/config identity and raw config digest. The approval CLI supports
+`approve [PROJECT]`, `status [PROJECT]` and `revoke [PROJECT]` through the active Python interpreter;
+hook responses never expose its path-bearing command.
+
+Stop and commit responses are fixed summaries: checker stdout/stderr, commands, local paths and
+exceptions never reach model-facing output. Agent-issued Bash `git commit` runs enabled declared
+core gates in `typeCheck` → `lint` → `test` → `build` order, then the legacy audit; `git push` runs
+the audit only. Core gates and audit share one combined commit budget; push uses only its audit
+timeout. The cache accepts only fresh matching green results, excludes the exact
+`.graph-powers/cache/precommit-verification.json` artifact from its own fingerprint, and never
+caches failures, timeouts or unavailable tools. Verification and audit use separate
+`<PREFIX>_ALLOW_VERIFY=1` and `<PREFIX>_ALLOW_AUDIT=1` opt-ins.
+
+Generated Cursor Stop wiring carries an explicit client marker and loop limit five. Claude blocks
+Stop; Codex has a Stop schema contract but Desktop/`exec`/UX/loop parity remains `NOT CONFIRMED`;
+Grok remains passive/unsupported. The Windows handler benchmark is report-only evidence, not
+telemetry. A dispatcher, Git-native hooks, staged-snapshot execution and new lifecycle events stay
+deliberately inactive.
+
 ## 1.12.1 — Codex companion roles match runtime boundaries
 
 Verification against the official Codex 0.150.1 binary closed three gaps in the initial semantic

@@ -59,13 +59,13 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ## Phase 2 — Bounded pre-commit runner and attestation cache  [SEQUENTIAL]
 
-- [ ] **T2.1** — Extend the existing audit hook into the one declared core-gate runner
+- [x] **T2.1** — Extend the existing audit hook into the one declared core-gate runner
   Owns: hooks/_change_set.py, hooks/commit_audit_gate.py, hooks/test_hooks.py, schema/config.schema.json, hooks/hooks.json
   Needs: T1.1 (reads: the trust API, canonical config identity and shared test fixture)
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: high
   CHECK: `python3 hooks/test_hooks.py`
   EXPECT: `EVERY GUARANTEE HELD`
-  EVIDENCE: pending
+  EVIDENCE: RED: the old audit-only path skipped core gates, reset independent 3-second budgets and let oversized Git capture grow without terminating its child. GREEN: fresh `python3 hooks/test_hooks.py` exits 0 with `EVERY GUARANTEE HELD`; direct tests cover fixed core order, enabled subsets, combined deadlines, trust-before-opt-in, legacy audit compatibility, bounded Git capture/child reap, length-framed fingerprints, staged/unstaged/untracked/config/command/executable invalidation, cache TTL/schema/size and exact hook-cache exclusion. AST, JSON, portability and diff checks also pass.
   TDD: required
   Steps:
     1. RED: add schema/default/order/opt-in, commit-versus-push, combined-timeout, cache and every fingerprint invalidation case before changing the runner.
@@ -77,20 +77,20 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ### Phase 2 gate
 
-- [ ] **G2.1** — Commit runner and cache contracts are green
+- [x] **G2.1** — Commit runner and cache contracts are green
   CHECK: python3 hooks/test_hooks.py and python3 .github/check_placeholders.py
   EXPECT: EVERY GUARANTEE HELD and every placeholder declared
-  EVIDENCE: pending
+  EVIDENCE: `python3 hooks/test_hooks.py` exits 0 (`EVERY GUARANTEE HELD`); `python3 .github/check_placeholders.py` exits 0 (`143 artefacts scanned, every placeholder is a declared config key`).
 
 ## Phase 3 — Generated client identity and Windows evidence  [PARALLEL-SAFE]
 
-- [ ] **T3.1** — Generate the Cursor-only Stop client marker
+- [x] **T3.1** — Generate the Cursor-only Stop client marker
   Owns: cursor/install.mjs, .github/check_cursor.py, hooks/hooks-cursor.json
   Needs: T1.1 (reads: exact `--graph-powers-client cursor` runtime contract)
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: medium
   CHECK: bun cursor/install.mjs --emit-only and python3 .github/check_cursor.py
   EXPECT: generated artefact current; marker exactly once only on Cursor Stop; loop limit five
-  EVIDENCE: pending
+  EVIDENCE: RED: `python3 .github/check_cursor.py` rejected the stale generator because it accepted malicious marker and fake Stop-command probes. GREEN: `bun cursor/install.mjs --emit-only` writes the two generated paths; `python3 .github/check_cursor.py` exits 0 with 12 registrations, one exact final marker and loop limit 5. Negative probes reject a malicious marker and fake Stop command; the canonical manifest remains marker-free.
   TDD: required
   Steps:
     1. RED: teach `check_cursor.py` to require one exact marker on the Stop verifier and to reject it everywhere else; observe the stale generator failure.
@@ -98,13 +98,13 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
     3. Confirm `hooks/hooks.json` remains marker-free and no hand-maintained client list was introduced.
   Risk: medium (generated lifecycle wiring)
 
-- [ ] **T3.2** — Add a report-only cross-platform PreToolUse benchmark
+- [x] **T3.2** — Add a report-only cross-platform PreToolUse benchmark
   Owns: .github/benchmark_hooks.py, .github/workflows/ci.yml
   Needs: T2.1 (reads: final six-handler manifest and fixed fail-open subprocess contracts)
   Agent: graph-powers:performance-optimizer · Skill: graph-powers:performance-optimization · Effort: medium
   CHECK: `python3 .github/benchmark_hooks.py --warmups 1 --samples 3`
   EXPECT: valid JSON with `handlerCount` 6 and zero handler failures
-  EVIDENCE: pending
+  EVIDENCE: RED: the Windows job initially referenced a missing benchmark script and six-handler report contract. GREEN: `python3 .github/benchmark_hooks.py --self-test` exits 0 (`benchmark self-test: PASS`); smoke with `--warmups 1 --samples 3` emits valid JSON with `handlerCount` 6 and zero failures. The workflow also runs the hook suite and benchmark self-test on Ubuntu, macOS and Windows; `bun .github/check_workflows.mjs` and portability checks pass. Windows latency remains CI-only and report-only.
   TDD: required
   Steps:
     1. RED: add a Windows job invocation that expects the benchmark CLI and exact six-handler schema; observe that the script is absent.
@@ -115,20 +115,20 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ### Phase 3 gate
 
-- [ ] **G3.1** — Cursor generation and benchmark evidence are sound
+- [x] **G3.1** — Cursor generation and benchmark evidence are sound
   CHECK: `python3 .github/check_cursor.py`, `python3 .github/benchmark_hooks.py --warmups 1 --samples 3`, and `bun .github/check_workflows.mjs`
   EXPECT: Cursor check passes, benchmark reports six handlers with zero failures, workflows parse
-  EVIDENCE: pending
+  EVIDENCE: Cursor checker, benchmark self-test/smoke and workflow parser all exit 0; report schema validates six handlers and zero failures, with no latency threshold.
 
 ## Phase 4 — Contract documentation and delivery channel  [SEQUENTIAL]
 
-- [ ] **T4.1** — Document the trust boundary and ship one synchronized patch version
+- [x] **T4.1** — Document the trust boundary and ship one synchronized patch version
   Owns: hooks/AGENTS.md, .claude/rules/hooks.md, references/shared/110-guardrails-index.md, CHANGELOG.md, package.json, .claude-plugin/plugin.json, .codex-plugin/plugin.json, .cursor-plugin/plugin.json, .grok-plugin/plugin.json
   Needs: T2.1 (reads: final trust, runner and cache behavior), T3.1 (reads: generated Cursor marker behavior), T3.2 (reads: report-only benchmark decision)
   Agent: graph-powers:debugger · Skill: none · Effort: medium
   CHECK: python3 .github/check_version_bump.py, python3 .github/check_file_references.py, and python3 .github/check_context_budget.py
   EXPECT: shipped change has a synchronized version bump; references resolve; context remains within budget
-  EVIDENCE: pending
+  EVIDENCE: All five package/plugin manifests are `1.12.2`; the official Codex, Cursor and Grok emitters complete successfully. Documentation names machine-local trust, fixed summaries, enabled declared core order, combined commit budget, push audit-only behavior, cache limits, client parity boundaries and deliberate non-activation. Version, file-reference, context/listing-budget, machine-path, portability and diff checks pass.
   TDD: not-applicable (documentation, changelog and manifest delivery metadata)
   Steps:
     1. Update the three existing hook authorities in place: trust approval, fixed output, agent-issued commit scope, cache semantics, Cursor marker, Codex schema-only confirmation and deliberate non-activation decisions.
@@ -139,10 +139,10 @@ cache-aware runner; Windows CI records the current six-handler cost without acti
 
 ### Phase 4 gate
 
-- [ ] **G4.1** — Delivery metadata and contract documentation are consistent
+- [x] **G4.1** — Delivery metadata and contract documentation are consistent
   CHECK: python3 .github/check_version_bump.py and python3 .github/check_machine_paths.py
   EXPECT: version gate passes and no home-directory path reached a tracked file
-  EVIDENCE: pending
+  EVIDENCE: `python3 .github/check_version_bump.py` exits 0 (`53 shipped file(s) changed, version 1.11.1 -> 1.12.2`); `python3 .github/check_machine_paths.py` exits 0 (`no home-directory paths`).
 
 ## Fresh verification after Phase 4
 

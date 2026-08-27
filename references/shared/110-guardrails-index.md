@@ -17,14 +17,18 @@ people to expect a block that never comes, or to be surprised by one that does.
 | Landing HEAD on a protected branch; deleting one | `git_branch_gate.py` | `Bash` | `<PREFIX>_ALLOW_MAIN_CHECKOUT=1` |
 | Bash autonomy and the destructive floor — what git cannot undo | `smart_bash_approver.py` | `Bash` at `PreToolUse` and `PermissionRequest` | `autonomy`; the floor still holds under `autonomous` |
 | Turbo `--dry=json` on a captured stdout pipe (EPIPE abort cascade) | `smart_bash_approver.py` | `Bash` | run debugger `turbo_dry_json.py` instead — not an env-var release |
-| The project's own pre-commit audit | `commit_audit_gate.py` | `Bash` | `<PREFIX>_ALLOW_AUDIT=1` |
+| Agent-issued pre-commit verification and legacy audit | `commit_audit_gate.py` | `Bash` (`git commit`/`git push`) | commit: `<PREFIX>_ALLOW_VERIFY=1` · audit: `<PREFIX>_ALLOW_AUDIT=1`; fixed core order, one combined commit budget, push audit only under its audit timeout |
 | Writes to `.env`, lockfiles, `.git/`, secrets, declared paths | `protect_files.py` | `Edit`/`Write` | nothing |
 | Final project-declared lint | `stop_verify.py` | `Stop` | `<PREFIX>_ALLOW_LINT=1` in the client environment |
 
 `<PREFIX>` is `git.optInPrefix` from the project's config, and it is per project on purpose: an
 approval given in one repository must not count in another. Every one of these fails **open** — a
-missing or malformed config falls back to defaults. Stop semantics: Claude=block; Cursor=bounded
-follow-up; Grok=passive; Codex=`NOT CONFIRMED`.
+missing or malformed config falls back to defaults. Configured commands share machine-local trust,
+and model-facing responses are fixed summaries without checker output, commands, paths or exceptions.
+Stop semantics: Claude=block; Cursor=bounded follow-up with generated marker and loop limit 5;
+Grok=passive/unsupported; Codex has a Stop schema contract but runtime parity is `NOT CONFIRMED`.
+The exact pre-commit cache artifact is self-excluded from its fingerprint; only fresh green results
+are cached, never failures, timeouts or unavailable tools.
 
 **Releasing a gate, on any operating system.** The hook looks for the literal text `<KEY>=1` in the
 command, or for the variable in the environment (`hooks/_config.py`, `opted_in`). It never asks the
@@ -45,6 +49,9 @@ Advisory, same registration, no denial: `auto_update.py`, `branch_session_notice
 
 `ultracite.py` formats edits; `stop_verify.py` runs the declared global lint and trusts its exit
 code. An unavailable command is skipped, never reported as covered.
+
+The Windows handler benchmark is report-only evidence, not telemetry. No dispatcher, Git-native
+hooks, staged-snapshot execution or new lifecycle registration is active.
 
 ### Convention — rules the project writes, and nobody enforces but you
 

@@ -45,6 +45,9 @@ const EVENT_MAP = {
 };
 
 const SKIP_EVENTS = new Set(["PermissionRequest", "Notification"]);
+const CURSOR_CLIENT_MARKER = "--graph-powers-client cursor";
+const CURSOR_CLIENT_MARKER_PREFIX = "--graph-powers-client";
+const STOP_VERIFIER_SCRIPT = "hooks/stop_verify.py";
 
 const MATCHER_MAP = {
   Bash: "Shell",
@@ -67,6 +70,14 @@ function commandForCursor(command) {
   return String(command)
     .replaceAll("${CLAUDE_PLUGIN_ROOT}/", "")
     .replaceAll("${CLAUDE_PLUGIN_ROOT}", ".");
+}
+
+function isCanonicalStopVerifier(command) {
+  return (
+    command.startsWith("python3 -X utf8 -c ") &&
+    command.endsWith(`"${STOP_VERIFIER_SCRIPT}"`) &&
+    !command.includes(CURSOR_CLIENT_MARKER_PREFIX)
+  );
 }
 
 /**
@@ -95,7 +106,14 @@ export function buildCursorHooks(hookManifest) {
       const matcher = mapMatcher(group.matcher);
       for (const hook of group.hooks ?? []) {
         if (hook.type && hook.type !== "command") continue;
-        const entry = { command: commandForCursor(hook.command) };
+        const command = commandForCursor(hook.command);
+        if (event === "Stop" && !isCanonicalStopVerifier(command)) {
+          throw new Error("Cursor Stop hook must invoke hooks/stop_verify.py canonically");
+        }
+        const isStopVerifier = event === "Stop";
+        const entry = {
+          command: isStopVerifier ? `${command} ${CURSOR_CLIENT_MARKER}` : command,
+        };
         if (matcher) entry.matcher = matcher;
         if (hook.timeout) entry.timeout = hook.timeout;
         if (event === "Stop" || event === "SubagentStop") entry.loop_limit = 5;

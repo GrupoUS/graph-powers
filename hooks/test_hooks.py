@@ -1979,15 +1979,106 @@ def main() -> int:
     check("expired fingerprint deadline disables caching",
           change_set.fingerprint_worktree(cache_project, "lint", cache_script,
                                           deadline=time.monotonic() - 1), None)
+    oversized_sizes: list[int] = []
+    original_unlink = change_set.Path.unlink
+
+    def observe_capture_unlink(path: Path, *args, **kwargs):
+        if path.name[:len(".gp-precommit-")] == ".gp-precommit-" and path.exists():
+            oversized_sizes.append(path.stat().st_size)
+        return original_unlink(path, *args, **kwargs)
+
+    class OversizedStdout:
+        def __init__(self, owner):
+            self.owner = owner
+
+        def read(self, _size: int) -> bytes:
+            if self.owner.killed:
+                return b""
+            self.owner.emitted = True
+            return b"x" * (change_set.GIT_METADATA_CAP + 1)
+
+        def close(self) -> None:
+            return None
+
+    class OversizedPopen:
+        def __init__(self, *_args, **_kwargs):
+            self.killed = False
+            self.emitted = False
+            self.returncode = None
+            self.stdout = OversizedStdout(self)
+            oversized_processes.append(self)
+
+        def kill(self) -> None:
+            self.killed = True
+            self.returncode = -9
+
+        def terminate(self) -> None:
+            self.kill()
+
+        def wait(self, timeout=None) -> int:
+            self.returncode = 0 if self.returncode is None else self.returncode
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+    oversized_processes: list[OversizedPopen] = []
+
     def oversized_git_output(*_args, **kwargs):
         kwargs["stdout"].write(b"x" * (change_set.GIT_METADATA_CAP + 1))
         return SimpleNamespace(returncode=0)
 
-    with patch.object(change_set.subprocess, "run", side_effect=oversized_git_output):
+    with patch.object(change_set.subprocess, "Popen", OversizedPopen), \
+            patch.object(change_set.subprocess, "run", side_effect=oversized_git_output), \
+            patch.object(change_set.Path, "unlink", observe_capture_unlink):
         oversized_capture = change_set._git_to_temp(
             cache_project, ["status"], time.monotonic() + 10, [0]
         )
     check("cumulative Git metadata cap disables fingerprint capture", oversized_capture, None)
+    check("oversized capture never grows beyond metadata cap",
+          oversized_sizes and max(oversized_sizes) <= change_set.GIT_METADATA_CAP, True)
+    check("oversized capture terminates its child",
+          oversized_processes and (oversized_processes[0].killed or
+                                   oversized_processes[0].returncode is not None), True)
+
+    class ExactStdout:
+        def __init__(self):
+            self.emitted = False
+
+        def read(self, _size: int) -> bytes:
+            if self.emitted:
+                return b""
+            self.emitted = True
+            return b"x" * change_set.GIT_METADATA_CAP
+
+        def close(self) -> None:
+            return None
+
+    class ExactPopen:
+        def __init__(self, *_args, **_kwargs):
+            self.returncode = None
+            self.stdout = ExactStdout()
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+        def terminate(self) -> None:
+            self.kill()
+
+        def wait(self, timeout=None) -> int:
+            self.returncode = 0 if self.returncode is None else self.returncode
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+    with patch.object(change_set.subprocess, "Popen", ExactPopen):
+        exact_capture = change_set._git_to_temp(
+            cache_project, ["status"], time.monotonic() + 10, [0]
+        )
+    check("exact Git metadata cap remains usable", exact_capture is not None, True)
+    if exact_capture is not None:
+        exact_capture.cleanup()
 
     for project in (default_project, restricted, empty_core, failing_core, push_only,
                     untrusted_core, cache_project, *correction_projects):
