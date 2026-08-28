@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.1 — Native agents stay proactive and bounded
+
+Guarded Grok installs now enable native subagents without changing their approval posture. The
+Graph Powers orchestration defaults are aligned at 25 spawns per rolling window, four rounds per
+specialist and three agents per wave; schema, runtime, workflow and policy copies are checked for
+drift, and examples no longer freeze the defaults.
+
+Argument-less `/verify` now inherits the originating task tier: L1-L2 remains the low-resource
+quick path, while L3+ runs the review batch. Explicit `/verify quick` remains available.
+
 ## 1.13.0 — TypeScript 7, Oxc editor ownership and resource-bounded loops
 
 JavaScript and TypeScript defaults now require a project-local stable TypeScript 7 `tsc` with an

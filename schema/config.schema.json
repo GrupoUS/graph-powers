@@ -509,7 +509,7 @@
         "maxSpawnsPerSession": {
           "type": "integer",
           "minimum": 1,
-          "default": 16,
+          "default": 25,
           "description": "Agent spawns inside spawnWindowMinutes. Counted from session start instead, this became a session-lifetime quota: a long session hit it on the first spawn of an unrelated later task and then refused every spawn for the rest of the day."
         },
         "maxRoundsPerAgent": {
@@ -527,7 +527,7 @@
         "maxParallelWave": {
           "type": "integer",
           "minimum": 1,
-          "default": 2,
+          "default": 3,
           "description": "Agents in one wave of the build chain, and fixes in one round of the verify chain. An oversized wave is split and logged, never truncated."
         },
         "maxTasksPerPlan": {

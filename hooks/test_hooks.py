@@ -209,6 +209,17 @@ def check(label: str, got, want) -> None:
 
 
 def main() -> int:
+    print("### Execution graph contract — schema and runtime share one default")
+    schema = json.loads((HOOKS.parent / "schema/config.schema.json").read_text(encoding="utf-8"))
+    schema_graph = schema.get("properties", {}).get("graphGuardrails", {})
+    schema_properties = schema_graph.get("properties", {}) if isinstance(schema_graph, dict) else {}
+    runtime_defaults = config_module.DEFAULTS["graphGuardrails"]
+    schema_defaults = {
+        key: schema_properties.get(key, {}).get("default")
+        for key in runtime_defaults
+    }
+    check("schema graphGuardrails defaults match runtime", schema_defaults, runtime_defaults)
+
     print("### Hook declarations fail open when a loaded cache entry disappears")
     manifest = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
     commands = [
@@ -1568,7 +1579,7 @@ def main() -> int:
     check("the environment variable still releases the commit gate",
           call("git_commit_gate", commit, a, env={"PROJA_ALLOW_COMMIT": "1"})[0], None)
 
-    print("### Execution ceilings — the three that shipped with no test at all")
+    print("### Execution ceilings — rolling total, rounds, and orchestration width")
     # G2, G3 and G4 have been in the plugin since the first release and never had a single
     # assertion behind them, which is exactly the state `.claude/rules/hooks.md` forbids: "a
     # guardrail never seen denying is an assumption". G4 was worse than untested — the hook read a
@@ -1636,6 +1647,44 @@ def main() -> int:
     check("...and the opt-in key releases the round ceiling too",
           call("graph_guardrails", {**spawn("debugger"), **sess}, rounds,
                env={"ROUNDS_ALLOW_SPAWN_OVER": "1"})[0], None)
+
+    # The shipped defaults are deliberately exercised here rather than copied into examples.
+    # A project that omits graphGuardrails still gets the same 25/4/60 contract as the schema.
+    defaults = mkproj({"git": {"optInPrefix": "DEFAULTS"}})
+    default_counter = defaults / ".graph-powers" / "logs" / "sessions" / "ceil-defaults-guardrails.json"
+    default_counter.parent.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    default_counter.write_text(
+        json.dumps({"spawnEvents": [[now, f"agent-{i}"] for i in range(25)]}),
+        encoding="utf-8",
+    )
+    check("the 26th default spawn is refused",
+          call("graph_guardrails", {**spawn("agent-25"), "session_id": "ceil-defaults"}, defaults)[0],
+          "deny")
+    default_counter.write_text(
+        json.dumps({"spawnEvents": [[now, "debugger"] for _ in range(4)]}),
+        encoding="utf-8",
+    )
+    check("the 5th default round is refused",
+          call("graph_guardrails", {**spawn("debugger"), "session_id": "ceil-defaults"}, defaults)[0],
+          "deny")
+
+    # maxParallelWave is consumed by the orchestrator, not by this per-tool hook. The hook must
+    # not reject a fourth unit merely because it belongs to a wave of width three; workflow code
+    # splits/serializes that work before dispatching the next unit.
+    wave = mkproj({"git": {"optInPrefix": "WAVE"},
+                   "graphGuardrails": {"maxSpawnsPerSession": 99,
+                                        "maxRoundsPerAgent": 99,
+                                        "maxParallelWave": 3}})
+    wave_counter = wave / ".graph-powers" / "logs" / "sessions" / "ceil-wave-guardrails.json"
+    wave_counter.parent.mkdir(parents=True, exist_ok=True)
+    wave_counter.write_text(
+        json.dumps({"spawnEvents": [[now, f"wave-agent-{i}"] for i in range(3)]}),
+        encoding="utf-8",
+    )
+    check("the fourth wave unit is left to orchestration, not denied by the hook",
+          call("graph_guardrails", {**spawn("wave-agent-3"), "session_id": "ceil-wave"}, wave)[0],
+          None)
 
     # One specialist, one counter, whichever way the caller spelled the name. A plugin agent is
     # addressed `<plugin>:<agent>`, and the bare form still reaches the same agent, so counted

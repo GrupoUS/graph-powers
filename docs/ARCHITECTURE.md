@@ -280,9 +280,9 @@ Recorded so they do not come back as proposals:
   now ships workflows: the ceilings that bound them are their own (`maxParallelWave`,
   `maxTasksPerPlan`, `maxRepatch`, and the round limit), declared in the config and enforced in the
   script rather than by the hook.
-- **The ceiling numbers** (25 spawns per session, 8 rounds per agent) are starting points chosen
-  above the limits already present in the workflows, not measured values. Calibrating them needs
-  real usage data.
+- **The ceiling defaults** live in `schema/config.schema.json` and are starting points rather than
+  measured values. Calibrating their rolling spawn window, specialist rounds and wave width needs
+  real usage data; this document deliberately does not duplicate them.
 - **There is no automated eval** of the agents and skills. `claude plugin eval` exists, and using it
   is the natural next step — watching something fire is not the same as watching it work.
 - **The Codex artefacts are machine-specific.** `.codex/hooks.json` and `.codex/agents/` embed the

@@ -20,6 +20,10 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { CODEX_AGENT_PROFILES } from "../codex/model-policy.mjs";
 
+const CONFIG_SCHEMA = JSON.parse(readFileSync("schema/config.schema.json", "utf8"));
+const DEFAULT_MAX_PARALLEL_WAVE =
+  CONFIG_SCHEMA.properties.graphGuardrails.properties.maxParallelWave.default;
+
 const CODEX_SCOUT_AGENTS = new Set(
   Object.entries(CODEX_AGENT_PROFILES)
     .filter(([, profile]) => profile === "scout")
@@ -71,6 +75,23 @@ function checkPolicy(path, source) {
     problems.push(`POLICY ${path}: missing non-empty scoutAgents guard before fan-out`);
   if (/gpt-5\.6-(?:sol|terra|luna)/i.test(source))
     problems.push(`POLICY ${path}: Claude workflow contains a Codex model slug`);
+  if (source.includes("cfg.maxParallelWave")) {
+    const codeFallback = source.match(
+      /positiveNumber\(cfg\.maxParallelWave,\s*([0-9]+)\)/,
+    );
+    const promptFallback = source.match(
+      /maxParallelWave\s*<-\s*graphGuardrails\.maxParallelWave,\s*else\s*([0-9]+)/,
+    );
+    for (const [label, match] of [
+      ["runtime", codeFallback],
+      ["config bootstrap", promptFallback],
+    ]) {
+      if (!match || Number(match[1]) !== DEFAULT_MAX_PARALLEL_WAVE)
+        problems.push(
+          `POLICY ${path}: ${label} maxParallelWave fallback must match schema default ${DEFAULT_MAX_PARALLEL_WAVE}`,
+        );
+    }
+  }
   return problems;
 }
 

@@ -148,7 +148,7 @@ async function resolveConfig() {
      lenses         <- chain.lenses, else []
      hardRules      <- chain.hardRules, else []
      invariants     <- chain.invariants, else []
-      maxParallelWave <- graphGuardrails.maxParallelWave, else 2
+      maxParallelWave <- graphGuardrails.maxParallelWave, else 3
       maxRepatch     <- graphGuardrails.maxRepatch, else 2
        maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
        testRunner     <- tooling.testRunner, else null
@@ -166,7 +166,7 @@ const TEST_RUNNER = cfg.testRunner ?? cfg.tooling?.testRunner ?? null
 const WORK_BRANCH = cfg.workBranch || 'main'
 const REPATCH_CAP = cfg.maxRepatch ?? 2
 const positiveNumber = (value, fallback) => Number.isFinite(value) && value > 0 ? value : fallback
-const FIX_CAP = positiveNumber(cfg.maxParallelWave, 2)
+const FIX_CAP = positiveNumber(cfg.maxParallelWave, 3)
 const configuredRounds = positiveNumber(cfg.maxFixRounds, 0)
 const MAX_ROUNDS = configuredRounds || (budget?.total ? 4 : 3)
 // `parallel` is the workflow runtime primitive. This wrapper is the only fan-out entrypoint in

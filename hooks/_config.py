@@ -89,12 +89,12 @@ DEFAULTS: dict[str, Any] = {
     },
     # Execution graph ceilings, read by graph_guardrails.py.
     "graphGuardrails": {
-        "maxSpawnsPerSession": 16,
+        "maxSpawnsPerSession": 25,
         "maxRoundsPerAgent": 4,
         # Both ceilings above are counted inside this rolling window, not from session start. A
-        # session that lives all day is normal work; sixteen spawns inside an hour is not.
+        # session that lives all day is normal work; the configured burst limit is not.
         "spawnWindowMinutes": 60,
-        "maxParallelWave": 2,
+        "maxParallelWave": 3,
     },
     # How much runs without stopping to ask. `guarded` is the default because a stranger's first
     # session should not be the one that discovers what this harness will do unattended.
