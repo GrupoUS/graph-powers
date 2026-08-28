@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shlex
+import signal
 import shutil
 import subprocess
 import sys
@@ -193,6 +195,63 @@ def _missing_executable(command: str) -> bool:
         return False
 
 
+def _terminate_process_tree(process: subprocess.Popen) -> None:
+    """Stop a timed-out shell and the child it launched on every supported platform."""
+    try:
+        if sys.platform == "win32":
+            # `subprocess.run(..., shell=True)` only terminates cmd.exe on Windows. The child can
+            # keep the capture pipes open, so the caller appears to ignore its deadline. taskkill's
+            # tree flag is the native equivalent of killing a POSIX process group.
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1,
+                check=False,
+            )
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
+    except Exception:
+        try:
+            process.kill()
+        except OSError:
+            pass
+
+
+def _run_shell_command(command: str, project: Path, timeout: float) -> subprocess.CompletedProcess:
+    """Run a trusted shell command without allowing a child to outlive its timeout."""
+    options: dict[str, Any] = {
+        "shell": True,
+        "cwd": str(project),
+        # Gate output is deliberately never forwarded. DEVNULL also prevents a Windows child
+        # from keeping capture pipes open after cmd.exe is terminated on timeout.
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if sys.platform == "win32":
+        options["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(command, **options)
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _terminate_process_tree(process)
+        try:
+            process.wait(timeout=0.5)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+            except OSError:
+                pass
+            try:
+                process.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                pass
+        raise
+    return subprocess.CompletedProcess(command, process.returncode)
+
+
 def _run_configured(
     *,
     gate: str,
@@ -229,16 +288,7 @@ def _run_configured(
             _skip("TIMEOUT", gate)
             return "skipped"
         try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                cwd=str(project),
-                capture_output=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=remaining,
-                check=False,
-            )
+            result = _run_shell_command(command, project, remaining)
         except subprocess.TimeoutExpired:
             _skip("TIMEOUT", gate)
             return "skipped"
@@ -248,7 +298,10 @@ def _run_configured(
         except Exception:
             _skip("INTERNAL_ERROR", gate)
             return "skipped"
-        if result.returncode in (127, 9009) and _missing_executable(command):
+        missing_status = result.returncode in (127, 9009)
+        if sys.platform == "win32" and result.returncode == 1:
+            missing_status = True
+        if missing_status and _missing_executable(command):
             _skip("SKIP_UNAVAILABLE", gate)
             return "skipped"
         if result.returncode != 0:

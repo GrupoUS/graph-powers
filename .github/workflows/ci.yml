@@ -60,8 +60,8 @@ jobs:
               except Exception as e:
                   bad.append(f"{f}: {e}")
           print("\n".join(bad) or f"{len(files)} JSON files parse")
-           sys.exit(1 if bad else 0)
-           PY
+          sys.exit(1 if bad else 0)
+          PY
 
       - name: Oxc and Zed policy stays canonical
         run: python3 .github/check_oxc_policy.py
@@ -405,6 +405,14 @@ jobs:
                        os.path.join(root, ".cursor-plugin/plugin.json"))
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
+          for relative in (
+              "skills/planning/SKILL.md",
+              "skills/planning/references/phase-c-executing-plans.md",
+              "skills/planning/references/execution/tdd-policy.md",
+          ):
+              target = os.path.join(root, relative)
+              os.makedirs(os.path.dirname(target), exist_ok=True)
+              shutil.copy2(os.path.join(plugin, relative), target)
           PY
           HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
             --target cursor --skip-marketplace --autonomy autonomous
@@ -567,6 +575,14 @@ jobs:
                        os.path.join(root, ".cursor-plugin/plugin.json"))
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
+          for relative in (
+              "skills/planning/SKILL.md",
+              "skills/planning/references/phase-c-executing-plans.md",
+              "skills/planning/references/execution/tdd-policy.md",
+          ):
+              target = os.path.join(root, relative)
+              os.makedirs(os.path.dirname(target), exist_ok=True)
+              shutil.copy2(os.path.join(plugin, relative), target)
           PY
           cd "$project"
           HOME="$cursorhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \

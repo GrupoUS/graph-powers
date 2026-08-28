@@ -782,7 +782,8 @@ def main() -> int:
             body = body + "x" * (size - len(body.encode("utf-8")) - 1) + "\n"
         target = fixture / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body, encoding="utf-8")
+        # `write_text` translates `\n` to `\r\n` on Windows, changing the byte-count fixtures.
+        target.write_bytes(body.encode("utf-8"))
 
     root_linking_api = (
         "# Fixture\n\nA project with one package.\n\n## Where things live\n\n"
@@ -2334,7 +2335,9 @@ def main() -> int:
     edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
             "tool_input": {"file_path": str(target)}}
     fmt_real_cfg = fmt_real / ".graph-powers" / "config.json"
-    fmt_real_cfg.write_text(json.dumps({"tooling": {"commands": {"format": f"{shell_quote(str(writer))} format --write"}}}), encoding="utf-8")
+    fmt_real_cfg.write_text(json.dumps({"tooling": {"commands": {
+        "format": f"{shell_quote(sys.executable)} {shell_quote(str(writer))} format --write",
+    }}}), encoding="utf-8")
     init_git(fmt_real)
     trust_module.approve(fmt_real, home=EMPTY_HOME)
     call_raw("ultracite", edit, fmt_real)
