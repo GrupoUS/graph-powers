@@ -19,17 +19,27 @@
     "style": "off"
   },
   "ignorePatterns": [
-    "node_modules/**",
-    ".claude/logs/**",
-    ".graph-powers/logs/**"
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.build/**",
+    "**/.turbo/**",
+    "**/.cache/**",
+    "**/.bun/**",
+    "**/.next/**",
+    "**/.astro/**",
+    "**/coverage/**",
+    "**/.claude/**",
+    "**/.codex/**",
+    "**/.agents/**",
+    "**/.graph-powers/logs/**",
+    "**/generated/**",
+    "**/*.min.js"
   ],
   "rules": {
     "no-console": "off",
     "unicorn/no-process-exit": "off",
-    // `Array#toSorted` arrived in Node 20 and package.json declares the floor as Node 18. Every
-    // `.sort()` in this repository runs on an array `map` or `filter` just produced, so there is
-    // nothing to mutate but a temporary — the rule would only buy a syntax this plugin's own
-    // engine range forbids.
     "unicorn/no-array-sort": "off"
   }
 }

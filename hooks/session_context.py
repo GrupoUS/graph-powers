@@ -135,7 +135,7 @@ def main() -> None:
     # have would be worse than naming none: a line that reads as covered and never runs.
     #
     # Declaring one whose tool is not installed has exactly the same effect, one level down, and
-    # for longer — the tag said `lint` while `oxlint` was absent from PATH, the Stop hook caught
+    # for longer — the tag said `lint` while the local linter was absent, the Stop hook caught
     # `FileNotFoundError` and returned, and nothing ever said so. `format` is listed here too
     # although it is not a gate: `ultracite.py` runs it after every edit, so a missing formatter
     # means a session silently stops being formatted.
@@ -154,7 +154,7 @@ def main() -> None:
     gate_tag = f" | gates: {gates}" if gates else ""
     if absent:
         detail = ", ".join(f"{key} needs `{tool}`" for key, tool in absent)
-        gate_tag += f" | NOT INSTALLED: {detail} — install globally or these never run"
+        gate_tag += f" | NOT INSTALLED: {detail} — install the project-local dependency"
 
     base_tag = f"[{project_name}]" + (f" {pkg_tag}" if pkg_tag else "")
     prefixes = {

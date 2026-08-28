@@ -13,16 +13,22 @@
     "protectedBranches": ["main", "master"],
     "optInPrefix": "ACMEPLATFORM"
   },
+  "graphGuardrails": {
+    "maxSpawnsPerSession": 16,
+    "maxRoundsPerAgent": 4,
+    "maxParallelWave": 2,
+    "spawnWindowMinutes": 60
+  },
   "tooling": {
     "packageManager": "bun",
-    "typeChecker": "tsgo",
-    "linter": "biome",
+    "typeChecker": "vtsls",
+    "linter": "oxlint",
     "buildTool": "turbo",
     "testRunner": "vitest",
     "commands": {
       "typeCheck": "bun run type-check",
-      "lint": "bun run lint",
-      "format": "bunx biome check --write",
+      "lint": "bun run lint --",
+      "format": "bun run format --",
       "test": "bun run test",
       "build": "bun run build"
     }
@@ -50,6 +56,5 @@
       "executor": { "model": "gpt-5.6-luna", "reasoningEffort": "max" },
       "scout": { "model": "gpt-5.6-luna", "reasoningEffort": "medium" }
     }
-  },
-  "graphGuardrails": { "maxSpawnsPerSession": 25, "maxRoundsPerAgent": 8 }
+  }
 }

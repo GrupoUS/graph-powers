@@ -14,7 +14,7 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 | UX direction / conversion / onboarding | `uxmaster` | `landing-page-design` on a landing or marketing page, including its Astro implementation floor |
 | Performance / SEO / security baseline / Core Web Vitals / bundle | `performance-optimization` | `graph-powers:librarian` for external tool docs |
 | Browser verification / E2E evidence | `webapp-testing` | `graph-powers:verification` agent |
-| JS/TS type-check, unit tests, inferred gates | `graph-powers:debugger` § JS/TS gate resolver | `/verify` reads `130-bun-tsgo-gates.md` directly; never Node `tsc` |
+| JS/TS TypeScript 7, unit tests, Oxc gates | `graph-powers:debugger` § JS/TS gate resolver | `/verify` reads `130-typescript7-oxc-gates.md` directly |
 | Database, provider or deploy specifics | the project's own skill, when it has one | `graph-powers:librarian` for external docs |
 | AGENTS.md hierarchy — the root node and the child nodes a subtree earns; agents misreading where things live | `graph-powers:intent-layer` | `AGENT_SETUP.md § 4b` at install, `/evolve § 5` afterwards; `/prime` only reads the nodes |
 | Skill authoring, iteration or harness wiring audit | `skill-improve` | `graph-powers:skill-improver` agent |

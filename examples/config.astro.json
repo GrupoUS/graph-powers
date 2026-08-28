@@ -12,16 +12,23 @@
     "protectedBranches": ["main"],
     "optInPrefix": "ACMESITE"
   },
+  "graphGuardrails": {
+    "maxSpawnsPerSession": 16,
+    "maxRoundsPerAgent": 4,
+    "maxParallelWave": 2,
+    "spawnWindowMinutes": 60
+  },
   "tooling": {
     "packageManager": "bun",
-    "linter": "biome",
+    "typeChecker": "vtsls",
+    "linter": "oxlint",
     "buildTool": "astro",
     "testRunner": null,
     "commands": {
-      "typeCheck": "bunx astro check",
-      "lint": "bunx biome check",
-      "format": "bunx biome check --write",
-      "build": "bunx astro build"
+      "typeCheck": "bun run type-check",
+      "lint": "bun run lint --",
+      "format": "bun run format --",
+      "build": "bun run build"
     }
   },
   "paths": {

@@ -1,14 +1,11 @@
 {
   "name": "graph-powers",
-  "version": "1.12.2",
-  "description": "A shared harness for Claude Code, Codex CLI, Cursor and Grok CLI: agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in one config file and the plugin adapts.",
-  "license": "MIT AND Apache-2.0",
-  "type": "module",
+  "version": "1.13.0",
   "private": true,
-  "engines": {
-    "node": ">=18"
-  },
+  "description": "A shared harness for Claude Code, Codex CLI, Cursor and Grok CLI: agents, skills, commands and git/execution guardrails that work in any repository. The project declares its stack in one config file and the plugin adapts.",
   "keywords": [
+    "agent-skills",
+    "agents",
     "claude-code",
     "claude-code-plugin",
     "codex",
@@ -16,19 +13,27 @@
     "cursor",
     "grok",
     "grok-cli",
-    "agents",
-    "agent-skills",
-    "skills",
-    "hooks",
     "guardrails",
-    "harness"
+    "harness",
+    "hooks",
+    "skills"
   ],
+  "homepage": "https://github.com/GrupoUS/graph-powers#readme",
+  "bugs": {
+    "url": "https://github.com/GrupoUS/graph-powers/issues"
+  },
+  "license": "MIT AND Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GrupoUS/graph-powers.git"
   },
-  "bugs": {
-    "url": "https://github.com/GrupoUS/graph-powers/issues"
+  "type": "module",
+  "devDependencies": {
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "typescript": "^7.0.2"
   },
-  "homepage": "https://github.com/GrupoUS/graph-powers#readme"
+  "engines": {
+    "node": ">=18"
+  }
 }

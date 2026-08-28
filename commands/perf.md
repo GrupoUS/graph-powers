@@ -61,10 +61,22 @@ First positional token of `$ARGUMENTS`. Everything after it is `key=value` (`url
 | `db` / `database` | § 4 | pool, N+1, `select *`, index gaps, prepared statements |
 | `seo` | § 5 | `seo-geo-baseline` pack |
 | `sec` / `security` | § 5 | `security-baseline` pack |
+| `resources` / `hooks` / `tests` | § 6 | hook, test-runner and verification resource audit |
 
 ---
 
 ## 2. Runtime audit (default mode)
+
+### 2.0 Resource audit (`/perf resources`)
+
+Measure the same machine before and after. Inspect hook process count and elapsed time, Stop and
+PostToolUse invocations, verification fan-out, and test-runner worker counts. Keep type-aware
+Oxlint only at the final boundary with `oxlint --type-aware --type-check --threads 1`; editor and
+edit-hook diagnostics stay regular Oxlint. Preserve each project's declared test runner.
+
+Check that Stop and PostToolUse each launch at most one changed-file process, never fetch packages,
+and do not fall back to a full tree or a persistent result cache. Do not remove security, trust,
+approval, branch, or protected-file gates.
 
 ### 2.1 Measure
 
@@ -194,7 +206,7 @@ beats a config-wide disable, which beats turning off a category.
 
 `${tooling.buildTool}` from config, confirmed against what is on disk: the build config file
 (`vite.config.*`, `webpack.config.*`, `rollup.config.*`, `astro.config.*`, `next.config.*`), the
-type checker (the resolved native `tsgo` or framework-specific command; never legacy `tsc`) and the `package.json` scripts.
+type checker (the configured `vtsls` editor provider and final Oxc type-aware command) and the `package.json` scripts.
 
 ### 3.2 Baseline
 

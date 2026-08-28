@@ -58,9 +58,9 @@ here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` repor
 
 ## What is deliberately not a gate
 
-- `ruff`, `basedpyright`, `oxlint`, `biome`. `biome ci` reports formatting drift in the five `.mjs`
-  files and always has; the same tree produced 190 ruff findings while CI was green. Reformatting
-  them is a standalone change with its own commit, never a rider on somebody else's work.
+- `ruff`, `basedpyright` and `oxlint`. The repository is not a Python or JavaScript lint gate; these
+  tools exist so a contributor's editor says the same thing on every machine. Reformatting the five
+  `.mjs` files is a standalone change with its own commit, never a rider on somebody else's work.
 - The tracked-file count `python3 .github/check_clone.py` prints is a number to read, not a
   threshold to pass. A clone is the artefact here; nothing is packed, so the count only matters
   when it moves for a reason nobody can name. (It used to be spelled `git ls-files | wc -l`, which

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Run the configured project linter before a Stop event, fail-open on hook/tool faults."""
+"""Optionally run the configured local linter on changed JS/TS files at Stop."""
 
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import subprocess
 import sys
 import typing
@@ -13,7 +15,10 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _config as gp
 import command_trust
-from _change_set import ChangeSet, collect_change_set
+from _change_set import (
+    ChangeSet,
+    collect_change_set,
+)
 
 try:
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
@@ -21,18 +26,23 @@ except Exception:
     pass
 
 
-# These names are part of the verifier's internal decision vocabulary. ASK is reserved for a
-# future interactive Stop surface; Stop currently either allows or supplies a follow-up.
 ALLOW = "ALLOW"
 DENY = "DENY"
-ASK = "ASK"
 SKIP_NOT_DECLARED = "SKIP_NOT_DECLARED"
 SKIP_UNAVAILABLE = "SKIP_UNAVAILABLE"
 SKIP_UNTRUSTED = "SKIP_UNTRUSTED"
+SKIP_NETWORK = "SKIP_NETWORK"
 INTERNAL_ERROR = "INTERNAL_ERROR"
 TIMEOUT = "TIMEOUT"
 
-LINT_TIMEOUT_S = 25
+LINT_TIMEOUT_S = 15
+LINTABLE_EXTENSIONS = {
+    ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts",
+}
+NETWORK_LAUNCHERS = {
+    "bunx", "bunx.exe", "bunx.cmd", "npx", "npx.exe", "npx.cmd", "pnpx", "pnpx.exe",
+    "pnpx.cmd", "dlx", "dlx.exe", "dlx.cmd",
+}
 
 
 def read_input() -> tuple[dict[str, Any], bool]:
@@ -106,6 +116,46 @@ def _lint_command(config: dict[str, Any]) -> tuple[str | None, str | None]:
     return value, None
 
 
+def _relevant_paths(project: Path, paths: tuple[str, ...]) -> tuple[str, ...]:
+    """Return existing JavaScript/TypeScript files from Git's changed-path list."""
+    result: list[str] = []
+    for raw_path in paths:
+        try:
+            relative = Path(raw_path)
+            target = relative if relative.is_absolute() else project / relative
+            if target.is_file() and target.suffix.lower() in LINTABLE_EXTENSIONS:
+                result.append(raw_path)
+        except Exception:
+            continue
+    return tuple(dict.fromkeys(result))
+
+
+def _uses_network_launcher(command: str) -> bool:
+    """Reject command forms that can install a formatter or linter during a hook."""
+    try:
+        parts = shlex.split(command, posix=(os.name != "nt"))
+    except Exception:
+        return True
+    names = [Path(part.strip('"\'')).name.lower() for part in parts]
+    if any(name in NETWORK_LAUNCHERS for name in names):
+        return True
+    return any(name in {"dlx", "x"} for name in names) or (
+        any(name in {"npm", "npm.exe", "pnpm", "pnpm.exe"} for name in names[:1])
+        and "exec" in names[1:]
+    )
+
+
+def _quote_path(path: str) -> str:
+    """Quote one Git path for the configured shell on every supported host."""
+    if os.name == "nt":
+        return subprocess.list2cmdline([path])
+    return shlex.quote(path)
+
+
+def _command_for_paths(command: str, paths: tuple[str, ...]) -> str:
+    return " ".join((command, *(_quote_path(path) for path in paths)))
+
+
 def _failed_open(outcome: str, message: str) -> tuple[str, str]:
     return outcome, message
 
@@ -126,18 +176,26 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
             return _failed_open(SKIP_NOT_DECLARED, "no lint command is declared")
 
         changes: ChangeSet = collect_change_set(payload)
-        # Only an assessed empty set is clean. An assessment failure still reaches the declared
-        # lint command, which is the safe direction for a verifier fault.
         if changes.assessed and not changes.paths:
             return ALLOW, "clean tree"
-
         project = changes.project_dir
         if project is None:
             try:
                 project = gp.project_dir(payload)
             except Exception:
                 project = None
-        if project is None or not command_trust.is_trusted(project):
+        if project is None:
+            return _failed_open(INTERNAL_ERROR, "project directory could not be resolved")
+        # A failed status read is not evidence of a clean tree and must not launch a potentially
+        # broad command without a proven change set.
+        if not changes.assessed:
+            return _failed_open(INTERNAL_ERROR, "changeset assessment failed")
+        lint_paths = _relevant_paths(project, changes.paths)
+        if changes.assessed and not lint_paths:
+            return ALLOW, "no relevant JavaScript or TypeScript files changed"
+        if _uses_network_launcher(command):
+            return _failed_open(SKIP_NETWORK, "network package launchers are not allowed in hooks")
+        if not command_trust.is_trusted(project):
             return _failed_open(SKIP_UNTRUSTED, "configured command is not approved")
         missing = gp.missing_tool(command)
         if missing:
@@ -150,7 +208,7 @@ def verify(payload: dict[str, Any]) -> tuple[str, str]:
         # The repository config is the executable command authority. shell=True is deliberate so
         # its declared package-script and compound-command semantics remain intact.
         result = subprocess.run(
-            command,
+            _command_for_paths(command, lint_paths) if lint_paths else command,
             shell=True,
             cwd=str(project) if project is not None else None,
             capture_output=True,
@@ -181,6 +239,7 @@ def _emit(outcome: str, message: str, payload: dict[str, Any]) -> None:
     fixed = {
         SKIP_UNTRUSTED: "configured command is not approved",
         SKIP_UNAVAILABLE: "declared linter is unavailable",
+        SKIP_NETWORK: "network package launchers are not allowed in hooks",
         TIMEOUT: "declared linter timed out",
         INTERNAL_ERROR: "Stop verifier failed internally",
     }

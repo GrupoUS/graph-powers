@@ -323,7 +323,7 @@ packages this code depends on.
 |---|---|---|
 | **On PATH** | cannot be fetched on demand | `python3`, `git`, `node`, `claude`, `gh`, `gitleaks`, `psql`, a browser |
 | **Fetched per call** | the package manager downloads it each invocation; a runner plus network is the whole requirement | `lighthouse`, `unlighthouse`, `vercel`, `playwright` |
-| **Works either way, better global** | resolves through a runner, but re-downloads every call and keeps state between them | `agent-browser`, `biome`, `oxlint` |
+| **Works either way, better global** | resolves through a runner, but re-downloads every call and keeps state between them | `agent-browser` |
 
 That distinction is the point of this section. Most of what you will see in fenced blocks across the
 skills is the middle class, so the real prerequisite list is far shorter than the list of tool names.
@@ -400,8 +400,8 @@ Package names and the binary each one exposes were read from the registries, not
 says the graph steps are **SKIPPED, never blocking**, and `/plan` falls back to grep. Install it for
 speed, not for correctness.
 
-`biome` and `oxlint` are not in this table on purpose — they are gate tooling, they depend on what
-the project declares, and Step 3 installs them where that decision is made.
+`oxlint` and `oxfmt` are not in this table on purpose — they are project-local gate tooling, and
+Step 3 installs them where that decision is made.
 
 **Five environment variables behave like optional prerequisites**, in that whatever reads them does
 nothing at all when they are unset and says so nowhere: `VERCEL_TOKEN`
@@ -733,435 +733,59 @@ Commit/push opt-ins and the destructive floor remain separate gates.
 To keep asking on every unclassified command, pass `--autonomy guarded` to the installer
 or set `"level": "guarded"`. Do not express that as `autonomous` plus `bashDefault: ask`.
 
-**Only declare a command whose tool is installed, and choose one owner for its version.**
-`tooling.commands.format` runs after every edit and `tooling.commands.lint` at every stop; the
-plugin runs what you wrote and nothing more. There are two valid installation models, but mixing
-them is how the CLI, editor and schema end up describing different releases:
+**Keep one local owner for the JavaScript/TypeScript toolchain.**
 
-| Model | Use when | Commands in `.graph-powers/config.json` | Version owner |
-|---|---|---|---|
-| project-local | the repository has a JavaScript package manifest and lockfile | package scripts such as `bun run format` and `bun run lint` | manifest + lockfile |
-| global | the repository must not acquire tool dependencies, or one machine-wide baseline is deliberate | direct `biome …` and `oxlint …` commands | the global package installation |
+For JavaScript and TypeScript projects, the default editor/toolchain contract is:
 
-For a project-local installation, add both tools with the package manager the project already
-uses, put the real commands in its manifest, and route Graph Powers through those scripts:
+| Concern | Owner | Scope |
+|---|---|---|
+| Editor types, autocomplete, navigation | `vtsls` | Zed only |
+| JavaScript/TypeScript diagnostics | `oxlint` | Zed and final verification |
+| JavaScript/TypeScript/JSON/CSS formatting | `oxfmt` | Zed format-on-save and PostToolUse |
+| Type-aware final gate | local `oxlint` plus `typescript@7` | `/verify`, commit or CI only |
 
-```bash
-bun add -D @biomejs/biome oxlint
+If the project does not already have the local packages, print the commands for the person to run:
+
+```
+bun add -d oxlint oxfmt typescript@7
 ```
 
-```json
+The corresponding package scripts stay small and local:
+
+```
 {
   "scripts": {
-    "format": "biome format --write",
-    "lint": "oxlint --deny-warnings"
+    "format": "oxfmt --write",
+    "lint": "oxlint --deny-warnings",
+    "type-check": "oxlint --type-aware --type-check --threads 1"
   }
 }
 ```
 
-```json
-"tooling": {
-  "commands": {
-    "format": "bun run format",
-    "lint": "bun run lint"
-  }
-}
-```
+Adapt the script names to the repository only when they already have an equivalent local convention. Do not add a second JavaScript/TypeScript type provider, diagnostics provider, or formatter to compensate for a missing dependency. Do not use a network launcher from an editor command or hook.
 
-Replace `bun run` with the runner declared by the project; do not install one package manager just
-for these two commands.
+Copy or adapt `${CLAUDE_PLUGIN_ROOT}/templates/zed/settings.json` into the project's `.zed/settings.json` when Zed is in scope. Confirm these invariants:
 
-For the global model, install both globally because this harness follows the session into
-repositories that do not carry them as dependencies:
+- JavaScript, TypeScript, and TSX use exactly `vtsls` and `oxlint` as language servers.
+- Oxfmt is the only formatter and format-on-save is enabled.
+- Zed uses vtsls's bundled compatible TypeScript SDK; `autoUseWorkspaceTsdk` is `false`.
+- `node_modules/typescript/lib` is reserved for the TypeScript 7 gate and is not a vtsls SDK.
+- dependency, build, cache, coverage, and generated directories stay in `file_scan_exclusions`.
+- Prettier and any other competing formatter or language server are disabled for this surface.
 
-```bash
-bun add -g @biomejs/biome oxlint
-biome --version
-oxlint --version
-```
+The editor and final gate intentionally use separate compatible surfaces. Zed's vtsls adapter
+currently expects `tsserver.js` when it uses a workspace SDK, while TypeScript 7 no longer ships
+that entrypoint. Keep vtsls as the sole TypeScript provider with its bundled compatible SDK and
+report `BLOCKED: vtsls + local TypeScript 7` until the adapter supports the TypeScript 7 SDK. Do not
+add another TypeScript server.
 
-Editor extensions have their own binary discovery and update behavior; installing a CLI does not
-prove the IDE launched it. Prefer the project-local binary when the project-local model was chosen,
-or pin the global binary in the IDE's user settings when GUI launches cannot see the shell's
-`PATH`. Do not let an extension download become a silent third version. VS Code and compatible
-editors such as Cursor use the official `biomejs.biome` extension and, when oxlint diagnostics are
-deliberate, `oxc.oxc-vscode`. Zed uses the official Biome and Oxc extensions. Other IDEs follow the
-same contract below even when their setting names differ.
+Hooks have narrower ownership:
 
-Nothing is hidden if the direct-command model is wrong: every session start names what did not
-resolve (`NOT INSTALLED: lint needs oxlint`). A command routed through the package manager
-(`bun run lint`) cannot be preflighted from its name; the setup verification below must execute it.
+- `PostToolUse` runs one local Oxfmt `--write` process for the edited JS/TS/JSON/CSS file, with a short timeout, and fails open.
+- `Stop` runs local Oxlint only on changed JS/TS paths; it never runs a full-tree lint and never runs type-aware analysis.
+- Type-aware Oxlint is reserved for `/verify`, commit, and CI gates, with bounded concurrency (`--threads 1`).
 
-### Configuring Biome and oxlint so the gate actually checks something
-
-A declared command with no config file behind it runs, exits 0, and reports nothing — the worst
-possible gate, because the line reads as covered. Both tools need a config committed to the
-repository, and they need to divide the work or they duplicate it.
-
-#### Scope before rules — this is where the noise comes from
-
-Measured on a real Astro project in this org, running each tool at the repository root with no
-scoping, against the same tool scoped to the project's own source:
-
-| Run | Files | Findings |
-|---|---|---|
-| oxlint, no config | — | 468 warnings |
-| oxlint, defaults + `ignorePatterns` | — | **5** |
-| Biome, `includes: ["**"]` | 387 | 1,093 errors · 1,090 warnings · 1,345 infos |
-| Biome, `includes` minus harness dirs | 62 | 56 errors (50 of them *formatting* of JSON config files) · 163 warnings |
-
-**Ninety-nine per cent of it was in files the project did not write.** Nearly all of it sat in
-`.claude/` and a timestamped `.claude.bak-*/` — bundled third-party JavaScript that skills ship,
-where `no-unused-vars` (169), `no-unused-expressions` (156) and `no-loss-of-precision` fire on
-minified output and on colour-conversion constants that are supposed to be long doubles. Correct
-code, correctly flagged, in somebody else's file.
-
-That makes it this plugin's problem rather than the project's chore: **the harness is what puts
-that code in the tree**, so the harness has to be what excludes it. Put these in both configs, and
-add `.claude.bak*` because a backup taken during setup is linted like source:
-
-```
-.claude/**   .claude.bak*/**   .codex/**   .agents/**
-node_modules/**   dist/**   build/**   .astro/**   .next/**   coverage/**   *.min.js
-```
-
-`.gitignore` is not a substitute. oxlint does respect it — verified — but `.claude/` is *deliberately
-committed*, since the harness config is meant to be shared, so an ignore file will never exclude it.
-The exclusion has to be in the linter config.
-
-Do this first and measure again before touching a single rule. A project whose declared lint already
-passes has nothing to fix; the number that alarmed you may be entirely outside its source. Check
-what the project actually declares before running anything wider:
-
-```bash
-python3 -c "import json;print(json.load(open('.graph-powers/config.json'))['tooling']['commands'])"
-```
-
-**The division.** Biome formats; oxlint lints. Both *can* lint, and turning both loose on the same
-rules produces two diagnostics per finding, which trains people to skim. Biome's linter still earns
-its place for the editor and for a manual full pass; it is simply not the thing the Stop gate runs.
-
-| Tool | Owns | Runs as |
-|---|---|---|
-| Biome | formatting, import sorting, editor diagnostics | `tooling.commands.format`, on every edit |
-| oxlint | the lint gate — correctness across the whole tree | `tooling.commands.lint`, at Stop |
-
-```json
-"tooling": {
-  "commands": {
-    "format": "biome format --write",
-    "lint": "oxlint --deny-warnings"
-  }
-}
-```
-
-`--deny-warnings` is part of the gate contract, not a strictness flourish. Without it, oxlint can
-print warnings and still exit 0, so the Stop hook records a pass for findings it just displayed.
-
-**`format` is `biome format --write`, not `biome check --write`.** `check` runs the linter and the
-assists with auto-fix, so it rewrites imports and code shape between two edits of a half-finished
-refactor — the hook applies it after *every* Write, and a fix landing mid-edit cascades errors into
-the next one. `format` touches whitespace and nothing else. For the same reason `lint` never carries
-`--fix` or `--write`: at Stop the job is to report, not to change code the person is about to read.
-
-**`biome.json`** — `biome init` writes a starter; these are the keys that matter
-([reference](https://biomejs.dev/reference/configuration/)). Pin `$schema` to the exact version
-printed by `biome --version` so the editor validates against the rules the CLI actually runs.
-Replace `<BIOME_VERSION>` before committing; it is an instruction, not a literal schema URL:
-
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/<BIOME_VERSION>/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": {
-    "ignoreUnknown": true,
-    "includes": [
-      "src/**", "tests/**", "*.config.*",
-      "!**/.claude/**", "!**/.claude.bak*/**", "!**/.codex/**", "!**/.agents/**",
-      "!**/node_modules/**", "!**/dist/**", "!**/build/**", "!**/.astro/**",
-      "!**/.next/**", "!**/coverage/**"
-    ]
-  },
-  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
-  "javascript": {
-    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended",
-      "correctness": { "noUnusedVariables": "error", "noUnusedImports": "error" }
-    }
-  },
-  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
-}
-```
-
-Three details in `files.includes` decide whether this is a gate or a wall of noise.
-
-**Name the source; do not take the whole tree minus exclusions.** `biome check` runs the formatter
-as well as the linter, so `["**", …]` asks the repository to format every `package.json`,
-`tsconfig.json`, `vercel.json` and `.vscode/` file it can find. Measured on the project above: the
-tree-minus-exclusions form reported 255 findings of which **6 were lint** and the rest formatting of
-config files nobody formats with Biome. Listing `src/**` and the config files you actually own gave
-41 files and a clean exit on the same repository.
-
-**The patterns resolve relative to the config file**, not to where you run the command. `src/**` in
-a root `biome.json` means the project's `src`, wherever Biome is invoked from.
-
-**`vcs.useIgnoreFile` is the one people skip** and then wonder why the formatter walks `dist/`. It is
-not a substitute for the exclusion list, since the harness directories are committed on purpose.
-
-Rule severities are `off`, `info`, `warn`, `error`; `rules.preset` accepts `recommended`, `all` or
-`none`, and the domains are a11y, complexity, correctness, nursery, performance, security, style and
-suspicious.
-
-**`.oxlintrc.json`** — the file oxlint reads by default
-([reference](https://oxc.rs/docs/guide/usage/linter/config-file-reference.html)):
-
-```json
-{
-  "ignorePatterns": [
-    "**/.claude/**", "**/.claude.bak*/**", "**/.codex/**", "**/.agents/**",
-    "**/node_modules/**", "**/dist/**", "**/build/**", "**/.astro/**",
-    "**/.next/**", "**/coverage/**", "**/*.min.js"
-  ]
-}
-```
-
-The `$schema` field depends on the installation model. With project-local oxlint, add
-`"$schema": "./node_modules/oxlint/configuration_schema.json"`. With global-only oxlint, omit it:
-that relative file does not exist, and adding it creates an editor error even though the linter
-itself works. `$schema` improves completion; it does not change oxlint's runtime behavior.
-
-**That is the whole file, and the omissions are the point.** oxlint's default is the `correctness`
-category — rules that flag code that is wrong, not code that is unfashionable. On the project
-measured above that default plus these ignores produced **5 findings**, every one worth a look.
-
-Adding `plugins` and widening `categories` is not free, and the direction is the opposite of what it
-looks like. The same project, same ignores, with `["import","node","promise","unicorn","oxc",
-"typescript"]` and `suspicious`/`perf` at warn: **68 findings**. What the extra rules bought:
-
-| Rule | Count | Why it was noise here |
-|---|---|---|
-| `no-underscore-dangle` | 27 | Google Apps Script *requires* a trailing `_` to keep a function private. The rule was arguing with the platform |
-| `no-await-in-loop` | 17 | Deliberate sequencing in a smoke-test script. Parallelising it would have been the bug |
-| `consistent-function-scoping` | 8 | Test helpers and inline handlers, hoisted for no benefit |
-| `no-array-sort` | 6 | Wants `toSorted()`. Every call sorted an array `map` had just produced — nothing to mutate |
-
-None of those is a false positive in the sense of the rule misfiring; each is the rule correctly
-reporting something this codebase decided on purpose. That is still noise, and it is worse than
-silence: 63 entries nobody will read, hiding the 5 that mattered.
-
-So widen only after measuring, one axis at a time, and write down what each addition bought. If a
-rule fires more than a handful of times and every hit is intentional, turn that rule off by name and
-say why in the config — a rule disabled with a reason is a decision, and one disabled silently is a
-mystery for whoever inherits it. `"react"` and `"jsx-a11y"` are the two additions that usually do pay
-for themselves in a React project; add `"vitest"` or `"jest"` if the suite is large enough to have
-its own smells. Severities are `off`, `warn`, `error`, and a rule entry overrides its category.
-
-One option worth setting the moment `no-unused-vars` is on, because the underscore prefix is the
-language-wide convention for "deliberately unused" and the rule does not assume it:
-
-```json
-"rules": {
-  "no-unused-vars": ["warn", {
-    "argsIgnorePattern": "^_",
-    "varsIgnorePattern": "^_",
-    "caughtErrorsIgnorePattern": "^_"
-  }]
-}
-```
-
-#### IDE wiring is a separate gate
-
-A clean CLI does not prove that an IDE launched the same binary. The setting names vary, but the
-contract does not:
-
-1. Install the official Biome integration for that IDE.
-2. Start it only when `biome.json` or `biome.jsonc` exists.
-3. Make Biome the only formatter for each supported language.
-4. Choose exactly one editor diagnostic provider: Biome by default, or oxlint deliberately.
-5. Keep machine-local binary paths in user settings; commit only portable workspace settings.
-6. Restart the language server after installing or upgrading a binary.
-
-The baseline in this playbook is **Biome formats and reports editor diagnostics; oxlint runs as the
-Stop/CI gate**. It needs no oxlint editor extension. If an Oxc extension is already installed
-machine-wide, disable both its oxlint and Oxfmt services in this workspace so it cannot become a
-second diagnostic provider or formatter.
-
-| IDE family | Official integrations | Portable workspace settings | Recovery command |
-|---|---|---|---|
-| VS Code, Cursor, VSCodium and compatible editors | `biomejs.biome`; optional `oxc.oxc-vscode` | `.vscode/settings.json` | `Developer: Reload Window`; Oxc also provides `Oxc: Restart oxlint Server` |
-| Zed | Biome; optional Oxc | `.zed/settings.json` | restart the Biome/Oxlint language server |
-| IntelliJ-family and other IDEs | use the official Biome integration where available | the IDE's project settings | restart the plugin or IDE language service |
-
-##### VS Code, Cursor and compatible editors
-
-Cursor and other VS Code derivatives use the same workspace keys. This baseline requires a Biome
-configuration and enables format-on-save only for named languages:
-
-```json
-{
-  "biome.enabled": true,
-  "biome.requireConfiguration": true,
-  "[javascript]": {
-    "editor.defaultFormatter": "biomejs.biome",
-    "editor.formatOnSave": true
-  },
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome",
-    "editor.formatOnSave": true
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "biomejs.biome",
-    "editor.formatOnSave": true
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome",
-    "editor.formatOnSave": true
-  }
-}
-```
-
-Add language blocks only for formats the project owns. Do not set `editor.defaultFormatter`
-globally, because Biome does not support every language in a mixed repository. Do not enable
-`source.fixAll.biome` or `source.fixAll.oxc` on save by default: either turns a format operation into
-a lint-fix operation, contradicting the `biome format --write` boundary above.
-
-If `oxc.oxc-vscode` is installed globally but this project follows the baseline, add these workspace
-settings to keep it inactive here. Do not add unknown `oxc.*` keys when the extension is absent:
-
-```json
-{
-  "oxc.enable.oxlint": false,
-  "oxc.enable.oxfmt": false
-}
-```
-
-If the team chooses oxlint for IDE diagnostics, install `oxc.oxc-vscode` and reverse only the
-diagnostic ownership:
-
-```json
-{
-  "biome.inlineConfig": { "linter": { "enabled": false } },
-  "oxc.enable.oxlint": true,
-  "oxc.enable.oxfmt": false,
-  "oxc.requireConfig": true
-}
-```
-
-The Oxc extension does not bundle oxlint. Its recommended path is the project-local package; after
-installing while the IDE is open, run `Oxc: Restart oxlint Server` or reload the window.
-
-##### Zed
-
-For Zed, configure the same ownership explicitly per language. The Biome extension from `0.2.0`
-onward requires Biome v2; the current Oxc extension requires oxlint `1.35.0` or newer.
-
-```json
-{
-  "lsp": {
-    "biome": {
-      "settings": { "require_config_file": true }
-    }
-  },
-  "languages": {
-    "JavaScript": {
-      "language_servers": ["biome", "!oxlint", "!oxfmt", "..."],
-      "formatter": { "language_server": { "name": "biome" } }
-    },
-    "TypeScript": {
-      "language_servers": ["biome", "!oxlint", "!oxfmt", "..."],
-      "formatter": { "language_server": { "name": "biome" } }
-    },
-    "TSX": {
-      "language_servers": ["biome", "!oxlint", "!oxfmt", "..."],
-      "formatter": { "language_server": { "name": "biome" } }
-    }
-  }
-}
-```
-
-Repeat the language block only for formats the project owns; do not set Biome as a top-level global
-formatter or language server. If oxlint should own diagnostics, enable it in the language list and
-set `lsp.biome.settings.inline_config` to `{ "linter": { "enabled": false } }`.
-
-##### Binary pinning and recovery in any IDE
-
-Sandboxed editors and GUI launches may not inherit the shell's `PATH`. Put machine-local paths in
-**user settings**, never in committed workspace settings:
-
-For VS Code, Cursor and compatible editors:
-
-```json
-{
-  "biome.lsp.bin": "<path-to-biome>",
-  "oxc.path.oxlint": "<path-to-oxlint>"
-}
-```
-
-For Zed:
-
-```json
-{
-  "lsp": {
-    "biome": {
-      "binary": {
-        "path": "<path-to-biome>",
-        "arguments": ["lsp-proxy"]
-      }
-    },
-    "oxlint": {
-      "binary": {
-        "path": "<path-to-oxlint>",
-        "arguments": ["--lsp"]
-      }
-    }
-  }
-}
-```
-
-Other IDEs expose equivalent binary-path fields. Biome speaks LSP through `lsp-proxy`; oxlint uses
-`--lsp`, but an extension may add those arguments itself — use the extension's documented binary
-field rather than putting a raw command into an unrelated setting.
-
-| Symptom | First proof | Correct response |
-|---|---|---|
-| Biome initialization times out with `Connection refused` | `biome rage --daemon-logs` shows whether a daemon and its config loaded | run `biome stop`, restart the IDE language server, then inspect its output/log for the binary path and version; do not edit lint rules |
-| CLI passes but the IDE fails | IDE output/log names a different binary than `biome --version` | align the local/global versions or pin the intended binary in user settings |
-| `.oxlintrc.json` schema cannot be resolved | oxlint is global but `$schema` points into `node_modules` | omit `$schema`, or install oxlint project-locally |
-| every finding appears twice | both Biome and oxlint integrations report diagnostics | choose one editor diagnostic provider |
-| files change back and forth on save | Biome and Oxfmt/Prettier are both formatters | keep one formatter per language |
-
-`biome clean` removes daemon **logs**, not a broken socket or mismatched binary; it is not the fix for
-`Connection refused`. `biome rage --daemon-logs` is the diagnostic command, and `biome stop` plus a
-single IDE language-server restart is the portable recovery path.
-
-**Prove the CLI and IDE separately before moving on**, and show the output — a config that is
-present but not being read looks exactly like a clean run:
-
-```bash
-biome --version
-oxlint --version
-biome format . --reporter=summary
-biome lint . --reporter=summary
-oxlint --deny-warnings
-biome rage
-```
-
-The format command reports drift without writing; the lint commands prove each rule engine loads;
-`biome rage` names the loaded configuration and, while the editor is open, the daemon version. Then
-open the IDE's language-server output/log and confirm the launched Biome path/version is the one
-selected by the installation model.
-
-**In CI, preserve the same division with check-only commands:** run
-`biome ci --linter-enabled=false` for formatting and assists, then `oxlint --deny-warnings` for lint.
-Both are read-only and exit non-zero on their own findings; they do not duplicate lint diagnostics.
-
-**If the project already has ESLint or Prettier, do not add these.** Two formatters fighting over
-the same file is worse than the one that was already there, and this plugin's contract is to run
-what the project declared, not to migrate it.
+The canonical policy is [the TypeScript 7 and Oxc gate](references/shared/130-typescript7-oxc-gates.md). The editor integrations are documented by the [Oxlint guide](https://oxc.rs/docs/guide/usage/linter), [Oxfmt guide](https://oxc.rs/docs/guide/usage/formatter.html), [Oxlint editor guide](https://oxc.rs/docs/guide/usage/linter/editors.html), [Oxfmt formatter guide](https://oxc.rs/docs/guide/usage/formatter/editors.html), [Zed TypeScript guide](https://zed.dev/docs/languages/typescript), and [Zed language configuration](https://zed.dev/docs/configuring-languages).
 
 #### Someone hands you four figures of lint findings
 
@@ -1277,10 +901,10 @@ Three things to get right, because they are the ones that go wrong quietly:
   `drizzle-kit check` is not a status command: it never opens the database.
 - **`testRunner: null` is an answer.** It says the absence is deliberate. Omitting the field says
   nobody looked.
-- **JS/TS gates use the low-resource resolver.** Read `skills/debugger/references/low-resource-js-ts-gates.md`. For a Bun project with `tsconfig.json`, configure native tsgo exactly as
-  `bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1`; install the package locally first. Use `bun test --smol` for the final suite and
-  `bun test --changed --bail=1 --smol` in an edit loop. Never copy `node --test`, legacy `tsc`, bare
-  `tsgo`, unbounded `--parallel`, or unbounded `--concurrent` into the config.
+- **JS/TS gates use local Oxc.** Read `references/shared/130-typescript7-oxc-gates.md`. Regular
+  Oxlint diagnostics and Oxfmt formatting stay changed-file/editor scoped. The bounded command
+  `oxlint --type-aware --type-check --threads 1` is reserved for `/verify`, commit or CI. Confirm
+  the local packages first and never use a network fallback.
 
 **Leave `autoUpdate` alone unless the project asks otherwise.** At session start, at most once every
 twelve hours, a detached worker updates only the routes whose cache lifecycle it owns: Claude Code
@@ -2024,7 +1648,7 @@ print(gp.config_path(), gp.work_branch(), gp.opt_in('COMMIT'))
 
 # 4. every declared gate actually runs
 #    run each command from tooling.commands and report its exit code.
-#    The usual failure is not a broken gate but an absent tool — `biome`, `oxlint`, `eslint`,
+#    The usual failure is not a broken gate but an absent tool — `oxlint`, `oxfmt`, `eslint`,
 #    `ruff` — declared and never installed. This prints the same verdict the session tag will:
 python3 -c "
 import sys; sys.path.insert(0, '$PLUGIN/hooks')

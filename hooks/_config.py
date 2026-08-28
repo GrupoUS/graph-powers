@@ -89,11 +89,12 @@ DEFAULTS: dict[str, Any] = {
     },
     # Execution graph ceilings, read by graph_guardrails.py.
     "graphGuardrails": {
-        "maxSpawnsPerSession": 25,
-        "maxRoundsPerAgent": 8,
+        "maxSpawnsPerSession": 16,
+        "maxRoundsPerAgent": 4,
         # Both ceilings above are counted inside this rolling window, not from session start. A
-        # session that lives all day is normal work; twenty-five spawns inside an hour is not.
+        # session that lives all day is normal work; sixteen spawns inside an hour is not.
         "spawnWindowMinutes": 60,
+        "maxParallelWave": 2,
     },
     # How much runs without stopping to ask. `guarded` is the default because a stranger's first
     # session should not be the one that discovers what this harness will do unattended.
@@ -620,7 +621,6 @@ def graph_limits(cfg: dict[str, Any] | None = None) -> dict[str, int]:
                 else v) for k, v in DEFAULTS["graphGuardrails"].items()}
 
 
-
 # ── Declared versus runnable ─────────────────────────────────────────────────
 #
 # A command in `tooling.commands` is a declaration, not a capability. `session_context.py` prints
@@ -633,8 +633,9 @@ def graph_limits(cfg: dict[str, Any] | None = None) -> dict[str, int]:
 # runs. So the question "is this command actually runnable" gets answered here, once, for every
 # caller.
 
-# Tokens that launch something else rather than being the tool. `npm`/`bun`/`pnpm`/`yarn` are here
-# because `bunx biome check` needs *biome*; whether `bunx` exists says nothing about that.
+# Tokens that launch something else rather than being the tool. Package managers are here because
+# `run` resolves a tool from the project's manifest; whether the manager exists says nothing about
+# the declared tool itself.
 _RUNNERS = frozenset({
     "npx", "bunx", "pnpm", "yarn", "npm", "bun", "deno", "uvx", "uv", "pipx", "poetry", "dlx",
 })
@@ -680,7 +681,7 @@ def missing_tool(command: str) -> str | None:
     try:
         if shutil.which(name):
             return None
-        # A declared path rather than a name on PATH — `./node_modules/.bin/biome`, `C:\t\b.exe`.
+        # A declared path rather than a name on PATH — `./node_modules/.bin/oxlint`, `C:\t\b.exe`.
         if (os.sep in name or "/" in name) and Path(name).exists():
             return None
     except Exception:

@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: "Use when an error, crash, failing test, 500, hydration mismatch or regression needs evidence-first diagnosis, or when a debug/TDD loop must resolve Bun and tsgo gates. Loaded by /debug. Not for choosing what to build or proving an already-working change."
+description: "Use when an error, crash, failing test, 500, hydration mismatch or regression needs evidence-first diagnosis, or when a debug/TDD loop must resolve Oxc and bounded test gates. Loaded by /debug. Not for choosing what to build or proving an already-working change."
 
 ---
 
@@ -44,9 +44,10 @@ restate it elsewhere.**
 ## JS/TS gate resolver
 
 For a JavaScript/TypeScript change set, read
-`${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`. It is the single execution policy
-for declared commands, safe inference, Turbo scoping, and loop versus final tests. Read
-`references/low-resource-js-ts-gates.md` only for setup or migration rationale.
+`${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`. It is the single execution
+policy for local TypeScript 7/Oxc commands, the vtsls compatibility boundary, Turbo
+scoping, and loop versus final tests. Resource complaints route to `/perf`; `audit` and `frontend`
+are not the default resource diagnostic.
 
 Turbo graph inspection uses `scripts/turbo_dry_json.py`; never send `--dry=json` or `--dry-run`
 through the shell tool's captured stdout. The failure mechanism and recovery are in
@@ -158,7 +159,7 @@ Quick lookup; full Negative Constraints index + bug catalog → `references/anti
 | `references/pack-guides.md` | Per-pack execution (8a–8d) + Step-2 parallel-research templates |
 | `references/anti-patterns.md` | First-line triage: project NEVER rules + ORM / API-layer / auth pitfalls index |
 | `references/structural-quality.md` | Step 5 fix-shape check · `systematic-audit` structural sweep · `/pr-review` structural lens (§ 3C): code-judo doctrine, smells table, canonical homes, output discipline, presumptive blockers |
-| `references/low-resource-js-ts-gates.md` | JS/TS gate setup, migration rationale, deny list and framework boundary |
+| `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md` | JS/TS Oxc gates, vtsls/TypeScript 7 compatibility and resource boundary |
 | `references/turbo-dry-json-epipe.md` | Turbo dry-run EPIPE/SIGABRT diagnosis and the file-backed wrapper |
 | `Skill("webapp-testing")` | browser evidence: install floor, named session, headless vs `--cdp` attach, verdict rules |
 | `learning.md` | measured history carried from the former standalone JS/TS gate skill and later debugger rounds |

@@ -60,8 +60,11 @@ jobs:
               except Exception as e:
                   bad.append(f"{f}: {e}")
           print("\n".join(bad) or f"{len(files)} JSON files parse")
-          sys.exit(1 if bad else 0)
-          PY
+           sys.exit(1 if bad else 0)
+           PY
+
+      - name: Oxc and Zed policy stays canonical
+        run: python3 .github/check_oxc_policy.py
 
       - name: A shipped change bumps the version
         run: python3 .github/check_version_bump.py
@@ -161,16 +164,16 @@ jobs:
           assert "hooks" not in plugin, "plugin.json duplicates the canonical hooks/hooks.json"
           commands = [h["command"] for arr in d.get("hooks", {}).values()
                       for m in arr for h in m["hooks"]]
-          assert len(commands) == 14, f"expected 14 native hook registrations, found {len(commands)}"
-          assert len(set(commands)) == 13, \
-              f"expected 13 scripts with the Bash approver registered twice, found {len(set(commands))}"
+          assert len(commands) == 15, f"expected 15 native hook registrations, found {len(commands)}"
+          assert len(set(commands)) == 14, \
+              f"expected 14 scripts, with smart_bash_approver registered for two events, found {len(set(commands))}"
           missing = [
               h["command"].split("/hooks/")[1].rstrip('"')
               for arr in d.get("hooks", {}).values() for m in arr for h in m["hooks"]
               if not os.path.exists("hooks/" + h["command"].split("/hooks/")[1].rstrip('"'))
           ]
           print("\n".join(f"MISSING: {m}" for m in missing)
-                or "14 native registrations cover 13 hook scripts; every target exists")
+                or "15 native registrations cover 14 hook scripts; smart_bash_approver covers two events")
           sys.exit(1 if missing else 0)
           PY
 
