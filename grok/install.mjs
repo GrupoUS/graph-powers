@@ -185,11 +185,11 @@ export function mergeGrokConfig(current, { autonomous, pluginRoot, forgetClone =
     const fetch = setTableKey(text, "features", "web_fetch", true);
     if (fetch.changed) changed.push("features.web_fetch");
     text = fetch.text;
-
-    const sub = setTableKey(text, "subagents", "enabled", true);
-    if (sub.changed) changed.push("subagents.enabled");
-    text = sub.text;
   }
+
+  const sub = setTableKey(text, "subagents", "enabled", true);
+  if (sub.changed) changed.push("subagents.enabled");
+  text = sub.text;
 
   const enabled = mergeStringArrayKey(text, "plugins", "enabled", ["graph-powers"]);
   if (enabled.changed) changed.push("plugins.enabled");
@@ -244,18 +244,18 @@ export function install({
 
   if (emitOnly) return { written, configChanged: [] };
 
-  if (autonomous && !dryRun && !verified) {
+  if (!dryRun && !verified) {
     const proof = verifyHookClient({
       client: "grok",
       pluginRoot,
       packageRoot: pluginRoot,
       projectDir: process.cwd(),
-      autonomy: "autonomous",
+      autonomy: autonomous ? "autonomous" : "guarded",
       probe: true,
     });
     if (!proof.ok) {
       throw new Error(
-        `Grok hook package verification failed; always-approve posture was not changed: ${proofFailure(proof)}`,
+        `Grok hook package verification failed; ${autonomous ? "always-approve posture" : "guarded configuration"} was not changed: ${proofFailure(proof)}`,
       );
     }
   }
@@ -276,7 +276,7 @@ export function install({
       written.push(configFile);
     }
   } else {
-    log("Grok config.toml already matches autonomous posture");
+    log(`Grok config.toml already matches ${autonomous ? "autonomous" : "guarded"} posture`);
   }
   return { written, configChanged: changed };
 }

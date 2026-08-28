@@ -10,9 +10,11 @@ workflow_type: augmented-llm
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
 > Read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md`; when the change set is JS/TS, read `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`.
 
-Modes: `/verify` with **no arguments is `quick`** (gates + floor only — this is the default,
-because the agent batch is what burns RAM). `/verify full` runs the review agents.
+Modes: explicit `/verify quick` is gates + floor, `/verify full` runs the review agents, and
 `/verify loop` hands the plan-measured half to `graph-powers:ultra-verify`, § 1.6.
+No arguments inherit the originating task's tier: **L1-L2 → `quick`; L3+ → `full`**.
+Explicit `/verify quick` always remains `quick`.
+An unknown tier defaults to `full`; only an explicitly classified L1-L2 run may infer `quick`.
 Apply the shared JS/TS resolver in § 0 when the change set is JS/TS. Resource complaints belong to
 `/perf`, not to an automatic expansion of this command.
 
@@ -164,9 +166,10 @@ Each track returns the findings table of
 one line naming what it checked and found clean.** Without that line "two tracks agree" is not
 evidence and "only one track raised it" cannot be told from "only one track looked".
 
-Skipped unless `$ARGUMENTS` contains `full` or `loop`: empty arguments are `quick`, and `quick`
-is the gates plus the floor run on the main thread. The agent batch is what made everyday
-`/verify` expensive; it is no longer the default.
+Run when `$ARGUMENTS` contains `full` or `loop`, or when an argument-less run inherits an L3+ task.
+An argument-less unknown-tier run also executes this batch: silence about the originating tier is
+not evidence that the work is small. Skip only for explicit `quick`, or when the current task was
+explicitly classified L1-L2; those are gates plus the floor on the main thread.
 
 ## 1.6 `loop` mode — hand the plan-measured half to the workflow
 

@@ -5,6 +5,34 @@ export function verifierPath(pluginRoot) {
   return join(pluginRoot, "bin/verify-hook-clients.py");
 }
 
+function pythonCandidates(platform = process.platform) {
+  return platform === "win32"
+    ? [["python", []], ["py", ["-3"]]]
+    : [["python3", []], ["python", []]];
+}
+
+function pythonInvocation({ cwd, env, args }) {
+  const candidates = pythonCandidates();
+  for (const [command, prefix] of candidates) {
+    const probe = spawnSync(command, [
+      ...prefix,
+      "-c",
+      "import sys; raise SystemExit(sys.version_info[0] != 3)",
+    ], {
+      cwd,
+      env,
+      stdio: "ignore",
+      timeout: 5000,
+      windowsHide: true,
+    });
+    if (!probe.error && probe.status === 0) {
+      return { command, args: [...prefix, ...args] };
+    }
+  }
+  const [command, prefix] = candidates[0];
+  return { command, args: [...prefix, ...args] };
+}
+
 export function verifyHookClient({
   client,
   pluginRoot,
@@ -38,7 +66,8 @@ export function verifyHookClient({
   if (expectedVersion) args.push("--expected-version", expectedVersion);
   if (checkPosture) args.push("--check-posture");
   if (probe) args.push("--probe-guardrail");
-  const run = spawnSync("python3", args, {
+  const invocation = pythonInvocation({ cwd: projectDir, env, args });
+  const run = spawnSync(invocation.command, invocation.args, {
     cwd: projectDir,
     encoding: "utf8",
     timeout: 60000,

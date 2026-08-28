@@ -13,12 +13,6 @@
     "protectedBranches": ["main", "master"],
     "optInPrefix": "ACMEPLATFORM"
   },
-  "graphGuardrails": {
-    "maxSpawnsPerSession": 16,
-    "maxRoundsPerAgent": 4,
-    "maxParallelWave": 2,
-    "spawnWindowMinutes": 60
-  },
   "tooling": {
     "packageManager": "bun",
     "typeChecker": "vtsls",

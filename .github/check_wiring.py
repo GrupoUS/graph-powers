@@ -369,6 +369,27 @@ def external_routes() -> list[str]:
     return problems
 
 
+def orchestration_policy() -> list[str]:
+    """Keep the verification route aligned with the always-on execution floor.
+
+    `/verify quick` is the deliberate low-resource path. Making *every* argument-less run quick,
+    however, lets an L3+ implementation reach handoff without the review batch the execution floor
+    requires. This is a semantic route, so a path/reference check cannot see it.
+    """
+    text = read("commands/verify.md")
+    required = (
+        "No arguments inherit the originating task's tier: **L1-L2 → `quick`; L3+ → `full`**.",
+        "Explicit `/verify quick` always remains `quick`.",
+        "An unknown tier defaults to `full`; only an explicitly classified L1-L2 run may infer `quick`.",
+    )
+    missing = [clause for clause in required if clause not in text]
+    return [
+        "commands/verify.md: no-argument verification must route L1-L2 to quick and L3+ to full; "
+        f"missing contract: {clause}"
+        for clause in missing
+    ]
+
+
 def main() -> int:
     agents, skills, workflows, rules = have_agents(), have_skills(), have_workflows(), have_rule_templates()
     problems: list[str] = []
@@ -485,6 +506,7 @@ def main() -> int:
                 )
 
     problems += external_routes()
+    problems += orchestration_policy()
     frontmatter = agent_frontmatter() + namespaced_spawns()
     for p in frontmatter:
         print(f"AGENT:   {p}")

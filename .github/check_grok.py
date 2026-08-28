@@ -99,8 +99,11 @@ process.stdout.write(JSON.stringify({
             "bun",
             "-e",
             """
-import { mergeGrokConfig } from "./grok/install.mjs";
-const seed = `# operator comment\\n[ui]\\ntheme = \\"dark\\"\\npermission_mode = \\"ask\\"\\n\\n[[marketplace.sources]]\\nname = \\"other\\"\\ngit = \\"https://example.invalid/other.git\\"\\n`;
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { install, mergeGrokConfig } from "./grok/install.mjs";
+const seed = `# operator comment\\n[ui]\\ntheme = \\"dark\\"\\npermission_mode = \\"ask\\"\\n\\n[subagents]\\nenabled = false\\n\\n[[marketplace.sources]]\\nname = \\"other\\"\\ngit = \\"https://example.invalid/other.git\\"\\n`;
 const first = mergeGrokConfig(seed, { autonomous: true, pluginRoot: "/tmp/gp-clone" });
 if (!first.next.includes('permission_mode = "always-approve"')) process.exit(2);
 if (!first.next.includes('theme = "dark"')) process.exit(3);
@@ -115,11 +118,48 @@ if (!guarded.next.includes('enabled = ["graph-powers"]')) process.exit(9);
 if (!guarded.next.includes('paths = ["/tmp/gp-clone"]')) process.exit(10);
 if (!guarded.next.includes('name = "graph-powers"')) process.exit(11);
 if (!guarded.next.includes('git = "https://github.com/GrupoUS/graph-powers.git"')) process.exit(12);
-if (guarded.changed.join(",") !== "plugins.enabled,plugins.paths,marketplace.sources") process.exit(13);
+if (!guarded.next.includes("[subagents]\\nenabled = true")) process.exit(13);
+if (guarded.changed.join(",") !== "subagents.enabled,plugins.enabled,plugins.paths,marketplace.sources") process.exit(14);
+const guardedSecond = mergeGrokConfig(guarded.next, { autonomous: false, pluginRoot: "/tmp/gp-clone" });
+if (guardedSecond.changed.length) process.exit(15);
 const noPath = mergeGrokConfig("", { autonomous: true, pluginRoot: null });
-if (noPath.next.includes("plugins.paths") || noPath.next.includes("paths =")) process.exit(14);
+if (noPath.next.includes("plugins.paths") || noPath.next.includes("paths =")) process.exit(16);
 const stripped = mergeGrokConfig(first.next, { autonomous: true, pluginRoot: "/tmp/gp-clone", forgetClone: true });
-if (stripped.next.includes("/tmp/gp-clone")) process.exit(15);
+if (stripped.next.includes("/tmp/gp-clone")) process.exit(17);
+
+const installHome = mkdtempSync(join(tmpdir(), "gp-grok-home-"));
+const invalidRoot = join(installHome, "missing-plugin");
+const configFile = join(installHome, "config.toml");
+const previousHome = process.env.GROK_HOME;
+process.env.GROK_HOME = installHome;
+let failed = false;
+try {
+  install({ pluginRoot: invalidRoot, autonomous: false, verified: false });
+} catch {
+  failed = true;
+}
+if (!failed) process.exit(18);
+if (existsSync(configFile)) process.exit(19);
+const originalConfig = "# operator config\\n[ui]\\ntheme = \\"dark\\"\\n";
+writeFileSync(configFile, originalConfig);
+failed = false;
+try {
+  install({ pluginRoot: join(installHome, "another-missing-plugin"), autonomous: false, verified: false });
+} catch {
+  failed = true;
+}
+if (!failed) process.exit(20);
+if (readFileSync(configFile, "utf8") !== originalConfig) process.exit(21);
+
+const matching = mergeGrokConfig("", { autonomous: false, pluginRoot: invalidRoot }).next;
+writeFileSync(configFile, matching);
+const logs = [];
+install({ pluginRoot: invalidRoot, autonomous: false, verified: true, log: (message) => logs.push(message) });
+if (!logs.some((message) => message.includes("guarded posture"))) process.exit(22);
+if (logs.some((message) => message.includes("autonomous posture"))) process.exit(23);
+if (previousHome === undefined) delete process.env.GROK_HOME;
+else process.env.GROK_HOME = previousHome;
+rmSync(installHome, { recursive: true, force: true });
 process.stdout.write("ok");
 """,
         ],
