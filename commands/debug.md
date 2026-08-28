@@ -51,7 +51,8 @@ Parse first positional token from `$ARGUMENTS`:
 | `auth-db` / `auth` / `db` / `permissions` | § 5 auth-db | templates B + C + D |
 | `recover` | § 6 recovery | evaluator Mode 3 · Mode 5 on a hypothesis the thread cannot leave |
 
-A performance complaint with no defect is not a mode here — run `/perf`.
+A performance or resource-use complaint with no defect is not a mode here — run `/perf` and use its
+resource audit. `audit` and `frontend` are not substitutes for the standard resource diagnostic.
 
 Modes share the **§ 0.1 Setup** preamble.
 
@@ -71,7 +72,7 @@ Read `.graph-powers/config.json` (paths, tooling, gates, `${rulesDir}`). The bug
 is the only place this command names it.** Every later section that needs a known-pattern lookup
 uses what was loaded here.
 
-Resolve baseline gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using literal `tooling.commands`. When the change set is JS/TS, apply `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md` first.
+Resolve baseline gates from `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` using literal `tooling.commands`. When the change set is JS/TS, apply `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md` first. Fix loops use focused changed tests and the low-resource runners; run a full gate once after the fix converges.
 
 Context load via `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` (WISC):
 - Bug in frontend area → `/prime frontend`

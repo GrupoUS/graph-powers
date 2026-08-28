@@ -8,12 +8,13 @@ workflow_type: augmented-llm
 **ARGUMENTS**: $ARGUMENTS
 
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/060-skill-domain-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md`; when the change set is JS/TS, read `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`.
 
 Modes: `/verify` with **no arguments is `quick`** (gates + floor only — this is the default,
 because the agent batch is what burns RAM). `/verify full` runs the review agents.
 `/verify loop` hands the plan-measured half to `graph-powers:ultra-verify`, § 1.6.
-Apply the shared JS/TS resolver in § 0 when the change set is JS/TS.
+Apply the shared JS/TS resolver in § 0 when the change set is JS/TS. Resource complaints belong to
+`/perf`, not to an automatic expansion of this command.
 
 The single rule this command exists to enforce: **a gate is passing only if it ran in this session
 and exited zero.** A remembered pass is not a pass.
@@ -32,10 +33,18 @@ nothing is assumed:
 | Test | `${tooling.commands.test}` | field absent, or `tooling.testRunner` is `null` |
 | Build | `${tooling.commands.build}` | field absent |
 
-**A gate with no declared command is reported as `NOT DECLARED`, never as passing** — except a
-JS/TS type-check or test inferred by the shared resolver, which is reported as
-`INFERRED (debugger)` and still must exit zero. Never infer `npx tsc` or `node --test`.
-See `${CLAUDE_PLUGIN_ROOT}/references/shared/130-bun-tsgo-gates.md`.
+**A gate with no declared command is reported as `NOT DECLARED`, never as passing**. The shared
+JS/TS policy keeps vtsls as the sole TypeScript provider, Oxlint as the sole diagnostic provider,
+and Oxfmt as the sole formatter. Type-aware Oxlint is a bounded final gate only; it never invents a
+network launcher or a second TypeScript provider.
+See `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`.
+
+### 0.4 JS/TS boundary
+
+PostToolUse formats one edited JS/TS/JSON file with local Oxfmt. Stop runs local Oxlint only for
+existing changed JS/TS paths. Both hooks are single-process, short-timeout and fail-open; neither
+uses a watcher, daemon, full-tree fallback or persistent result cache. The final command
+`oxlint --type-aware --type-check --threads 1` belongs only at `/verify`, commit or CI.
 
 A missing script that exits non-zero as "script not found" reads exactly like a real failure, and a
 gate nobody declared reads exactly like a gate nobody needed. Say which one it was.

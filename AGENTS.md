@@ -87,6 +87,7 @@ python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',
 bun .github/check_workflows.mjs              # workflow scripts parse, and each name matches its file
 bun .github/check_codex_policy.mjs           # semantic Codex routing, overrides and Ultra guard
 python3 .github/check_codex_native.py         # native companion/clone policy parity and generated drift
+python3 .github/check_oxc_policy.py           # TypeScript 7, Oxc and editor contract
 python3 .github/check_wiring.py             # every agent, skill, workflow and § cited resolves
 python3 .github/test_file_references.py      # negative tests for the live-file reference gate
 python3 .github/check_file_references.py     # every live Markdown path resolves
@@ -106,7 +107,7 @@ ran and did not.
 
 ### The linter configuration is not a gate
 
-`ruff.toml`, `pyrightconfig.json`, `.oxlintrc.json` and `biome.json` exist so that the tools a
+`ruff.toml`, `pyrightconfig.json`, `.oxlintrc.json` and `.zed/settings.json` exist so that the tools a
 contributor's editor launches say the same thing on every machine. Left unconfigured they resolve
 whatever that machine carries: the same tree reported 190 ruff findings and 737 basedpyright
 warnings here while CI was green, almost all of them about code working exactly as designed —
@@ -147,6 +148,13 @@ SIGABRT, bun aborted. Three coredumps. No tests ran.
 **Solution:** Hook denies the Bash form. Script `skills/debugger/scripts/turbo_dry_json.py`
 writes JSON to `.graph-powers/cache/` and prints the path. Anti-pattern 37 on the debugger
 catalogue. Hosts inherit the rule via `templates/rules/stability.md`.
+
+## JavaScript/TypeScript toolchain decision
+
+The repository uses Oxc only for JavaScript/TypeScript linting and formatting: `oxlint` provides
+interactive diagnostics and `oxfmt` provides formatting. Do not add or restore another formatter or
+linter. TypeScript 7 remains the local compiler gate, but vtsls must use its bundled compatible SDK:
+never configure `tsdk` or `autoUseWorkspaceTsdk` to point at `node_modules/typescript/lib`.
 
 ## When adding something
 

@@ -38,6 +38,7 @@ import {
   verifierPath,
   verifyHookClient as runHookVerifier,
 } from "./hook-client-verifier.mjs";
+import { setupOxc as runOxcSetup } from "./oxc-setup.mjs";
 
 const PLUGIN = "graph-powers";
 const MARKETPLACE = "graph-powers";
@@ -55,7 +56,7 @@ const yellow = (s) => paint("33", s);
 const red = (s) => paint("31", s);
 
 const step = (n, total, msg) => console.log(`\n${bold(`[${n}/${total}]`)} ${msg}`);
-const ok = (msg) => console.log(`  ${green("✔")} ${msg}`);
+const ok = (msg) => console.log(`  ${green("√")} ${msg}`);
 const warn = (msg) => console.log(`  ${yellow("!")} ${msg}`);
 const info = (msg) => console.log(`  ${dim(msg)}`);
 
@@ -129,6 +130,9 @@ ${bold("OPTIONS")}
                                  a confirmation on each of those and writes neither file.
   --source <org/repo|path>       Where the marketplace comes from. Default: ${DEFAULT_REPO}
   --config                       Also write a starting .graph-powers/config.json, inferred from the stack.
+  --setup-oxc                    Install local TypeScript 7/Oxlint/Oxfmt and configure Zed and VS Code/Cursor.
+                                 This is explicit because it changes package manifests and IDE files.
+  --package-manager <name>       Override JS/TS setup detection: bun, npm, pnpm or yarn.
   --prefix <NAME>                Opt-in key prefix (with --config). Default: the directory name.
   --dry-run                      Show what it would do, without doing it.
   --skip-marketplace             Skip registering the marketplace (already registered).
@@ -158,11 +162,38 @@ if (!["project", "user", "local"].includes(scope)) {
 const source = flagValue("--source", DEFAULT_REPO);
 const dryRun = has("--dry-run");
 const wantConfig = has("--config");
+const setupOxc = has("--setup-oxc");
 const autonomyLevel = flagValue("--autonomy", "autonomous");
 if (!["autonomous", "guarded"].includes(autonomyLevel)) {
   die(`invalid autonomy level: ${autonomyLevel}`, "use --autonomy autonomous | guarded");
 }
 const cwd = process.cwd();
+
+// JS/TS setup is useful on its own, including from this repository while developing the plugin.
+// Keep it separate from harness installation so a project with no Claude/Codex/Cursor/Grok CLI can
+// still repair the exact local TypeScript/Oxlint/Oxfmt paths used by the editor and gates.
+const setupOxcOnly =
+  setupOxc &&
+  !argv.some((arg) => ["--target", "--config", "--uninstall", "--update"].includes(arg));
+if (setupOxcOnly) {
+  console.log(`\n${bold("Graph Powers")} ${dim("— JavaScript/TypeScript project setup")}`);
+  try {
+    const result = runOxcSetup({
+      projectDir: cwd,
+      pluginRoot: PLUGIN_ROOT,
+      packageManager: flagValue("--package-manager", null),
+      dryRun,
+      log: info,
+    });
+    if (dryRun) info("dry-run complete: no packages or editor settings were changed");
+    else if (result.install) ok("local TypeScript/Oxlint/Oxfmt packages installed and verified");
+    else ok("local TypeScript/Oxlint/Oxfmt packages already installed and verified");
+    ok("Zed and VS Code/Cursor project settings configured");
+  } catch (error) {
+    die(`failed to set up local JavaScript/TypeScript tools: ${error.message}`);
+  }
+  process.exit(0);
+}
 
 // ── harness detection ────────────────────────────────────────────────────────
 // On Windows an npm-installed CLI is `claude.cmd`, and `CreateProcess` will not run a `.cmd`:
@@ -678,40 +709,57 @@ function readJson(p) {
   }
 }
 
-function isBunNativeTsgoCommand(command) {
-  const value = String(command ?? "").trim().toLowerCase();
+function packageManagerName(value) {
+  const name = String(value ?? "")
+    .trim()
+    .split("@")[0]
+    .toLowerCase();
+  return new Set(["bun", "npm", "pnpm", "yarn"]).has(name) ? name : null;
+}
+
+function hasNetworkFallback(value) {
   return (
-    /^bunx(?:\.exe|\.cmd)?\s/.test(value) &&
-    !/[;&|]/.test(value) &&
-    value.includes("--bun") &&
-    value.includes("--no-install") &&
-    value.includes("@typescript/native-preview") &&
-    /(?:^|\s)tsgo(?:\s|$)/.test(value)
+    /(?:^|[\s;&|])(bunx|npx|pnpx|dlx)(?:\.exe|\.cmd)?(?:\s|$)/.test(value) &&
+    !/(?:^|\s)--no-install(?:\s|$)/.test(value)
   );
 }
 
 function gateScriptIssue(gate, command) {
-  const value = String(command ?? "").trim().toLowerCase();
+  const value = String(command ?? "")
+    .trim()
+    .toLowerCase();
   if (!value) return null;
+  if (hasNetworkFallback(value)) return "network package launcher without --no-install";
+
   if (gate === "typeCheck") {
-    if (isBunNativeTsgoCommand(value)) return null;
-    if (/(?:^|[\s;&|])(?:tsc|tsgo)(?:\.exe|\.cmd)?(?=\s|$)/.test(value))
-      return "legacy tsc or a bare tsgo Node shebang";
-    if (/\b(?:npx|bunx|pnpx)\b[^\r\n]*\btsc(?:\.exe|\.cmd)?(?:\s|$)/.test(value))
-      return "legacy tsc package launcher";
-    if (/\bnode(?:\.exe)?\b[^\r\n]*(?:typescript|node_modules)[\\/][^\r\n]*\btsc(?:\.js)?(?:\s|$)/.test(value))
-      return "TypeScript's Node launcher";
+    if (!/\boxlint\b/.test(value) || !/--type-aware\b/.test(value) || !/--type-check\b/.test(value))
+      return "typeCheck must be a local type-aware Oxlint final gate";
+    if (!/(?:^|\s)--threads(?:=|\s+)1(?=\s|$)/.test(value))
+      return "type-aware Oxlint must use --threads 1";
   }
+
+  if (gate === "format") {
+    if (!/\boxfmt\b/.test(value)) return "Oxfmt format command required";
+    if (/\b(?:check|lint|fix)\b/.test(value))
+      return "Oxfmt format only; check/lint/fix is not a formatter gate";
+    if (!/(?:^|\s)--write(?=\s|$)/.test(value))
+      return "Oxfmt format gate must write formatted files";
+  }
+
   if (gate === "test") {
-    if (/(?:^|[\s;&|])node(?:\.exe)?(?=\s|$)/.test(value))
-      return "Node test executor";
+    if (/(?:^|[\s;&|])node(?:\.exe)?(?=\s|$)/.test(value)) return "Node test executor";
     const parallel = value.match(/(?:^|\s)--parallel(?:=(\d+))?(?=\s|$)/);
-    if (parallel && (!parallel[1] || Number(parallel[1]) > 2))
-      return "unbounded Bun test workers";
+    if (parallel && (!parallel[1] || Number(parallel[1]) > 2)) return "unbounded Bun test workers";
     const concurrent = /(?:^|\s)--concurrent(?=\s|$)/.test(value);
     const concurrency = value.match(/(?:^|\s)--max-concurrency(?:=|\s+)(\d+)(?=\s|$)/);
     if (concurrent && (!concurrency || Number(concurrency[1]) > 2))
       return "unbounded concurrent tests";
+    if (/\bvitest(?:\.exe|\.cmd)?\b/.test(value)) {
+      const workers = value.match(/(?:^|\s)--maxworkers(?:=|\s+)(\d+)(?=\s|$)/);
+      if (!workers || Number(workers[1]) > 2) return "Vitest workers must be capped at 1 or 2";
+      if (/\b--changed\b/.test(value) && !/\b--no-file-parallelism\b/.test(value))
+        return "changed Vitest loop must disable file parallelism";
+    }
   }
   return null;
 }
@@ -728,7 +776,14 @@ function detectStack() {
     parts.push("next");
   if (hasFile("nuxt.config.ts") || deps.nuxt) parts.push("nuxt");
   if (hasFile("svelte.config.js") || deps.svelte) parts.push("svelte");
-  if (hasFile("vite.config.ts", "vite.config.js") || deps.vite) parts.push("vite");
+  if (
+    hasFile("vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs") ||
+    deps.vite
+  )
+    parts.push("vite");
+  const hasVitest =
+    Boolean(deps.vitest) ||
+    hasFile("vitest.config.ts", "vitest.config.js", "vitest.config.mts", "vitest.config.mjs");
   if (hasFile("turbo.json", "pnpm-workspace.yaml") || pkg.workspaces) parts.push("monorepo");
   if (hasFile("drizzle.config.ts", "drizzle.config.js") || deps["drizzle-orm"])
     parts.push("drizzle");
@@ -751,7 +806,7 @@ function detectStack() {
           ? "npm"
           : hasFile("uv.lock")
             ? "uv"
-            : null;
+            : packageManagerName(pkg.packageManager);
 
   // Only commands that genuinely exist in the scripts get in. A gate pointing at a script that
   // is not there dies as "script not found", and the report line reads as covered.
@@ -761,7 +816,7 @@ function detectStack() {
   const pick = (key, ...candidates) => {
     for (const candidate of candidates) {
       if (!scripts[candidate]) continue;
-      const issue = gateScriptIssue(key, scripts[candidate]);
+      const issue = gateScriptIssue(key, scripts[candidate], cwd);
       if (issue) {
         blockedGates.push(`${candidate}: ${issue}`);
         continue;
@@ -770,23 +825,32 @@ function detectStack() {
       return;
     }
   };
-  pick("typeCheck", "type-check", "typecheck", "check", "tsc");
+  pick("typeCheck", "type-check", "typecheck", "check");
   pick("lint", "lint:check", "lint");
   pick("format", "format", "fmt");
   pick("test", "test");
   pick("build", "build");
 
   const hasTsconfig = hasFile("tsconfig.json");
-  if (!commands.typeCheck && pm === "bun" && hasTsconfig) {
-    commands.typeCheck = "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1";
-  }
+  const hasTypeScript = hasTsconfig || Boolean(deps.typescript);
+  if (hasTypeScript && !commands.typeCheck)
+    blockedGates.push("typeCheck: declare a local type-aware Oxlint final-gate script");
+  const hasVitestScript = Object.values(scripts).some((script) =>
+    /\bvitest(?:\.exe|\.cmd)?\b/i.test(script),
+  );
+  const hasBunTest = Object.values(scripts).some((script) =>
+    /\bbun(?:\.exe|\.cmd)?\s+test\b/i.test(script),
+  );
+  const testRunner = hasVitest || hasVitestScript ? "vitest" : hasBunTest ? "bun-test" : null;
 
   return {
     stack: parts.join("-") || "unknown",
     pm,
     commands,
     hasTests: Boolean(commands.test),
-    nativeTsgo: commands.typeCheck?.includes("@typescript/native-preview") ?? false,
+    hasTypeScript,
+    hasJavaScript: Boolean(Object.keys(pkg.scripts ?? {}).length || hasTypeScript || deps.oxlint),
+    testRunner,
     blockedGates,
   };
 }
@@ -828,8 +892,9 @@ function writeConfig() {
     },
     tooling: {
       ...(d.pm ? { packageManager: d.pm } : {}),
-      ...(d.nativeTsgo ? { typeChecker: "tsgo" } : {}),
-      testRunner: d.hasTests ? "detect" : null,
+      ...(d.hasTypeScript ? { typeChecker: "vtsls" } : {}),
+      ...(d.hasJavaScript ? { linter: "oxlint" } : {}),
+      testRunner: d.testRunner,
       ...(Object.keys(d.commands).length ? { commands: d.commands } : {}),
     },
     paths: existsSync(join(cwd, "src")) ? { frontendRoot: "src" } : {},
@@ -838,7 +903,9 @@ function writeConfig() {
 
   const reportBlockedGates = () => {
     for (const blocked of d.blockedGates) {
-      warn(`Skipped unsafe JS/TS gate script (${blocked}). Migrate it with skills/debugger/references/low-resource-js-ts-gates.md.`);
+      warn(
+        `Skipped unsafe JS/TS gate script (${blocked}). Migrate it with references/shared/130-typescript7-oxc-gates.md.`,
+      );
     }
   };
 
@@ -872,6 +939,7 @@ steps.push("autonomy");
 if (wantCodex) steps.push("codex");
 if (wantCursor) steps.push("cursor");
 if (wantGrok) steps.push("grok");
+if (setupOxc) steps.push("oxc");
 if (wantConfig) steps.push("config");
 steps.push("verify");
 const TOTAL = steps.length + 1;
@@ -1025,13 +1093,12 @@ if (wantClaude) {
 if (wantClaude) {
   step(++n, TOTAL, `Permissions ${dim(`(${autonomyLevel})`)}`);
   if (dryRun) {
-    warn("dry-run: the installed Claude package was not changed or certified; a real run verifies it first");
+    warn(
+      "dry-run: the installed Claude package was not changed or certified; a real run verifies it first",
+    );
   } else {
     const expectedVersion = readJsonSafe(join(PLUGIN_ROOT, ".claude-plugin/plugin.json"))?.version;
-    requireHookProof(
-      "Claude Code",
-      verifyHookClient("claude", { expectedVersion, probe: true }),
-    );
+    requireHookProof("Claude Code", verifyHookClient("claude", { expectedVersion, probe: true }));
   }
   writePermissions(scope);
   if (autonomyLevel === "autonomous") {
@@ -1097,7 +1164,9 @@ if (wantCodex) {
 if (wantCursor) {
   step(++n, TOTAL, `Configuring Cursor approval posture ${dim(`(${autonomyLevel})`)}`);
   if (dryRun) {
-    warn("dry-run: Cursor cache was not certified; a real run rejects absent, corrupt, or ambiguous candidates");
+    warn(
+      "dry-run: Cursor cache was not certified; a real run rejects absent, corrupt, or ambiguous candidates",
+    );
   } else {
     requireHookProof("Cursor", verifyHookClient("cursor", { probe: true }));
   }
@@ -1158,7 +1227,9 @@ if (wantGrok) {
     }
 
     if (dryRun) {
-      warn("dry-run: Grok package was not changed or certified; a real run proves its exact path first");
+      warn(
+        "dry-run: Grok package was not changed or certified; a real run proves its exact path first",
+      );
     } else if (nativeInstall) {
       requireHookProof("Grok", proof);
     } else {
@@ -1178,11 +1249,32 @@ if (wantGrok) {
     });
     if (result.written.length) ok(`${result.written.length} Grok path(s) written`);
     else ok("Grok config.toml already matches plugin discovery and the requested posture");
-    info(`${grokHomeDir}/config.toml is user-only. permission_mode cannot live in a project .grok/.`);
+    info(
+      `${grokHomeDir}/config.toml is user-only. permission_mode cannot live in a project .grok/.`,
+    );
     info("Do not also write user hooks/*.json under the Grok home — plugin hooks would run twice.");
     info("Git commit and push still ask. rm -rf / still denies.");
   } catch (e) {
     die(`failed to wire Grok: ${e.message}`);
+  }
+}
+
+if (setupOxc) {
+  step(++n, TOTAL, "Installing and configuring Oxc");
+  try {
+    const result = runOxcSetup({
+      projectDir: cwd,
+      pluginRoot: PLUGIN_ROOT,
+      packageManager: flagValue("--package-manager", null),
+      dryRun,
+      log: (message) => info(message),
+    });
+    if (dryRun) info("dry-run: Oxc packages and editor settings were not changed");
+    else if (result.install) ok("local Oxc packages installed and verified");
+    else ok("local Oxc packages already installed and verified");
+    ok("Zed and VS Code/Cursor project settings configured");
+  } catch (error) {
+    die(`failed to set up Oxc: ${error.message}`);
   }
 }
 

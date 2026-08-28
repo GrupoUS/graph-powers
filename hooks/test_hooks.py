@@ -87,12 +87,15 @@ def shell_quote(value: str) -> str:
 def lint_fixture(*, code: int, output: str = "", command_suffix: str = "",
                  stream: str = "stdout") -> Path:
     """Create a git fixture with a deterministic linter command and one tracked source file."""
-    proj = mkproj({"git": {"optInPrefix": "FIXTURE"}, "tooling": {"commands": {"lint": "pending"}}})
+    proj = mkproj({
+        "git": {"optInPrefix": "FIXTURE"},
+        "tooling": {"commands": {"lint": "pending"}},
+    })
     runner = proj / "lint_fixture.py"
     source = "import sys\n"
     if output:
         source += f"print({output!r}, end='', file=sys.{stream})\n"
-    source += f"raise SystemExit({code} if len(sys.argv) == 1 else 99)\n"
+    source += f"raise SystemExit({code})\n"
     runner.write_text(source, encoding="utf-8")
     cfg_path = proj / ".graph-powers" / "config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -617,11 +620,14 @@ def main() -> int:
         check(f"guarded runs `{pm} run dev` without asking",
               call("smart_bash_approver", bash(f"{pm} run dev"), a)[0], "allow")
 
-    print("### JS/TS gates stay on Bun + native tsgo with bounded resources")
+    print("### JS/TS gates use local Oxc and bounded runners")
     (pm_bun_auto / "package.json").write_text(
         json.dumps({"scripts": {
-            "type-check": "cross-env CI=1 tsc --noEmit",
-            "check": "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1",
+            "type-check": "oxlint --type-aware --type-check --threads 1",
+            "type-check-bad": "oxlint --type-aware --type-check",
+            "lint": "oxlint --deny-warnings",
+            "format": "oxfmt --write",
+            "format:bad": "oxfmt --check --write",
             "test": "node --test",
             "test:parallel": "bun test --parallel",
             "test:safe": "bun test --smol",
@@ -629,21 +635,21 @@ def main() -> int:
         encoding="utf-8",
     )
     for label, cmd in [
-        ("legacy tsc", "tsc --noEmit"),
-        ("Windows tsc", "tsc.exe --noEmit"),
-        ("npx tsc", "npx tsc --noEmit"),
-        ("bunx tsc", "bunx tsc --noEmit"),
-        ("a package script named tsc", "bun run tsc"),
-        ("the TypeScript Node launcher", "node node_modules/typescript/bin/tsc --noEmit"),
-        ("the TypeScript launcher under Bun", "bun node_modules/typescript/bin/tsc --noEmit"),
+        ("type-aware Oxlint outside the final gate", "oxlint --type-aware --type-check"),
+        ("type-aware Oxlint with an unbounded thread count",
+         "oxlint --type-aware --type-check --threads 2"),
+        ("network Oxlint", "bunx oxlint --deny-warnings"),
+        ("network Oxfmt", "npx oxfmt --write"),
         ("Node's test runner", "node --test"),
         ("Node's test runner behind another runtime flag", "node --experimental-strip-types --test"),
         ("Node's Windows test runner", "node.exe --test"),
-        ("the tsgo package's Node shebang", "tsgo --noEmit -p tsconfig.json"),
         ("unbounded Bun file workers", "bun test --parallel"),
         ("too many Bun file workers", "bun test --parallel=8"),
         ("unbounded concurrent tests", "bun test --concurrent"),
         ("too many concurrent tests", "bun test --concurrent --max-concurrency=20"),
+        ("Vitest without a worker bound", "vitest run --changed"),
+        ("Vitest with file parallelism", "vitest run --changed --maxWorkers=1"),
+        ("Oxfmt check-and-write", "oxfmt --check --write"),
     ]:
         check(f"the floor stops {label}, even autonomous",
               call("smart_bash_approver", bash(cmd), auton)[0], "deny")
@@ -651,32 +657,41 @@ def main() -> int:
               call("smart_bash_approver", bash(cmd), a)[0], "deny")
 
     for label, cmd in [
-        ("native tsgo forced through Bun",
-         "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"),
+        ("serial Oxc diagnostics", "oxlint --deny-warnings"),
+        ("Oxfmt formatting command", "oxfmt --write"),
         ("serial low-memory Bun tests", "bun test --smol"),
         ("changed-only fail-fast Bun tests", "bun test --changed --bail=1 --smol"),
+        ("bounded Vitest edit loop", "vitest run --changed --maxWorkers=1 --no-file-parallelism"),
+        ("bounded Vitest final workers", "vitest run --maxWorkers=2"),
         ("two bounded Bun file workers", "bun test --parallel=2"),
         ("two bounded concurrent tests", "bun test --concurrent --max-concurrency=2"),
         ("an internal ESM checker", "node .github/check_workflows.mjs"),
         ("the plugin installer", "node bin/graph-powers.mjs --help"),
     ]:
         check(f"...but {label} is not blocked",
-              call("smart_bash_approver", bash(cmd), auton)[0] != "deny", True)
+              call("smart_bash_approver", bash(cmd), pm_bun_auto)[0] != "deny", True)
 
-    check("guarded allows the local-only Bun tsgo launcher without asking",
+    oxc_type_check = mkproj({"tooling": {"commands": {
+        "typeCheck": "oxlint --type-aware --type-check --threads 1",
+    }}})
+    check("declared type-aware Oxlint remains an optional final gate",
           call("smart_bash_approver",
-               bash("bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"),
-               a)[0], "allow")
+               bash("oxlint --type-aware --type-check --threads 1"), oxc_type_check)[0], "allow")
 
     for label, cmd in [
-        ("a type-check script hiding tsc", "bun run type-check"),
+        ("a type-check script with an unbounded type-aware run", "bun run type-check-bad"),
         ("a test script hiding Node", "bun run test"),
         ("a test script hiding unbounded workers", "bun run test:parallel"),
+        ("a format script combining check and write", "bun run format:bad"),
     ]:
         check(f"package.json cannot hide {label}",
               call("smart_bash_approver", bash(cmd), pm_bun_auto)[0], "deny")
-    check("a safe package type-check script still runs",
-          call("smart_bash_approver", bash("bun run check"), pm_bun_auto)[0], "allow")
+    check("a safe package type-aware Oxc check still runs",
+          call("smart_bash_approver", bash("bun run type-check"), pm_bun_auto)[0], "allow")
+    check("a package Oxc lint script still runs",
+          call("smart_bash_approver", bash("bun run lint"), pm_bun_auto)[0], "allow")
+    check("a package Oxfmt formatter script still runs",
+          call("smart_bash_approver", bash("bun run format"), pm_bun_auto)[0], "allow")
     check("a safe package test script still runs",
           call("smart_bash_approver", bash("bun run test:safe"), pm_bun_auto)[0], "allow")
     check("direct Bun tests do not expand package.json#scripts.test",
@@ -2246,26 +2261,45 @@ def main() -> int:
           "lint" in tag(installed).split("gates: ")[-1].split("\n")[0], True)
 
     print("### ultracite — a tool that is not installed skips, and never blocks")
-    marker = absent / "formatted.txt"
-    writer = absent / "fmt.py"
-    writer.write_text("import sys,pathlib\n"
-                      "pathlib.Path(sys.argv[0]).with_name('formatted.txt').write_text('ran')\n",
+    fmt_absent = mkproj({"tooling": {"commands": {
+        "format": "./oxfmt --write"
+    }}})
+    absent_target = fmt_absent / "src.ts"
+    absent_target.write_text("const x=1\n", encoding="utf-8")
+    absent_edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": str(absent_target)}}
+    _, rc = call_raw("ultracite", absent_edit, fmt_absent)
+    check("a missing formatter exits 0", rc, 0)
+    check("...and formats nothing", (fmt_absent / "formatted.txt").exists(), False)
+
+    fmt_real = mkproj({"tooling": {"commands": {"format": "oxfmt --write"}}})
+    marker = fmt_real / "formatted.txt"
+    writer = fmt_real / "oxfmt"
+    writer.write_text("#!/usr/bin/env python3\n"
+                      "from pathlib import Path\n"
+                      "Path(__file__).with_name('formatted.txt').write_text('ran')\n",
                       encoding="utf-8")
-    target = absent / "src.ts"
+    writer.chmod(writer.stat().st_mode | 0o111)
+    target = fmt_real / "src.ts"
     target.write_text("const x=1\n", encoding="utf-8")
     edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
             "tool_input": {"file_path": str(target)}}
-
-    fmt_absent = mkproj({"tooling": {"commands": {"format": f"{ABSENT} --write"}}})
-    _, rc = call_raw("ultracite", edit, fmt_absent)
-    check("a missing formatter exits 0", rc, 0)
-    check("...and formats nothing", marker.exists(), False)
-
-    fmt_real = mkproj({"tooling": {"commands": {"format": f"{here} {writer}"}}})
+    fmt_real_cfg = fmt_real / ".graph-powers" / "config.json"
+    fmt_real_cfg.write_text(json.dumps({"tooling": {"commands": {"format": f"{shell_quote(str(writer))} format --write"}}}), encoding="utf-8")
     init_git(fmt_real)
     trust_module.approve(fmt_real, home=EMPTY_HOME)
     call_raw("ultracite", edit, fmt_real)
     check("an installed formatter is actually invoked", marker.exists(), True)
+
+    fmt_remote = mkproj({"tooling": {"commands": {"format": "bunx oxfmt --write"}}})
+    fmt_remote_target = fmt_remote / "src.ts"
+    fmt_remote_target.write_text("const y=1\n", encoding="utf-8")
+    init_git(fmt_remote)
+    trust_module.approve(fmt_remote, home=EMPTY_HOME)
+    remote_edit = {"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": str(fmt_remote_target)}}
+    call_raw("ultracite", remote_edit, fmt_remote)
+    check("a network formatter launcher is rejected", (fmt_remote / "formatted.txt").exists(), False)
 
     stop_absent = mkproj({"tooling": {"commands": {"lint": f"{ABSENT} ."}}})
     init_git(stop_absent)
@@ -2304,8 +2338,30 @@ def main() -> int:
     untracked = lint_fixture(code=2)
     stop_projects.append(untracked)
     (untracked / "notes with spaces é.md").write_text("new\n", encoding="utf-8")
+    untracked_source = untracked / "src with spaces é.ts"
+    untracked_source.write_text("const value = 2;\n", encoding="utf-8")
+    (untracked / "lint_fixture.py").write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "Path('lint-args').write_text('\\n'.join(sys.argv[1:]), encoding='utf-8')\n"
+        "raise SystemExit(2)\n",
+        encoding="utf-8",
+    )
     out, rc = stop(untracked)
+    args = (untracked / "lint-args").read_text(encoding="utf-8").splitlines()
     check("untracked Unicode and spaced paths trigger lint", (rc, "DENY" in out), (0, True))
+    check("Stop passes only changed JavaScript paths", args, [untracked_source.name])
+
+    remote_stop = lint_fixture(code=0)
+    stop_projects.append(remote_stop)
+    remote_cfg_path = remote_stop / ".graph-powers" / "config.json"
+    remote_cfg = json.loads(remote_cfg_path.read_text(encoding="utf-8"))
+    remote_cfg["tooling"]["commands"]["lint"] = "bunx oxlint"
+    remote_cfg_path.write_text(json.dumps(remote_cfg), encoding="utf-8")
+    trust_module.approve(remote_stop, home=EMPTY_HOME)
+    (remote_stop / "tracked.ts").write_text("const value = 2;\n", encoding="utf-8")
+    out, rc = stop(remote_stop)
+    check("a network linter launcher is rejected", (rc, "SKIP_NETWORK" in out), (0, True))
 
     outside_cwd = Path(tempfile.mkdtemp(prefix="gp-stop-outside-cwd-"))
     stop_projects.append(outside_cwd)
@@ -2333,7 +2389,7 @@ def main() -> int:
     for index in range(21):
         (many / f"untracked-{index:02d}.md").write_text("new\n", encoding="utf-8")
     out, rc = stop(many)
-    check(">20 non-JS changes are not silently truncated", (rc, "DENY" in out), (0, True))
+    check(">20 non-JS changes skip the linter without a full-tree fallback", (rc, out), (0, ""))
 
     for code, output, stream, label, expected in [
         (0, "", "stdout", "exit 0 with empty output allows", False),
@@ -2365,7 +2421,7 @@ def main() -> int:
     out, rc = stop(fix)
     check("red run blocks", (rc, "DENY" in out), (0, True))
     (fix / "lint_fixture.py").write_text(
-        "import sys\nraise SystemExit(0 if len(sys.argv) == 1 else 99)\n", encoding="utf-8")
+        "raise SystemExit(0)\n", encoding="utf-8")
     out, rc = stop(fix)
     check("a fix command makes the next run green", (rc, out), (0, ""))
 
@@ -2405,10 +2461,12 @@ def main() -> int:
            all(ord(char) >= 0x20 or char in "\n\r\t" for char in out)),
           (0, True, True, True, True, True, True, True, True, True))
 
-    assessment_failure = mkproj({"tooling": {"commands": {"lint": "pending"}}})
+    assessment_failure = mkproj({
+        "tooling": {"commands": {"lint": "pending"}},
+    })
     stop_projects.append(assessment_failure)
     runner = assessment_failure / "lint_fixture.py"
-    runner.write_text("import sys\nraise SystemExit(2 if len(sys.argv) == 1 else 99)\n", encoding="utf-8")
+    runner.write_text("from pathlib import Path\nPath('lint-was-invoked').write_text('ran')\nraise SystemExit(2)\n", encoding="utf-8")
     cfg_path = assessment_failure / ".graph-powers" / "config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     cfg["tooling"]["commands"]["lint"] = f"{shell_quote(sys.executable)} {shell_quote(str(runner))}"
@@ -2416,15 +2474,25 @@ def main() -> int:
     init_git(assessment_failure)
     trust_module.approve(assessment_failure, home=EMPTY_HOME)
     (assessment_failure / "dirty.md").write_text("dirty\n", encoding="utf-8")
-    out, rc = stop(assessment_failure)
-    check("changeset assessment failure still runs the declared lint", (rc, "DENY" in out), (0, True))
+    with patch.object(
+        stop_module,
+        "collect_change_set",
+        return_value=change_set.ChangeSet((), False, assessment_failure),
+    ):
+        outcome, message = stop_module.verify({"hook_event_name": "Stop", "cwd": str(assessment_failure)})
+    check("changeset assessment failure never launches a broad fallback",
+          (outcome, "changeset assessment failed" in message,
+           (assessment_failure / "lint-was-invoked").exists()),
+          (stop_module.INTERNAL_ERROR, True, False))
 
-    absent_stop = mkproj({"tooling": {"commands": {"lint": "gp-no-such-stop-linter-xyz"}}})
+    absent_stop = mkproj({
+        "tooling": {"commands": {"lint": "gp-no-such-stop-linter-xyz"}},
+    })
     stop_projects.append(absent_stop)
-    (absent_stop / "dirty.md").write_text("dirty\n", encoding="utf-8")
+    (absent_stop / "dirty.ts").write_text("const value = 1;\n", encoding="utf-8")
     init_git(absent_stop)
     trust_module.approve(absent_stop, home=EMPTY_HOME)
-    (absent_stop / "dirty.md").write_text("changed\n", encoding="utf-8")
+    (absent_stop / "dirty.ts").write_text("const value = 2;\n", encoding="utf-8")
     out, rc = stop(absent_stop)
     check("missing linter fails open with explicit unavailable outcome",
           (rc, "SKIP_UNAVAILABLE" in out, "lint" in out.lower()), (0, True, True))
@@ -2437,6 +2505,11 @@ def main() -> int:
     (timeout / "tracked.ts").write_text("const value = 10;\n", encoding="utf-8")
     with (
         patch.object(stop_module.command_trust, "is_trusted", return_value=True),
+        patch.object(
+            stop_module,
+            "collect_change_set",
+            return_value=change_set.ChangeSet(("tracked.ts",), True, timeout),
+        ),
         patch.object(stop_module.subprocess, "run", side_effect=subprocess.TimeoutExpired("lint", 1)),
     ):
         outcome, message = stop_module.verify({"hook_event_name": "Stop", "cwd": str(timeout)})
@@ -2558,14 +2631,16 @@ def main() -> int:
     shutil.rmtree(external_root, ignore_errors=True)
     shutil.rmtree(symlink_root, ignore_errors=True)
 
-    untrusted_stop = mkproj({"tooling": {"commands": {
-        "lint": f"{shell_quote(sys.executable)} -c "
-        f"{shell_quote('from pathlib import Path; Path(\\\"launched\\\").write_text(\\\"yes\\\")')}"
-    }}})
+    untrusted_stop = mkproj({
+        "tooling": {"commands": {
+            "lint": f"{shell_quote(sys.executable)} -c "
+            f"{shell_quote('from pathlib import Path; Path(\\\"launched\\\").write_text(\\\"yes\\\")')}"
+        }},
+    })
     stop_projects.append(untrusted_stop)
-    (untrusted_stop / "dirty.md").write_text("dirty\n", encoding="utf-8")
+    (untrusted_stop / "dirty.ts").write_text("const value = 1;\n", encoding="utf-8")
     init_git(untrusted_stop)
-    (untrusted_stop / "dirty.md").write_text("changed\n", encoding="utf-8")
+    (untrusted_stop / "dirty.ts").write_text("const value = 2;\n", encoding="utf-8")
     out, rc = stop(untrusted_stop)
     check("untrusted Stop command is skipped and never launched",
           (rc, "SKIP_UNTRUSTED" in out, (untrusted_stop / "launched").exists()),
@@ -2757,7 +2832,8 @@ def main() -> int:
 
     for d in (a, b, legacy, no_config, guarded, auton, partial, pm_free, pm_bun, pm_bun_auto,
               pm_npx, pm_both, grok_protected,
-              installed, absent, indirect, fmt_absent, fmt_real, stop_absent, *stop_projects):
+              installed, absent, indirect, fmt_absent, fmt_real, fmt_remote,
+              stop_absent, *stop_projects):
         shutil.rmtree(d, ignore_errors=True)
 
     print("\n" + ("FAILURES: " + ", ".join(FAILS) if FAILS else "EVERY GUARANTEE HELD"))

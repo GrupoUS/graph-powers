@@ -325,7 +325,7 @@ the person decides and runs it.
 1. After every item has reached § 4.1 step 5 and no `clarify` item remains, list the `implement`
    items, P0 first.
 2. One item at a time, foreground `graph-powers:debugger`: failing test first, then the fix.
-3. Between items, run only that item's focused regression check. After the batch, run resolved project-wide gates once; JS/TS gates follow `references/shared/130-bun-tsgo-gates.md`.
+3. Between items, run only that item's focused regression check. After the batch, run resolved project-wide gates once; JS/TS gates follow `references/shared/130-typescript7-oxc-gates.md`.
 4. Stop after `graphGuardrails.maxRepatch` failed attempts on the same file → `/debug recover`.
    Read the number from the config; do not hardcode one. This line said "three" while the schema
    default is 2 and `/verify` reads the key — three sibling artefacts, two ceilings.

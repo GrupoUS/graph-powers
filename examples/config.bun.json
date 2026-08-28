@@ -10,15 +10,21 @@
     "workBranch": "dev-test",
     "protectedBranches": ["main"]
   },
+  "graphGuardrails": {
+    "maxSpawnsPerSession": 16,
+    "maxRoundsPerAgent": 4,
+    "maxParallelWave": 2,
+    "spawnWindowMinutes": 60
+  },
   "tooling": {
     "packageManager": "bun",
-    "typeChecker": "tsgo",
-    "linter": "biome",
+    "typeChecker": "vtsls",
+    "linter": "oxlint",
     "testRunner": "bun-test",
     "commands": {
-      "typeCheck": "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1",
-      "lint": "bunx biome check",
-      "format": "bunx biome check --write",
+      "typeCheck": "bun run type-check",
+      "lint": "bun run lint --",
+      "format": "bun run format --",
       "test": "bun test --smol",
       "build": "bun run build"
     }

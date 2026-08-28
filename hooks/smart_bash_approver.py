@@ -361,8 +361,8 @@ SAFE_PATTERNS = [
     re.compile(r"^wget -"),
     re.compile(r"^ping -"),
     re.compile(r"^(ssh -V|nc -zv|telnet)"),
-    # Build / lint tools
-    re.compile(r"^biome(\s|$)"),
+    # Build / lint tools. Oxfmt owns formatting; Oxlint owns interactive diagnostics.
+    re.compile(r"^(oxfmt|oxlint)(\s|$)"),
     re.compile(r"^vite --version"),
     # PowerShell and cmd reads. Without these every inspection on Windows fell through to the
     # default and asked — the prompt-fatigue this file's docstring exists to avoid.
@@ -821,75 +821,105 @@ _NODE_TEST_RUNNER = re.compile(
     r"^node(?:\.exe)?(?:\s+--[a-z0-9-]+(?:=[^\s]+)?)*\s+--test(?:\s|=|$)",
     re.IGNORECASE,
 )
-_DIRECT_TSGO = re.compile(r"^tsgo(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE)
-_LEGACY_TSC_LAUNCHERS = (
-    re.compile(r"^tsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
-    re.compile(r"^(?:npx|bunx|pnpx)(?:\.exe|\.cmd)?\b[^\r\n]*\btsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
-    re.compile(r"^(?:bun|npm|pnpm|yarn)(?:\.exe|\.cmd)?\s+(?:run\s+|exec\s+|x\s+|dlx\s+)?tsc(?:\.exe|\.cmd)?(?:\s|$)", re.IGNORECASE),
-    re.compile(r"^(?:node|bun)(?:\.exe)?\s+[^\r\n]*(?:typescript|node_modules)[\\/][^\r\n]*\btsc(?:\.js)?(?:\s|$)", re.IGNORECASE),
-)
 _BUN_TEST = re.compile(r"^bun(?:\.exe)?\s+test(?:\s|$)", re.IGNORECASE)
 _PARALLEL = re.compile(r"(?:^|\s)--parallel(?:=(\d+))?(?=\s|$)", re.IGNORECASE)
 _CONCURRENT = re.compile(r"(?:^|\s)--concurrent(?=\s|$)", re.IGNORECASE)
 _MAX_CONCURRENCY = re.compile(r"(?:^|\s)--max-concurrency(?:=|\s+)(\d+)(?=\s|$)", re.IGNORECASE)
+_VITEST = re.compile(r"(?:^|\s)(?:vitest|vitest\.cmd|vitest\.exe)(?:\s|$)", re.IGNORECASE)
+_VITEST_MAX_WORKERS = re.compile(r"(?:^|\s)--maxWorkers(?:=|\s+)(\d+)(?=\s|$)", re.IGNORECASE)
 
 _JS_GATE_REASON = (
-    "BLOCKED: JS/TS gates must use Bun's low-resource test runner and native tsgo through "
-    "`bunx --bun --no-install --package @typescript/native-preview tsgo`. "
-    "Do not use Node's test runner, legacy tsc, or a tsgo shebang that starts Node. "
-    "Read skills/debugger/references/low-resource-js-ts-gates.md."
+    "BLOCKED: interactive JS/TS work uses local Oxlint, Oxfmt format, and bounded tests. "
+    "Type-aware Oxlint is reserved for the configured final gate; do not use a network fallback. "
+    "Read references/shared/130-typescript7-oxc-gates.md."
 )
+_TYPE_AWARE_REASON = (
+    "BLOCKED: type-aware Oxlint is a final gate. Run the configured type-check command from "
+    "/verify, commit, or CI; do not run it in an edit loop."
+)
+_TYPE_AWARE_OXLINT = re.compile(
+    r"\boxlint(?:\.exe|\.cmd)?\b(?=[^\r\n]*--type-aware)(?=[^\r\n]*--type-check)",
+    re.IGNORECASE,
+)
+_TYPE_AWARE_FINAL = re.compile(
+    r"\boxlint(?:\.exe|\.cmd)?\b"
+    r"(?=[^\r\n]*--type-aware)"
+    r"(?=[^\r\n]*--type-check)"
+    r"(?=[^\r\n]*--threads(?:=|\s+)1(?:\s|$))",
+    re.IGNORECASE,
+)
+_NETWORK_LAUNCHERS = frozenset({
+    "bunx", "bunx.exe", "bunx.cmd", "npx", "npx.exe", "npx.cmd",
+    "pnpx", "pnpx.exe", "pnpx.cmd", "dlx", "dlx.exe", "dlx.cmd",
+})
+_OXC_TOOLS = frozenset({"oxlint", "oxfmt"})
+_NO_FILE_PARALLELISM = re.compile(r"(?:^|\s)--no-file-parallelism(?=\s|$)", re.IGNORECASE)
 
 
-def _is_bun_native_tsgo(command: str) -> bool:
-    """The one tsgo launcher that neither fetches a package nor follows its Node shebang."""
-    parts = [part.strip('"\'').lower() for part in command.split()]
-    if not parts or parts[0] not in {"bunx", "bunx.exe", "bunx.cmd"}:
-        return False
+def _command_parts(command: str) -> list[str]:
     try:
-        tsgo_at = parts.index("tsgo")
-    except ValueError:
-        return False
-    prefix = parts[1:tsgo_at]
-    package_named = (
-        "--package=@typescript/native-preview" in prefix
-        or "-p=@typescript/native-preview" in prefix
-        or any(
-            prefix[i] in {"--package", "-p"}
-            and i + 1 < len(prefix)
-            and prefix[i + 1] == "@typescript/native-preview"
-            for i in range(len(prefix))
-        )
-    )
-    return "--bun" in prefix and "--no-install" in prefix and package_named
+        return shlex.split(command, posix=(os.name != "nt"))
+    except (TypeError, ValueError):
+        return []
 
 
-def _js_gate_denial(command: str) -> str | None:
-    """Refuse known high-cost JS/TS gate launchers before package-manager allows."""
-    if _is_bun_native_tsgo(command):
+def _basename(token: str) -> str:
+    return Path(str(token).strip('"\'').replace("\\", "/")).name.lower()
+
+
+def _js_gate_denial(
+    command: str,
+    root: Path | None = None,
+    cfg: dict[str, typing.Any] | None = None,
+    gate_kind: str | None = None,
+) -> str | None:
+    """Refuse network-backed or high-cost JS/TS gate launchers before package policy allows."""
+    parts = _command_parts(command)
+    if not parts:
         return None
-    if _NODE_TEST_RUNNER.search(command) or _DIRECT_TSGO.search(command):
+    names = [_basename(part) for part in parts]
+    lowered = [part.lower() for part in parts]
+    if _TYPE_AWARE_OXLINT.search(command):
+        kind = gate_kind or (_configured_gate_kind(command, cfg) if cfg is not None else None)
+        if kind != "typeCheck" or not _TYPE_AWARE_FINAL.search(command):
+            return _TYPE_AWARE_REASON
+    if (names[0] in _NETWORK_LAUNCHERS and any(name in _OXC_TOOLS for name in names[1:])
+            and "--no-install" not in lowered):
         return _JS_GATE_REASON
-    if any(pattern.search(command) for pattern in _LEGACY_TSC_LAUNCHERS):
+    if "oxfmt" in names and "--check" in lowered and "--write" in lowered:
         return _JS_GATE_REASON
+    if _NODE_TEST_RUNNER.search(command):
+        return _JS_GATE_REASON
+    if _VITEST.search(command):
+        kind = gate_kind or (_configured_gate_kind(command, cfg) if cfg is not None else None)
+        workers = _VITEST_MAX_WORKERS.search(command)
+        if workers is None and kind == "test" and "--changed" not in lowered:
+            return None
+        if workers is None or not 1 <= int(workers.group(1)) <= 2:
+            return (
+                "BLOCKED: Vitest needs --maxWorkers=1 or 2. Use "
+                "vitest run --changed --maxWorkers=1 --no-file-parallelism."
+            )
+        if "--changed" in lowered and _NO_FILE_PARALLELISM.search(command) is None:
+            return (
+                "BLOCKED: changed Vitest loops must disable file parallelism. Use "
+                "vitest run --changed --maxWorkers=1 --no-file-parallelism."
+            )
     if not _BUN_TEST.search(command):
         return None
 
     parallel = _PARALLEL.search(command)
-    if parallel and (
-        parallel.group(1) is None or not 1 <= int(parallel.group(1)) <= 2
-    ):
+    if parallel and (parallel.group(1) is None or not 1 <= int(parallel.group(1)) <= 2):
         return (
-            "BLOCKED: unbounded `bun test --parallel` starts up to one worker per CPU core. "
-            "Use serial `bun test --smol`, changed-only `bun test --changed --bail=1 --smol`, "
-            "or explicitly cap file workers with `--parallel=2`."
+            "BLOCKED: Bun test parallelism needs an explicit bound of 1 or 2. "
+            "Use bun test --changed --bail=1 --smol or bun test --parallel=2."
         )
     if _CONCURRENT.search(command):
         cap = _MAX_CONCURRENCY.search(command)
         if cap is None or not 1 <= int(cap.group(1)) <= 2:
             return (
-                "BLOCKED: concurrent Bun tests need an explicit low-resource cap. "
-                "Use `--concurrent --max-concurrency=2`, or prefer serial `bun test --smol`."
+                "BLOCKED: concurrent Bun tests need --max-concurrency=1 or 2. "
+                "Prefer serial bun test --smol."
             )
     return None
 
@@ -899,7 +929,6 @@ _PACKAGE_SCRIPT_CALL = re.compile(
     re.IGNORECASE,
 )
 _SCRIPT_NODE = re.compile(r"(?:^|[\s;&|])node(?:\.exe)?(?=\s|$)", re.IGNORECASE)
-_SCRIPT_TSC = re.compile(r"(?:^|[\s;&|])(?:tsc|tsgo)(?:\.exe|\.cmd)?(?=\s|$)", re.IGNORECASE)
 _SCRIPT_BUN_TEST = re.compile(r"(?:^|[;&|]\s*|\s)bun(?:\.exe)?\s+test\b[^;&|]*", re.IGNORECASE)
 
 
@@ -921,7 +950,7 @@ def _configured_gate_kind(command: str, cfg: dict[str, typing.Any]) -> str | Non
 def _package_script_denial(
     command: str, root: Path, cfg: dict[str, typing.Any]
 ) -> str | None:
-    """Inspect a declared package script so `bun run type-check` cannot hide legacy tsc."""
+    """Inspect a declared package script so expensive test runners stay bounded."""
     match = _PACKAGE_SCRIPT_CALL.search(command)
     if not match:
         return None
@@ -933,8 +962,10 @@ def _package_script_denial(
     if kind is None:
         if script_name == "test" or script_name.startswith("test:"):
             kind = "test"
-        elif script_name in {"type-check", "typecheck", "check", "tsc"}:
+        elif script_name == "check" or script_name.startswith("type-check") or script_name.startswith("typecheck"):
             kind = "typeCheck"
+        elif script_name in {"format", "fmt"} or script_name.startswith("format:") or script_name.startswith("fmt:"):
+            kind = "format"
         else:
             return None
     try:
@@ -945,20 +976,18 @@ def _package_script_denial(
         return None
     if not isinstance(body, str):
         return None
-    if kind == "typeCheck" and _is_bun_native_tsgo(body):
-        return None
-    if kind == "typeCheck" and (
-        _SCRIPT_TSC.search(body) or _SCRIPT_NODE.search(body)
-    ):
-        return _JS_GATE_REASON
+    if kind == "typeCheck" and _TYPE_AWARE_OXLINT.search(body) and not _TYPE_AWARE_FINAL.search(body):
+        return _TYPE_AWARE_REASON
     if kind == "test" and _SCRIPT_NODE.search(body):
         return _JS_GATE_REASON
-    bun_test = _SCRIPT_BUN_TEST.search(body)
-    return _js_gate_denial(bun_test.group(0).strip()) if bun_test else None
+    return _js_gate_denial(body, root, cfg, gate_kind=kind)
 
 
 def _classify(
-    command: str, policy: dict[str, typing.Any], project_root: Path
+    command: str,
+    policy: dict[str, typing.Any],
+    project_root: Path,
+    cfg: dict[str, typing.Any],
 ) -> tuple[str, str | None]:
     """Return (allow|ask|deny, optional reason) for one shell segment.
 
@@ -977,18 +1006,9 @@ def _classify(
     if dry_reason:
         return "deny", dry_reason
 
-    js_gate_reason = _js_gate_denial(command)
+    js_gate_reason = _js_gate_denial(command, project_root, cfg)
     if js_gate_reason:
         return "deny", js_gate_reason
-
-    # The canonical tsgo form is local-only (`--no-install`) and forces Bun instead of obeying the
-    # package's Node shebang. It is safe to allow without a prompt when Bun belongs to this project;
-    # a project that explicitly declared another package-manager family still gets the normal deny.
-    if _is_bun_native_tsgo(command):
-        manager_verdict = _package_manager_verdict(command, policy)
-        if manager_verdict and manager_verdict[0] == "deny":
-            return manager_verdict
-        return "allow", None
 
     # `git restore` is the one verb whose verdict depends on a flag set rather than on a shape, so
     # it is resolved once here and consulted by the floor below and by the safe rung further down.
@@ -1079,7 +1099,7 @@ def main() -> None:
         if script_reason:
             _deny(script_reason, event=event, codex_turn=codex_turn)
             return
-        decision, reason = _classify(segment, policy, root)
+        decision, reason = _classify(segment, policy, root, cfg)
         if decision == "deny":
             _deny(
                 reason or "BLOCKED: Dangerous command",

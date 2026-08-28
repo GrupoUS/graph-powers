@@ -6,25 +6,11 @@
   "definitions": {
     "codexReasoningEffort": {
       "type": "string",
-      "enum": [
-        "none",
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ]
+      "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
     },
     "codexProfileName": {
       "type": "string",
-      "enum": [
-        "judge",
-        "architect",
-        "executor",
-        "verifier",
-        "scout"
-      ]
+      "enum": ["judge", "architect", "executor", "verifier", "scout"]
     },
     "codexModelEffortOverride": {
       "type": "object",
@@ -106,10 +92,7 @@
           "items": {
             "type": "string"
           },
-          "default": [
-            "main",
-            "master"
-          ],
+          "default": ["main", "master"],
           "description": "No checkout that lands HEAD here, and no push, without an explicit opt-in in the turn."
         },
         "optInPrefix": {
@@ -126,100 +109,63 @@
       "properties": {
         "packageManager": {
           "type": "string",
-          "examples": [
-            "bun",
-            "pnpm",
-            "npm",
-            "yarn",
-            "uv",
-            "cargo"
-          ]
+          "examples": ["bun", "pnpm", "npm", "yarn", "uv", "cargo"]
         },
         "typeChecker": {
           "type": "string",
-          "examples": [
-            "tsgo",
-            "mypy"
-          ],
-          "description": "Reporting name only. For JS/TS, Graph Powers accepts native tsgo through Bun and rejects legacy tsc, Node's test runner, and bare tsgo launchers. See skills/debugger/references/low-resource-js-ts-gates.md."
+          "examples": ["vtsls", "oxlint", "mypy"],
+          "description": "Reporting name only. For JavaScript and TypeScript, use vtsls as the sole editor provider and keep type-aware Oxlint for the explicit final gate. Do not add a second TypeScript provider."
         },
         "linter": {
           "type": "string",
-          "examples": [
-            "biome",
-            "oxlint",
-            "eslint",
-            "ruff"
-          ],
-          "description": "Name of the linter, for reporting only. It must be installed and on PATH for tooling.commands.lint to run; install it globally."
+          "examples": ["oxlint", "eslint", "ruff"],
+          "description": "Name of the linter, for reporting only. For JavaScript and TypeScript, the supported plugin path is local oxlint. Other language projects may keep their declared native linter. Prefer a package-manager script backed by a local dependency; do not fetch tools from a hook or LSP."
         },
         "buildTool": {
           "type": "string",
-          "examples": [
-            "vite",
-            "astro",
-            "next",
-            "turbo"
-          ]
+          "examples": ["vite", "astro", "next", "turbo"]
         },
         "testRunner": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "null when the project has no tests — the case for static sites. Declaring null beats omitting it: it says the absence is deliberate."
         },
         "commands": {
           "type": "object",
-          "description": "The literal command per gate. It beats inference but not the JS/TS resource floor: Node tests, legacy tsc, bare tsgo and unbounded Bun workers are rejected as NEEDS-WORK rather than executed.",
+          "description": "The literal command per gate. It beats inference. JavaScript and TypeScript edit hooks may format one changed file with a local formatter; type-check and complete lint belong only to verify, commit or CI.",
           "properties": {
             "typeCheck": {
               "type": "string",
-              "examples": [
-                "bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1"
-              ],
-              "description": "For JS/TS use the exact native tsgo-through-Bun form shown: --bun avoids the package's Node shebang, --no-install prevents network access during a gate, and --checkers 1 caps checker workers."
+              "examples": ["bun run type-check"],
+              "description": "For JavaScript and TypeScript, use a project script that runs `oxlint --type-aware --type-check --threads 1` only at `/verify`, commit or CI. Keep type-aware analysis out of Zed and edit hooks."
             },
             "lint": {
               "type": "string",
-              "examples": [
-                "bun run lint"
-              ],
-              "description": "The tool itself must be installed and resolvable on PATH. This plugin runs the command you declare and nothing more: if it names biome, oxlint, eslint or prettier and that binary is absent, the run fails and the session is told at startup rather than silently skipping. Install globally (bun add -g @biomejs/biome oxlint, or npm i -g ...) so it works in every repository a session visits, not only one that carries it as a dependency. A command routed through the package manager (npm run lint) is not checked - the tool is named in the manifest, not here."
+              "examples": ["bun run lint --"],
+              "description": "Use a package-manager script backed by the project's local linter. Include a trailing argument separator when the script accepts changed paths. Hooks pass only relevant changed files, never the whole tree, and never use a network-fetching launcher."
             },
             "format": {
               "type": "string",
-              "examples": [
-                "bunx biome check --write"
-              ],
-              "description": "The tool itself must be installed and resolvable on PATH. This plugin runs the command you declare and nothing more: if it names biome, oxlint, eslint or prettier and that binary is absent, the run fails and the session is told at startup rather than silently skipping. Install globally (bun add -g @biomejs/biome oxlint, or npm i -g ...) so it works in every repository a session visits, not only one that carries it as a dependency. A command routed through the package manager (npm run lint) is not checked - the tool is named in the manifest, not here."
+              "examples": ["bun run format --"],
+              "description": "Use a package-manager script backed by the project's local Oxfmt formatter. Hooks run one `oxfmt --write` operation for the edited file only and never use a check, lint or fix command or a network-fetching launcher."
             },
             "test": {
               "type": "string",
-              "examples": [
-                "bun test --smol"
-              ],
-              "description": "Use a serial low-memory final gate. Fix loops use bun test --changed --bail=1 --smol; unbounded --parallel and --concurrent are rejected."
+              "examples": ["bun test --smol"],
+              "description": "Use a serial low-memory final gate for a project that declares Bun Test. Fix loops use bun test --changed --bail=1 --smol. Vite/Vitest projects keep Vitest and use vitest run --changed --maxWorkers=1 --no-file-parallelism in edit loops; unbounded Bun workers and concurrent tests are rejected."
             },
             "build": {
               "type": "string",
-              "examples": [
-                "bun run build"
-              ]
+              "examples": ["bun run build"]
             },
             "deadCode": {
               "type": "string",
               "description": "A dead-code detector, run diff-scoped by the verify chain. Absent means the sweep is skipped, not faked.",
-              "examples": [
-                "bunx knip --reporter json"
-              ]
+              "examples": ["bunx knip --reporter json"]
             },
             "renderHealth": {
               "type": "string",
               "description": "An advisory render/effect health command. /perf doctor uses it when declared and alone owns any project-script fallback; frontend-debug may use it after its Step 1 reproducer, and ultra-verify may use it for a deep web-surface pass. Its literal value is executed without appended flags; when absent, frontend-debug and ultra-verify skip without installation or scanner inference.",
-              "examples": [
-                "bun run render-health"
-              ]
+              "examples": ["bun run render-health"]
             }
           }
         }
@@ -231,41 +177,27 @@
       "properties": {
         "frontendRoot": {
           "type": "string",
-          "examples": [
-            "src",
-            "apps/web/src"
-          ]
+          "examples": ["src", "apps/web/src"]
         },
         "backendRoot": {
           "type": "string",
-          "examples": [
-            "apps/api/src"
-          ]
+          "examples": ["apps/api/src"]
         },
         "schemaRoot": {
           "type": "string",
-          "examples": [
-            "apps/api/drizzle",
-            "prisma"
-          ]
+          "examples": ["apps/api/drizzle", "prisma"]
         },
         "componentsRoot": {
           "type": "string",
-          "examples": [
-            "src/components"
-          ]
+          "examples": ["src/components"]
         },
         "libRoot": {
           "type": "string",
-          "examples": [
-            "src/lib"
-          ]
+          "examples": ["src/lib"]
         },
         "stylesRoot": {
           "type": "string",
-          "examples": [
-            "src/styles"
-          ]
+          "examples": ["src/styles"]
         },
         "planDir": {
           "type": "string",
@@ -278,9 +210,7 @@
         "mobileRoot": {
           "type": "string",
           "description": "Where the mobile app lives. Absent removes mobile-developer from every routing enum: an agent with nothing to work on is worse than no agent.",
-          "examples": [
-            "apps/mobile"
-          ]
+          "examples": ["apps/mobile"]
         }
       }
     },
@@ -291,13 +221,7 @@
         "engine": {
           "type": "string",
           "description": "Reporting only. The harness never branches on this value.",
-          "examples": [
-            "postgres",
-            "mysql",
-            "sqlite",
-            "sqlserver",
-            "mongodb"
-          ]
+          "examples": ["postgres", "mysql", "sqlite", "sqlserver", "mongodb"]
         },
         "commands": {
           "type": "object",
@@ -306,10 +230,7 @@
             "status": {
               "type": "string",
               "description": "Read-only. Is the declared schema applied? Exit 0 means applied; non-zero is classified by output class, never by exit code alone.",
-              "examples": [
-                "uv run alembic current --check-heads",
-                "npx prisma migrate status"
-              ]
+              "examples": ["uv run alembic current --check-heads", "npx prisma migrate status"]
             },
             "generate": {
               "type": "string",
@@ -322,19 +243,13 @@
             "apply": {
               "type": "string",
               "description": "The irreversible edge. /verify never runs this. /implement runs it only when applyPolicy is optIn and the user approved this turn, then re-runs status.",
-              "examples": [
-                "uv run alembic upgrade head",
-                "npx prisma migrate deploy"
-              ]
+              "examples": ["uv run alembic upgrade head", "npx prisma migrate deploy"]
             }
           }
         },
         "applyPolicy": {
           "type": "string",
-          "enum": [
-            "never",
-            "optIn"
-          ],
+          "enum": ["never", "optIn"],
           "default": "never",
           "description": "never: print the apply command and stop. optIn: /implement may run apply after explicit current-turn approval. /verify never applies under either value."
         }
@@ -347,10 +262,7 @@
         "model": {
           "type": "string",
           "description": "Legacy flat operator override for every generated Codex subagent. It outranks semantic defaults but remains below per-agent, profile and codex.models tier overrides.",
-          "examples": [
-            "gpt-5.6",
-            "gpt-5.6-codex"
-          ]
+          "examples": ["gpt-5.6", "gpt-5.6-codex"]
         },
         "models": {
           "type": "object",
@@ -359,26 +271,17 @@
             "heavy": {
               "type": "string",
               "description": "Legacy slug for source agents that declare the Claude heavy family.",
-              "examples": [
-                "gpt-5.6-sol",
-                "gpt-5.6-codex"
-              ]
+              "examples": ["gpt-5.6-sol", "gpt-5.6-codex"]
             },
             "standard": {
               "type": "string",
               "description": "Legacy slug for source agents that declare the Claude standard family.",
-              "examples": [
-                "gpt-5.6",
-                "gpt-5.6-codex"
-              ]
+              "examples": ["gpt-5.6", "gpt-5.6-codex"]
             },
             "light": {
               "type": "string",
               "description": "Legacy slug for source agents that declare the Claude light family.",
-              "examples": [
-                "gpt-5.6-luna",
-                "gpt-5.6-mini"
-              ]
+              "examples": ["gpt-5.6-luna", "gpt-5.6-mini"]
             }
           },
           "additionalProperties": false
@@ -416,9 +319,7 @@
                 },
                 "reasoningEffort": {
                   "type": "string",
-                  "enum": [
-                    "ultra"
-                  ]
+                  "enum": ["ultra"]
                 }
               },
               "additionalProperties": false
@@ -481,14 +382,7 @@
           "items": {
             "type": "string"
           },
-          "default": [
-            "auth",
-            "payment",
-            "PII",
-            "schema",
-            "env",
-            "ci"
-          ],
+          "default": ["auth", "payment", "PII", "schema", "env", "ci"],
           "description": "The surfaces that floor a task at L4 and switch on the pre-mortem, the ADR and the architecture pass. Name yours if they differ; the default list is not universal."
         },
         "hardRules": {
@@ -497,11 +391,7 @@
             "type": "string"
           },
           "description": "Non-negotiable conventions injected verbatim into every implementer prompt. One rule per line, phrased as an instruction.",
-          "examples": [
-            [
-              "Use semantic design tokens only — never a color literal in a component."
-            ]
-          ]
+          "examples": [["Use semantic design tokens only — never a color literal in a component."]]
         },
         "invariants": {
           "type": "array",
@@ -510,9 +400,7 @@
           },
           "description": "Code that LOOKS redundant and must never be simplified away — a tenant filter, a PII gate, an idempotency guard. The simplify pass is told to report the skip instead of removing it. This is the field that prevents the most expensive class of automated cleanup damage.",
           "examples": [
-            [
-              "Never remove the tenant filter on a query, even when it looks unreachable."
-            ]
+            ["Never remove the tenant filter on a query, even when it looks unreachable."]
           ]
         },
         "domainSkills": {
@@ -520,10 +408,7 @@
           "description": "Which skill an implementer loads for conventions, by the files it is touching. Knowledge only — a skill that dispatches agents must not be listed here, because the workflow is already the orchestration.",
           "items": {
             "type": "object",
-            "required": [
-              "match",
-              "skill"
-            ],
+            "required": ["match", "skill"],
             "properties": {
               "match": {
                 "type": "string",
@@ -541,10 +426,7 @@
           "description": "Extra change surfaces, on top of the path roots the plugin derives. Each one becomes a boolean the contract gates and lenses below can be gated on, so an untouched surface spawns no work at all.",
           "items": {
             "type": "object",
-            "required": [
-              "name",
-              "match"
-            ],
+            "required": ["name", "match"],
             "properties": {
               "name": {
                 "type": "string"
@@ -561,10 +443,7 @@
           "description": "Commands to run only when a given surface changed, reported as their own gate entries. This is where a project keeps the checks it already had beyond type-check/lint/test.",
           "items": {
             "type": "object",
-            "required": [
-              "name",
-              "command"
-            ],
+            "required": ["name", "command"],
             "properties": {
               "name": {
                 "type": "string"
@@ -595,10 +474,7 @@
           "description": "Extra adversarial review lenses, on top of correctness, security, performance and design. Each lens is a distinct QUESTION — identical skeptics agree with each other and miss the same things.",
           "items": {
             "type": "object",
-            "required": [
-              "name",
-              "checks"
-            ],
+            "required": ["name", "checks"],
             "properties": {
               "name": {
                 "type": "string"
@@ -633,13 +509,13 @@
         "maxSpawnsPerSession": {
           "type": "integer",
           "minimum": 1,
-          "default": 25,
+          "default": 16,
           "description": "Agent spawns inside spawnWindowMinutes. Counted from session start instead, this became a session-lifetime quota: a long session hit it on the first spawn of an unrelated later task and then refused every spawn for the rest of the day."
         },
         "maxRoundsPerAgent": {
           "type": "integer",
           "minimum": 1,
-          "default": 8,
+          "default": 4,
           "description": "Re-spawning the same specialist many times is the signature of a loop that is not converging."
         },
         "spawnWindowMinutes": {
@@ -651,7 +527,7 @@
         "maxParallelWave": {
           "type": "integer",
           "minimum": 1,
-          "default": 5,
+          "default": 2,
           "description": "Agents in one wave of the build chain, and fixes in one round of the verify chain. An oversized wave is split and logged, never truncated."
         },
         "maxTasksPerPlan": {
@@ -746,20 +622,13 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": [
-                  "typeCheck",
-                  "lint",
-                  "test",
-                  "build"
-                ]
+                "enum": ["typeCheck", "lint", "test", "build"]
               },
               "description": "Explicit subset of the fixed typeCheck, lint, test, build order. An empty list disables core execution without disabling the legacy audit."
             },
             "scope": {
               "type": "string",
-              "enum": [
-                "worktree"
-              ],
+              "enum": ["worktree"],
               "default": "worktree"
             },
             "timeoutTotal": {
@@ -805,9 +674,7 @@
                   "description": "Opt in to the short-lived worktree success cache for this audit."
                 }
               },
-              "required": [
-                "command"
-              ]
+              "required": ["command"]
             }
           ],
           "examples": [
@@ -828,35 +695,23 @@
         },
         "level": {
           "type": "string",
-          "enum": [
-            "guarded",
-            "autonomous"
-          ],
+          "enum": ["guarded", "autonomous"],
           "default": "guarded",
           "description": "guarded: an unrecognised command asks, and commit/push/protected-branch need an explicit opt-in key in the turn. autonomous: unrecognised commands run, cleanup runs, and the git gates pass without a key — the destructive floor below still holds. Everything under this group overrides the level individually, so 'autonomous but still ask before pushing' is one field, not a fork."
         },
         "bashDefault": {
           "type": "string",
-          "enum": [
-            "ask",
-            "allow"
-          ],
+          "enum": ["ask", "allow"],
           "description": "What happens to a command matching no known pattern. Defaults to ask under guarded and allow under autonomous. This single field is the source of most approval prompts."
         },
         "cleanup": {
           "type": "string",
-          "enum": [
-            "ask",
-            "allow"
-          ],
+          "enum": ["ask", "allow"],
           "description": "Deleting build output, caches, __pycache__, logs. Defaults to ask under guarded and allow under autonomous."
         },
         "toolDefault": {
           "type": "string",
-          "enum": [
-            "ask",
-            "allow"
-          ],
+          "enum": ["ask", "allow"],
           "description": "Every tool that is not Bash: subagent spawns, MCP calls, fetches, workflows, file tools. Defaults to ask under guarded and allow under autonomous. bashDefault only ever answered for shell commands, so a project on autonomous still stopped on tool calls git undoes for free; this is that same decision for the rest of the session. Read by tool_approver at PermissionRequest, which never answers for Bash and never reaches a call the PreToolUse floors already denied."
         },
         "git": {
@@ -865,24 +720,15 @@
           "properties": {
             "commit": {
               "type": "string",
-              "enum": [
-                "ask",
-                "auto"
-              ]
+              "enum": ["ask", "auto"]
             },
             "push": {
               "type": "string",
-              "enum": [
-                "ask",
-                "auto"
-              ]
+              "enum": ["ask", "auto"]
             },
             "protectedBranch": {
               "type": "string",
-              "enum": [
-                "ask",
-                "auto"
-              ],
+              "enum": ["ask", "auto"],
               "description": "Checking out or pushing to a protected branch. Left at ask even under autonomous by default: it is the one git action whose blast radius is other people."
             }
           }
@@ -898,15 +744,7 @@
             "type": "string"
           },
           "description": "Package managers this project accepts. Empty or absent means all of them. Set it only when mixing managers actually breaks the project — a lockfile that must not fork.",
-          "examples": [
-            [
-              "bun"
-            ],
-            [
-              "pnpm",
-              "npx"
-            ]
-          ]
+          "examples": [["bun"], ["pnpm", "npx"]]
         }
       }
     },

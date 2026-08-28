@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.13.0 — TypeScript 7, Oxc editor ownership and resource-bounded loops
+
+JavaScript and TypeScript defaults now require a project-local stable TypeScript 7 `tsc` with an
+explicit checker bound. Oxfmt owns formatting for JS/TS/JSON/JSONC/CSS, Oxlint owns interactive
+diagnostics, and typed Oxlint is reserved for final gates. Zed and VS Code/Cursor templates enforce
+the one-server/one-formatter layout; Zed vtsls uses its bundled compatible SDK instead of the
+TypeScript 7 compiler SDK.
+
+PostToolUse and optional Stop checks are changed-file scoped, debounced and green-only cached.
+Verification profiles cap local waves and fix rounds separately from CI, preserve Vitest and
+declared Bun Test runners, and reject unbounded workers, Node's test runner and network fallbacks.
+
 ## 1.12.2 — Trusted hooks and bounded agent-issued verification
 
 Project-configured formatter, Stop lint and commit commands now require the same machine-local

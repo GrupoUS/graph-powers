@@ -16,7 +16,7 @@ What it deliberately does not catch, and why the previous version of this gate h
   turned the gate red. A gate that fails on evidence of the thing working is a gate someone deletes.
 - `C:\\Windows\\System32\\find.exe` — the same absolute path on every Windows install, cited to
   explain why `find` in a command block means a different program there.
-- `C:\\tools\\biome.exe` — an example of a *config value* the host project supplies, not a path this
+- `C:\\tools\\oxfmt.exe` — an example of a *config value* the host project supplies, not a path this
   repository resolves.
 
 It also does not catch `/opt/x` or `D:\\projects\\x`, and never did on the POSIX side either. The

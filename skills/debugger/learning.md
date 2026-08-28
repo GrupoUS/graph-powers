@@ -16,41 +16,25 @@ non-zero, stdout does not start with `{`.
 **Verdict:** kept. The hook is the prevention; the skill is the replacement. A prose-only rule
 would have been Round 0 of the same crash.
 
-## Round 2 — 2026-08-25 · Node/tsc and unbounded workers
+## Round 2 — 2026-08-28 · Oxc + Zed toolchain
 
-**Hypothesis:** the old defaults optimized wall-clock time (`bun test --parallel`) but not machine
-health; one worker per CPU core and TypeScript's default checker pool can increase peak RAM. Bare
-`tsgo` also follows a Node shebang, contradicting a no-Node gate policy.
+**Hypothesis:** the plugin can keep one small JavaScript/TypeScript path when formatting, editor
+diagnostics, and final validation each have one explicit owner.
 
-**Change:** serial `bun test --smol`, changed-only fail-fast loops, tsgo forced through Bun with one
-checker, and a hook deny for Node tests, legacy tsc, bare tsgo, and unbounded Bun workers. Project-
-wide gates move to phase/final boundaries instead of every task.
+**Change:** Oxlint owns diagnostics, Oxfmt owns formatting, and vtsls is the only TypeScript editor
+provider using its bundled compatible TypeScript SDK. The local TypeScript 7 package is reserved for
+the explicit compiler gate. Edit hooks stay changed-file-only and never run type-aware analysis;
+`/verify`, commit and CI may run the bounded type-aware Oxlint gate.
 
-**Measurement:** hook cases cover explicit and package-script-hidden forbidden executors, bounded
-Bun forms, and the safe tsgo-through-Bun launcher. Official rationale and commands live in
-`references/low-resource-js-ts-gates.md`.
+**Compatibility:** TypeScript 7 does not ship the legacy `tsserver.js` that vtsls expects. Pointing
+vtsls at the local TypeScript 7 `lib` directory produces a fallback warning. The project template
+uses the bundled compatible SDK and disables `autoUseWorkspaceTsdk`; setup preserves explicit user
+settings and reports the boundary instead of silently deleting them or adding a second provider.
 
-**Verdict:** kept. `python3 hooks/test_hooks.py` returned `EVERY GUARANTEE HELD`.
+**Measurement:** `python3 hooks/test_hooks.py` returned `EVERY GUARANTEE HELD`; Oxc/Zed policy and
+all repository wiring gates remain part of the final verification.
 
-## Round 3 — 2026-08-26 · fold JS/TS gates into the debugger
-
-**Hypothesis:** the standalone gate skill duplicated the debugger/TDD verification path, while
-removing it without redirecting every consumer would leave runtime paths dangling.
-
-**Change:** moved the low-resource guide, Turbo EPIPE guide, wrapper and round history under
-`skills/debugger/`; kept `references/shared/130-bun-tsgo-gates.md` as the single execution policy;
-removed the standalone skill; redirected the debugger agent, `/debug`, `/verify`, TDD, guardrails,
-templates and operator docs. The debugger description now carries concrete trigger symptoms.
-
-**Measurement:** `quick_validate.py skills/debugger` exited 0 with no warning, while the removed
-path exited 1. Wiring checked 233 routing references and 12 agents with 0 unresolved or
-unregistered. Listing cost was 9,784 / 10,752 characters. The first context run exposed an 87,396 B
-`/debug` floor; marking TDD and review feedback as the conditional loads they already were reduced
-it to 60,202 B and the total floor to 294,440 / 300,000 B. Portability reported 0 problems and the
-hook suite returned `EVERY GUARANTEE HELD`.
-
-**Verdict:** kept. The focused graph has zero references to the removed skill. Isolated trigger
-hit-rate remains unmeasured; this round did not dispatch evaluation agents.
+**Verdict:** pending final repository gates for this migration.
 
 ## Round 4 — 2026-08-27 · render health stays a capability, not a second debugger
 

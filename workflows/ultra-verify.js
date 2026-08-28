@@ -118,6 +118,7 @@ const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'scoutAgents'], 
   maxParallelWave: { type: 'number' },
   maxRepatch: { type: 'number' },
   maxFixRounds: { type: 'number' },
+  testRunner: { type: ['string', 'null'] },
 } }
 const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents'], properties: {
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
@@ -147,10 +148,11 @@ async function resolveConfig() {
      lenses         <- chain.lenses, else []
      hardRules      <- chain.hardRules, else []
      invariants     <- chain.invariants, else []
-     maxParallelWave <- graphGuardrails.maxParallelWave, else 5
-     maxRepatch     <- graphGuardrails.maxRepatch, else 2
-     maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
-     scoutAgents    <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
+      maxParallelWave <- graphGuardrails.maxParallelWave, else 2
+      maxRepatch     <- graphGuardrails.maxRepatch, else 2
+       maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
+       testRunner     <- tooling.testRunner, else null
+      scoutAgents    <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
     { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
@@ -160,9 +162,25 @@ Do not invent a value that is not in the file: an absent field is absent, never 
 const cfg = (await resolveConfig()) ?? {}
 const paths = cfg.paths ?? {}
 const commands = cfg.commands ?? {}
+const TEST_RUNNER = cfg.testRunner ?? cfg.tooling?.testRunner ?? null
 const WORK_BRANCH = cfg.workBranch || 'main'
-const FIX_CAP = cfg.maxParallelWave ?? 5
 const REPATCH_CAP = cfg.maxRepatch ?? 2
+const positiveNumber = (value, fallback) => Number.isFinite(value) && value > 0 ? value : fallback
+const FIX_CAP = positiveNumber(cfg.maxParallelWave, 2)
+const configuredRounds = positiveNumber(cfg.maxFixRounds, 0)
+const MAX_ROUNDS = configuredRounds || (budget?.total ? 4 : 3)
+// `parallel` is the workflow runtime primitive. This wrapper is the only fan-out entrypoint in
+// this workflow, so a project cannot accidentally turn a large lens/fix list into an unbounded
+// process wave. Batches are sequential; within one batch the runtime may execute at most FIX_CAP.
+const boundedParallel = async (thunks) => {
+  const results = []
+  for (let index = 0; index < thunks.length; index += FIX_CAP) {
+    // eslint-disable-next-line no-await-in-loop
+    const batch = await parallel(thunks.slice(index, index + FIX_CAP))
+    results.push(...batch)
+  }
+  return results
+}
 // The config bootstrap derives this set from codex/model-policy.json. Keep the workflow's model
 // values Claude-native: the semantic Codex policy belongs to the generators, while this workflow's
 // runtime still requires explicit haiku/opus tiers.
@@ -178,7 +196,7 @@ if (!cfg.pluginRoot) {
 }
 const DBG_GUIDE = `${cfg.pluginRoot}/skills/debugger/references/anti-patterns.md`
 const PERF_GUIDE = `${cfg.pluginRoot}/commands/perf.md`
-const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-bun-tsgo-gates.md`
+const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-typescript7-oxc-gates.md`
 
 // The executable lane set for ultra-verify. Kept as an enum on every `agent` field below: this
 // is the one thing the upstream copies of this workflow got wrong — `agent` was a free string, so
@@ -196,7 +214,14 @@ const AGENT_ENUM = [
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boolean)
 const quickTest = (command) => {
-  if (!/^bun(?:\.exe)?\s+test(?:\s|$)/i.test(command)) return command
+  if (TEST_RUNNER === 'vitest' || /^vitest(?:\.cmd|\.exe)?\s/i.test(command)) {
+    const flags = []
+    if (!/(?:^|\s)--changed(?=\s|$)/i.test(command)) flags.push('--changed')
+    if (!/(?:^|\s)--maxWorkers(?:=|\s|$)/i.test(command)) flags.push('--maxWorkers=1')
+    if (!/(?:^|\s)--no-file-parallelism(?=\s|$)/i.test(command)) flags.push('--no-file-parallelism')
+    return [command, ...flags].join(' ')
+  }
+  if (TEST_RUNNER !== 'bun-test' && !/^bun(?:\.exe)?\s+(?:run\s+)?test(?:\s|$)/i.test(command)) return command
   const flags = []
   if (!/(?:^|\s)--changed(?=\s|$)/i.test(command)) flags.push('--changed')
   if (!/(?:^|\s)--bail(?:=|\s|$)/i.test(command)) flags.push('--bail=1')
@@ -221,9 +246,20 @@ const GIT_RAILS =
   'the working tree.' + projectRules +
   ' After editing, run only a focused regression check for the files you changed. Never run the whole-project gate list; the workflow owns it once per round and once at the final boundary.'
 const ROOT_CAUSE = 'Name the exact root cause BEFORE patching (read ' + DBG_GUIDE + '; do NOT invoke a Skill). Fix the source, not the symptom; no "while I am here" scope creep.'
-const REGATE = quickGateList.length
-  ? `Read ${GATE_GUIDE} first. Re-run this low-resource gate set from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${quickGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Read-only.`
-  : 'This project declares no gate commands. Report allGreen:true with an empty gates list and say so — a project with no gates is a finding about the project, not a pass. Read-only.'
+const turboGuidance = (changedFiles = []) => {
+  const roots = [...new Set((Array.isArray(changedFiles) ? changedFiles : []).flatMap((file) => {
+    const match = String(file).replaceAll('\\', '/').match(/^(apps|packages)\/([^/]+)(?:\/|$)/)
+    return match ? [`${match[1]}/${match[2]}`] : []
+  }))]
+  const concurrency = Math.max(1, Math.min(2, FIX_CAP))
+  if (!roots.length) {
+    return 'If a declared gate invokes Turborepo, inspect the returned changed paths first; use an evidence-backed --filter for actual package roots and --concurrency=1 or 2. Do not invent a filter or swap package managers.'
+  }
+  return `If a declared gate invokes Turborepo, scope it to the changed package roots ${JSON.stringify(roots)} with ${roots.map((root) => `--filter=./${root}`).join(' ')} and --concurrency=${concurrency}. Do not run an unscoped monorepo gate or swap package managers.`
+}
+const REGATE = (changedFiles = []) => quickGateList.length
+  ? `Read ${GATE_GUIDE} first. Re-run this low-resource gate set from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${quickGateBlock}\n${turboGuidance(changedFiles)}\nA forbidden command is a failed gate: do not execute it and do not fall back. Read-only.`
+  : `This project declares no gate commands. Report allGreen:true with an empty gates list and say so — a project with no gates is a finding about the project, not a pass. ${turboGuidance(changedFiles)} Read-only.`
 
 const GATES = { type: 'object', required: ['allGreen', 'gates'], properties: {
   allGreen: { type: 'boolean' },
@@ -267,10 +303,10 @@ phase('Gates')
 const deadCodeProbe = commands.deadCode
   ? `\n3. Resolve the dead-code tool once: run \`${commands.deadCode} --version\` and return its major as \`deadCodeVersion\`; if it cannot be resolved, return the empty string.`
   : ''
-const [g0, scope] = await parallel([
+const [g0, scope] = await boundedParallel([
   () => agent(
     openingGateList.length
-      ? `Read ${GATE_GUIDE} first. Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Report pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
+      ? `Read ${GATE_GUIDE} first. Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\n${turboGuidance()}\nA forbidden command is a failed gate: do not execute it and do not fall back. Report pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
       : `This project declares no gate commands in its config. Return allGreen:true with an empty gates list, and note in \`failing\` that no gate was declared. Read-only.`,
     { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: 'haiku' }
   ),
@@ -454,7 +490,7 @@ REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it. Read-only.${SCOPE_LOCK}`,
   { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}`, model: M(l.agent ?? 'evaluator') }
 ))
-let sk = (await parallel(skMaker('init'))).filter(Boolean)
+let sk = (await boundedParallel(skMaker('init'))).filter(Boolean)
 const outOfScope = outOfScopeFrom(sk)
 if (outOfScope.length) log(`${outOfScope.length} finding(s) outside this plan's scope — reported, not fixed: ${outOfScope.slice(0, 4).map((f) => f.title).join(' · ')}${outOfScope.length > 4 ? ` (+${outOfScope.length - 4})` : ''}`)
 
@@ -498,11 +534,10 @@ FINDING: ${JSON.stringify(f)}`,
 ]
 // Shared re-verify after a fix batch (used by the loop AND by the final cleanup round).
 const reverify = async (round) => {
-  g = await agent(REGATE, { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: `regate:${round}`, model: 'haiku' })
+  g = await agent(REGATE(sc.changedFiles), { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: `regate:${round}`, model: 'haiku' })
   c = await completeMaker(round)
 }
 
-const MAX_ROUNDS = cfg.maxFixRounds || (budget?.total ? 4 : 3)
 // Drop a non-converging item after it fails its gate REPATCH_CAP times across rounds. The
 // orchestrator respawns a fresh fixer each round, so this counter MUST live here, not in the agent
 // prompt. It stops the loop burning rounds on something it cannot fix.
@@ -530,7 +565,7 @@ while (state.total > 0 && round < MAX_ROUNDS) {
   for (const it of [...state.missing, ...state.refuted].slice(0, FIX_CAP)) attempts.set(keyOf(it), (attempts.get(keyOf(it)) || 0) + 1)
   // Each round reads the tree the previous round wrote, so the loop is serial by construction.
   // oxlint-disable-next-line no-await-in-loop
-  await parallel(thunks.slice(0, FIX_CAP))
+  await boundedParallel(thunks.slice(0, FIX_CAP))
   // oxlint-disable-next-line no-await-in-loop
   await reverify(round)
   // Skeptics are not re-run mid-loop; refuted is cleared and re-checked by the final pass.
@@ -541,12 +576,12 @@ while (state.total > 0 && round < MAX_ROUNDS) {
 let openFindings = []
 let unconfirmed = [] // open findings no lens re-checked — carried to the caller, never quietly dropped
 if (round > 0) {
-  const finalSk = (await parallel(skMaker('final'))).filter(Boolean)
+  const finalSk = (await boundedParallel(skMaker('final'))).filter(Boolean)
   openFindings = refutedFrom(finalSk)
   if (openFindings.length && round < MAX_ROUNDS) {
     round++
     log(`Final skeptic pass found ${openFindings.length} P0/P1 — one bounded cleanup round.`)
-    await parallel(fixThunks({ missing: [], refuted: openFindings }, round).slice(0, FIX_CAP))
+    await boundedParallel(fixThunks({ missing: [], refuted: openFindings }, round).slice(0, FIX_CAP))
     await reverify(round)
     // Token-lean confirm: re-run ONLY the lenses that flagged. The cleanup touched exactly those
     // findings; clean lenses were just verified, and re-running them is duplicate work.
@@ -558,7 +593,7 @@ if (round > 0) {
     // stays open unless the lens that raised it ran again and did not raise it again. Clearing is a
     // positive act; the absence of a match is not evidence of a fix.
     const confirmLenses = lensesThatFlagged(finalSk)
-    const confirmRuns = await parallel(skMaker('final', confirmLenses))
+    const confirmRuns = await boundedParallel(skMaker('final', confirmLenses))
     // A lens counts as re-run only when its agent came back AND identified itself as that lens. A
     // dead agent and a mis-identified panel member both mean "not checked", never "fixed".
     const reran = new Set(confirmLenses.filter((l, i) => confirmRuns[i]?.lens === l.name).map((l) => l.name))

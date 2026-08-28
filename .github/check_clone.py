@@ -9,12 +9,13 @@ import subprocess
 import sys
 
 REQUIRED = [
-    "bin/graph-powers.mjs", "bin/audit-settings.mjs",
+    "bin/graph-powers.mjs", "bin/oxc-setup.mjs", "bin/audit-settings.mjs",
     "bin/hook-client-verifier.mjs", "bin/verify-hook-clients.py",
     "codex/install.mjs", "codex/lib.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
     "cursor/install.mjs",
     "grok/install.mjs",
     "hooks/hooks.json", "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",
+    ".github/check_oxc_policy.py", ".oxlintrc.json", ".oxfmtrc.json",
     "hooks/hooks-cursor.json",
     "schema/config.schema.json",
     ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
@@ -24,6 +25,8 @@ REQUIRED = [
     "codex/native-plugin.mjs",
     "AGENT_SETUP.md", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENTS.md", "CONTRIBUTING.md",
+    "templates/zed/settings.json", "templates/vscode/settings.json", "templates/vscode/extensions.json",
+    "commands/setup.md", "references/shared/130-typescript7-oxc-gates.md",
     "docs/ARCHITECTURE.md", "docs/AUDIENCE.md",
 ]
 REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows", "codex/native-agents"]

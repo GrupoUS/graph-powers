@@ -126,7 +126,7 @@ Bridges user stories → testable implementation.
 - [ ] [agent-browser CLI: user can do X without Y error — see `Skill("webapp-testing")`]
 - [ ] Edge case: [describe at least 1 edge case and expected behavior]
 
-**Done Definition:** run `${tooling.commands.typeCheck}` and the focused `${tooling.commands.test}` invocation as separate commands; both exit 0. JS/TS commands first pass `references/shared/130-bun-tsgo-gates.md`.
+**Done Definition:** run `${tooling.commands.typeCheck}` and the focused `${tooling.commands.test}` invocation as separate commands; both exit 0. JS/TS commands first pass `references/shared/130-typescript7-oxc-gates.md`.
 
 **Boundary (NOT in this sprint):**
 - [Feature A] — defer to Sprint N+1

@@ -1,13 +1,13 @@
-# Plano: verificação mais rápida (Bash, Bun, tsgo)
+# Plano: verificação mais rápida (Bash, Bun, TypeScript 7)
 
 > **Só plano.** Sem implementação neste turno.
 > Trabalho em `~/Projects` (graph-powers + neondash). Sem commit/push.
 
 **Goal:** Cortar tempo e RAM dos comandos de verificação sem trocar o contrato dos gates.
 
-**Arquitetura:** O gargalo não é o Bash. É (1) o `/verify` completo disparar 3–4 agentes LLM e (2) o Turbo rodar o monorepo inteiro. As ferramentas certas já estão no NeonDash: Bun, tsgo, oxlint, Biome, Vitest via `bun run test`.
+**Arquitetura:** O gargalo não é o Bash. É (1) o `/verify` completo disparar 3–4 agentes LLM e (2) o Turbo rodar o monorepo inteiro. As ferramentas certas já estão no NeonDash: Bun, TypeScript 7 `tsc`, oxlint, Biome, Vitest via `bun run test`.
 
-**Stack alvo:** Omarchy 4 · 9800X3D · Bun 1.4.0 no host · NeonDash pin `bun@1.3.9` · `tsgo` 7 nativo.
+**Stack alvo:** Omarchy 4 · 9800X3D · Bun 1.4.0 no host · NeonDash pin `bun@1.3.9` · TypeScript 7 nativo.
 
 ---
 
@@ -15,7 +15,7 @@
 
 ### O que o agente chama de “Bash”
 
-No Claude Code / Graph Powers, **Bash é só o lançador** do processo (`python3 …`, `bun run …`, `tsgo …`). Spawn de shell no Linux é ~1 ms. Trocar Bash por dash, fish, systemd-run ou “Go puro” **não** muda o tempo de um type-check.
+No Claude Code / Graph Powers, **Bash é só o lançador** do processo (`python3 …`, `bun run …`, `tsc …`). Spawn de shell no Linux é ~1 ms. Trocar Bash por dash, fish, systemd-run ou “Go puro” **não** muda o tempo de um type-check.
 
 No Hermes o equivalente é a tool `terminal` — mesma história.
 
@@ -27,7 +27,7 @@ Já está no caminho certo (`AGENTS.md` + `.claude/config.json`):
 
 | Gate | Comando real | Motor |
 |---|---|---|
-| Types | `bun run type-check` → `turbo run check` → `tsgo --noEmit` | **tsgo** (Go), não `tsc` Node |
+| Types | `bun run type-check` → `turbo run check` → `tsc --noEmit -p tsconfig.json --checkers 1` | **TypeScript 7** nativo |
 | Lint | `bun run lint:oxlint:check` → `oxlint` | **oxlint** (Rust) |
 | Format | `bunx biome …` | **Biome** |
 | Teste | `bun run test` → `turbo run test` → **Vitest** | proposital; `bun test` nu é **proibido** (ignora o config) |
@@ -52,7 +52,7 @@ Gates oficiais são **Python stdlib** (`hooks/test_hooks.py`) + uns `node *.mjs`
 | Camada | Melhor no seu hardware | Não fazer |
 |---|---|---|
 | Shell do agente | Bash/terminal (irrelevante) | Reescrever em Go “pra ser rápido” |
-| Type-check | **tsgo** (já no NeonDash) | `npx tsc` / `typescript@5` |
+| Type-check | **TypeScript 7 `tsc`** (local, sem instalação automática) | `tsgo` preview / `npx tsc` sem `--no-install` / `typescript@6` |
 | Unit/integration | **Vitest via `bun run test`** (já) | `bun test` nu; Jest; `node --test` |
 | Lint | **oxlint** (já) | ESLint default |
 | Format | **Biome** (já) | Prettier+ESLint |
@@ -81,7 +81,7 @@ Proposta: o `/verify` e o Step 5 resolvem o change set e chamam:
 bunx turbo run check test --filter=<app tocado>
 ```
 
-Diff só em `apps/web` → não type-checka a API. Contrato do gate continua `tsgo` + Vitest.
+Diff só em `apps/web` → não type-checka a API. Contrato do gate continua TypeScript 7 `tsc` + Vitest.
 
 Arquivos: `Projects/neondash/.claude/config.json` (`tooling.commands` ou `verify-supplements`), resolver JS/TS documentando `--filter`.
 
@@ -102,7 +102,7 @@ Arquivos: `Projects/neondash/.claude/config.json` (`tooling.commands` ou `verify
 
 - Trocar Bash.
 - Trocar Vitest por `bun test` no NeonDash.
-- Voltar para `tsc`.
+- Voltar para `tsgo` preview ou TypeScript legado.
 - Instalar Ananicy/mais um runner.
 - Ligar `/verify` full em todo save.
 - `bun test --no-isolate` para “ir mais rápido” (contamina testes).
@@ -121,7 +121,7 @@ Critério: o texto diz explicitamente que full = agentes = caro.
 
 **Files:** `Projects/neondash/.claude/config.json` ou um wrapper `scripts/verify_scoped.py` (Python stdlib, já é o estilo do repo).
 
-Critério: diff só em `apps/api` não dispara `tsgo` da web. Medir 3× antes/depois.
+Critério: diff só em `apps/api` não dispara o `tsc` da web. Medir 3× antes/depois.
 
 ### Task 3 — A/B Bun 1.4 no NeonDash
 

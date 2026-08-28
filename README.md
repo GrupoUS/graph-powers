@@ -369,13 +369,24 @@ denies.
 node ~/.graph-powers/src/bin/graph-powers.mjs --target grok
 ```
 
-### Zed
+### Zed and Oxc editors
 
-Graph Powers has no Zed plugin manifest or lifecycle/tool-hook target. Zed can read `AGENTS.md`,
-rules, skills and the `.zed/settings.json` editor/LSP setup, but native Zed tool calls are not
-intercepted by the commit, push, protected-file or destructive-command hooks. Report that surface
-as `NOT ENFORCED`; do not invent a Zed hook file. An external Claude/Codex/Cursor/Grok agent launched
-from Zed is verified under that external client's own row.
+Graph Powers has no Zed hook target: native Zed tool calls are not intercepted by the commit, push,
+protected-file or destructive-command hooks, so that surface remains `NOT ENFORCED`. It does provide
+an explicit project setup for the official Oxc editor integrations. Run it from the project root:
+
+```bash
+bun <clone>/bin/graph-powers.mjs --setup-oxc
+```
+
+The setup installs local TypeScript 7, `oxlint` and `oxfmt`, verifies their project-local binaries, and
+merges `.zed/settings.json` plus the VS Code-compatible `.vscode/settings.json` and
+`extensions.json`. Oxfmt is the sole formatter for JavaScript, TypeScript, JSON, JSONC and CSS;
+Oxlint supplies interactive diagnostics. Install the official **Oxc** extension once in Zed
+(`zed: extensions`) or
+VS Code/Cursor (`oxc.oxc-vscode`); project setup cannot install GUI extensions or change global IDE
+settings. Restart the language server after the package install. Other LSP editors can launch the
+same local Oxlint binary with `--lsp`.
 
 ### Clone installer — fallback and project-scoped installs
 
@@ -400,6 +411,8 @@ wherever it actually ran from so updates find it again.
 | `--scope local` | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team |
 | `--force` | Reinstall the global half even when it is already at this version |
 | `--config` | Also writes a starting `.graph-powers/config.json`, inferred from the stack |
+| `--setup-oxc` | Installs local TypeScript 7, `oxlint` and `oxfmt`, then configures Zed plus VS Code/Cursor project settings |
+| `--package-manager NAME` | Overrides Oxc setup detection: `bun`, `npm`, `pnpm` or `yarn` |
 | `--prefix NAME` | Opt-in key prefix (with `--config`). Default: the directory name |
 | `--source <org/repo\|path>` | Where the marketplace comes from. Useful for a fork or a local clone |
 | `--update` | `git pull --ff-only` on the clone, then reinstall from it |
@@ -516,53 +529,44 @@ One file per project, with a safe default for everything. The full contract is
 
 ### The tools you declare have to exist
 
-`tooling.commands.format` runs after every edit and `tooling.commands.lint` runs at every stop, both
-through `ultracite.py`. The plugin runs the command you wrote and nothing more — it does not install
-anything, and it does not fall back to a formatter of its own choosing. That was deliberate: an
-earlier version shelled out to `biome` and `oxlint` unconditionally and rewrote files in projects
-that had chosen Prettier.
+`tooling.commands.format` runs once for a changed supported file after an edit, and
+`tooling.commands.lint` runs at Stop only for changed JS/TS paths. The hooks remain fail-open; they
+do not install packages, select a global binary, or silently replace the project's toolchain.
 
-The consequence is that a declared command whose tool is missing simply never runs. So install them,
-globally — a session visits repositories that do not carry these as dependencies:
+For a JavaScript/TypeScript project, keep the tools in the project manifest and route the plugin
+through package scripts:
 
 ```bash
-bun add -g @biomejs/biome oxlint      # or: npm i -g @biomejs/biome oxlint
-biome --version && oxlint --version   # both must answer
+bun add -d oxlint oxfmt typescript@7
 ```
 
-You do not have to guess whether they resolved. Every session start prints what it found, and names
-what it did not:
-
-```
-[ACMEWEB] Bun | branch:dev-test | gates: test | NOT INSTALLED: lint needs `oxlint`, format needs `biome` — install globally or these never run
-```
-
-A command routed through the package manager — `bun run lint` — is not checked and never reported:
-the tool is named in the project's manifest rather than in the command, and a warning that guesses
-is worse than no warning.
-
-### Low-resource JS/TS verification
-
-`--config` now preconfigures a Bun project with `tsconfig.json` for native `tsgo` and refuses to
-copy an existing gate that explicitly launches Node tests, legacy `tsc`, bare `tsgo`, or unbounded
-Bun workers. The safe defaults are:
-
-```bash
-bunx --bun --no-install --package @typescript/native-preview tsgo --noEmit -p tsconfig.json --checkers 1
-bun test --changed --bail=1 --smol   # edit loop
-bun test --smol                      # full gate, once at the end
+```json
+{
+  "scripts": {
+    "format": "oxfmt --write",
+    "lint": "oxlint --deny-warnings",
+    "type-check": "oxlint --type-aware --type-check --threads 1"
+  }
+}
 ```
 
-Install and pin `@typescript/native-preview` in the project before the gate; `--no-install` makes a
-missing package fail instead of fetching code during verification. Bare `tsgo` is not accepted
-because its npm launcher has a Node shebang. Unbounded `bun test --parallel` is not accepted because
-Bun 1.4 may start one worker process per CPU core; measured parallelism must be capped at
-`--parallel=2`.
+Session start reports missing local tools without pretending that a gate ran. A package-script
+command such as `bun run lint --` is resolved by the project's manifest; hooks pass only the edited
+or changed paths and never invoke a network launcher. Type-aware Oxlint is a final gate only at
+`/verify`, commit or CI. Test runners keep their project configuration.
 
-TypeScript 7 stable is the native Go port but renamed its executable to `tsc`. Graph Powers keeps the
-`tsgo` preview channel deliberately so a gate can never be confused with legacy Node TypeScript.
-Framework checkers that embed the TypeScript API remain project-declared. Full setup, migration and
-official sources: [`skills/debugger/references/low-resource-js-ts-gates.md`](skills/debugger/references/low-resource-js-ts-gates.md).
+### Oxc + Zed for JS/TS
+
+Oxlint is the sole editor diagnostic provider, Oxfmt is the sole formatter, and vtsls is the sole
+TypeScript provider for types, completion and navigation. The editor uses vtsls's bundled compatible
+TypeScript SDK; the project-local `typescript@7` remains the compiler used by gates. Do not set
+`tsdk` to `node_modules/typescript/lib`, because TypeScript 7 does not ship the legacy `tsserver.js`
+that vtsls expects. Keep `vtsls.autoUseWorkspaceTsdk` disabled in
+`templates/zed/settings.json`. Type-aware Oxlint belongs only to `/verify`, commit and CI; edit
+hooks use regular diagnostics and formatting.
+
+The full policy and official links live in
+[`references/shared/130-typescript7-oxc-gates.md`](references/shared/130-typescript7-oxc-gates.md).
 
 Graph Powers' own ESM verification gates also run through Bun 1.4. The installer remains
 Node-compatible, but agents and CI do not use Node as the test executor.
@@ -819,17 +823,16 @@ registry, so an identical refusal means nothing about your session was stale.
     Lint found 1 error(s) after safe auto-fix.
     No files found to lint. Please check your paths and ignore patterns.
 
-Oxlint reads JavaScript and TypeScript. Handed a batch that is JSON alone it exits non-zero with
-that line, and a hook counting exit codes reports it as a lint error — on a change whose only
-matching file was a config or a schema. Biome does read JSON, so the fix is not to stop linting
-JSON but to stop sending it to the wrong tool:
+Oxlint reads JavaScript and TypeScript. Handed a batch that is JSON alone it may report no lintable
+source, and a hook counting exit codes can mistake that for a lint error — on a change whose only
+matching file was a config or a schema. Oxfmt formats JSON while Oxlint receives only existing
+changed JavaScript/TypeScript paths:
 
 ```python
-OXLINT_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}   # no .json
+OXLINT_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 ```
 
-and treat `No files found to lint` as zero errors, the way a well-built hook already treats Biome's
-`No files were processed`.
+and treat a change with no relevant source paths as clean, as the changed-path Stop hook does.
 
 This plugin's own `hooks/ultracite.py` runs only `tooling.commands.format` and
 `tooling.commands.lint` as the project declared them, and never chooses a linter for you — so if the

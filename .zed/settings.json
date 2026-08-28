@@ -1,0 +1,161 @@
+{
+  "line_ending": "enforce_lf",
+  "load_direnv": "shell_hook",
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/.jj",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.classpath",
+    "**/.settings",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.build/**",
+    "**/.turbo/**",
+    "**/.cache/**",
+    "**/.bun/**",
+    "**/.next/**",
+    "**/.astro/**",
+    "**/coverage/**",
+    "**/generated/**",
+    "**/*.generated.*"
+  ],
+  "format_on_save": "on",
+  "inlay_hints": {
+    "enabled": true,
+    "show_type_hints": true,
+    "show_parameter_hints": true,
+    "show_other_hints": true
+  },
+  "lsp": {
+    "oxlint": {
+      "initialization_options": {
+        "settings": {
+          "configPath": ".oxlintrc.json",
+          "run": "onSave",
+          "disableNestedConfig": true,
+          "fixKind": "safe_fix_or_suggestion",
+          "typeAware": false,
+          "unusedDisableDirectives": "deny"
+        }
+      }
+    },
+    "oxfmt": {
+      "initialization_options": {
+        "settings": {
+          "fmt.configPath": ".oxfmtrc.json",
+          "fmt.disableNestedConfig": true,
+          "run": "onSave"
+        }
+      }
+    },
+    "vtsls": {
+      "settings": {
+        "vtsls": {
+          "autoUseWorkspaceTsdk": false,
+          "disableAutomaticTypeAcquisition": true
+        },
+        "typescript": {
+          "disableAutomaticTypeAcquisition": true,
+          "preferences": {
+            "importModuleSpecifier": "non-relative"
+          },
+          "tsserver": {
+            "useSyntaxServer": "never"
+          }
+        },
+        "javascript": {
+          "disableAutomaticTypeAcquisition": true,
+          "preferences": {
+            "importModuleSpecifier": "non-relative"
+          }
+        }
+      }
+    }
+  },
+  "languages": {
+    "JavaScript": {
+      "language_servers": ["oxlint", "vtsls"],
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    },
+
+    "TypeScript": {
+      "language_servers": ["oxlint", "vtsls"],
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    },
+    "TSX": {
+      "language_servers": ["oxlint", "vtsls"],
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    },
+    "JSON": {
+      "language_servers": ["..."],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    },
+    "JSONC": {
+      "language_servers": ["..."],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    },
+    "CSS": {
+      "language_servers": ["tailwindcss-intellisense-css", "!vscode-css-language-server", "..."],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      }
+    }
+  }
+}
