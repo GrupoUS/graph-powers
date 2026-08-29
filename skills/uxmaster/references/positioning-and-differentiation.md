@@ -1,52 +1,43 @@
 # Positioning, ICP & Differentiation
 
-Who it's for, why it's different, and how it survives commoditization.
+Positioning is a UX question when it changes whether people recognize a relevant problem, understand
+the product, and decide whether it fits their job.
 
-## Who talks to everyone convinces no one (ICP)
+## Start with a real user problem
 
-- **Rule:** no ICP → generic value proposition → worse conversion *and* worse retention.
-- **The move:** name a specific ideal customer profile; write the value proposition to *them*.
-  Narrow the audience to sharpen the message; you can widen later from a base that converts.
-- **Accept:** you can state the ICP in one sentence and the value prop changes if you swap it out.
+Name the audience, situation, job, alternatives, constraints, and desired outcome. An ICP is a useful
+hypothesis for focus, not permission to stereotype or exclude without evidence. State what would
+change the audience or message.
 
-## Niche & founder-fit
+## Differentiate credibly
 
-- **The move:** pick a niche where you have unfair insight or distribution (founder-fit). A smaller
-  market you deeply understand beats a large one you address generically.
+Explain the difference through a real mechanism, workflow, outcome, evidence, narrative, or experience.
+Do not rely on adjectives or a category claim that the product cannot demonstrate. The promise must be
+no larger than the proof and the actual user experience.
 
-## Same competes on price, different competes on category
+## Message and journey fit
 
-- **Rule:** if you look like the alternatives, the only lever left is price.
-- **The move:** differentiate on **mechanism** (how it works), **narrative** (how you frame the
-  problem), or **experience** (how it feels) — not on adjectives. Create contrast, ideally a new
-  category or sub-category you can own.
+Connect acquisition language to the first useful task, onboarding, product information, support, and
+retention. Test whether people can repeat what the product is, who it is for, why it is different, and
+what they can do next. A new category or niche is a hypothesis to validate, not a universal strategy.
 
-## Awareness levels drive the message
+## Distribution as context
 
-- Position against where the market is (Schwartz's 5 awareness levels; see
-  `conversion-and-landing.md`). Category creation targets problem/solution-aware audiences; a
-  crowded category is product-aware and demands sharp differentiation.
+Channel, referral, invite, artifact, embed, and sales handoff change expectations. Include them in the
+journey map and test continuity across marketing, product, and human support. Do not invent audience
+size, traction, or proof.
 
-## Distribution & GTM
+## AI-era claims
 
-- **Rule:** distribution is a first-class design constraint, not an afterthought.
-- **The move:** choose channels deliberately (Bullseye: test many, double down on the one that
-  works); design the product's shareable/PLG surfaces (invites, artifacts, embeds) into the flow.
-- **First customers:** go where the ICP already gathers; do things that don't scale to earn the
-  first cohort and the proof that fuels the landing page.
-
-## Differentiating in the AI era
-
-- **Rule:** as AI commoditizes generic features, the moat shifts to what AI doesn't hand out for
-  free: proprietary data, workflow depth, taste/curation, brand trust, distribution, and
-  integration into the user's real job.
-- **The move:** don't compete on "we also have AI." Compete on the wrapper of judgment, data, and
-  experience around it. Commoditized capability → differentiate on the surrounding system.
+When a capability is easy to copy, examine the surrounding workflow, data rights, integration, curation,
+judgment, trust, and distribution. These may become meaningful differences only if users experience
+them as valuable and the product can sustain them.
 
 ## Acceptance checklist
 
-- [ ] ICP stated in one sentence; value prop is ICP-specific.
-- [ ] Differentiation is on mechanism/narrative/experience, not adjectives.
-- [ ] Message matches the market's awareness level.
-- [ ] A deliberate primary distribution channel exists and is being tested.
-- [ ] The moat is something AI can't replicate for free.
+- [ ] Audience, situation, job, alternatives, and constraints are explicit.
+- [ ] The value proposition is specific and supported by evidence.
+- [ ] Difference is expressed as a meaningful mechanism or experience.
+- [ ] Message, product task, support, and retention make the same promise.
+- [ ] Channel handoffs and expectations are included in the journey.
+- [ ] Unknowns, hypotheses, and validation measures are recorded.

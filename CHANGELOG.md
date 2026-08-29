@@ -10,6 +10,16 @@ drift, and examples no longer freeze the defaults.
 Argument-less `/verify` now inherits the originating task tier: L1-L2 remains the low-resource
 quick path, while L3+ runs the review batch. Explicit `/verify quick` remains available.
 
+### UXmaster research, journeys and mobile decision guidance
+
+UXmaster now starts from user needs, context, tasks, journeys, information architecture, interaction
+states, recovery, accessibility, trust, evidence, and validation before applying conditional
+conversion, onboarding, pricing, retention, positioning, or psychology lenses. Mobile guidance from
+the GrupoUS NeonDash skill was adapted into the existing reference set without importing visual-token
+or framework rules. New ecommerce/product-experience, journey/flow, research/framing, and behavior
+evaluation references make the boundaries with designer, design-fix, implementation, debugger,
+performance, animate, and landing-page-design explicit.
+
 ## 1.13.0 — TypeScript 7, Oxc editor ownership and resource-bounded loops
 
 JavaScript and TypeScript defaults now require a project-local stable TypeScript 7 `tsc` with an
@@ -570,17 +580,17 @@ other repository.
 duplications went out in the same change — neither a command losing content, both a second copy of
 something another file already owns:
 
-| Cut | Owner it duplicated | Command floors charged |
-|---|---|---|
-| The 21-row placeholder table in `000-config-loader.md`, an identity mapping of `${a.b}` → `a.b` | `schema/config.schema.json`, the parameter contract | 9 |
-| The domain-skill enumeration in `005-superpowers-bootstrap.md` | `120-skill-invocation-order.md` | 10 |
+| Cut                                                                                             | Owner it duplicated                                 | Command floors charged |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------- |
+| The 21-row placeholder table in `000-config-loader.md`, an identity mapping of `${a.b}` → `a.b` | `schema/config.schema.json`, the parameter contract | 9                      |
+| The domain-skill enumeration in `005-superpowers-bootstrap.md`                                  | `120-skill-invocation-order.md`                     | 10                     |
 
 `${rulesDir}` → `paths.rulesDir` survives the first cut, because it is the one mapping that is not
 identity. Floor: 329,953 B → 322,414 B.
 
 **And 30,604 B that were never a real load.** `/verify § 0.3 Database` fires only when the change
 set mapped the `schema` surface; `/implement § 7.5` step 3 fires only on the `optIn` apply branch.
-In both, the condition sat on the line *above* the `Skill("performance-optimization")` call, and
+In both, the condition sat on the line _above_ the `Skill("performance-optimization")` call, and
 `check_context_budget.py` reads the line rather than the section — deliberately — so it charged
 15,323 B to every `/verify` on a passing typecheck and every `/implement` with no schema work. The
 condition now sits on the line that orders the load, which is the sentence both steps should have
@@ -588,10 +598,10 @@ been writing anyway. Nothing changed for a run that does hit the branch: it load
 
 `/perf` keeps it in the floor, correctly — that command loads it on every run.
 
-| Command | Floor before | Floor after |
-|---|---|---|
-| `/verify` | 44,894 B | 29,591 B |
-| `/implement` | 49,620 B | 34,319 B |
+| Command      | Floor before | Floor after |
+| ------------ | ------------ | ----------- |
+| `/verify`    | 44,894 B     | 29,591 B    |
+| `/implement` | 49,620 B     | 34,319 B    |
 
 Floor total: 329,953 B → **291,810 B**. `FLOOR_CEILING` drops 330,000 → 295,000 in the same commit,
 so 3,190 B stays spendable and the other 35,000 B cannot be spent without someone noticing.
@@ -699,7 +709,7 @@ regex by substring. `BashOutput` and `KillBash` match it. Their payloads carry a
 command line, so `smart_bash_approver` read an empty command and took the branch that asks —
 "Hook PreToolUse:Bash requires confirmation for this command. [plugin:graph-powers]", once per poll
 of a background shell, naming a command that was never in the payload. The branch existed to keep
-an *unclassified* command from falling through to allow; an absent one is a different case.
+an _unclassified_ command from falling through to allow; an absent one is a different case.
 
 A payload with no command line now produces no verdict at all. Nothing is granted that the harness
 would not have granted on its own — silence leaves the normal approval flow in charge — and a real
@@ -872,7 +882,7 @@ The `seo-geo-baseline` and `security-baseline` packs had no route through the co
 
 ## 1.7.0 — the browser reference that shipped with the binary, and nobody read it
 
-`skills/webapp-testing/references/browser-setup.md` was 465 lines of hand-written `agent-browser` command reference. The CLI ships its own usage skill — `bunx agent-browser skills get core --full`, 432 lines, versioned with the binary and therefore never stale. The file already knew: it recommended that command twice, at `:309-318` and `:382-392`, in two byte-identical blocks, and the second one stated the thesis out loud — *"This file covers what a project has to decide … everything else is upstream."* It then kept mirroring upstream for another 250 lines. This release makes the file obey the sentence it was already carrying.
+`skills/webapp-testing/references/browser-setup.md` was 465 lines of hand-written `agent-browser` command reference. The CLI ships its own usage skill — `bunx agent-browser skills get core --full`, 432 lines, versioned with the binary and therefore never stale. The file already knew: it recommended that command twice, at `:309-318` and `:382-392`, in two byte-identical blocks, and the second one stated the thesis out loud — _"This file covers what a project has to decide … everything else is upstream."_ It then kept mirroring upstream for another 250 lines. This release makes the file obey the sentence it was already carrying.
 
 ### Added — Step 1 now installs the binaries too, not just the plugins
 
@@ -1075,7 +1085,7 @@ ceiling.
 
 ### Added — `references/execution-floor.md`, the counterpart of the safety floor
 
-`safety-floor.md` says what must never happen. Nothing said how the work is *run*, so that half was
+`safety-floor.md` says what must never happen. Nothing said how the work is _run_, so that half was
 optional: it lived in a skill the model had to choose to invoke, and in reference fragments a command
 had to name. A session that never invoked either coordinated nothing and reported success.
 
@@ -1141,7 +1151,7 @@ it was content that had a different owner, or no owner at all:
   Orchestrator role this plugin does not have. The four agents that do preload something preload
   their own domain skill; the table now says what is true instead of what would be tidy.
 
-The same pass removed the duplication *inside* the skill: `agentic_system_design.md` restated the
+The same pass removed the duplication _inside_ the skill: `agentic_system_design.md` restated the
 file contract, the preload table and the anti-patterns almost line for line, and now starts where
 `SKILL.md` stops. `parallel-batch-contracts.md` lost a "remaining spawn budget" table that quietly
 contradicted the width-versus-total distinction the spawn rules exist to make.
@@ -1166,7 +1176,7 @@ was written.
 - **A citation that was never true.** `llm_evaluation_frameworks.md` opened by declaring itself
   "cited by `evaluator` agent (Mode 3)". `agents/evaluator.md` has never named it — it loads
   `references/rubrics/evaluator-rubric.md`. Also removed: two `${rulesDir}/execution.md § Agents &
-  Dispatch → …` sub-anchors pointing at headings the shipped template does not contain, and the
+Dispatch → …` sub-anchors pointing at headings the shipped template does not contain, and the
   lineage prose citing `orchestrator.md`, a file this repository does not have.
 
 ### Removed — `/delegate`, whose subject is now the floor
@@ -1193,8 +1203,8 @@ Ten commands now, and the floor answers the question the eleventh was asking.
 The context loader was the second most expensive command in the set: 27,924 B before it did
 anything, of which its header ordered six shared fragments and the body acted on three. The agent
 matrix, the spawn rules and the guardrail index — 11,285 B — were loaded on every invocation and used
-on none. `shared-context.md` has stated the rule the whole time: *"A command's header names what it
-reads, and nothing else… if it does not, the line is wrong."*
+on none. `shared-context.md` has stated the rule the whole time: _"A command's header names what it
+reads, and nothing else… if it does not, the line is wrong."_
 
 They are also exactly what the execution floor now carries without being read, so the header is three
 fragments and the body says why.
@@ -1237,7 +1247,7 @@ path, and nothing separates them without asking the filesystem. That form went b
 
 `autonomy` is user-scoped so a person's posture survives `git clone`. The comment said `git` was
 excluded deliberately, and that was true of the top-level `git` block — branch names and the
-opt-in prefix. The three *decisions* live under `autonomy`, which is scoped, so they crossed:
+opt-in prefix. The three _decisions_ live under `autonomy`, which is scoped, so they crossed:
 `~/.graph-powers/config.json` with `autonomy.git.{commit,push,protectedBranch}: "auto"` silenced
 `git_commit_gate`, `git_push_gate` and `git_branch_gate` in every repository that declares no
 `autonomy` block of its own — which is most of them, since that is why the layer exists. `level`
@@ -1272,7 +1282,7 @@ refused.
 All three moved to the always-allow list in 1.4.0. No hook in this plugin gates `gh`, and
 `safety-floor.md §1` wants approval in the turn before anything leaves the machine. Ownership is
 outside git entirely. And "additive" describes what `rsync` does to the destination filesystem,
-which says nothing about the destination *host* — a remote target is egress. All three ask again;
+which says nothing about the destination _host_ — a remote target is egress. All three ask again;
 a local-to-local `rsync` without `--delete` still runs unprompted, which was the change worth
 keeping.
 
@@ -1328,7 +1338,7 @@ and the symlink, which skips loudly on a platform that refuses to create one.
 
 The commands and skills were already model-invocable; Claude Code merged commands into skills, and
 every one of them has been in the model's listing all along. What was missing is that the listing
-entry is the *only* text a plain sentence is matched against, and all 24 were written as
+entry is the _only_ text a plain sentence is matched against, and all 24 were written as
 documentation — explaining what an artefact is, to a reader who had already typed its name.
 
 They now split by the load they carry. The 12 **commands** are the intent surface: each one leads
@@ -1342,7 +1352,7 @@ frontmatter, 24 of 24 parsing. The defect was entirely in what the text said.
 
 ### Added — `check_listing_budget.py`, because the ceiling is shared and invisible
 
-Claude Code budgets the skill listing at roughly 1% of the context window across *every* source on
+Claude Code budgets the skill listing at roughly 1% of the context window across _every_ source on
 the machine, and on overflow it drops descriptions rather than failing — starting with whatever is
 invoked least. Three of this plugin's own skills were measured in that state: listed by name,
 matching nothing.
@@ -1430,7 +1440,7 @@ Two corrections to the first version of this section, both from measurement:
 
 - **The oxlint template was noisier than oxlint's own default.** Same project, same ignores: the
   default `correctness` category gave 5 findings; the recommended `plugins` + `suspicious`/`perf`
-  gave 68. The additions bought `no-underscore-dangle` (27 — Google Apps Script *requires* the
+  gave 68. The additions bought `no-underscore-dangle` (27 — Google Apps Script _requires_ the
   trailing underscore for private functions), `no-await-in-loop` (17 — deliberate sequencing),
   `consistent-function-scoping` (8) and `no-array-sort` (6 — which this plugin's own config already
   disables, with a reason). The template is now the ignore list and nothing else, with the widening
@@ -1440,9 +1450,8 @@ Two corrections to the first version of this section, both from measurement:
   now names the source, which is what the measured project's own working config does.
 
 Also documented: the triage order for someone handed four figures of findings — run what the project
-declares first, then group by *directory* before ever grouping by rule, because that is the step that
+declares first, then group by _directory_ before ever grouping by rule, because that is the step that
 ends most of these.
-
 
 `AGENT_SETUP.md` told installers to install both tools and declare the commands, and stopped there. A
 declared linter with no config file runs, exits 0 and reports nothing, which is the worst possible
@@ -1534,12 +1543,12 @@ task between them.
 Eleven citations of `codex:rescue`, in the escalation path of `/debug` (six), `/implement` (two)
 and three shared fragments. The plugin that provides it ships `agents/codex-rescue.md`, so the
 address is `codex:codex-rescue`; `codex:rescue` resolves to nothing. Two of the eleven called it a
-*skill*, and that plugin's skills are `codex-cli-runtime`, `codex-result-handling` and
+_skill_, and that plugin's skills are `codex-cli-runtime`, `codex-result-handling` and
 `gpt-5-4-prompting` — no `rescue` among them either. So `/debug`'s documented route out of a stuck
 fix, and `/implement --codex`, pointed at nothing, and the failure is the quiet kind: the model
 reads the instruction, finds no such agent, and continues with less than it thinks it has.
 
-Eight of the eleven predate this release. The other three were created *by* it — the bare-to-
+Eight of the eleven predate this release. The other three were created _by_ it — the bare-to-
 namespaced migration corrected every `graph-powers:` name and copied the wrong `codex:` one into
 three new `references/shared/` fragments. A migration that fixes one namespace and propagates
 another is worse than none, because the corrected neighbours make the wrong one look reviewed.
@@ -1581,7 +1590,7 @@ then ran one path where it declares three, and nothing in its output would have 
 skipped path reading as a passed path is the exact failure `/pr-review § 8` promises not to have.
 
 G2 counted `Agent` spawns from the start of the session and never let go of one. Its own docstring
-says what it is for — *"a runaway fan-out burns a budget in one afternoon"* — and a runaway fan-out
+says what it is for — _"a runaway fan-out burns a budget in one afternoon"_ — and a runaway fan-out
 is a burst. A session that lives all day is not one. Counted cumulatively the ceiling stopped
 measuring bursts and started measuring session age: once a long session crossed 25, it refused the
 **first** spawn of every unrelated later task for the rest of the day. Both ceilings now count
@@ -1591,8 +1600,8 @@ Two smaller defects fell out of the same file:
 
 **A refused spawn was charged for.** `bump()` incremented, then compared, so a denial consumed a
 slot it never used and every retry pushed the number higher. The message read `27 agent spawns` in
-a session where 25 ran and 2 were refused. The old behaviour had a comment defending it — *without
-it a caller retries forever at no cost* — which does not hold: a refused retry never ran, and the
+a session where 25 ran and 2 were refused. The old behaviour had a comment defending it — _without
+it a caller retries forever at no cost_ — which does not hold: a refused retry never ran, and the
 spawns that did run are still inside the window, so the refusal repeats on its own. All the charge
 bought was a number that described nothing.
 
@@ -1605,7 +1614,6 @@ rounds. This repository's own session log carried `agent:evaluator: 1` beside th
 do), the migration (a counter written before timestamps existed cannot be placed in a window, so it
 stands down rather than denying on evidence that is not there), the uncharged refusal, and the two
 spellings sharing one counter.
-
 
 ### Fixed — every guardrail on the Codex side was registered twice
 
@@ -1636,7 +1644,7 @@ fresh process carries a fresh registry, so nothing was stale.
 
 **Second wrong answer: frontmatter.** `security-reviewer` and `skill-improver` were missing from
 that refusal's list, and a YAML block sequence in their `disallowedTools` was blamed. The CLI's own
-registry listed both while they still carried the block form. They were missing from the *other*
+registry listed both while they still carried the block form. They were missing from the _other_
 list, which is not the CLI's.
 
 **The cause.** A `PreToolUse` hook matching `Agent`, holding its own allowlist, denying before the
@@ -1658,7 +1666,7 @@ blamed, and because the fix is three lines in a file most people have never open
 
 ### Added — an agent name that does not resolve is a route, not the end of the work
 
-`/plan` has always treated an unresolved *workflow* name as a route: it says which of three things
+`/plan` has always treated an unresolved _workflow_ name as a route: it says which of three things
 happened and runs the phases by hand. Agents had no equivalent, so a spawn that failed to resolve
 ended the work instead of redirecting it — measured in this session, where every
 `graph-powers:*` spawn was refused and each attempt simply stopped.
@@ -1729,8 +1737,8 @@ had chosen Prettier.
 What that left behind: if the declared command names a tool that is not on PATH, the run raised
 `FileNotFoundError` into an `except` that swallowed it. A session could edit files for hours
 believing they were being formatted. The session tag printed `gates: lint+test` either way, which is
-the exact failure `session_context.py` already had a comment about — *a line that reads as covered
-and never runs* — one level further down.
+the exact failure `session_context.py` already had a comment about — _a line that reads as covered
+and never runs_ — one level further down.
 
 So the question is now answered once, in `_config.py`, for every caller:
 
@@ -1810,7 +1818,7 @@ files, and verification refutes from several angles at once before looping on wh
 
 They existed before this release — in two projects, copied, and already diverged: 287 lines of diff
 between the two copies of one of them, 99 in another. That is the exact failure this repository was
-created to end, reproduced in the most expensive layer. Worse, the plugin already *depended* on one
+created to end, reproduced in the most expensive layer. Worse, the plugin already _depended_ on one
 of the copies: `commands/plan.md` promised an `approved` flag and a `splitByFileOwnership` re-slice
 that only one of the two ever had, and shipped neither.
 
@@ -1832,14 +1840,14 @@ less** — the sum, per command, of the `references/shared*` files it cites, on 
 commands load on **every** invocation fell from 523,746 bytes to 289,512 — **44.7 % less** — and the
 worst case, every conditional branch taken at once, fell 31 %.
 
-Deciding what each command *needs* could not be done by grepping citations, because a citation is
+Deciding what each command _needs_ could not be done by grepping citations, because a citation is
 not a need and this repository had both kinds of error: sections named in a header and never used,
 and sections used without ever being named. Twelve agents read one command each against the whole
 file. Their disagreements were the useful part, and are recorded here rather than smoothed over:
 
 - **§ 5 (Tool Usage) had no consumer at all.** Its one inbound citation was `/debug`'s AutoResearch
   line, which said § 5 while meaning § 10. Meanwhile `/research` restated a chunk of it inline. The
-  command now loads the fragment for *which* tool and keeps only *how* to drive it — the half the
+  command now loads the fragment for _which_ tool and keeps only _how_ to drive it — the half the
   table never had.
 - **§ 11 (Guardrails Index) indexed no guardrails.** It listed eight rule files and not one of the
   twelve hooks that actually deny. An index that omits everything enforced is worse than none:
@@ -1998,6 +2006,7 @@ caller retry forever at no cost — and it is now asserted rather than merely tr
   at `/verify` for the gates-only pass that request actually wanted. The empty-diff exit became
   honest in the same pass: a plan whose build wrote no files returns `NEEDS-WORK`, not the
   `VERIFIED` an empty tree looks like to a gate.
+
 - `python3 .github/check_wiring.py`: every routing reference resolves. The old dangling gate checked
   file paths, which is the easy half; this one checks the agent a command spawns, the workflow it
   invokes, the skill it loads, the rule template it names, and the section of another file it tells
@@ -2047,7 +2056,7 @@ defect shipped and was caught in the same breath.
 found", while cmd.exe answers 9009 — turning fail-open into fail-closed and blocking every commit
 on a machine without the audit tool. `protect_files` compared `contains` patterns against the raw
 path, so a project declaring `config/secrets/` got no protection and no warning — and `.lstrip("./")`
-strips *characters*, so every dotfile in `exact` (`.env`, `.gitignore`) was quietly unprotected.
+strips _characters_, so every dotfile in `exact` (`.env`, `.gitignore`) was quietly unprotected.
 `select.select` takes only sockets on Windows, losing the `cwd` the Codex CLI sends. `text=True`
 without an encoding decodes with the locale code page, so an accented branch name stopped matching
 the protected list. `shlex.split` ate the backslashes out of a Windows path in
@@ -2061,7 +2070,7 @@ line of `python -X utf8 -c`. One of them was a bug on Linux too: `a || b || c | 
 as `a || b || (c | sort | head)`, so the common case was never sorted or truncated.
 
 **The opt-in mechanism turned out to be portable already, and nobody was told.** `opted_in` matches
-the key as *text*, not as shell syntax, so `$env:KEY=1; git commit …` and `set KEY=1 && git commit …`
+the key as _text_, not as shell syntax, so `$env:KEY=1; git commit …` and `set KEY=1 && git commit …`
 release a gate exactly as the POSIX form does. Nine files taught only the POSIX form — including
 the message each gate prints at the moment it blocks. All three forms are now in
 `110-guardrails-index.md`, in the gates' own denial messages, in the rule template that ships into
@@ -2091,7 +2100,7 @@ prints what it deliberately lets through, so the next person does not re-widen i
 
 ### Fixed — commands loaded on every run what they need on one branch
 
-`/verify` measured 51 KB, and 42 KB of it was three domain skills its own text loads *conditionally*
+`/verify` measured 51 KB, and 42 KB of it was three domain skills its own text loads _conditionally_
 — `Skill("debugger")` when chasing a failure, `Skill("astro")` when the stack is Astro. A `/verify`
 on a passing typecheck loads none of them. The same shape appeared five more times: `/debug` named
 the audit prompts, the recovery protocol and three debugger references in sentences beginning
@@ -2165,7 +2174,7 @@ caller had passed `--target` and said exactly what to wire. Generating Codex art
 that is not installed yet is a real case — a container image, a CI runner, a machine being
 prepared for someone else — and it is the case the project's own CI hits. A missing CLI is now
 fatal only when nobody said what to wire; Claude Code stays fatal either way, because its half of
-the install *is* the CLI.
+the install _is_ the CLI.
 
 ## 1.1.0 — it updates itself, and there is nothing to publish
 
@@ -2215,7 +2224,7 @@ Codex artefacts were generated with defects that were invisible in the generated
 ### Added
 
 - **The harness keeps itself current.** `hooks/auto_update.py` runs at session start, reads a
-  throttle file, and at most once every twelve hours starts a *detached* worker. The worker asks
+  throttle file, and at most once every twelve hours starts a _detached_ worker. The worker asks
   each CLI to update itself through its own supported path — `claude plugin marketplace update`
   then `claude plugin update`, and a regenerate from the published package on Codex. Nothing waits
   on the network, so no session start pays for a DNS lookup, and nothing inside the project is
@@ -2227,8 +2236,9 @@ Codex artefacts were generated with defects that were invisible in the generated
   qualified `<plugin>@<marketplace>` form (the bare name is "not found"), and it exits 0 when it
   fails — so the worker trusts neither its exit code nor its output, and reads the version out of
   `installed_plugins.json` before and after. That registry is also the only thing that moves: the
-  update unpacks a *new* version directory and leaves the running one untouched, which is exactly
+  update unpacks a _new_ version directory and leaves the running one untouched, which is exactly
   why it says "restart to apply".
+
 - **On Codex, an unchanged `hooks.json` is left alone.** Codex trusts a hooks file by its content,
   so rewriting an identical one costs a `/hooks` re-approval and leaves the guardrails inert until
   it is given. An update that quietly disarms what it updated is worse than no update.
@@ -2256,10 +2266,10 @@ Codex artefacts were generated with defects that were invisible in the generated
   It is now written first, listing what the run intends to create, and rewritten complete at the
   end.
 - **The project half wrote no manifest at all**, so `--uninstall` left `.codex/rules/` and the
-  `AGENTS.md` block behind. It does now — and the rules are recorded as *adopted*, so removal
+  `AGENTS.md` block behind. It does now — and the rules are recorded as _adopted_, so removal
   keeps them: they were copied as a starting point and then edited, and the line somebody added
   after an incident lives in those files.
-- **`--uninstall` removed only one half.** The scope flag says where to *write* on an install; on
+- **`--uninstall` removed only one half.** The scope flag says where to _write_ on an install; on
   a removal it silently meant what to leave behind. Removal now defaults to both halves.
 - **An unparseable `.codex/hooks.json` was treated as absent** — the exact overwrite the merge
   exists to prevent, pointed at somebody else's guardrails. A file that exists and does not parse
@@ -2331,7 +2341,7 @@ else to install.
   not exist yet. Only what genuinely differs per project stays local: the config, the rules, and
   the three authorities. The installer detects an existing global install and skips it, so setting
   up a tenth project writes two files rather than thirty. What makes this correct rather than
-  sloppy is that the guardrails read *the project's own* config at runtime — one copy enforces a
+  sloppy is that the guardrails read _the project's own_ config at runtime — one copy enforces a
   different branch and a different opt-in key in every repository.
 - Renamed to **Graph Powers**; the default opt-in prefix is now `GRAPHPOWERS`.
 - Configuration moved to `.graph-powers/config.json`, with `.claude/config.json` still read as a

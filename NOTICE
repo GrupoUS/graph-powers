@@ -166,6 +166,21 @@ were corrected against official 2026 sources — FAQ rich-result deprecation and
 rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
 
 ================================================================================
+Source-informed adaptation — internal GrupoUS material, not verbatim redistribution
+================================================================================
+
+  skills/uxmaster/
+
+The mobile UX guidance was adapted from
+https://github.com/GrupoUS/neondash/blob/9a3fd3a36/.claude/skills/mobile-app-ui-design/SKILL.md,
+read at commit `9a3fd3a36` (2026-07-07). The retained material covers user context, task and journey
+framing, mobile input and reach, states, search, selection, and variable content. Visual token rules,
+framework instructions, animation recipes, and universal performance or conversion claims were
+excluded. The material was rewritten and integrated into the existing `uxmaster` references; no
+source file was redistributed verbatim. No standalone LICENSE file was found at the source
+repository root during the adaptation review.
+
+================================================================================
 External dependencies (not redistributed here)
 ================================================================================
 

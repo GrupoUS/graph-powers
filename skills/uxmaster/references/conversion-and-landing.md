@@ -1,56 +1,42 @@
-# Conversion & Landing Pages (CRO)
+# Conversion & Landing UX
 
-How to turn attention into a decided next action — honestly.
+This reference covers the behavioral and trust questions of acquisition and conversion. The page
+system, visual direction, implementation, and SEO mechanics belong to `landing-page-design`,
+`designer`, and the relevant implementation owner.
 
-## Awareness levels (Eugene Schwartz's 5)
+## Start with user intent
 
-Match the message to where the visitor is: **unaware → problem-aware → solution-aware →
-product-aware → most-aware.** Cold traffic needs the problem named and agitated before the product;
-most-aware traffic needs the offer and a reason to act now. Mismatched awareness is the most common
-reason "good" copy fails.
+Identify traffic source, audience, situation, problem awareness, desired outcome, and uncertainty.
+Awareness models are hypotheses for message fit; validate language with users and behavior rather than
+assuming a fixed sequence.
 
-## Neutrality is omission
+## Promise, proof, and action
 
-A page that doesn't direct the eye hurts conversion. Every section should make the **one next action**
-obvious. If a visitor can't tell what to do in 5 seconds, hierarchy has failed (see the 5-second test
-in `ux-foundations.md`).
+- Say what the product is, who it helps, what outcome it supports, and what happens next.
+- Match the strength and scope of proof to the claim. Real evidence beats louder adjectives.
+- Make the requested action and its consequence understandable. Label the outcome where that is more
+  useful than naming a mechanism such as “submit”.
+- Remove competing actions only when the task really has one primary next step; preserve legitimate
+  alternatives and exit.
+- Place relevant proof, terms, price, privacy, and support where uncertainty peaks.
 
-## Hero & value proposition
+## Reduce friction without removing control
 
-- **The move:** above the fold, answer *what is this, who is it for, why it's different, what to do
-  next.* Lead with the outcome/mechanism, not the feature list.
-- **Promise = size of proof:** the market believes what you demonstrate. A bold claim needs an equal
-  proof next to it (demo, number, before/after, named customer), or it reads as noise.
-- **Different, not louder:** "same competes on price, different competes on category." Differentiate
-  on mechanism, narrative, or experience — not adjectives.
+Collect only what the next step needs, preserve form entries, explain errors, and show cost and timing
+before commitment. A shorter path is not an improvement if it increases surprise, error, or pressure.
 
-## Value first, ask later
+## Honesty and anti-patterns
 
-Give a usable result before requesting signup/email/payment. An interactive preview, instant
-estimate, or partial output earns the right to ask. Reciprocity + proof in one move.
+Reject fake urgency, phantom discounts, invented reviews, hidden fees, preselected add-ons,
+confirmshaming, disguised choices, and difficult cancellation. Conversion quality includes informed
+choice, task success, confidence, downstream support, refund, and cancellation signals.
 
-## CTA design
+## Acceptance checklist
 
-- One primary CTA per view; secondary paths are visibly lower-emphasis.
-- Label the outcome ("Get my report"), not the mechanic ("Submit").
-- Repeat the primary CTA at natural decision points; keep the destination consistent.
-- Remove competing primary actions — two "loud" buttons split intent.
-
-## Social proof placement
-
-Put proof where doubt spikes: near the CTA, near price, near the biggest claim. Types, strongest
-first: outcomes with numbers → named-customer stories → quantity/logos → generic testimonials.
-Proof must be real (honesty gate).
-
-## Reduce friction to the decision
-
-- Cut form fields to the minimum that the next step truly needs (see forms in `ux-foundations.md`).
-- Expose price/plan logic; hidden or confusing pricing kills trust.
-- Kill dead ends: every section resolves toward the next action.
-
-## Anti-patterns (landing)
-
-- Fake urgency/scarcity/countdowns, phantom "was" prices, invented review counts → dark patterns.
-- Talking to everyone (no ICP) → generic value → nobody converts.
-- Claim > proof; feature dump with no outcome; hero that doesn't say what the thing is.
-- Centered walls of body text, or a hero with no single obvious action.
+- [ ] User intent, audience, task, and uncertainty are explicit.
+- [ ] Promise, proof, audience, action, cost, and terms agree.
+- [ ] The primary action is understandable without hiding alternatives.
+- [ ] Forms, errors, accessibility, privacy, and exit are usable.
+- [ ] Claims are supported or labeled as hypotheses.
+- [ ] User and business outcomes have separate measures and guardrails.
+- [ ] Visual/page-system questions are routed to the owning skills.

@@ -1,90 +1,101 @@
 # Metrics, Ethics & Process
 
-How to validate a design honestly, and the guardrails that bound every tactic in this skill.
+Use evidence to make a decision, not to manufacture certainty after the decision. Pair user outcomes
+with product outcomes and record the trade-offs.
 
-## Ethics — the hard boundary
+## Ethics is a hard gate
 
-> 🚫 **Never apply this skill to gambling, betting, casino, or real-money games-of-chance products**
-> (incl. loot-box / real-money-gaming). The revenue-centric material was reused under the source
-> author's condition that it never serve such work. If asked, decline and explain the exclusion.
+Never apply this skill to betting, casino, gambling, loot boxes, or other real-money games of chance.
+For all other products, persuasion must increase clarity and control.
 
-### Honesty gate (every persuasion tactic)
+Do not ship:
 
-Persuasion must increase clarity and control, never exploit confusion. A tactic that only works
-because the user is misled is a dark pattern — cut it.
-
-### Dark-pattern catalogue (do not ship)
-
-| Pattern | What it looks like |
+| Pattern | Diagnostic |
 |---|---|
-| Fabricated urgency/scarcity | Fake countdowns, "only 2 left" that isn't true |
-| Fake progress/results/reviews | Inflated meters, invented testimonials, phantom counts |
-| Hidden costs / drip pricing | Fees revealed only at the end |
-| Confirmshaming | Guilt-worded opt-outs ("No, I don't want to save money") |
-| Roach motel | Easy to sign up, hard to cancel |
-| Preselection against interest | Pre-checked add-ons, consent, or upsells |
-| Disguised ads / trick questions | Ambiguous copy that misleads the click |
-| Forced continuity | Silent charge after a trial with no clear notice |
+| Fabricated urgency or scarcity | Countdown, stock, or deadline is not real or is unverifiable |
+| Fabricated proof | Reviews, results, user counts, logos, or progress are invented or inflated |
+| Hidden cost | Fees, billing, limits, or consequences appear only after commitment |
+| Confirmshaming | Opt-out is framed as guilt, insult, or fear |
+| Roach motel | Entry is easy but cancellation, export, or exit is obstructed |
+| Preselection against interest | Add-on, consent, upsell, or data sharing is selected by default without informed agreement |
+| Disguised choice | Copy or layout makes one option look like something it is not |
+| Forced continuity | Trial becomes a charge without clear terms, notice, and control |
 
-Consequences before action; control and reversibility; exit as clear as entry; consent informed and
-reversible. A reasonable person should understand the choice, its cost, and its alternatives without
-being tricked.
+Make consequences visible before action, keep consent informed and reversible, and make exit at least
+as understandable as entry. See [OECD dark commercial patterns](https://www.oecd.org/en/publications/dark-commercial-patterns_44f5e846-en.html)
+for a cross-market research reference; it is not legal advice.
 
-## Measure signal, not vanity
+## Evidence before recommendation
 
-- **Vanity metrics** (pageviews, raw signups, total users) feel good and decide nothing. **Signal
-  metrics** tie to the job: activation rate, task success, retention cohort curves, NRR,
-  conversion *quality*.
-- Pair every metric with the decision it informs; if no decision changes, drop the metric.
+For each meaningful decision, record:
 
-## A/B testing rigor
+1. user outcome and business/system outcome;
+2. source, scope, freshness, confidence, and limitation;
+3. observed behavior versus reported opinion;
+4. hypothesis and competing explanations;
+5. segments or contexts that may differ;
+6. validation method and the result that would change the decision.
 
-- Decide the primary metric and minimum detectable effect *before* running; compute sample size.
-- Don't peek-and-stop; run to the pre-set sample/duration to avoid false positives.
-- One change per test when you need causality; ship only on a real, powered lift.
-- Beware local maxima: some wins need a redesign, not a button-color test.
+An analytics number can reveal where behavior changes, not why. A heuristic can identify a risk, not
+prove task success. An experiment can estimate an effect in its tested context, not guarantee transfer.
 
-## Churn → LTV math (why retention dominates)
+## Choose the validation method
 
-- LTV scales roughly with 1 / churn: dropping monthly churn from 5% to 3% lifts average lifetime
-  from ~20 to ~33 months — a larger lever than most acquisition wins.
-- Model retention before spending on acquisition; a leaky bucket makes paid growth unprofitable.
+- Use observation or usability research for comprehension, discoverability, error, recovery, and
+  confidence.
+- Use support, search, funnel, and event data to locate behavior, then investigate its cause.
+- Use surveys for stated attitudes or prevalence with a declared population and limitation.
+- Use benchmarks or experiments when the task, comparison, primary outcome, guardrails, sample,
+  exposure, and stopping rule are defined before the run.
+- Repeat comparable tasks when measuring change. Separate learning effects, seasonality, traffic mix,
+  implementation changes, and other explanations from the intervention itself.
 
-## Decision template (use for any meaningful design decision)
+## Metrics that protect the user
+
+Choose measures that can change a decision:
+
+| User or system signal | Useful question |
+|---|---|
+| Task success | Can people complete the critical job? |
+| Comprehension and confidence | Do they understand the choice and its consequence? |
+| Time, hesitation, and error | Where does effort or recovery fail? |
+| Abandonment and support need | Which step creates an avoidable dead end? |
+| Accessibility outcomes | Can relevant users operate and understand the path? |
+| Trust, cancellation, refund, complaint | Did the change create downstream surprise or harm? |
+| Activation, retention, conversion, revenue, cost | Did the product outcome change without degrading user outcomes? |
+
+Do not treat raw pageviews, signups, or conversion as proof of usability. A metric without a decision,
+segment, window, and guardrail is a dashboard decoration.
+
+## Decision record
 
 ```md
 ## Decision: [name]
-### Problem     — [user/business problem]
-### Evidence    — research / analytics / support / benchmark
-### Hypothesis  — If [change], then [impact], because [UX rationale + named mechanism]
-### Alternatives— 1... 2... 3...
-### Decision    — [what ships]
-### Criteria    — [ ] usability [ ] a11y [ ] content [ ] responsiveness [ ] metric
-### Validation  — success rate / time-on-task / error rate / churn / satisfaction
+### User task and context — [who, situation, risk, desired outcome]
+### Evidence — [source, scope, limitation]
+### Hypothesis — If [change], then [user outcome], because [reason]
+### Business/system impact — [conditional outcome and trade-off]
+### Alternatives — [options and rejected assumptions]
+### Decision — [behavior or content that changes]
+### Guardrails — [a11y, trust, privacy, error, exit, harm]
+### Validation — [method, success criteria, segment, window]
 ```
 
-## Product audit checklist (by dimension)
+## Audit checklist
 
-- **Context:** objective sentence + success metric per key screen; ICP documented; evidence exists.
-- **Hierarchy:** most-important element dominant; passes the 5-second test; one clear primary action.
-- **Cognitive load:** no redundant steps/choices; recognition over recall.
-- **States & feedback:** loading/empty/error/success/recovery all designed; progress shows real unit.
-- **Forms:** labels near fields; width matches input; inline errors; visible focus; consent; minimal.
-- **Mobile & touch:** targets ≥ 44×44 (pref. 48); thumb-zone CTAs; dangerous targets separated.
-- **Typography:** long text left-aligned; 45–75ch; distinct weights; contrast ≥ AA; works at 200%.
-- **Ethics:** zero fabricated urgency/scarcity/progress/results/reviews; exit clear; consent
-  reversible; no confirmshaming or hidden cost.
-- **Conversion:** message matches awareness level; proof sized to promise; one obvious next action.
+- [ ] User, task, context, risk, and unknowns are explicit.
+- [ ] Journey, adjacent steps, channels, and recovery are covered.
+- [ ] Evidence, hypothesis, heuristic, and norm are labeled correctly.
+- [ ] User outcomes are not hidden behind business metrics.
+- [ ] Accessibility, privacy, consent, cost, reversibility, and exit are checked.
+- [ ] The method fits the question and claims do not exceed the evidence.
+- [ ] No fabricated proof, pressure, preselection, hidden cost, or cancellation maze exists.
 
-## Recommended metrics
+## Sources
 
-| Metric | Measures | When |
-|---|---|---|
-| Activation rate | Reached the aha moment | Onboarding |
-| Task success rate | Completion | Any critical flow |
-| Time-on-task | Efficiency | Before/after |
-| Error rate | Clarity/tolerance | Forms, checkout |
-| Retention / cohort curve | Stickiness | Ongoing |
-| NRR | Expansion net of churn | Monetization |
-| Trial→paid quality | Fit, not just rate | Trials |
-| CSAT / post-task ease | Perceived ease | Surveys |
+- [GOV.UK usability benchmarking](https://www.gov.uk/service-manual/measuring-success/usability-benchmarking-a-website-or-whole-service)
+  recommends measuring task performance and repeating comparable tests.
+- [GOV.UK measuring service success](https://www.gov.uk/service-manual/measuring-success/measuring-the-success-of-your-service)
+  warns against relying on analytics alone and emphasizes end-to-end measurement.
+- [W3C testing and evaluation](https://www.w3.org/WAI/test-evaluate/) separates evaluation activities
+  and supports iterative evidence gathering.

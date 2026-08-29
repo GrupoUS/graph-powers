@@ -1,57 +1,50 @@
 # Onboarding & Activation
 
-Get the user to felt value fast, then to a repeatable habit.
+Onboarding is the path to a user's first meaningful outcome, not a tour of every feature. Activation
+is a hypothesis about a valuable behavior, not a universal event or proof of retention.
 
-## Time-to-value (TTV) is the metric
+## Frame first value
 
-- **Rule:** the clock that matters is time from arrival to first real value, not time to "complete
-  onboarding."
-- **The move:** cut every step that doesn't move the user toward the first useful outcome. Defer
-  configuration, tours, and profile-completion until *after* the aha moment.
-- **Accept:** a new user reaches one genuinely useful result in the first session, ideally the first
-  minute.
+Identify the user's job, prior knowledge, constraints, risk, and the smallest useful result. Remove
+steps that do not help reach that result, but do not hide consent, terms, safety, or information needed
+for an informed action.
 
-## Design the aha moment
+Validate with task success, comprehension, time, errors, confidence, and return behavior. If there is
+no analytics or baseline, state the unknown and use research or a measured first slice; do not invent
+an activation rate or an “aha” correlation.
 
-- **Rule:** activation = the user experiences the core value, not the feature tour.
-- **The move:** identify the single action that correlates with retention (the "aha"), then remove
-  friction around it and route the whole first-run toward it. Everything else is secondary.
-- **Accept:** you can name the activation event and measure the % of new users who reach it.
+## Value before the gate
 
-## Value first, ask later (applied to signup)
+Where risk and product constraints allow:
 
-- Deliver a usable result before the account wall (reciprocity). Let the user *do the thing*, then
-  offer to save it. See `engagement-psychology.md` (reciprocity, IKEA effect).
-- Prefer "sign up to keep your work" over "sign up to start."
+- let the person preview, create, calculate, or explore something useful;
+- ask for an account, payment, or permission when it protects or extends a value they understand;
+- preserve work and explain what changes after signup;
+- make the account, privacy, and billing consequence clear before commitment.
 
-## Never start at 0% (goal gradient)
+This is a hypothesis to test against trust, task completion, qualified activation, and support burden.
 
-- Pre-populate progress with steps already true (email verified, workspace created). Show a
-  completion meter that begins above zero. Pairs with the Zeigarnik open-loop to pull users back.
+## Progress and first-run states
 
-## Empty states as onboarding
+Progress should reflect real completed work and remaining effort. An empty state should explain what
+belongs there, why it matters, and the next safe action. Include loading, no-result, permission,
+offline, error, retry, save-and-return, and partial-completion paths.
 
-- The first screen a user sees is usually empty — treat it as the first lesson: explain what goes
-  here, why it matters, and give one CTA to fill it. See `ux-foundations.md` (empty states).
+Introduce guidance when it becomes relevant. Adapt new, returning, and expert paths only when user
+context or evidence supports the difference; never personalize consequential choices invisibly.
 
-## Trial-as-onboarding
+## Trials and limits
 
-- **Rule:** a trial is an onboarding path with a deadline, not a countdown to a paywall.
-- **The move:** structure the trial to guarantee the aha moment before it ends; trigger the upgrade
-  ask at the moment the user hits a real limit (expansion born of usage), not by interruption.
-- **Honesty check:** the limit and the deadline must be real; no fake "expiring" urgency.
-
-## Feature discovery & first-run discipline
-
-- Introduce features when they become relevant (contextual), not in an upfront tour nobody remembers.
-- Reduce first-run choices; smart defaults carry the mass (see `engagement-psychology.md`).
-- Recognition over recall: surface the next best action instead of expecting the user to hunt.
+Treat a trial as a usable path with clear terms, not a countdown to a surprise paywall. Explain the
+deadline, billing start, limits, cancellation, and export before they matter. Ask for an upgrade when
+the person reaches a real, understandable limit, with a non-coercive alternative where appropriate.
 
 ## Acceptance checklist
 
-- [ ] Activation event named and measurable.
-- [ ] First real value reachable in the first session.
-- [ ] Value delivered before the account/payment wall where possible.
-- [ ] Progress starts above 0% and reflects real state.
-- [ ] Empty states teach and offer one CTA.
-- [ ] Trial routes to the aha moment; upgrade ask fires at a real limit.
+- [ ] User task and first meaningful outcome are explicit.
+- [ ] Unknowns, assumptions, and evidence gaps are named.
+- [ ] The path reaches value without unnecessary gates or tours.
+- [ ] Progress and empty states reflect real state.
+- [ ] Error, interruption, recovery, privacy, consent, and cancellation are covered.
+- [ ] The activation hypothesis has a user measure, a business measure, and guardrails.
+- [ ] Research or instrumentation is planned before claiming improvement.

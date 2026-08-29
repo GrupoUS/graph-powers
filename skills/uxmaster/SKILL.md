@@ -1,108 +1,131 @@
 ---
 name: uxmaster
-description: "UX direction and conversion: information hierarchy, cognitive load, onboarding and activation, pricing, retention, microcopy, and the named behavioural levers (anchoring, loss aversion, social proof, goal gradient). Loaded by /design for the direction pass. Not for gambling or betting products."
-
+description: "Use when a product, flow, onboarding, form, navigation, ecommerce journey, or conversion decision needs user-centered UX direction, diagnosis, or validation. Trigger on user needs, task flows, information architecture, interaction states, accessibility, trust, research, usability evidence, and outcome metrics; route visual styling to designer and implemented UI repair to design-fix."
 ---
 
-# UX Master
+# UXmaster
 
-A synthesis playbook for products that are **clear to use and healthy to run** — combining
-engagement psychology, UX/UI foundations, and revenue-centric design (conversion, activation,
-retention, pricing, positioning). One throughline: **serve the user _and_ the business — value and
-revenue, never one at the cost of the other, never by deception.**
+UX direction for decisions that affect what people understand, do, feel, and can recover from.
+Start with the user's situation and task. Only then connect the experience to product outcomes.
 
-## Core stance
+## Boundary
 
-- **Name the lever.** Lead with the named mechanism (decoy effect, goal gradient, loss aversion,
-  Zeigarnik, peak-end, Swiss Knife Index, GBB, Schwartz's 5 awareness levels). Naming the mechanism
-  is the value — it makes the advice reusable and debatable.
-- **Value first, ask later.** Proof arrives before the user questions their choice; the ask comes
-  after value is felt.
-- **Your promise is the size of your proof.** The market believes what you demonstrate, not what you
-  claim. Bigger claims need bigger proof, not louder copy.
-- **Defaults are decisions you make for the user.** The initial state defines mass behavior — set it
-  deliberately and honestly.
-- **Neutrality is omission.** An interface that doesn't direct hurts both comprehension and
-  conversion. Guide the eye to the one next action.
-- **Honesty is a hard gate, not a style.** See boundary below.
+UXmaster owns user needs, context, tasks, journeys, information architecture, interaction behavior,
+content clarity, states, recovery, accessibility, trust, research, heuristic diagnosis, validation,
+and conditional product/ecommerce/conversion decisions.
 
-## Usage boundary (hard)
+It does not own visual identity, tokens, component code, browser performance, motion engineering, or
+the construction of a landing-page system. Route those decisions to `designer`, `design-fix`, the
+relevant implementation agent, `performance`, `animate`, or `landing-page-design`.
 
-> 🚫 **Never apply this skill to betting, casino, gambling, or other real-money games-of-chance
-> products** (incl. loot-box / real-money-gaming mechanics). The revenue-centric material was reused
-> under the source author's condition that it never serve gambling/betting/casino work. If asked,
-> decline and explain the exclusion. This is a fixed constraint, not a preference.
+Never apply this skill to betting, casino, gambling, loot boxes, or other real-money games of chance.
+If asked, decline. The honesty gate is universal: never fabricate urgency, scarcity, progress, proof,
+reviews, results, or consent; never hide cost or make exit harder than entry.
 
-**Honesty gate (applies to every persuasion tactic here):** never fabricate urgency, scarcity,
-progress, social proof, results, or reviews; never hide the exit, bury cost, or pre-check consent
-against the user's interest. A tactic that only works because the user is misled is a dark pattern —
-cut it. Persuasion must increase clarity and control, not exploit confusion.
+## The UX spine
 
-## When to use / not
+Work through this sequence, adapting depth to the risk and uncertainty:
 
-**Use for:** landing/CRO, onboarding/activation, retention/churn, pricing/monetization, positioning/
-ICP/GTM, UX review of any screen, form/empty-state/navigation/typography design, behavioral-lever
-selection, growth-vs-UX trade-offs, AI-era differentiation.
+1. **Need and context** — identify the person, situation, constraints, motivation, risk, device,
+   channel, and desired outcome. State what is known, assumed, and unknown.
+2. **Task and journey** — express the job in observable terms, map the journey before and after the
+   focal screen, and include handoffs between channels, people, and systems.
+3. **Information and interaction** — decide what must be visible, grouped, searchable, selectable,
+   entered, confirmed, or deferred. Make the next meaningful action understandable.
+4. **States and recovery** — cover default, loading, empty, no-result, invalid, denied, offline,
+   permission, success, cancellation, retry, undo, save-and-return, and partial completion where
+   relevant.
+5. **Accessibility and trust** — include disabled participants and assistive technology in the
+   research plan; check perceivability, operability, comprehension, privacy, consent, cost, control,
+   and reversibility.
+6. **Evidence and validation** — distinguish evidence from hypothesis, choose a method that answers
+   the question, record limitations, and define how task success and unintended harm will be observed.
+7. **Product impact** — connect user outcomes to activation, conversion, retention, revenue, cost, or
+   risk only after the experience logic is clear. Never treat business impact as proof of usability.
 
-**Not for:** gambling/betting/casino (declined). For pure visual-token systems (palette, type scale,
-spacing) or framework mechanics, defer to the project's design-system and stack docs — this skill is
-the *why* and the *behavioral criterion*, not the token source.
+## Vocabulary that prevents overclaiming
 
-## Routing — open the reference that matches the question
+- **Evidence:** an observation, user report, support pattern, measured behavior, experiment, or
+  authoritative requirement with a source, scope, and limitation.
+- **Hypothesis:** a proposed explanation or change that still needs validation. Label assumptions and
+  predicted effects explicitly.
+- **Heuristic:** a useful diagnostic lens, such as recognition over recall. It is not a compliance
+  verdict or a substitute for observing users.
+- **Norm:** a requirement from a standard, policy, platform, or law. Cite the applicable scope and
+  version; do not turn a recommendation into a universal minimum.
+- **User outcome vs business outcome:** task success, comprehension, confidence, and control are
+  user outcomes; signups, revenue, retention, and support cost are business outcomes. Measure both
+  when relevant, without letting the latter hide harm to the former.
+- **Aesthetic improvement vs usability improvement:** visual polish may support comprehension, but it
+  is not evidence that people can complete a task more successfully.
 
-| Question is about… | Open |
+## Mobile and responsive lens
+
+Treat a mobile screen as one point in a journey, not an isolated composition. Check reach, input
+precision, interruption, connectivity, viewport changes, assistive technology, and the relationship
+between the previous and next step. A thumb-zone action, sticky action, preset, timeline, search
+suggestion, or personalization pattern is a context-dependent hypothesis: test obstruction, focus,
+reflow, choice quality, and recovery before standardizing it.
+
+Use real and variable content when reasoning about hierarchy. For commerce and other consequential
+decisions, expose the unit, quantity, uncertainty, total, terms, and next consequence near the choice.
+Do not import fixed font counts, spacing grids, color ratios, framework classes, or animation recipes
+from a visual implementation guide into this UX method.
+
+## Conditional product lenses
+
+After the spine is established, select only the relevant lens:
+
+- **Research and framing:** turn uncertainty into questions and a proportionate research plan.
+- **Journeys, flows, and information:** model navigation, continuity, branching, states, and recovery.
+- **Ecommerce/product experience:** support comparison and confident decisions with honest product data.
+- **Onboarding/activation:** reach first value without unnecessary gates, tours, or invented progress.
+- **Conversion/landing:** align message, proof, action, and friction without manipulation; defer page
+  system and visual direction to the owning skills.
+- **Pricing/retention/expansion:** make value, limits, billing, cancellation, and upgrade context clear.
+- **Positioning/differentiation:** connect a real user problem to a specific audience and credible
+  difference.
+- **Engagement psychology:** use a named mechanism only when it serves a real user need and remains
+  reversible, transparent, and testable.
+- **Metrics/ethics/process:** choose measures, guardrails, research methods, and decision records.
+
+## Routing
+
+| Question | Reference |
 |---|---|
-| Behavioral levers & cognitive biases (the cross-cutting toolkit) | `references/engagement-psychology.md` |
-| Landing pages, hero, CTA, copy, social proof, awareness levels, CRO | `references/conversion-and-landing.md` |
-| Hierarchy, cognitive load, feedback/status, forms, empty states, mobile/touch, typography, a11y | `references/ux-foundations.md` |
-| First-run, aha moment, time-to-value, activation, trial-as-onboarding | `references/onboarding-activation.md` |
-| Pricing tables, decoy/anchoring, GBB, trials, retention, churn, expansion | `references/pricing-retention-expansion.md` |
-| ICP, niche, same-vs-different, category, moats, GTM/distribution, AI era | `references/positioning-and-differentiation.md` |
-| A/B rigor, vanity vs signal, churn→LTV, decision template, audit checklist, dark-pattern catalogue | `references/metrics-ethics-process.md` |
+| Needs, context, research, participants, assumptions, evidence | `references/research-and-framing.md` |
+| Tasks, journeys, navigation, IA, flows, states, recovery, mobile context | `references/journeys-flows-and-information.md` |
+| Product detail, variable quantity, ecommerce decisions, trust | `references/ecommerce-product-experience.md` |
+| Interaction, forms, feedback, empty states, accessibility | `references/ux-foundations.md` |
+| Measurement, validation, ethics, dark patterns, decision records | `references/metrics-ethics-process.md` |
+| Behavioral mechanisms and their honesty checks | `references/engagement-psychology.md` |
+| First-run value and activation | `references/onboarding-activation.md` |
+| Message, proof, CTA, CRO boundaries | `references/conversion-and-landing.md` |
+| Pricing, cancellation, retention, expansion | `references/pricing-retention-expansion.md` |
+| ICP, category, differentiation, distribution | `references/positioning-and-differentiation.md` |
 
-Load only what's relevant (progressive disclosure). Cite the specific principle; if a mechanism has a
-study/stat, keep the citation attached rather than hand-waving.
+Open only the relevant references. Do not duplicate a definition when a reference already owns it.
 
-## The spine (memorize; details in references)
+## Advice contract
 
-**Engagement psychology** — smart defaults · goal gradient (never start at 0%) · reciprocity
-(value before the ask) · IKEA effect (let them build before signup) · loss aversion (honest,
-concrete) · anchoring/contrast · Zeigarnik (open loops) · peak-end (design the peak and the ending).
+Return a decision that can be inspected:
 
-**UX foundations** — understand the real need before the UI · visual hierarchy (5-second test) ·
-reduce cognitive load · make status/progress/feedback visible · empty states as onboarding · forms
-for real input not symmetry · mobile ergonomics (thumb zone, 44–48px targets) · typography for
-reading (45–75ch, left-align long text) · cards vs lists for decisions · a11y as a component
-requirement.
+1. Context, user, task, risk, and unknowns.
+2. Journey or flow impact, including adjacent steps and channels.
+3. UX diagnosis and the evidence or heuristic behind it.
+4. Recommended behavior, content, states, and recovery.
+5. Accessibility, trust, privacy, and autonomy checks.
+6. Hypotheses, alternatives, validation method, success criteria, and guardrails.
+7. Expected user impact, then conditional product impact.
 
-**Revenue-centric design** — neutrality is omission · who talks to everyone convinces no one (ICP) ·
-value first, ask later · promise = size of proof · same competes on price, different on category ·
-default is the decision you made · retention is built not requested · expansion is born of usage ·
-price is a filter.
-
-## Conservative defaults (numbers aren't universal)
-
-When sources disagree, pick the more accessible option and annotate the trade-off:
-
-- Touch target: **44×44px minimum, 48×48/dp preferred**.
-- Line length: **45–75 characters**, avoid exceeding 80 in body text.
-- Contrast: **WCAG AA (4.5:1 body / 3:1 large) minimum**; aim AAA for critical/low-vision/long-read.
-- Bottom navigation: **3–5 destinations** of similar importance.
-- Choices: fewer, comparable options beat long homogeneous lists (cards to compare, lists to scan).
-
-## How to give advice
-
-1. Identify the surface (acquire / activate / retain / monetize / differentiate / usability) and open
-   the matching reference.
-2. Name the mechanism, state *apply when*, give *the move*, attach evidence, and add the *honesty
-   check* for any persuasion lever.
-3. Convert the recommendation to a verifiable criterion (a test, a metric, or a checklist item) — see
-   `references/metrics-ethics-process.md` for the decision template and audit checklist.
+For every persuasion or growth recommendation, name the mechanism, say when it applies, show the
+honest alternative, and state what would falsify the recommendation.
 
 ## Provenance
 
-Synthesized from: a video-derived engagement-psychology set, a broad UX/UI foundations corpus
-(interface playbook + WCAG/Material/Apple HIG/NN-g/Baymard patterns), and **Revenue-Centric Design**
-— a 101-principle playbook by product designer Richard (@richardrx), reused under the
-gambling/betting/casino exclusion stated above. The full RCD principle set lives in the
-`revenue-centric-design` skill; this skill carries its spine and named mechanisms.
+This is a source-informed synthesis for Graph Powers. The mobile UX additions were adapted from
+GrupoUS/neondash, `.claude/skills/mobile-app-ui-design/SKILL.md`, commit `9a3fd3a36`; task/context,
+journey, state, input, search, selection, and variable-content ideas were retained, while visual
+tokens, framework instructions, and universal claims were excluded. The adaptation is recorded in
+the repository notice. External standards and guidance remain linked at the point where they shape a
+claim; the source ledger is in `references/research-and-framing.md`.

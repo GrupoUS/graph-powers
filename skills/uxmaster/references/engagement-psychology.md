@@ -1,81 +1,76 @@
-# Engagement Psychology — the behavioral toolkit
+# Engagement Psychology
 
-Cross-cutting levers that make products feel easy and worth completing. Shape of each:
-**mechanism → apply when → the move → evidence → honesty check.** Lead with the named mechanism.
+Behavioral mechanisms are lenses for explaining a user decision, not shortcuts around research. Use
+the shape **mechanism → apply when → move → evidence → honesty check**.
 
-> Global honesty gate: every lever below must reflect something **real**. A lever that only works by
-> misleading the user is a dark pattern — cut it (see `metrics-ethics-process.md`).
+## Smart defaults and choice architecture
 
-## Smart defaults
+- **Apply when:** a field, option, or setting has a genuinely common and safe value.
+- **Move:** propose a transparent default, explain consequential effects, and make changing it easy.
+  Group or remove options only when the user's decision remains informed.
+- **Evidence:** observe default changes, errors, time, and choice confidence in the relevant context;
+  classic choice-overload findings are directional, not a universal option count.
+- **Honesty check:** never preselect consent, cost, add-ons, or data sharing against the user's interest.
 
-- **Apply when:** any field, toggle, plan selector, or setting has a "usually right" value.
-- **The move:** pre-fill/pre-select the recommended value; users read a default as a recommendation.
-- **Evidence:** 70–90% of users never change defaults; the default is the decision you made for the
-  mass. Choice overload is real (24 options → 3% buy; 6 options → 30% in the classic jam study).
-- **Honesty check:** never pre-check consent, add-ons, or costs against the user's interest.
+## Goal gradient and progress
 
-## Goal gradient — never start at 0%
+- **Apply when:** a task has meaningful stages or a return path.
+- **Move:** show real progress, completed work, remaining effort, and a clear resume action.
+- **Evidence:** test whether progress improves orientation and completion without creating false pressure.
+- **Honesty check:** progress must represent steps that are actually complete; never begin above zero by
+  inventing progress.
 
-- **Apply when:** onboarding, profile completion, checklists, loyalty/progress.
-- **The move:** show progress *before* the first action and start the meter above zero, reflecting
-  real state. 0% feels like standing still; early progress feels like momentum.
-- **Evidence:** loyalty cards pre-stamped with 2 of 10 complete at ~2× the rate of 0 of 8.
-- **Honesty check:** the starting progress must map to real, already-true steps — not inflated.
+## Reciprocity and the IKEA effect
 
-## Reciprocity — value before the ask
+- **Apply when:** the product can give a useful result or let a person build something before signup,
+  payment, or sharing data.
+- **Move:** deliver real value first and preserve the work if the person does not continue.
+- **Evidence:** compare comprehension, perceived value, completion, and trust, not only registration.
+- **Honesty check:** do not make the free result useless or hold the user's work hostage.
 
-- **Apply when:** you're tempted to gate value behind signup/payment.
-- **The move:** deliver a real, usable result first (a report, preview, working output); ask to save/
-  sign up *after* value is felt.
-- **Evidence:** reciprocity is among the strongest persuasion drivers; free samples can lift purchase
-  dramatically. "Value first, ask later."
-- **Honesty check:** the free value must be genuinely useful, not a crippled teaser.
+## Loss aversion and consequence framing
 
-## IKEA effect — let them build before signup
+- **Apply when:** explaining expiry, downgrade, cancellation, or the cost of inaction.
+- **Move:** name the concrete, verifiable consequence and the available alternative.
+- **Evidence:** check whether people understand the trade-off and can choose without pressure.
+- **Honesty check:** no invented loss, countdown, scarcity, or irreversible threat.
 
-- **Apply when:** the product involves creating/customizing something.
-- **The move:** let the user invest effort (name it, configure it, arrange it) *before* the account
-  gate; investment creates ownership, so leaving feels like abandoning their own work.
-- **Honesty check:** don't destroy their work if they don't convert — save or let them export.
+## Anchoring and contrast
 
-## Loss aversion — honest, concrete framing
+- **Apply when:** people compare real plans, prices, or alternatives.
+- **Move:** show a truthful reference and comparable attributes; explain differences in value and limits.
+- **Evidence:** validate comprehension and choice quality across segments.
+- **Honesty check:** anchors and decoys must be real, orderable, and not designed to misrepresent cost.
 
-- **Apply when:** communicating the cost of inaction, downgrade, or expiry.
-- **The move:** name the concrete thing at stake (their files, their streak, their setting) rather
-  than only the abstract gain. Loss is felt ~2× as strongly as the equivalent gain (Kahneman).
-- **Honesty check:** the loss must be real and verifiable. **Never fabricate** a countdown, expiry,
-  or scarcity — invented loss is the canonical dark pattern.
+## Open loops and peak-end experiences
 
-## Anchoring & contrast (decoy effect)
+- **Apply when:** a multi-step task needs resumption or a successful completion needs closure.
+- **Move:** show what remains, make resuming easy, and confirm the result plainly.
+- **Evidence:** observe orientation, return behavior, confidence, and recovery.
+- **Honesty check:** do not create artificial incompleteness or require animation to make success feel
+  meaningful. Motion belongs to `animate` and must remain accessible.
 
-- **Apply when:** presenting price or options.
-- **The move:** place the target next to a *true* reference so evaluation becomes relative; a
-  legitimate higher option makes the intended one read as reasonable (decoy/contrast effect).
-- **Honesty check:** the anchor and the decoy must be real, orderable options — no phantom "was"
-  prices or fake tiers.
+## Social proof
 
-## Zeigarnik effect — open loops
+- **Apply when:** a person needs evidence that a product or choice is credible.
+- **Move:** place real, scoped testimonials, outcomes, usage, or guarantees near the uncertainty they
+  address.
+- **Evidence:** test whether the proof answers the doubt and remains understood across audiences.
+- **Honesty check:** no fabricated reviews, borrowed logos, inflated counts, or proof larger than the
+  claim it supports.
 
-- **Apply when:** multi-step flows, setup, content series.
-- **The move:** an unfinished-but-started task pulls the user back; show what remains and make
-  resuming one tap. Pairs with goal gradient.
-- **Honesty check:** don't manufacture fake incompleteness to nag.
+## Recognition over recall
 
-## Peak-end rule
+- **Apply when:** the interface asks people to choose among options or remember prior information.
+- **Move:** expose labels, current state, meaningful grouping, and the next action; reduce redundant
+  choices without hiding alternatives.
+- **Evidence:** measure errors, hesitation, task success, and explanation quality.
+- **Honesty check:** simplification must not remove informed control.
 
-- **Apply when:** any experience with a memorable moment and an ending (onboarding, checkout, a task).
-- **The move:** design one deliberate peak (a delightful success moment) and a clean, positive
-  ending — people judge the whole by its peak and its end, not the average.
+## Source discipline
 
-## Social proof (honest)
-
-- **Apply when:** the user is deciding whether to trust.
-- **The move:** show real usage, real numbers, real testimonials near the decision point. Proof sized
-  to the promise (see `conversion-and-landing.md`).
-- **Honesty check:** no fabricated reviews, invented counts, or borrowed logos you can't claim.
-
-## Reducing decision friction (Hick's law / recognition over recall)
-
-- **Apply when:** a screen presents many choices or asks the user to remember.
-- **The move:** cut and group options; prefer recognition (labels, familiar icons, visible state)
-  over memory; make the primary path obvious. Fewer choices → higher completion.
+Named mechanisms are explanatory hypotheses. Attach a primary or authoritative source when a decision
+depends on a study, and remove exact percentages or causal claims that cannot be revalidated. The
+[OECD dark-patterns research](https://www.oecd.org/en/publications/dark-commercial-patterns_44f5e846-en.html)
+and the [Nielsen heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/) are useful
+references with different evidentiary roles; neither is a guarantee of a product outcome.

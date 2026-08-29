@@ -1,115 +1,104 @@
-# UX/UI Foundations
+# UX Foundations
 
-Usability fundamentals. Each: **rule → how to apply → acceptance criterion.**
+Usability foundations expressed as **criterion → application → acceptance evidence**. This reference
+owns interaction behavior and accessibility, not visual identity or implementation tokens.
 
-## Understand the real need before the interface
+## Understand the task
 
-- **Rule:** no visual decision without clarity on user, context, task, and expected result.
-- **Apply:** write the task in observable language ("track an order"); list constraints (device,
-  connectivity, a11y, privacy, risk); do light research if there's no data.
-- **Accept:** every important screen has one objective sentence + one success metric.
+- **Criterion:** the interface serves a real user, context, task, and expected result.
+- **Apply:** write one observable task; list risk, device, connectivity, privacy, language, input,
+  and accessibility constraints; research when the context is uncertain.
+- **Accept:** a representative person can state what the surface is for, what to do next, and what
+  success means.
 
-## Visual hierarchy — the 5-second test
+## Make hierarchy serve comprehension
 
-- **Rule:** the most important element for the task must *look* the most important.
-- **Apply:** use size, weight, contrast, color, position, space, grouping; emphasize
-  **values/states/actions**, not generic labels; remove borders/shadows/icons without function;
-  replace passive text ("processing") with an actionable visualization (stepper, progress, map).
-- **Accept:** in a 5-second glance, users identify the screen's purpose and the primary action.
+- **Criterion:** importance is understandable without decoration doing all the work.
+- **Apply:** group related information, expose values and states, use meaningful labels, remove
+  redundant choices, and keep one understandable next action where the task needs one.
+- **Accept:** in a short glance or task attempt, users can identify purpose, current state, and next
+  step; verify this with observation rather than a purely visual opinion.
 
 ## Reduce cognitive load
 
-- **Rule:** every step, choice, read, and click must justify itself.
-- **Apply:** expose value without unnecessary intermediate clicks; recognition over recall; split
-  complex decisions into semantic groups; delete redundant options.
-- **Accept:** the user advances without asking "what does this mean?" / "where do I click?".
+- **Criterion:** every step, choice, read, and click earns its place.
+- **Apply:** prefer recognition over recall, split complex decisions by meaning, preserve context,
+  expose consequential information, and remove steps that do not advance the user's job.
+- **Accept:** users complete the task without needing to decode unexplained labels or reconstruct
+  information from a previous step.
 
-## Make status, progress, and feedback visible
+## Status, feedback, and control
 
-- **Rule:** the system is never silent while processing, waiting, failing, or completing.
-- **Apply:** progress bar/stepper/counter/skeleton/short log; state the **unit** (%, time, steps,
-  items, queue position); always offer recovery (cancel, retry, undo, back, save draft); important
-  status must be programmatically perceivable by screen readers.
-- **Accept:** for any wait beyond a few seconds, the user knows the system is alive and what to do if
-  it stalls.
+- **Criterion:** the system is not silent while processing, waiting, failing, or completing.
+- **Apply:** communicate status in plain language; expose real progress and units; provide cancel,
+  back, retry, undo, save-and-return, or support where appropriate; make important status available
+  to assistive technology.
+- **Accept:** users know whether the system is alive, what changed, and what they can do next.
 
-## Empty states as onboarding
+## Forms and input
 
-- **Rule:** an empty state is a functional state, not a hole.
-- **Apply:** distinguish first-use vs no-results vs no-match vs error vs cleared list; specific
-  microcopy ("You haven't created any projects yet" > "No data"); one relevant CTA
-  (create/import/invite/clear filter/explore); illustration only if it adds context.
-- **Accept:** the user understands *why* it's empty and *what* the next step is.
+- **Criterion:** a form helps people provide the smallest necessary information correctly.
+- **Apply:** label fields programmatically and visibly, group by meaning, match input to expected
+  precision, explain why sensitive data is needed, preserve entered values, and place correction
+  guidance next to the relevant field and in a usable summary.
+- **Accept:** users know what each field asks, why it is needed, how to correct it, and whether their
+  previous work is safe.
 
-## Forms for real input, not symmetry
+## Mobile and touch
 
-- **Rule:** a good form helps the user fill it correctly.
-- **Apply:** label near its field (label–field gap < gap between groups); group by subject
-  (expiry+CVC, city+state); **width matches expected input** (postcode ≠ card number); mask as a
-  complement, not a label replacement; inline error next to the field; visible focus; **preview when
-  the form produces a visual result**.
-- **Accept:** the user knows what each field asks, why, and how to fix errors. Collect only what the
-  next step needs; consent where personal data is involved.
+- **Criterion:** the task remains operable across hands, reach, precision, viewport, and input
+  variation.
+- **Apply:** test accidental taps, one-handed reach, keyboard, dynamic type, zoom, rotation, safe
+  areas, interruptions, low connectivity, and assistive technology. Separate dangerous actions and
+  preserve focus and context.
+- **Accept:** representative users can operate the critical path without obstructive sticky controls,
+  accidental destructive actions, or an inaccessible alternative.
 
-## Mobile ergonomics — thumb, touch, motor a11y
+Do not turn a platform recommendation into a universal accessibility norm. WCAG 2.2 Target Size
+(Minimum) defines a 24×24 CSS pixel AA criterion with exceptions; Target Size (Enhanced) defines
+44×44 CSS pixels at AAA. A product may choose 44 or 48 as a conservative design recommendation, but
+the choice must be documented and tested for the actual control and context:
 
-- **Rule:** respect the hand, reach, mis-taps, and motor variation.
-- **Apply:** touch target **44×44 min, 48×48/dp preferred**; tappable area larger than the visual
-  icon; frequent actions in the thumb zone; separate dangerous targets (delete vs confirm); avoid
-  controls in extreme corners.
-- **Accept:** operable one-handed, lightly moving, without frequent accidental taps.
+- [WCAG 2.2](https://www.w3.org/TR/WCAG22/)
+- [Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum)
+- [Target Size (Enhanced)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced)
 
-## Navigation & bottom bars
+## Navigation and content
 
-- **Rule:** global nav is a compact set of destinations, not a dumping ground.
-- **Apply:** **3–5 destinations** of similar importance; destinations (areas), not contextual
-  actions; short labels + familiar icons; active state with **≥ 2 cues** (fill/outline + color/
-  weight/indicator — never color alone); badges only for meaningful signals; keep the bar stable and
-  visually separated from content.
-- **Accept:** users know where they are and switch areas without a secondary menu.
+- **Criterion:** people know where they are and can move between meaningful areas.
+- **Apply:** name destinations in user language, distinguish them from contextual actions, preserve
+  location and filters, expose active state with more than color, and choose navigation density from
+  the information architecture rather than a fixed destination count.
+- **Accept:** users can enter, switch, return, and resume without a secondary memory task.
 
-## Typography & reading
+Content is behavior. Test headings, labels, instructions, legal text, error messages, and empty states
+at realistic length, zoom, language, and device conditions. Do not prescribe a universal font count,
+line length, color ratio, spacing grid, shadow, radius, or component library here; route those choices
+to the project's design authority.
 
-- **Rule:** text is interface; if reading takes effort, the UI fails.
-- **Apply:** coherent scale (title/subtitle/body/caption/CTA distinct by weight/size/contrast);
-  **line length 45–75ch** (max ~80) via `max-width`; **long text (>3 lines) left-aligned**; center
-  only hero/headline/short phrase; never center instructional/legal/error text; comfortable
-  line-height; contrast ≥ 4.5:1 (AA), higher for small/critical text.
-- **Accept:** critical content readable at 100% and 200% zoom, on mobile and desktop.
+## Empty and failure states
 
-## Cards, dropdowns & lists — support the decision
+Distinguish first use, no results, filtered-empty, unavailable, permission denied, offline, loading,
+invalid, partial success, and system failure. Explain what happened, what remains true, and the safest
+next action. Never erase work or create duplicate side effects during recovery.
 
-- **Rule:** a visual choice should reduce comparison, not add distraction.
-- **Apply:** **cards** for few options with comparable attributes (price/benefit/limit/recommended/
-  selected state); **lists** for many homogeneous options; dropdowns grouped by category with
-  consistent icons; images only when they add meaning; preserve radio/checkbox semantics even when
-  styled as cards; never bias toward the most profitable option by visual trick.
-- **Accept:** the user compares quickly and can explain why they chose.
+## Accessibility is part of the component
 
-## Accessibility as a component requirement
+Check the applicable standard and context for:
 
-- **Rule:** a11y is a component requirement, not a final step.
-- **Apply:** color tokens with validated contrast; documented minimum target size; visible focus;
-  **color is never the only indicator**; programmatic labels on inputs; status perceivable by
-  assistive tech; test keyboard, screen reader, zoom, contrast, and **reduced motion**.
-- **Accept:** main components pass applicable WCAG AA before production.
+- semantic structure, names, roles, values, and status announcements;
+- keyboard and alternative input, visible focus, target operability, and error recovery;
+- contrast and non-color cues, zoom/reflow, text resizing, captions or alternatives;
+- reduced motion and interruption tolerance;
+- privacy, consent, language, cognitive load, and comprehension.
 
-## Design for failure (senior maturity)
+Include disabled people in research and evaluation where their needs are relevant. A checklist or
+automated scan is evidence of some conditions, not proof that the task is usable.
 
-- **Rule:** maturity = framing the problem, deciding with evidence, communicating trade-offs, and
-  measuring — not "making it pretty".
-- **Apply:** start from the problem, not the screen; justify by impact (clarity/a11y/cost/
-  maintenance/goal), not taste; think in systems (components/tokens/states/docs); design every state
-  (empty/loading/error/retry/denied-permission/low-connection/invalid-input).
-- **Accept:** components carry default/hover/focus/active/disabled/error/loading/success + usability
-  and a11y acceptance criteria.
+## Sources
 
-## Conservative numbers when sources disagree
-
-| Topic | Recommendation |
-|---|---|
-| Touch target | 44×44 absolute min, 48×48/dp preferred |
-| Line length | 45–75ch; avoid exceeding 80ch in body |
-| Contrast | AA (4.5:1 / 3:1) min; AAA for critical/low-vision/long-read |
-| Bottom nav | 3–5 primary destinations |
-| Cards vs lists | Cards for few comparable options; lists for many homogeneous |
+- [W3C Involving Users](https://www.w3.org/WAI/planning/involving-users/) supports involving people
+  with disabilities in design and evaluation.
+- [GOV.UK form structure](https://www.gov.uk/service-manual/design/form-structure) and the
+  [validation pattern](https://design-system.service.gov.uk/patterns/validation/) illustrate clear
+  labels, error recovery, preserved input, and separation of validation from eligibility.
