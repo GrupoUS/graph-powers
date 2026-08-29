@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.2 — UXmaster research, journeys and mobile decision guidance
+
+UXmaster now starts from user needs, context, tasks, journeys, information architecture, interaction
+states, recovery, accessibility, trust, evidence, and validation before applying conditional
+conversion, onboarding, pricing, retention, positioning, or psychology lenses. Mobile guidance from
+the GrupoUS NeonDash skill was adapted into the existing reference set without importing visual-token
+or framework rules. New ecommerce/product-experience, journey/flow, research/framing, and behavior
+evaluation references make the boundaries with designer, design-fix, implementation, debugger,
+performance, animate, and landing-page-design explicit.
+
 ## 1.13.1 — Native agents stay proactive and bounded
 
 Guarded Grok installs now enable native subagents without changing their approval posture. The
@@ -9,16 +19,6 @@ drift, and examples no longer freeze the defaults.
 
 Argument-less `/verify` now inherits the originating task tier: L1-L2 remains the low-resource
 quick path, while L3+ runs the review batch. Explicit `/verify quick` remains available.
-
-### UXmaster research, journeys and mobile decision guidance
-
-UXmaster now starts from user needs, context, tasks, journeys, information architecture, interaction
-states, recovery, accessibility, trust, evidence, and validation before applying conditional
-conversion, onboarding, pricing, retention, positioning, or psychology lenses. Mobile guidance from
-the GrupoUS NeonDash skill was adapted into the existing reference set without importing visual-token
-or framework rules. New ecommerce/product-experience, journey/flow, research/framing, and behavior
-evaluation references make the boundaries with designer, design-fix, implementation, debugger,
-performance, animate, and landing-page-design explicit.
 
 ## 1.13.0 — TypeScript 7, Oxc editor ownership and resource-bounded loops
 
