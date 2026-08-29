@@ -1,8 +1,8 @@
 {
   "name": "graph-powers",
   "displayName": "Graph Powers",
-  "description": "Agents, skills, commands and git/execution guardrails that work in any repository, on Claude Code, Codex CLI, Cursor and Grok CLI. The project declares its stack in .graph-powers/config.json and the plugin adapts; nothing here is specific to one product.",
-  "version": "1.13.2",
+  "description": "Agents, skills, commands and git/execution guardrails that work in any repository, on Claude Code, Codex CLI, Cursor, Grok CLI and Hermes. The project declares its stack in .graph-powers/config.json and the plugin adapts; nothing here is specific to one product.",
+  "version": "1.14.0",
   "author": {
     "name": "GrupoUS"
   },
@@ -17,7 +17,8 @@
     "claude-code",
     "codex",
     "cursor",
-    "grok"
+    "grok",
+    "hermes"
   ],
   "skills": "./skills/",
   "commands": "./commands/",

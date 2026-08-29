@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0 — Hermes as a fifth client
+
+Hermes Agent loads Graph Powers through root `plugin.yaml` + `__init__.py`, which register every
+`skills/*/SKILL.md`, every `agents/*.md` as `agent-*`, and the Hermes-only translation skill
+`hermes/skills/graph-engineering`. Git hooks are **not** executed on Hermes (report `NOT ENFORCED`).
+`hermes plugins install GrupoUS/graph-powers` works once this lands on the default branch.
+
 ## 1.13.2 — UXmaster research, journeys and mobile decision guidance
 
 UXmaster now starts from user needs, context, tasks, journeys, information architecture, interaction

@@ -25,8 +25,8 @@ from typing import cast
 # nobody's installed harness behaves differently because CONTRIBUTING.md gained a paragraph.
 SHIPPED = (
     "agents/", "skills/", "commands/", "hooks/", "references/", "templates/", "workflows/",
-    "schema/", "codex/", "cursor/", "grok/", "bin/", ".claude-plugin/", ".cursor-plugin/",
-    ".grok-plugin/", "examples/",
+    "schema/", "codex/", "cursor/", "grok/", "hermes/", "bin/", ".claude-plugin/", ".cursor-plugin/",
+    ".grok-plugin/", "examples/", "plugin.yaml", "__init__.py",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENT_SETUP.md",
 )
 

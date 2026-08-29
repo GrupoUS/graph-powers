@@ -1,9 +1,10 @@
 # Graph Powers
 
 A shared harness for [Claude Code](https://claude.com/claude-code),
-[Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com) and
-[Grok CLI](https://docs.x.ai/build): agents, skills, commands and guardrails that work in any
-repository. Whatever changes from project to project leaves the code and enters one config file.
+[Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com),
+[Grok CLI](https://docs.x.ai/build) and [Hermes Agent](https://hermes-agent.nousresearch.com/):
+agents, skills, commands and guardrails that work in any repository. Whatever changes from
+project to project leaves the code and enters one config file.
 
 **Claude Code** — two lines in any session:
 
@@ -40,6 +41,20 @@ node <clone>/bin/graph-powers.mjs --target grok
 The installer verifies the exact Grok-reported package path and its fifteen fail-open hooks before
 writing `always-approve`. Restart the Grok session. Git commit and push still ask. `rm -rf /` still
 denies.
+
+**Hermes Agent** — skills and agent contracts, no executable git hooks (same class as Zed):
+
+```bash
+hermes plugins install GrupoUS/graph-powers --enable
+```
+
+Until that URL is on `main` with `plugin.yaml`, point Hermes at this checkout:
+
+```bash
+ln -sfn /path/to/graph-powers ~/.hermes/plugins/graph-powers
+hermes plugins enable graph-powers
+hermes plugins doctor ~/.hermes/plugins/graph-powers --ci
+```
 
 Then one prompt, pasted into an agent session opened in your project:
 

@@ -1,0 +1,20 @@
+name: graph-powers
+version: "1.14.0"
+description: >-
+  Graph Powers harness for Hermes: skills, agent contracts and the
+  graph-engineering translation. Git guardrails are NOT ENFORCED on Hermes
+  (same class as Zed); the parent carries the safety floor. No model-facing
+  tools.
+author: GrupoUS
+license: MIT AND Apache-2.0
+homepage: https://github.com/GrupoUS/graph-powers
+kind: standalone
+manifest_version: 1
+tags:
+  - harness
+  - skills
+  - delegation
+  - graph-powers
+provides_tools: []
+provides_hooks: []
+capabilities: []

@@ -76,6 +76,7 @@ permission posture and session reload are not:
 | Codex Desktop | conditional — some builds launch a bundled Codex `app-server` against the same Codex home | never infer it from a CLI pass; run the separate Desktop proof in Step 9 and restart the app itself |
 | Cursor IDE / `cursor-agent` | yes — generated `hooks/hooks-cursor.json` | marketplace plugin first; `--target cursor` configures posture only |
 | Grok CLI | yes — `.grok-plugin/plugin.json` points at the canonical file | native plugin or one clone path, then posture in the active Grok home |
+| Hermes Agent | **no executable git hooks** — `plugin.yaml` registers skills only | `hermes plugins install GrupoUS/graph-powers --enable` (or a symlink of this checkout). Guardrails are `NOT ENFORCED`; report that. Skills load as `graph-powers:<name>` |
 | Zed native agent | **no repository hook surface is implemented** | rules, skills and editor settings still load, but executable guardrails are `NOT ENFORCED` and must be reported that way |
 
 **Safety ordering:** never write `bypassPermissions`, `unrestricted` or `always-approve` before the
