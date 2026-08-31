@@ -35,7 +35,12 @@ const SUBAGENT_PROFILES = new Set(
     .map(([name]) => name),
 );
 
-for (const key of ["topLevelProfileDowngraded", "topLevelEffortDowngraded", "modelOverrideUnverified"]) {
+for (const key of [
+  "topLevelProfileDowngraded",
+  "topLevelEffortDowngraded",
+  "modelOverrideUnverified",
+  "profileOverrideUnverified",
+]) {
   if (typeof CODEX_WARNING_CATEGORIES?.[key] !== "string") {
     throw new Error("Codex model policy warning categories are incomplete");
   }
@@ -104,6 +109,9 @@ function requestedProfile(agentName, settings, override, warnings) {
     }
     warnings.push(CODEX_WARNING_CATEGORIES.topLevelProfileDowngraded);
     return semantic;
+  }
+  if ((text(override.profile) || text(settings?.profile)) && requested !== semantic) {
+    warnings.push(CODEX_WARNING_CATEGORIES.profileOverrideUnverified);
   }
   return requested;
 }

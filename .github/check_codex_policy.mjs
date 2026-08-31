@@ -118,6 +118,10 @@ assert(resolveCodexAgentPolicy("explorer", { agents: { explorer: perAgent } },
 assert(equal(resolve("explorer", { profile: "judge" }), {
   profile: "judge", model: "gpt-5.6-sol", effort: "max", topLevelOnly: false,
 }), "explicit profile override did not win");
+assert(resolveCodexAgentPolicy("explorer", { profile: "judge" },
+  sourceAgent("explorer", EXPECTED_POLICY.explorer)).warnings.includes(
+  CODEX_WARNING_CATEGORIES.profileOverrideUnverified,
+), "cross-tier profile override did not emit its fixed diagnostic category");
 assert(equal(resolve("explorer", {
   profiles: { scout: { model: "gpt-5.6-terra", reasoningEffort: "high" } },
 }), {

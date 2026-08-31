@@ -22,7 +22,7 @@ when the upstream text and Hermes disagree.
 | `Skill("debugger")` | `skill_view("graph-powers:debugger")` |
 | An agent's role contract | `skill_view("graph-powers:agent-debugger")` — one per upstream agent |
 | `run_in_background: true` | Nothing to set. A top-level `delegate_task` already runs in the background and posts its result back |
-| `${CLAUDE_PLUGIN_ROOT}/references/...` | the installed plugin root's `references/...`, read with `read_file` |
+| `${CLAUDE_PLUGIN_ROOT}/references` | the installed plugin root's `references/<file>.md`, read with `read_file` |
 | Hooks that block a bad command | This skill + SOUL + Hermes approvals. Upstream hooks are not ported; the parent must carry and enforce the safety contract |
 | `Read` / `Glob` / `Grep` / `Bash` | `read_file` / `search_files` / `terminal` |
 | `WebSearch` / `WebFetch` / Tavily / Context7 | `web_search` / `web_extract`, unless the exact MCP is configured and needed |

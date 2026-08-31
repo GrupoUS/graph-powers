@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Callable
@@ -24,7 +25,7 @@ def load_entrypoint():
     return module
 
 
-def run(*command: str) -> subprocess.CompletedProcess[str]:
+def run(*command: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(command),
         cwd=ROOT,
@@ -32,6 +33,7 @@ def run(*command: str) -> subprocess.CompletedProcess[str]:
         encoding="utf-8",
         errors="replace",
         check=False,
+        env=env,
     )
 
 
@@ -40,7 +42,11 @@ def test_source_registration() -> None:
     registrations = module.planned_registrations(ROOT)
     names = [name for name, _path, _description in registrations]
     expected_skills = {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")}
-    expected_commands = {path.stem for path in (ROOT / "commands").glob("*.md")}
+    expected_commands = {
+        path.stem
+        for path in (ROOT / "commands").glob("*.md")
+        if path.name.upper() != "AGENTS.MD"
+    }
     expected_agents = {
         f"agent-{path.stem}"
         for path in (ROOT / "agents").glob("*.md")
@@ -97,12 +103,35 @@ def test_verifier_route() -> None:
     assert payload["registrations"] >= 1
 
 
+def test_missing_runtime_is_visible() -> None:
+    with TemporaryDirectory(prefix="hermes-no-runtime-") as raw:
+        env = dict(os.environ)
+        env["PATH"] = raw
+        result = run(
+            sys.executable,
+            "-X",
+            "utf8",
+            "bin/verify-hook-clients.py",
+            "--client",
+            "hermes",
+            "--plugin-root",
+            str(ROOT),
+            "--json",
+            env=env,
+        )
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "SKIPPED"
+    assert any("runtime is not installed" in warning for warning in payload["warnings"])
+
+
 def main() -> int:
     tests: list[tuple[str, Callable[[], None]]] = [
         ("source registration", test_source_registration),
         ("collision", test_collision_is_explicit),
         ("generator", test_generator_check),
         ("verifier", test_verifier_route),
+        ("missing runtime", test_missing_runtime_is_visible),
     ]
     failures: list[str] = []
     for name, test in tests:

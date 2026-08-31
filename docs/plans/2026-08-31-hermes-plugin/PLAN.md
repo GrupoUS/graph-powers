@@ -55,7 +55,7 @@ manifest/check contract; verification and docs state that Claude hooks are not e
 
 ## Phase 1 — RED contract
 
-- [ ] **T1 — Add failing Hermes pressure tests**
+- [x] **T1 — Add failing Hermes pressure tests**
   - **Owns:** `.github/test_hermes.py`
   - **CHECK:** `python3 -X utf8 .github/test_hermes.py`
   - **EXPECT:** RED against baseline because commands, generator, and Hermes verifier route are absent
@@ -63,18 +63,18 @@ manifest/check contract; verification and docs state that Claude hooks are not e
 
 ### Gate G1
 
-- [ ] Baseline failures are observed and captured before implementation.
+- [x] Baseline failures are observed and captured before implementation.
 
 ## Phase 2 — Native projection
 
-- [ ] **T2 — Implement Hermes generator and directory-driven registration**
+- [x] **T2 — Implement Hermes generator and directory-driven registration**
   - **Owns:** `hermes/install.mjs`, `__init__.py`, `plugin.yaml`, `hermes/skills/graph-engineering/SKILL.md`
   - **CHECK:** `bun hermes/install.mjs --check` and `python3 -X utf8 .github/test_hermes.py`
   - **Acceptance:** manifest is generated from Claude metadata; all skills, command stems, and `agent-*` contracts have deterministic registrations; no hook/tool registration is present
 
 ### Gate G2
 
-- [ ] Generator check and focused Hermes tests are green; Doctor is run when available.
+- [x] Generator check and focused Hermes tests are green; Doctor is run when available.
 
 ## Phase 3 — Disjoint gates and verifier
 
@@ -91,25 +91,39 @@ Run one writer per path family in a single batch:
 
 ### Gate G3
 
-- [ ] Focused verifier, clone/version/wiring, generator, and CI syntax checks are green.
+- [x] Focused verifier, clone/version/wiring, generator, and CI syntax checks are green.
 
 ## Phase 4 — Human-facing projection
 
-- [ ] **T4 — Update setup, architecture, README, changelog, and synchronized versions**
+- [x] **T4 — Update setup, architecture, README, changelog, and synchronized versions**
   - **Owns:** `AGENT_SETUP.md`, `README.md`, `docs/ARCHITECTURE.md`, `CHANGELOG.md`, `package.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`
   - **CHECK:** documentation/reference gates, JSON validation, version checker
   - **Acceptance:** Hermes is the fifth client; no manual `~/.hermes` copy/symlink is prescribed; hook posture is `NOT ENFORCED`; all manifests share one version.
 
 ### Gate G4
 
-- [ ] README/setup/architecture, version, JSON, file-reference, and portability checks are green.
+- [x] README/setup/architecture, version, JSON, file-reference, and portability checks are green.
 
 ## Phase 5 — Final verification
 
-- [ ] **T5 — Run the declared and repository gates**
+- [x] **T5 — Run the declared and repository gates**
   - **Owns:** no files; parent only
   - **CHECK:** project gate list plus `hermes plugins doctor . --ci`, explicit verifier, and the clean-home install probe when runtime/security policy permits
   - **Acceptance:** return `VERIFIED-WITH-NOTES` only if every runnable declared gate passes and the external scanner blocker is explicitly recorded; otherwise `NEEDS-WORK`.
+
+## Verification record
+
+- `bun hermes/install.mjs --check`: exit 0; 38 source registrations and manifest current.
+- `hermes plugins doctor . --ci`: exit 0; runtime discovery, manifest parsing, import and
+  registration passed; zero tools and zero hooks.
+- `bin/verify-hook-clients.py --client hermes --json`: exit 0; version `1.16.0`, 38 registrations,
+  posture `NOT ENFORCED`.
+- Temporary `HERMES_HOME` with only `plugins.scan_on_install: false`: install/enable, `show`,
+  Doctor, and `skill_view` for `graph-powers:planning`, `graph-powers:agent-explorer`, and
+  `graph-powers:plan` all passed.
+- Clean public-source install with Hermes' default scanner: exit 1, blocked by the upstream
+  community-plugin security scan (507 findings); this remains an external compatibility note and
+  is not bypassed by the package.
 
 ## Rollback
 

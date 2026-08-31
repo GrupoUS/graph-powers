@@ -141,6 +141,7 @@ export function buildRegistrationPlan(pluginRoot = HERE) {
   const commands = join(root, "commands");
   if (existsSync(commands)) {
     for (const fileName of readdirSync(commands).filter((name) => name.endsWith(".md")).sort()) {
+      if (fileName.toUpperCase() === "AGENTS.MD") continue;
       const path = join(commands, fileName);
       add(fileName.slice(0, -3), path, fileName.slice(0, -3));
     }

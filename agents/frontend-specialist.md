@@ -1,7 +1,7 @@
 ---
 name: frontend-specialist
 description: "Use proactively for anything the user sees: React and TSX, shadcn and Tailwind, pages, forms, tables, dashboards, responsive behaviour, dark mode, accessibility, design-system work and frontend refactors. Writes code. For the judgment of whether a design is good, ui-ux-designer reviews it read-only first."
-model: opus
+model: sonnet
 color: purple
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

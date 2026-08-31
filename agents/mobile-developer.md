@@ -1,7 +1,7 @@
 ---
 name: mobile-developer
 description: "Use proactively for React Native and Flutter work: navigation, native modules, offline-first sync, platform-specific behaviour on iOS and Android, build and app-store delivery. Writes code. Web React is frontend-specialist."
-model: opus
+model: sonnet
 color: orange
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

@@ -27,65 +27,65 @@ fallback, and stop conditions; hooks remain guidance-only.
 
 ## Tasks
 
-- [ ] **T1** — Extend the semantic policy, top-level economy, and sanitized override diagnostics
+- [x] **T1** — Extend the semantic policy, top-level economy, and sanitized override diagnostics
   Owns: codex/model-policy.json, codex/model-policy.mjs, schema/config.schema.json, .github/check_codex_policy.mjs, .github/check_codex_native.py, codex/native-agents
   Needs: none
   Agent: graph-powers:debugger · Skill: graph-powers:skill-improve · Effort: high
   Check: `bun .github/check_codex_policy.mjs` and `python3 .github/check_codex_native.py`
   Expect: Luna economical top-level profile, Sol/max evaluator, Ultra top-level-only, capability-safe policy metadata, and sanitized collapse warnings all pass source and generated parity checks.
-  Evidence: pending
+  Evidence: RED: baseline inspection found no economic top-level assertion or sanitized cross-tier diagnostic; GREEN: policy/resolver/oracle and generated companions now encode the contract; VERIFY: `bun .github/check_codex_policy.mjs` exit 0 and `python3 .github/check_codex_native.py` exit 0.
   TDD: required
   Steps:
     - RED: add focused assertions for the economic top-level profile, invalid leaf use, exact canonical mappings, and secret-sentinel-free warnings.
     - GREEN: update the single policy source, resolver, schema, and policy/native oracles; regenerate companions through the existing generator.
     - VERIFY: run the two focused policy gates and inspect generated diff for drift.
 
-- [ ] **T2** — Add the executable parent-mediated consultation ledger and canonical handoff contract
+- [x] **T2** — Add the executable parent-mediated consultation ledger and canonical handoff contract
   Owns: skills/planning/scripts/sdd.py, skills/planning/scripts/test_sdd.py, references/execution-floor.md, skills/senior-prompt-engineer/references/agent-handoff-contracts.md, skills/planning/references/phase-c-executing-plans.md, skills/planning/references/gauntlet-loop.md, agents/evaluator.md
   Needs: none
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: high
   Check: `python3 skills/planning/scripts/test_sdd.py`
   Expect: stable-key dedupe, three-key task cap, fresh-task budget, explicit blocked/user-required result, capability fallback metadata, no evaluator/reviewer/depth recursion, and review-versus-consultation separation are deterministic and documented.
-  Evidence: pending
+  Evidence: RED: baseline inspection found no executable consultation envelope or ledger; GREEN: parent-owned atomic ledger, fallback, stop states, and handoff contract added; VERIFY: `python3 skills/planning/scripts/test_sdd.py` exit 0 — 44 tests passed, including dedupe, cap, fresh-task, fallback, blocked, symlink, concurrency, and contract cases.
   TDD: required
   Steps:
     - RED: add CLI and contract tests for first reservation, duplicate reuse, three allowed keys, fourth capped key, fresh task, unresolved result, malformed identity, and forbidden requester/depth.
     - GREEN: implement secure atomic consultation state in the existing SDD workspace and document the request/result envelope and parent-only routing rules.
     - VERIFY: run the focused SDD suite, symlink/concurrency tests, and inspect the existing Gauntlet content for preserved behavior.
 
-- [ ] **T3** — Make planning and verification workflows preserve declared families and route consultations through the parent
+- [x] **T3** — Make planning and verification workflows preserve declared families and route consultations through the parent
   Owns: workflows/ultra-plan.js, workflows/ultra-verify.js, .github/check_workflows.mjs
   Needs: T1 (reads: semantic policy profile names and evaluator capability metadata), T2 (reads: consultation envelope, caps, and requester restrictions)
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: high
   Check: `bun .github/check_workflows.mjs`
   Expect: dry-runs pass with complete declared-family maps; ordinary review calls remain outside the consultation ledger; only a parent can reserve/record a consultation and no evaluator-originated or nested request is emitted.
-  Evidence: pending
+  Evidence: RED: baseline workflow checker covered only scout-versus-heavy routing; GREEN: complete declared-family map and capability-safe evaluator selection added; VERIFY: `bun .github/check_workflows.mjs` exit 0 — both workflows parsed and passed dry-run, declared-family, and capability fallback fixtures.
   TDD: required
   Steps:
     - RED: extend workflow dry-run assertions with declared-family parity, supported/unknown evaluator capability fixtures, consultation dedupe/cap scenarios, and non-consumption by review critics.
     - GREEN: derive the complete canonical model map at bootstrap, add bounded parent consultation state/routing, and keep explicit mechanical gate downgrades named.
     - VERIFY: run the workflow oracle and inspect every agent call's model source and consultation path.
 
-- [ ] **T4** — Project conditional economical routing into canonical agents and user-facing documentation
+- [x] **T4** — Project conditional economical routing into canonical agents and user-facing documentation
   Owns: agents/debugger.md, agents/frontend-specialist.md, agents/mobile-developer.md, agents/performance-optimizer.md, agents/verification.md, README.md, CHANGELOG.md, .claude-plugin/plugin.json, .codex-plugin/plugin.json, .cursor-plugin/plugin.json, .grok-plugin/plugin.json, package.json, plugin.yaml
   Needs: T1 (reads: final semantic policy names and warnings), T2 (reads: final consultation and capability contract), T3 (reads: workflow family behavior)
   Agent: graph-powers:debugger · Skill: graph-powers:skill-improve · Effort: high
   Check: `python3 .github/check_version_bump.py` and `python3 .github/check_wiring.py`
   Expect: routine alternate-harness workers use the lower declared family, evaluator documents Fable only on positive capability and safe Opus fallback, docs explain limits and no hook spawning, and all package projections share one bumped version while preserving Gauntlet notes.
-  Evidence: pending
+  Evidence: RED: baseline inspection found no conditional alternate-harness evaluator route or consultation documentation; GREEN: canonical worker/evaluator metadata and execution/handoff references now document the route; VERIFY: `python3 .github/check_wiring.py` exit 0 and `python3 .github/check_version_bump.py` exit 0 — 14 shipped files changed, version 1.15.0 -> 1.16.0.
   TDD: required
   Steps:
     - RED: add or extend source/projection assertions for worker/evaluator frontmatter and version/changelog documentation.
     - GREEN: update only canonical agent metadata and generated-facing documentation/manifests; do not hand-edit Codex snapshots.
     - VERIFY: run wiring/version checks and inspect the branch diff for unrelated changes.
 
-- [ ] **T5** — Run the complete repository acceptance suite and reconcile residual capability risk
+- [x] **T5** — Run the complete repository acceptance suite and reconcile residual capability risk
   Owns: docs/plans/2026-08-31-issue-15/PLAN.md
   Needs: T1 (reads: policy gate evidence), T2 (reads: consultation test evidence), T3 (reads: workflow gate evidence), T4 (reads: projection and documentation evidence)
   Agent: graph-powers:debugger · Skill: graph-powers:skill-improve · Effort: high
   Check: all commands in the repository root AGENTS.md Gates section plus `git diff --check`
   Expect: every available gate passes, unavailable tools are recorded rather than substituted, the plan records observed RED/GREEN and gate evidence, and no commit/push is performed.
-  Evidence: pending
+  Evidence: RED: full acceptance was treated as the final integration detection pass; GREEN: no gate failure required an out-of-scope change; VERIFY: every runnable root gate listed in `AGENTS.md` plus `git diff --check` returned exit 0. The only residual capability boundary is external Fable/advisor entitlement; unknown capability remains on the safe Opus fallback and was not live-probed.
   TDD: required
   Steps:
     - RED: run the focused and full gate suite to expose integration failures or generated drift.
@@ -94,27 +94,27 @@ fallback, and stop conditions; hooks remain guidance-only.
 
 ## Phase gates
 
-- [ ] **G1** — Policy contract is executable
+- [x] **G1** — Policy contract is executable
   Check: `bun .github/check_codex_policy.mjs && python3 .github/check_codex_native.py`
   Expect: source policy and generated companions agree, with no Ultra leaf or sensitive warning output.
-  Evidence: pending
+  Evidence: policy/native checks exit 0.
 
-- [ ] **G2** — Consultation contract is bounded and secure
+- [x] **G2** — Consultation contract is bounded and secure
   Check: `python3 skills/planning/scripts/test_sdd.py`
   Expect: exact-once keys, three-key cap, recursion refusal, explicit fallback/block state, and secure state tests pass.
-  Evidence: pending
+  Evidence: SDD suite exit 0; 44 tests passed.
 
-- [ ] **G3** — Workflows preserve model families
+- [x] **G3** — Workflows preserve model families
   Check: `bun .github/check_workflows.mjs`
   Expect: every non-mechanical spawn uses the canonical declared family and review critics do not consume consultation capacity.
-  Evidence: pending
+  Evidence: workflow checker exit 0; both workflow dry-runs and capability fixtures passed.
 
-- [ ] **G4** — Projections and docs are wired
+- [x] **G4** — Projections and docs are wired
   Check: `python3 .github/check_wiring.py && python3 .github/check_version_bump.py`
   Expect: all references resolve, the version is bumped consistently, and the issue behavior is documented without absolute paths or project-specific routing.
-  Evidence: pending
+  Evidence: wiring and version checks exit 0; generated native companions pass parity checks.
 
-- [ ] **G5** — Full repository acceptance
+- [x] **G5** — Full repository acceptance
   Check: the complete root AGENTS.md Gates list and `git diff --check`
   Expect: all runnable gates pass and residual risk is limited to unproven external account/provider capability.
-  Evidence: pending
+  Evidence: full root gate batch and `git diff --check` exit 0; unavailable external Fable/advisor runtime entitlement remains explicitly conditional.

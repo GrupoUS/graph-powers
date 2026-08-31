@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.16.0 — Hermes native package parity
+
+Hermes now has a generated `plugin.yaml`, a native `__init__.py` entrypoint, and a single derived
+registration set for every bundled skill, command document, and agent contract. The repository adds
+the focused Hermes verifier, clone/version/wiring gates, and CI coverage. Hermes hooks remain
+explicitly **NOT ENFORCED** because Claude's executable hook payload is not part of the verified
+Hermes contract.
+
 ## 1.15.0 — bounded Gauntlet execution
 
 `/gauntlet <approved-plan-file-or-directory> [--dry-run]` adds an explicit high-assurance profile

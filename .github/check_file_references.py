@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 
 REFERENCE_RE = re.compile(
     r"(?<![\w${./-])"
-    r"(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|workflows)"
+    r"(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|hermes|workflows)"
     r"/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)"
 )
 IGNORED_PARTS = frozenset({".git", "node_modules", ".venv", "venv", "__pycache__"})
