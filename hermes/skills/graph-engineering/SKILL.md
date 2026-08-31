@@ -28,13 +28,8 @@ when the upstream text and Hermes disagree.
 | `WebSearch` / `WebFetch` / Tavily / Context7 | `web_search` / `web_extract`, unless the exact MCP is configured and needed |
 | `AskUserQuestion` | `clarify` in the parent; delegated children return the decision point instead of asking |
 
-Registered names: the ten upstream skills (`graph-powers:astro`, `debugger`,
-`performance-optimization`, `planning`, `second-opinion`, `senior-architect`,
-`senior-prompt-engineer`, `skill-improve`, `uxmaster`, `webapp-testing`) and the twelve agent
-contracts (`graph-powers:agent-debugger`, `agent-evaluator`, `agent-explorer`,
-`agent-frontend-specialist`, `agent-librarian`, `agent-mobile-developer`,
-`agent-performance-optimizer`, `agent-project-planner`, `agent-security-reviewer`,
-`agent-skill-improver`, `agent-ui-ux-designer`, `agent-verification`).
+Registered names are discovered at startup from every `skills/*/SKILL.md` and `agents/*.md`; this
+translation does not maintain a second inventory. Agent contracts use the `agent-` prefix.
 
 ## Step 0 — Classify, then spend proportionally
 
@@ -143,6 +138,27 @@ Hermes specifics that change the shape of a fan-out:
 - **Results arrive asynchronously.** Keep working; do not poll, and do not claim a child's result
   before it has returned.
 
+## Gauntlet profile — translated, not a slash command
+
+When the user asks for Gauntlet by name, `/gauntlet` is **NOT SUPPORTED** and `/verify loop` is
+**NOT SUPPORTED** as Hermes slash commands. Apply their method directly; never claim either command
+ran. Require one explicit approved structured plan, run Planning's `sdd.py validate ... --profile
+gauntlet`, and use its normalized tier. Missing or invalid input routes to planning; L1-L2 returns
+`NOT ELIGIBLE FOR GAUNTLET` and stays local.
+
+For eligible L3+, run Phase C's `sdd.py acquire ... --profile gauntlet` before any writer, then read
+`${CLAUDE_PLUGIN_ROOT}/skills/planning/references/gauntlet-loop.md` and translate its controller:
+L3 is one sequential lane; L4+ uses one `delegate_task(tasks=[...])` wave only for ready, disjoint
+`Owns`, bounded by the live concurrency and Graph Powers caps. Each lane gets a builder, then the
+parent runs its focused `CHECK`, then a fresh read-only critic. Re-dispatch a correction packet to
+the same logical lane; process identity is irrelevant. Never let a child delegate.
+
+At final close, use the **Step 5 translated equivalent** for `/verify loop`: resolve an independent
+verification specialist once. If it is unavailable, use the documented objective-gate fallback
+once, report the degradation, and do not retry specialist resolution. Preserve every configured
+cap; `capped` or `BLOCKED` is not success and routes persistent failure to debug recovery. Run the
+evolve effect and release the matching lease only after complete PASS.
+
 ## Step 4 — One writer per file
 
 Tasks that run at the same time own **disjoint** paths, declared per task in `Owns:`, never
@@ -159,9 +175,9 @@ would both touch is edited by you, after the batch returns.
 A claim of "done", "fixed" or "passing" requires the command output that proves it, in the same
 message. Run the gates the project declared in `.graph-powers/config.json` (`tooling.commands`)
 through `terminal`, and capture the exit code. For undeclared JS/TS type-check or tests, load
-`graph-powers:bun-verify` and infer Bun 1.4 / `tsgo` — never `npx tsc` or `node --test`.
-If a declared command is `turbo run …`, append `--filter` for each touched `apps/` or
-`packages/` name (see `bun-verify`). L1–L2 and everyday checks are **gates only** — do not
+`graph-powers:debugger` and apply its JS/TS gate resolver; never invent a runner.
+If a declared command is `turbo run …`, apply that resolver's scoped-project policy. L1–L2 and
+everyday checks are **gates only** — do not
 spawn `graph-powers:verification` / evaluator / designer unless the user asked for a full
 review or the work is L4+.
 

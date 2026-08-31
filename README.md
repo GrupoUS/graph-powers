@@ -107,7 +107,7 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
   skills/       13 bundled skills      .claude/rules/             <- only your domain
-  commands/     10 commands            .claude/agents/            <- only what is yours alone
+  commands/     12 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
   workflows/    2 orchestrations
   references/   safety + execution floors
@@ -133,7 +133,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 13 bundled skills, 10 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 13 bundled skills, 12 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex native plugin: skills, guardrails and references | the versioned plugin cache shown by `codex plugin list --json` |
 | Codex native companion roles | `<codex-home>/agents/*.toml`, explicitly emitted from the plugin's tracked policy |
 | Codex clone fallback: skills and commands-as-skills | `~/.agents/skills/` |
@@ -190,6 +190,16 @@ project's own failure mode pointed the other way. Every entry added is recorded,
 `node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
 standing. Cursor's permission file is operator posture and is not removed. Grok's `config.toml`
 is operator posture and is not removed.
+
+### Gauntlet execution
+
+`/gauntlet <approved-plan-file-or-directory> [--dry-run]` is the opt-in, high-assurance execution
+profile for an already approved structured plan. It keeps coupled work sequential, permits bounded
+parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
+read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
+the normal local route. The dry run validates and prints the schedule without acquiring a lease,
+writing or spawning. Codex exposes the same command as the generated `graph-powers-gauntlet` skill;
+Hermes translates the method but does not claim a `/gauntlet` slash-command surface.
 
 ---
 

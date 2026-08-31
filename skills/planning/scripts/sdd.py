@@ -7,8 +7,8 @@ never land in different directories:
     python -X utf8 sdd.py workspace PLAN_FILE                  -> prints the plan's workspace
     python -X utf8 sdd.py brief     PLAN_FILE N                -> task N's text, to the workspace
     python -X utf8 sdd.py package   PLAN_FILE BASE HEAD        -> review diff, to the workspace
-    python -X utf8 sdd.py validate  PLAN_FILE --max-tasks N   -> tasks, gates and lease as JSON
-    python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N   -> validate + atomically lease
+    python -X utf8 sdd.py validate  PLAN_FILE --max-tasks N [--profile gauntlet]
+    python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py release   PLAN_FILE                 -> remove only that plan's lease
 
 Provenance: a port of the `sdd-workspace`, `task-brief` and `review-package` shell scripts of
@@ -74,6 +74,11 @@ TASK_MARKER = re.compile(r"^(?P<indent>[ \t]*)-[ \t]+\[[ xX]\]")
 MALFORMED_STRUCTURED = re.compile(r"^[ \t]*-[ \t]+\[[ xX]\][ \t]+\*\*T", re.IGNORECASE)
 MALFORMED_GATE = re.compile(r"^[ \t]*-[ \t]+\[[ xX]\][ \t]+\*\*G", re.IGNORECASE)
 FIELD = re.compile(r"^(?P<indent>[ \t]+)(?P<name>[A-Za-z][A-Za-z0-9_-]*):[ \t]*(?P<value>.*)$")
+TIER_MARKER = re.compile(r"^[ \t]*\*\*Tier:\*\*", re.IGNORECASE)
+TIER_FIELD = re.compile(
+    r"^[ \t]*\*\*Tier:\*\*[ \t]*(?P<tier>L[1-6])(?:[ \t]*(?:·.*)?)$",
+    re.IGNORECASE,
+)
 TASK_ID = re.compile(r"^T(?P<phase>[0-9]+)(?:\.[0-9]+)*[A-Za-z]?$")
 SAFE_REF = re.compile(r"^(?:HEAD|[0-9A-Fa-f]{7,64})$")
 NEED_REF = re.compile(
@@ -82,7 +87,9 @@ NEED_REF = re.compile(
 )
 
 AGENT_ID = re.compile(r"^graph-powers:(?P<slug>[a-z0-9][a-z0-9-]*)$")
+SKILL_ID = re.compile(r"^(?:graph-powers:)?(?P<slug>[a-z0-9][a-z0-9-]*)$")
 AGENTS_DIR = Path(__file__).resolve().parents[3] / "agents"
+SKILLS_DIR = Path(__file__).resolve().parents[2]
 
 
 def fail(message: str, code: int) -> NoReturn:
@@ -105,7 +112,22 @@ def _agent_lane(agent: str) -> str:
     frontmatter = source.split("---", 2)
     if len(frontmatter) < 3:
         return "unknown"
-    return "routable" if re.search(r"^role_type:\s*worker\s*$", frontmatter[1], re.MULTILINE) else "other"
+    metadata = frontmatter[1]
+    if not re.search(r"^role_type:\s*worker\s*$", metadata, re.MULTILINE):
+        return "other"
+    tools_match = re.search(r"^tools:\s*(.*)$", metadata, re.MULTILINE)
+    denied_match = re.search(r"^disallowedTools:\s*(.*)$", metadata, re.MULTILINE)
+    tools = {item.strip() for item in (tools_match.group(1) if tools_match else "").split(",")}
+    denied = {item.strip() for item in (denied_match.group(1) if denied_match else "").split(",")}
+    return "routable" if {"Write", "Edit"}.issubset(tools) and not ({"Write", "Edit"} & denied) else "read-only"
+
+
+def _skill_is_routable(skill: str) -> bool:
+    """Accept the explicit no-skill lane or a canonical bundled skill name."""
+    if skill.lower() == "none":
+        return True
+    match = SKILL_ID.fullmatch(skill)
+    return bool(match and (SKILLS_DIR / match.group("slug") / "SKILL.md").is_file())
 
 
 def git(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -346,6 +368,20 @@ def _is_placeholder(value: str) -> bool:
     )
 
 
+def _is_unobservable_acceptance(value: str) -> bool:
+    """Reject the documented vague outcomes only in the stricter Gauntlet profile."""
+    return _unquote(value).strip().lower() in {
+        "looks correct",
+        "looks good",
+        "seems correct",
+        "seems fine",
+        "works",
+        "funciona",
+        "está correto",
+        "parece correto",
+    }
+
+
 def _owns(value: str, task: str, errors: list[str]) -> list[str]:
     """Parse and normalize repository-relative ownership paths."""
     raw = _unquote(value)
@@ -448,7 +484,11 @@ def _gate_blocks(visible: list[tuple[int, str]]) -> tuple[list[tuple[int, str, l
     return blocks, errors
 
 
-def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]) -> dict[str, Any]:
+def _parse_task(
+    block: tuple[int, str, list[tuple[int, str]]],
+    errors: list[str],
+    profile: str,
+) -> dict[str, Any]:
     line_no, task_id_value, lines = block
     header = STRUCTURED_TASK.match(lines[0][1])
     assert header is not None
@@ -498,6 +538,8 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
                 fields["effort"] = match.group(1).strip()
 
     required = ("owns", "needs", "agent", "skill", "effort", "check", "expect", "evidence", "tdd")
+    if profile == "gauntlet":
+        required = (*required, "acceptance")
     for name in required:
         if not fields.get(name, "").strip():
             errors.append(f"{task_id_value}: missing required field {name.title()}")
@@ -518,9 +560,15 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
             errors.append(f"{task_id_value}: TDD required but Steps has no RED step")
         if not re.search(r"\bGREEN\b", step_text, re.IGNORECASE):
             errors.append(f"{task_id_value}: TDD required but Steps has no GREEN step")
-    for field_name in ("check", "expect"):
+    for field_name in ("acceptance", "check", "expect"):
         if fields.get(field_name) and _is_placeholder(fields[field_name]):
             errors.append(f"{task_id_value}: {field_name.title()} is a placeholder")
+    if (
+        profile == "gauntlet"
+        and fields.get("acceptance")
+        and _is_unobservable_acceptance(fields["acceptance"])
+    ):
+        errors.append(f"{task_id_value}: Acceptance is not observable")
     if fields.get("agent", "").strip() and not steps and fields["agent"].strip().lower() != "main":
         errors.append(f"{task_id_value}: subagent task requires Steps")
 
@@ -531,9 +579,14 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
         errors.append(f"{task_id_value}: Agent main is not routable in Phase C")
     elif normalized_agent and lane == "unknown":
         errors.append(f"{task_id_value}: unknown Agent {normalized_agent}")
+    elif normalized_agent and lane == "read-only":
+        if profile == "gauntlet":
+            errors.append(f"{task_id_value}: Agent {normalized_agent} is not a write-capable Phase C lane")
     elif normalized_agent and lane != "routable":
         errors.append(f"{task_id_value}: Agent {normalized_agent} is not routable in Phase C")
-    skill = fields.get("skill", "")
+    skill = _unquote(fields.get("skill", "")).strip()
+    if profile == "gauntlet" and skill and not _skill_is_routable(skill):
+        errors.append(f"{task_id_value}: unknown Skill {skill}")
     effort = fields.get("effort", "")
     task: dict[str, Any] = {
         "id": task_id_value,
@@ -542,8 +595,9 @@ def _parse_task(block: tuple[int, str, list[tuple[int, str]]], errors: list[str]
         "owns": owns,
         "needs": [edge["id"] for edge in needs],
         "reads": {edge["id"]: edge["reads"] for edge in needs},
+        "acceptance": _unquote(fields.get("acceptance", "")),
         "agent": normalized_agent,
-        "skill": _unquote(skill),
+        "skill": skill,
         "effort": _unquote(effort),
         "check": _unquote(fields.get("check", "")),
         "expect": _unquote(fields.get("expect", "")),
@@ -620,8 +674,29 @@ def _reachable(source: str, target: str, edges: dict[str, set[str]]) -> bool:
     return False
 
 
-def validate_plan(plan: Path, max_tasks: int) -> tuple[dict[str, Any] | None, list[str]]:
-    """Validate Phase B's structured plan and return its normalized execution graph."""
+def _plan_tier(visible: list[tuple[int, str]], errors: list[str]) -> str:
+    """Return the one mechanically routable L1-L6 tier declared by Phase B."""
+    candidates = [(line_no, line) for line_no, line in visible if TIER_MARKER.match(line)]
+    if not candidates:
+        errors.append("plan is missing required Tier (`**Tier:** L<n>`): route to /plan")
+        return ""
+    if len(candidates) > 1:
+        errors.append("plan has multiple Tier fields: route to /plan")
+        return ""
+    line_no, line = candidates[0]
+    match = TIER_FIELD.fullmatch(line)
+    if not match:
+        errors.append(f"line {line_no}: malformed Tier; expected `**Tier:** L1` through `L6`: route to /plan")
+        return ""
+    return match.group("tier").upper()
+
+
+def validate_plan(
+    plan: Path,
+    max_tasks: int,
+    profile: str = "default",
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Validate Phase B's structured plan and return its tiered execution graph."""
     errors: list[str] = []
     if max_tasks < 1:
         return None, ["--max-tasks must be a positive integer"]
@@ -630,11 +705,12 @@ def validate_plan(plan: Path, max_tasks: int) -> tuple[dict[str, Any] | None, li
     blocks, errors = _task_blocks(visible)
     if not blocks:
         return None, errors
+    tier = _plan_tier(visible, errors)
     gate_blocks, gate_errors = _gate_blocks(visible)
     errors.extend(gate_errors)
     if len(blocks) > max_tasks:
         errors.append(f"plan has {len(blocks)} tasks, exceeding --max-tasks {max_tasks}")
-    tasks = [_parse_task(block, errors) for block in blocks]
+    tasks = [_parse_task(block, errors, profile) for block in blocks]
     gates = [_parse_gate(block, errors) for block in gate_blocks]
     ids = [task["id"] for task in tasks]
     if len(ids) != len(set(ids)):
@@ -681,7 +757,7 @@ def validate_plan(plan: Path, max_tasks: int) -> tuple[dict[str, Any] | None, li
     if errors:
         return None, errors
     lease = sorted({path for task in tasks for path in task["owns"]})
-    return {"tasks": tasks, "gates": gates, "writeLease": lease}, []
+    return {"tier": tier, "tasks": tasks, "gates": gates, "writeLease": lease}, []
 
 
 def _relative_plan(plan: Path, root: Path) -> str:
@@ -703,9 +779,9 @@ def _read_lease(path: Path) -> dict[str, Any]:
     return value
 
 
-def acquire(plan: Path, max_tasks: int) -> dict[str, Any]:
+def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, Any]:
     """Validate the plan and create its write lease with an atomic create-if-absent."""
-    normalized, errors = validate_plan(plan, max_tasks)
+    normalized, errors = validate_plan(plan, max_tasks, profile)
     if errors:
         fail("plan validation failed: " + "; ".join(errors), 2)
     assert normalized is not None
@@ -851,10 +927,12 @@ def main(argv: list[str] | None = None) -> int:
     p_validate = sub.add_parser("validate", help="validate a structured plan and print its task graph")
     p_validate.add_argument("plan")
     p_validate.add_argument("--max-tasks", type=int, required=True)
+    p_validate.add_argument("--profile", choices=("default", "gauntlet"), default="default")
 
     p_acquire = sub.add_parser("acquire", help="validate and atomically acquire the plan write lease")
     p_acquire.add_argument("plan")
     p_acquire.add_argument("--max-tasks", type=int, required=True)
+    p_acquire.add_argument("--profile", choices=("default", "gauntlet"), default="default")
 
     p_release = sub.add_parser("release", help="release only the write lease owned by this plan")
     p_release.add_argument("plan")
@@ -866,13 +944,13 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "brief":
         brief(plan, args.task)
     elif args.command == "validate":
-        normalized, errors = validate_plan(plan, args.max_tasks)
+        normalized, errors = validate_plan(plan, args.max_tasks, args.profile)
         if errors:
             fail("plan validation failed: " + "; ".join(errors), 2)
         assert normalized is not None
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
     elif args.command == "acquire":
-        normalized = acquire(plan, args.max_tasks)
+        normalized = acquire(plan, args.max_tasks, args.profile)
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
     elif args.command == "release":
         release(plan)

@@ -166,6 +166,19 @@ were corrected against official 2026 sources — FAQ rich-result deprecation and
 rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
 
 ================================================================================
+MIT — source-informed synthesis, not verbatim redistribution
+================================================================================
+
+  skills/planning/references/gauntlet-loop.md
+
+Written for Graph Powers after a comparative review of mshumer/Claude-of-Duty
+(https://github.com/mshumer/Claude-of-Duty) and duolahypercho/gauntlet-loop
+(https://github.com/duolahypercho/gauntlet-loop), both MIT-licensed. No upstream prompt or file is
+redistributed verbatim. The profile is a new synthesis for this harness: existing planning Phase C
+owns scheduling and state, while task lanes add bounded builder, independent critic, evidence-led
+correction and optional order-reversed visual comparison under the repository's existing caps.
+
+================================================================================
 Source-informed adaptation — internal GrupoUS material, not verbatim redistribution
 ================================================================================
 

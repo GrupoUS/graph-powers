@@ -19,6 +19,8 @@ import sdd as sdd_module
 
 class TaskOutput(TypedDict):
     id: str
+    acceptance: str
+    skill: str
     needs: list[str]
     reads: dict[str, str]
     steps: list[str]
@@ -33,6 +35,7 @@ class GateOutput(TypedDict):
 
 
 class ValidationOutput(TypedDict):
+    tier: str
     tasks: list[TaskOutput]
     gates: list[GateOutput]
     writeLease: list[str]
@@ -50,19 +53,21 @@ def gate(gate_id: str, *, checked: bool = False, check: str = "python -X utf8 -c
 """
 
 
-def plan_text(*tasks: str, gates: str | None = None) -> str:
+def plan_text(*tasks: str, gates: str | None = None, tier: str | None = "L4") -> str:
     if gates is None:
         phases = sorted(set(re.findall(r"\*\*T([0-9]+)", "\n".join(tasks))))
         gates = "\n".join(gate(f"G{phase}.1") for phase in phases)
-    return "# Plan\n\n## Phase 1 — Work [SEQUENTIAL]\n\n" + "\n".join(tasks) + "\n" + gates + "\n"
+    tier_line = f"**Tier:** {tier}\n\n" if tier is not None else ""
+    return "# Plan\n\n" + tier_line + "## Phase 1 — Work [SEQUENTIAL]\n\n" + "\n".join(tasks) + "\n" + gates + "\n"
 
 
-def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, tdd: str = "not-applicable (configuration)", steps: str = "1. Read the existing contract", evidence: str = "pending", checked: bool = False) -> str:
+def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, acceptance: str = "the focused check prints ok", skill: str = "none", tdd: str = "not-applicable (configuration)", steps: str = "1. Read the existing contract", evidence: str = "pending", checked: bool = False) -> str:
     mark = "x" if checked else " "
     return f"""- [{mark}] **{task_id}** — Deliver {task_id}
   Owns: `{owns}`
   Needs: {needs}
-  Agent: graph-powers:debugger · Skill: none · Effort: mechanical
+  Acceptance: {acceptance}
+  Agent: graph-powers:debugger · Skill: {skill} · Effort: mechanical
   CHECK: `python -X utf8 -c \"print('ok')\"`
   EXPECT: `ok`
   EVIDENCE: {evidence}
@@ -87,19 +92,36 @@ class SddCliTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def assert_valid(self, text: str, expected: int = 2) -> ValidationOutput:
+    def assert_valid(
+        self,
+        text: str,
+        expected: int = 2,
+        *,
+        profile: str = "default",
+    ) -> ValidationOutput:
         with tempfile.TemporaryDirectory() as directory:
             plan = self.write_plan(Path(directory), text)
-            result = self.run_cli("validate", str(plan), "--max-tasks", "10")
+            result = self.run_cli(
+                "validate", str(plan), "--max-tasks", "10", "--profile", profile,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertEqual(len(output["tasks"]), expected)
             return output
 
-    def assert_invalid(self, text: str, expected: str, *, max_tasks: int = 10) -> None:
+    def assert_invalid(
+        self,
+        text: str,
+        expected: str,
+        *,
+        max_tasks: int = 10,
+        profile: str = "default",
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             plan = self.write_plan(Path(directory), text)
-            result = self.run_cli("validate", str(plan), "--max-tasks", str(max_tasks))
+            result = self.run_cli(
+                "validate", str(plan), "--max-tasks", str(max_tasks), "--profile", profile,
+            )
             self.assertEqual(result.returncode, 2)
             self.assertIn(expected, result.stderr)
 
@@ -110,10 +132,33 @@ class SddCliTests(unittest.TestCase):
                 task("T2.1", "src/web.py", "T1.1 (reads: exported API response contract)"),
             )
         )
+        self.assertEqual(output["tier"], "L4")
+        self.assertEqual(output["tasks"][0]["acceptance"], "the focused check prints ok")
         self.assertEqual(output["tasks"][1]["needs"], ["T1.1"])
         self.assertEqual(output["tasks"][1]["reads"], {"T1.1": "exported API response contract"})
         self.assertEqual(output["writeLease"], ["src/api.py", "src/web.py"])
         self.assertEqual([item["id"] for item in output["gates"]], ["G1.1", "G2.1"])
+
+    def test_tier_is_required_for_mechanical_execution_routing(self) -> None:
+        self.assert_invalid(
+            plan_text(task("T1.1"), tier=None),
+            "missing required Tier",
+        )
+
+    def test_tier_normalizes_lowercase_across_the_supported_boundary(self) -> None:
+        for number in range(1, 7):
+            with self.subTest(tier=number):
+                output = self.assert_valid(
+                    plan_text(task("T1.1"), tier=f"l{number}"),
+                    expected=1,
+                )
+                self.assertEqual(output["tier"], f"L{number}")
+
+    def test_malformed_tier_routes_back_to_plan(self) -> None:
+        self.assert_invalid(
+            plan_text(task("T1.1"), tier="L7"),
+            "malformed Tier",
+        )
 
     def test_plan_requires_a_structured_phase_gate(self) -> None:
         self.assert_invalid(plan_text(task("T1.1"), gates=""), "missing structured gate")
@@ -235,9 +280,74 @@ class SddCliTests(unittest.TestCase):
         unknown = task("T1.1").replace("graph-powers:debugger", "graph-powers:not-a-real-agent")
         self.assert_invalid(plan_text(unknown), "unknown Agent")
 
+    def test_acceptance_is_required_and_must_be_observable(self) -> None:
+        missing = task("T1.1").replace("  Acceptance: the focused check prints ok\n", "")
+        self.assert_valid(plan_text(missing), expected=1)
+        self.assert_invalid(
+            plan_text(missing),
+            "missing required field Acceptance",
+            profile="gauntlet",
+        )
+        self.assert_invalid(
+            plan_text(task("T1.1", acceptance="<observable outcome>")),
+            "Acceptance is a placeholder",
+            profile="gauntlet",
+        )
+        self.assert_valid(
+            plan_text(task("T1.1", acceptance="looks correct")), expected=1,
+        )
+        self.assert_invalid(
+            plan_text(task("T1.1", acceptance="looks correct")),
+            "Acceptance is not observable",
+            profile="gauntlet",
+        )
+
+    def test_skill_must_be_none_or_resolve_to_a_bundled_skill(self) -> None:
+        self.assert_valid(plan_text(task("T1.1", skill="made-up")), expected=1)
+        self.assert_invalid(
+            plan_text(task("T1.1", skill="made-up")),
+            "unknown Skill",
+            profile="gauntlet",
+        )
+        bare = self.assert_valid(
+            plan_text(task("T1.1", skill="debugger")), expected=1, profile="gauntlet",
+        )
+        self.assertEqual(bare["tasks"][0]["skill"], "debugger")
+        namespaced = self.assert_valid(
+            plan_text(task("T1.1", skill="graph-powers:debugger")),
+            expected=1,
+            profile="gauntlet",
+        )
+        self.assertEqual(namespaced["tasks"][0]["skill"], "graph-powers:debugger")
+
+    def test_gauntlet_acquire_repeats_profile_admission_before_lease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            missing = task("T1.1").replace("  Acceptance: the focused check prints ok\n", "")
+            plan = self.write_plan(root, plan_text(missing))
+            default = self.run_cli("validate", str(plan), "--max-tasks", "10")
+            self.assertEqual(default.returncode, 0, default.stderr)
+
+            acquire = self.run_cli(
+                "acquire", str(plan), "--max-tasks", "10", "--profile", "gauntlet",
+            )
+
+            self.assertEqual(acquire.returncode, 2)
+            self.assertIn("missing required field Acceptance", acquire.stderr)
+            self.assertFalse((root / ".graph-powers/logs/write-lease.json").exists())
+
     def test_main_thread_agent_is_not_routable_in_phase_c(self) -> None:
         inline = task("T1.1").replace("graph-powers:debugger", "main")
         self.assert_invalid(plan_text(inline), "not routable in Phase C")
+
+    def test_read_only_worker_is_not_a_phase_c_writer(self) -> None:
+        read_only = task("T1.1").replace("graph-powers:debugger", "graph-powers:verification")
+        self.assert_valid(plan_text(read_only), expected=1)
+        self.assert_invalid(
+            plan_text(read_only),
+            "not a write-capable Phase C lane",
+            profile="gauntlet",
+        )
 
     def test_checked_task_requires_persisted_evidence(self) -> None:
         checked = task("T1.1", checked=True)
