@@ -55,9 +55,9 @@ function checkAgentSet(path, source, onDisk) {
 }
 
 /**
- * Workflows remain Claude-native orchestration. Their cheap lane is supplied by the config
- * bootstrap, which reads the canonical Codex policy JSON; the workflows must not grow a second
- * list of scout names or leak GPT model slugs into Claude `agent()` calls.
+ * Workflows remain Claude-native orchestration. Scout membership comes from the canonical Codex
+ * policy JSON and the complete Claude-family map comes from canonical agent frontmatter; the
+ * workflows must not grow a second model registry or leak GPT model slugs into `agent()` calls.
  */
 function checkPolicy(path, source) {
   const problems = [];
@@ -69,10 +69,16 @@ function checkPolicy(path, source) {
     problems.push(`POLICY ${path}: scoutAgents is not derived from codex/model-policy.json`);
   if (!source.includes("SCOUT_AGENTS") || !source.includes("cfg.scoutAgents"))
     problems.push(`POLICY ${path}: model tier helper does not consume cfg.scoutAgents`);
-  if (!source.includes("SCOUT_POLICY_SHAPE") || !source.includes("return { ...supplied, scoutAgents: policy?.scoutAgents }"))
+  if (!source.includes("SCOUT_POLICY_SHAPE") || !source.includes("scoutAgents: policy?.scoutAgents"))
     problems.push(`POLICY ${path}: supplied config has no scoutAgents bootstrap fallback`);
   if (!source.includes("if (!SCOUT_AGENTS.size)"))
     problems.push(`POLICY ${path}: missing non-empty scoutAgents guard before fan-out`);
+  if (!source.includes("agentModels") || !source.includes("DECLARED_AGENT_MODELS"))
+    problems.push(`POLICY ${path}: workflow does not consume the complete canonical agentModels map`);
+  if (!source.includes("evaluatorCapability") || !source.includes("EVALUATOR_CAPABILITY"))
+    problems.push(`POLICY ${path}: evaluator capability fallback is not explicit`);
+  if (!source.includes("EVALUATOR_CAPABILITY !== 'SUPPORTED'"))
+    problems.push(`POLICY ${path}: Fable is not guarded by positive SUPPORTED capability`);
   if (/gpt-5\.6-(?:sol|terra|luna)/i.test(source))
     problems.push(`POLICY ${path}: Claude workflow contains a Codex model slug`);
   if (source.includes("cfg.maxParallelWave")) {
@@ -116,9 +122,6 @@ function readAgentModels() {
   return models;
 }
 
-/** Claude families, cheapest first. Anything else is a pinned model id and is left alone. */
-const TIER_ORDER = ["haiku", "sonnet", "fable", "opus"];
-
 /**
  * Every spawn declares its model, and no cheap agent is spawned on an expensive one.
  *
@@ -133,7 +136,7 @@ const TIER_ORDER = ["haiku", "sonnet", "fable", "opus"];
  * what is refused, because that is never the unit of work getting harder — it is a spawn that
  * forgot which lane it was in.
  */
-function checkModels(path, spawned, agentModels) {
+function checkModels(path, spawned, agentModels, { allowEvaluatorCapabilityFallback = false } = {}) {
   const problems = [];
   const seen = new Set();
   for (const { agentType, model } of spawned) {
@@ -152,11 +155,14 @@ function checkModels(path, spawned, agentModels) {
       problems.push(
         `MODEL  ${path}: semantic scout ${agentType} must retain the Claude haiku lane, got \`${model}\``,
       );
-    const asked = TIER_ORDER.indexOf(String(model).toLowerCase());
-    const pinned = TIER_ORDER.indexOf(String(declared).toLowerCase());
-    if (declared && asked > pinned && pinned !== -1 && asked !== -1)
+    const actual = String(model).toLowerCase();
+    const expected = String(declared).toLowerCase();
+    const mechanicalDowngrade = bare === "debugger" && actual === "haiku";
+    const evaluatorCapabilityFallback =
+      allowEvaluatorCapabilityFallback && bare === "evaluator" && expected === "fable" && actual === "opus";
+    if (declared && actual !== expected && !mechanicalDowngrade && !evaluatorCapabilityFallback)
       problems.push(
-        `MODEL  ${path}: spawns ${agentType} on \`${model}\` while agents/${bare}.md declares \`${declared}\` — a cheap lane stops being cheap the moment a caller upgrades it`,
+        `MODEL  ${path}: spawns ${agentType} on \`${model}\` while agents/${bare}.md declares \`${declared}\` — only the named debugger/haiku mechanical downgrade is allowed`,
       );
   }
   return problems;
@@ -325,8 +331,12 @@ function sampleFor(schema) {
       return [sampleFor(schema.items ?? {})];
     default: {
       const out = {};
-      for (const [key, sub] of Object.entries(schema.properties ?? {}))
-        out[key] = key === "scoutAgents" ? [...CODEX_SCOUT_AGENTS] : sampleFor(sub);
+      for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+        if (key === "scoutAgents") out[key] = [...CODEX_SCOUT_AGENTS];
+        else if (key === "agentModels") out[key] = Object.fromEntries(readAgentModels());
+        else if (key === "evaluatorCapability") out[key] = "SUPPORTED";
+        else out[key] = sampleFor(sub);
+      }
       return out;
     }
   }
@@ -463,6 +473,26 @@ for (const f of files) {
 const agentModels = readAgentModels();
 const agentsOnDisk = new Set(agentModels.keys());
 
+function capabilityFixtureArgs(workflowName, capabilityStatus) {
+  const declared = Object.fromEntries(agentModels);
+  // This is a test fixture, not a second authority: it supplies the optional Fable route while
+  // every other family still comes from the canonical frontmatter map.
+  declared.evaluator = "fable";
+  const config = {
+    pluginRoot: "plugin",
+    planDir: "docs/plans",
+    scoutAgents: [...CODEX_SCOUT_AGENTS],
+    agentModels: declared,
+    evaluatorCapability: capabilityStatus,
+    maxParallelWave: 1,
+    maxRepatch: 1,
+    maxFixRounds: 1,
+  };
+  return workflowName === "ultra-plan"
+    ? { task: "capability fixture", config }
+    : { planPath: "dry-run/plan.md", config };
+}
+
 if (CHECKING_ONE_OFF && RUN_REQUESTED)
   console.log(
     "--run: the body of each file below is EXECUTED in this process. The stubs replace the workflow runtime, not the platform — `process`, `fetch`, `globalThis` and `await import('node:fs')` all stay reachable, and the real runtime has none of them. Pass this only for a file you have read.",
@@ -561,6 +591,46 @@ for (const file of files) {
           for (const problem of fallbackModelProblems) console.error(problem);
           failed++;
           continue;
+        }
+
+        // Capability is an input, never a probe. A positive fixture may select Fable; unknown and
+        // unsupported fixtures must select the safe Opus evaluator without emitting the native
+        // backend. This is intentionally separate from ordinary review calls: it proves routing,
+        // not consultation accounting, which belongs to the parent SDD ledger contract.
+        for (const capabilityStatus of ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]) {
+          const fixtureArgs = capabilityFixtureArgs(meta.name, capabilityStatus);
+          // oxlint-disable-next-line no-await-in-loop
+          const fixture = await dryRun(body, fixtureArgs);
+          const evaluatorModels = fixture.spawned
+            .filter((spawn) => String(spawn.agentType).split(":").pop() === "evaluator")
+            .map((spawn) => String(spawn.model).toLowerCase());
+          if (!evaluatorModels.length) {
+            console.error(`MODEL  ${path}: capability fixture spawned no evaluator`);
+            failed++;
+            break;
+          }
+          if (capabilityStatus === "SUPPORTED") {
+            if (!evaluatorModels.includes("fable")) {
+              console.error(`MODEL  ${path}: SUPPORTED capability did not select Fable`);
+              failed++;
+              break;
+            }
+          } else if (evaluatorModels.includes("fable") || !evaluatorModels.includes("opus")) {
+            console.error(`MODEL  ${path}: ${capabilityStatus} capability emitted Fable or skipped Opus fallback`);
+            failed++;
+            break;
+          }
+          const fixtureProblems = checkModels(
+            path,
+            fixture.spawned,
+            new Map(Object.entries(fixtureArgs.config.agentModels)),
+            { allowEvaluatorCapabilityFallback: true },
+          );
+          if (fixtureProblems.length) {
+            for (const problem of fixtureProblems) console.error(problem);
+            failed++;
+            break;
+          }
         }
       } catch (error) {
       console.error(`RUN    ${path}: ${error.message}`);

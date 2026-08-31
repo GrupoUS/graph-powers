@@ -55,6 +55,7 @@ that project, and nothing else does.
 | Cursor CLI (`cursor-agent`) | `~/.cursor/cli-config.json` |
 | Grok plugin: skills, agents, commands, Claude-shaped hooks | `.grok-plugin/` plus the canonical `hooks/hooks.json` |
 | Grok CLI approval (this is what stops the confirmation flood) | `config.toml` in `GROK_HOME`, or `~/.grok/config.toml` when that variable is unset |
+| Hermes native plugin: skills, command documents and agent contracts | `plugin.yaml` + `__init__.py`; native `graph-powers:<name>` registrations |
 
 | Stays LOCAL — belongs to this repository and nothing else | Where |
 |---|---|
@@ -76,7 +77,7 @@ permission posture and session reload are not:
 | Codex Desktop | conditional — some builds launch a bundled Codex `app-server` against the same Codex home | never infer it from a CLI pass; run the separate Desktop proof in Step 9 and restart the app itself |
 | Cursor IDE / `cursor-agent` | yes — generated `hooks/hooks-cursor.json` | marketplace plugin first; `--target cursor` configures posture only |
 | Grok CLI | yes — `.grok-plugin/plugin.json` points at the canonical file | native plugin or one clone path, then posture in the active Grok home |
-| Hermes Agent | **no executable git hooks** — `plugin.yaml` registers skills only | `hermes plugins install GrupoUS/graph-powers --enable` (or a symlink of this checkout). Guardrails are `NOT ENFORCED`; report that. Skills load as `graph-powers:<name>` |
+| Hermes Agent | **no executable git hooks** — `plugin.yaml` + `__init__.py` register skills only | `hermes plugins install GrupoUS/graph-powers --enable`, then `hermes plugins doctor <clone> --ci`. Guardrails are `NOT ENFORCED`; report that. Skills load as `graph-powers:<name>` |
 | Zed native agent | **no repository hook surface is implemented** | rules, skills and editor settings still load, but executable guardrails are `NOT ENFORCED` and must be reported that way |
 
 **Safety ordering:** never write `bypassPermissions`, `unrestricted` or `always-approve` before the
@@ -114,7 +115,9 @@ twelve on Cursor in `1.12.0`), every guarded `runpy.run_path` runner, all target
 packaged planning/TDD method files. A corrupt Cursor candidate or
 two candidates claiming the highest version is an error, never a reason to fall back silently. If
 native Codex and the clone manifest both exist, the command fails because they register the same
-hooks from different roots; Step 9c migrates that state before setup continues.
+hooks from different roots; Step 9c migrates that state before setup continues. Hermes is checked
+separately in the same output: its native registration count and Doctor result must be present, and
+its hook posture remains `NOT ENFORCED`.
 
 ---
 
@@ -132,7 +135,7 @@ git status --short                     # dirty files are the user's; you do not 
 python3 - <<'STATE'
 import json, os, shutil, subprocess, sys
 
-for tool in ("claude", "codex", "cursor-agent", "grok", "python3", "node"):
+for tool in ("claude", "codex", "cursor-agent", "grok", "hermes", "python3", "node"):
     exe = shutil.which(tool)
     if not exe:
         print(f"{tool:8} not installed")
@@ -167,8 +170,9 @@ Then locate the plugin on this machine, in this order, and **say which one you f
 4. Cursor is discovery-only here: `verify-hook-clients.py` inspects every dedicated cache candidate
    and chooses the unique highest valid version; do not reproduce that algorithm by hand;
 5. the `path` for Graph Powers in `grok plugin list --json` (respect `GROK_HOME`);
-6. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
-7. if none exists, install it and say which route you took:
+6. the native Hermes package shown by `hermes plugins show graph-powers`;
+7. `~/.graph-powers/src/`, or any other clone of `GrupoUS/graph-powers` on this machine;
+8. if none exists, install it and say which route you took:
 
    ```bash
    # Claude Code, inside a session:
@@ -176,6 +180,8 @@ Then locate the plugin on this machine, in this order, and **say which one you f
    #   /plugin install graph-powers@graph-powers
    # Anywhere, from a clone:
    git clone https://github.com/GrupoUS/graph-powers.git ~/.graph-powers/src
+   # Hermes Agent:
+   hermes plugins install GrupoUS/graph-powers --enable
    ```
 
    There is no package to install from a registry: a clone is the artefact, and `git pull` is the
@@ -395,6 +401,7 @@ Package names and the binary each one exposes were read from the registries, not
 | `codex` | OPTIONAL | the Codex half, and `codex:codex-rescue` escalation | `npm install -g @openai/codex` |
 | `cursor` | OPTIONAL | the Cursor half; the IDE permission file is what stops Auto-review | cursor.com |
 | `grok` | OPTIONAL | the Grok CLI half; `~/.grok/config.toml` is what stops the confirmation flood | docs.x.ai/build |
+| `hermes` | OPTIONAL | native skills, command documents and agent contracts; hooks are `NOT ENFORCED` | hermes-agent.nousresearch.com |
 | `code-review-graph` | OPTIONAL | `/plan` Step 0 structural search | `python3 -m pip install code-review-graph` |
 
 `code-review-graph` is the one whose absence is designed for: `references/shared/115-code-graph.md`
@@ -1593,7 +1600,42 @@ Grok updates are foreground-only: the `SessionStart` worker never replaces this 
 After installation or update, run the verifier, then restart Grok. An already-open session keeps its
 loaded plugin commands and permission mode.
 
-### 9i — Zed: instructions work, Graph Powers hooks do not
+### 9i — Hermes Agent: native skills, Graph Powers hooks do not
+
+Hermes installs the root `plugin.yaml` and imports `__init__.py`. That entrypoint derives one
+registration set from the checkout: every `hermes/skills/*/SKILL.md`, every
+`skills/*/SKILL.md`, every `commands/*.md`, and every `agents/*.md` under the names
+`graph-powers:<name>` and `graph-powers:agent-<slug>`. There is no second inventory to keep in sync.
+
+Install and prove the package with Hermes itself:
+
+```bash
+hermes plugins install GrupoUS/graph-powers --enable
+hermes plugins show graph-powers
+hermes plugins doctor <clone> --ci
+```
+
+In a fresh session, `skill_view("graph-powers:planning")`,
+`skill_view("graph-powers:agent-explorer")`, and `skill_view("graph-powers:plan")` must resolve
+the installed checkout package. Hermes does not execute Claude `hooks/hooks.json`, so report
+`Graph Powers hooks: NOT ENFORCED` and rely on the parent agent's approvals for git and destructive
+actions. Do not create a personal Hermes copy or adapter; the native package is the supported route.
+
+Before calling the package healthy, run the repository-side static and runtime probe:
+
+```bash
+python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client hermes --project-dir .
+```
+
+The probe reports `SKIPPED` only when the Hermes executable is absent; static manifest and
+registration failures remain failures.
+
+If the install command is blocked before this probe by Hermes' community-plugin scanner, inspect
+the reported findings. This repository intentionally documents destructive and credential
+guardrails, and the native package does not bypass a dangerous scanner verdict; use only an
+organization-approved scanner policy for a reviewed source.
+
+### 9j — Zed: instructions work, Graph Powers hooks do not
 
 This repository has no Zed plugin manifest, installer target or lifecycle/tool-hook declaration.
 Zed can consume `AGENTS.md`, project rules, globally installed skills, MCP/ACP integrations and the

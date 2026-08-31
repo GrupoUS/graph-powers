@@ -11,7 +11,8 @@
 - Direct route: Phase A complete, with `<plan dir>/spec.md` GATE-1-approved and user-approved.
 - `ultra-plan` route: the exact Step 0 handoff blocks and chosen approach are the design authority;
   the generated plan still waits for `/plan`'s human gate.
-- Task tier is **L4+** (L3 skips Phase B). Tier ladder: `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
+- Task tier is **L4+**. Only an explicit request to prepare a plan for Gauntlet admits L3 to Phase B;
+  ordinary L3 still skips it. Tier ladder: `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 - Branch is `${git.workBranch}`.
 
 ## Exit contract
@@ -24,7 +25,7 @@
 
 > Model: `references/loop-engineering.md`. Guards, caps and the anchors are defined there, once.
 
-- **trigger:** Phase A complete, tier L4+.
+- **trigger:** Phase A complete, tier L4+, or explicit Gauntlet planning at L3.
 - **goal (binary):** `PLAN.md` exists **AND** it carries every required section from Step 5
   **AND** every task declares `Owns` and `Needs` **AND** Step 6 passes **AND** user approved. At L5+,
   GATE 2 must also meet the calibration anchors (`loop-engineering.md § Calibration anchors`).
@@ -60,6 +61,7 @@ proves the work happened.
 - [ ] **T2.1** — <imperative one-line action>
   Owns: <full paths this task is the sole writer of>
   Needs: T1.2 (reads: <the type, file or exported symbol it consumes>) | none
+  Acceptance: <observable result this task must deliver>
   Agent: <lane> · Skill: <domain skill | none> · Effort: mechanical | design
   TDD: <required | not-applicable (<motivo>) | exception-approved (<motivo>)>
   CHECK: <command, scoped to this task>
@@ -80,6 +82,10 @@ ownership is declared here rather than inferred at dispatch time. The rule and i
 cannot name is a false edge — delete it, and the two tasks run together. The execution graph in Step
 5 visualizes the same contract; this field is what the scheduler reads.
 
+**`Acceptance:` names the observable result.** It is not a restatement of the implementation; it is
+the behavior or artifact that `CHECK` and `EXPECT` prove. New plans always declare it. Default
+execution remains compatible with older approved plans; Gauntlet rejects one that omits it.
+
 **`CHECK` / `EXPECT` / `EVIDENCE` replace a sentence with a command.**
 
 - `CHECK` is **scoped to this task** — the one test, the one search, the one probe. Repository-wide
@@ -95,8 +101,10 @@ cannot name is a false edge — delete it, and the two tasks run together. The e
 
 **`Agent:` takes only a routable lane**, written with its namespace exactly as it is spawned:
 `graph-powers:frontend-specialist` · `graph-powers:debugger` · `graph-powers:performance-optimizer` ·
-`graph-powers:mobile-developer` · `graph-powers:verification`. A lane whose root the project does not
-have is not routable — no `mobileRoot`, no mobile lane. `main` means the main thread and is valid
+`graph-powers:mobile-developer` · `graph-powers:verification` (read-only verification tasks in the
+default profile). A lane whose root the project does not have is not routable — no `mobileRoot`, no
+mobile lane. Gauntlet implementation lanes must be write-capable; its critic is a separate read-only
+dispatch. `main` means the main thread and is valid
 only in the human chain; Phase C's dispatcher uses the declared routable lane and never silently
 reroutes an invalid one.
 
@@ -244,8 +252,9 @@ Nothing is staged or committed. The plan is a working-tree artifact until a pers
 
 Fix inline once, then run the checklist once more:
 
-- [ ] Every task: non-empty `Owns`, a `Needs` with a named payload or `none`, a runnable `CHECK`
-      with an `EXPECT` that cannot match on failure.
+- [ ] Every task: non-empty `Owns`, a `Needs` with a named payload or `none`, observable
+      `Acceptance`, a bundled routable `Skill` or `none`, and a runnable `CHECK` with an `EXPECT`
+      that cannot match on failure.
 - [ ] Every `[PARALLEL-SAFE]` phase passes the ownership check (Step 3).
 - [ ] Every phase ends with a gate; repository type-check and lint appear once per phase, while
       serial full tests appear only at the final phase gate.
@@ -285,7 +294,8 @@ Wait for an explicit yes. On a revision request → revise, re-run Step 6, re-ru
 
 ## Step 9 — Transition
 
-At L4, stop at the approved plan. At L5+, continue only after the Step 8 approval:
+At L4, stop at the approved plan. An explicit Gauntlet L3 also stops there and requires a later
+`/gauntlet <plan dir>` invocation. At L5+, continue only after the Step 8 approval:
 
 ```
 "Phase B complete. Plan ready at <plan dir>/PLAN.md. Invoking Phase C."

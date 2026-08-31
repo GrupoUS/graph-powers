@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ from typing import cast
 SHIPPED = (
     "agents/", "skills/", "commands/", "hooks/", "references/", "templates/", "workflows/",
     "schema/", "codex/", "cursor/", "grok/", "hermes/", "bin/", ".claude-plugin/", ".cursor-plugin/",
-    ".grok-plugin/", "examples/", "plugin.yaml", "__init__.py",
+    ".grok-plugin/", ".codex-plugin/", "examples/", "plugin.yaml", "__init__.py",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENT_SETUP.md",
 )
 
@@ -48,21 +49,32 @@ def base_ref() -> str:
     return "HEAD~1"
 
 
-def version_at(ref: str, path: str) -> str:
-    """The version recorded at a git ref, or "" when the file is absent or unreadable there."""
-    raw = run("git", "show", f"{ref}:{path}")
-    if not raw:
-        return ""
+def manifest_version(raw: str) -> str:
+    """Read JSON manifests and the deliberately small scalar subset of plugin.yaml."""
     try:
         data = cast("dict[str, object]", json.loads(raw))
         return str(data.get("version") or "")
     except (ValueError, AttributeError):
-        return ""
+        match = re.search(
+            r"^version\s*:\s*(?:\"([^\"]*)\"|'([^']*)'|([^#\s]+))\s*$",
+            raw,
+            re.MULTILINE,
+        )
+        return next((value.strip() for value in match.groups() if value is not None), "") if match else ""
+
+
+def version_at(ref: str, path: str) -> str:
+    """The version recorded at a git ref, or "" when the file is absent or unreadable there."""
+    raw = run("git", "show", f"{ref}:{path}")
+    return manifest_version(raw) if raw else ""
 
 
 def version_on_disk(path: str) -> str:
     """The version of a manifest in the checkout. Malformed JSON still raises, as it must."""
-    data = cast("dict[str, object]", json.loads(Path(path).read_text(encoding="utf-8")))
+    raw = Path(path).read_text(encoding="utf-8")
+    if path.endswith(".yaml"):
+        return manifest_version(raw)
+    data = cast("dict[str, object]", json.loads(raw))
     return str(data.get("version") or "")
 
 
@@ -75,12 +87,17 @@ def main() -> int:
     cursor_ver = version_on_disk(cursor_path) if Path(cursor_path).exists() else here
     grok_path = ".grok-plugin/plugin.json"
     grok_ver = version_on_disk(grok_path) if Path(grok_path).exists() else here
+    codex_path = ".codex-plugin/plugin.json"
+    codex_ver = version_on_disk(codex_path) if Path(codex_path).exists() else here
+    hermes_ver = version_on_disk("plugin.yaml") if Path("plugin.yaml").exists() else here
 
-    if here != pkg or here != cursor_ver or here != grok_ver:
+    if len({here, pkg, cursor_ver, grok_ver, codex_ver, hermes_ver}) != 1:
         print(
             f"::error::plugin.json says {here}, package.json says {pkg}, "
             f".cursor-plugin/plugin.json says {cursor_ver}, "
-            f".grok-plugin/plugin.json says {grok_ver} — they must match"
+            f".grok-plugin/plugin.json says {grok_ver}, "
+            f".codex-plugin/plugin.json says {codex_ver}, "
+            f"plugin.yaml says {hermes_ver} — they must match"
         )
         return 1
 

@@ -103,7 +103,7 @@ stop for approval. `references/phase-a-brainstorm.md` owns the sequence and spec
 **Goal (loop exit):** L3 — an inline three-section spec, acknowledged. L4+ — `spec.md` + GATE 1 PASS
 + user approved + zero TBD, every assumption labeled `[ASSUMED]`.
 
-## Step 2 — Phase B: Writing-plans (L4+) → `references/phase-b-writing-plans.md`
+## Step 2 — Phase B: Writing-plans (L4+; explicit Gauntlet also admits L3) → `references/phase-b-writing-plans.md`
 
 This phase now contains the writing-plans method directly: map files and interfaces, split work at
 independently testable boundaries, write exact task instructions, and prove coverage against the
@@ -113,18 +113,16 @@ self-review.
 **Goal (loop exit):** `<plan dir>/PLAN.md` with every required section + the ownership check passes
 on every parallel phase + user approved; at L5+, GATE 2 also meets the calibration anchors.
 
-## Step 3 — Phase C: Execute (L5+) → `references/phase-c-executing-plans.md`
+## Step 3 — Phase C: Execute (automatic L5+; `/implement` L4+; Gauntlet L3+) → `references/phase-c-executing-plans.md`
 
-**Engine:** this phase's rolling dispatcher — fresh implementer per task, one task reviewer, a
-separate correction reviewer when needed, and a separate final reviewer — driven through
-`/implement <plan dir>`. A task starts when its `Needs` are verified and its `Owns` collide with
-nothing in flight; focused checks run per task and complete repository gates run at each phase
-boundary. The phase atomically creates a plan-scoped write lease with `sdd.py acquire`; a lease from another
-plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR and merge
-each need separate authorization in the current turn, and **nothing auto-merges**.
+**Engine:** `/implement <plan dir>` drives the default rolling dispatcher and only explicit
+`/gauntlet` after tier validation passes `profile: gauntlet`. Both use fresh task reviewers,
+ownership-safe dispatch, focused checks, phase gates and the atomic `sdd.py acquire` lease. A lease
+from another plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR
+and merge each need separate current-turn authorization, and **nothing auto-merges**.
 
-**Goal (loop exit):** every task verified with real evidence + every phase gate met + `/verify quick`
-PASS + `/evolve auto` done.
+**Goal (loop exit):** every task has real evidence + every phase gate passes + the profile's final
+verification passes (`/verify quick` default, `/verify loop <PLAN_FILE>` Gauntlet) + `/evolve auto` is done.
 
 ---
 

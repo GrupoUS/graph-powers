@@ -85,31 +85,45 @@ const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. The project's contract arrives passed in by the caller, or read by one cheap agent.
-const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'planDir', 'scoutAgents'], properties: {
+const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'planDir', 'scoutAgents', 'agentModels', 'evaluatorCapability'], properties: {
   pluginRoot: { type: 'string' },
   planDir: { type: 'string' },
   displayName: { type: 'string' },
   locale: { type: 'string' },
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
+  agentModels: { type: 'object', minProperties: 1, additionalProperties: { type: 'string', minLength: 1 } },
+  evaluatorCapability: { type: 'string', enum: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'] },
   paths: { type: 'object', properties: {
     frontendRoot: { type: 'string' }, backendRoot: { type: 'string' },
     schemaRoot: { type: 'string' }, mobileRoot: { type: 'string' },
   } },
   riskSurfaces: { type: 'array', items: { type: 'string' } },
 } }
-const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents'], properties: {
+const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents', 'agentModels', 'evaluatorCapability'], properties: {
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
+  agentModels: { type: 'object', minProperties: 1, additionalProperties: { type: 'string', minLength: 1 } },
+  evaluatorCapability: { type: 'string', enum: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'] },
 } }
 
 async function resolveConfig() {
   const supplied = args?.config && typeof args.config === 'object' ? args.config : null
-  if (Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length) return supplied
+  if (
+    Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length &&
+    supplied?.agentModels && typeof supplied.agentModels === 'object' &&
+    Object.keys(supplied.agentModels).length &&
+    ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(supplied?.evaluatorCapability)
+  ) return supplied
   if (supplied) {
     const policy = await agent(
-      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and return the agent names whose profile is "scout" as scoutAgents. Read-only; do not invent names.`,
+      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and the model field in each canonical agents/*.md frontmatter. Return scoutAgents from the Codex policy, agentModels as the complete agent-name to Claude-family map, and evaluatorCapability. Use SUPPORTED only when the caller supplies positive runtime/provider capability evidence for the Fable/advisor route; otherwise use UNKNOWN. When capability is UNKNOWN or UNSUPPORTED, keep the evaluator route on the safe Opus fallback and never emit Fable. Read-only; do not invent names or perform a live probe.`,
       { agentType: AG('explorer'), phase: 'Frame', schema: SCOUT_POLICY_SHAPE, label: 'config:policy', model: 'haiku' }
     )
-    return { ...supplied, scoutAgents: policy?.scoutAgents }
+    return {
+      ...supplied,
+      scoutAgents: policy?.scoutAgents,
+      agentModels: policy?.agentModels,
+      evaluatorCapability: policy?.evaluatorCapability,
+    }
   }
   return await agent(
     `Two things, both read-only.
@@ -123,6 +137,10 @@ async function resolveConfig() {
      paths         <- paths.frontendRoot / backendRoot / schemaRoot / mobileRoot; omit any that is absent
      riskSurfaces  <- chain.riskSurfaces, else ["auth","payment","PII","schema","env","ci"]
      scoutAgents   <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
+     agentModels   <- read the model field from every canonical <pluginRoot>/agents/*.md frontmatter
+     evaluatorCapability <- positive runtime/provider evidence supplied by the caller, else "UNKNOWN"; never probe live capability
+
+     If evaluatorCapability is not "SUPPORTED", use "opus" for agentModels.evaluator as the safe read-only fallback. Emit "fable" for that entry only when the caller has already supplied positive supported evidence.
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
     { agentType: AG('explorer'), phase: 'Frame', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
@@ -135,14 +153,27 @@ const PLAN_DIR = cfg.planDir || 'docs/plans'
 const SURFACES = (cfg.riskSurfaces ?? []).length
   ? cfg.riskSurfaces
   : ['auth', 'payment', 'PII', 'schema', 'env', 'ci']
-// The config bootstrap derives this set from codex/model-policy.json. Keep the workflow's model
-// values Claude-native: the semantic Codex policy belongs to the generators, while this workflow's
-// runtime still requires explicit haiku/opus tiers.
+// The config bootstrap derives the scout set from codex/model-policy.json and the complete model
+// map from canonical agent frontmatter. Keep workflow values Claude-native: the semantic Codex
+// policy belongs to the generators, while this workflow consumes the caller's capability-validated
+// Claude-family map.
 const SCOUT_AGENTS = new Set(Array.isArray(cfg.scoutAgents) ? cfg.scoutAgents : [])
-const M = (name) => (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+const DECLARED_AGENT_MODELS = cfg.agentModels && typeof cfg.agentModels === 'object' ? cfg.agentModels : {}
+const EVALUATOR_CAPABILITY = String(cfg.evaluatorCapability || 'UNKNOWN').toUpperCase()
+const M = (name) => {
+  const declared = typeof DECLARED_AGENT_MODELS[name] === 'string' ? DECLARED_AGENT_MODELS[name].trim().toLowerCase() : ''
+  if (name === 'evaluator' && declared === 'fable' && EVALUATOR_CAPABILITY !== 'SUPPORTED') return 'opus'
+  return declared || (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+}
 
 if (!SCOUT_AGENTS.size) {
   throw new Error('ultra-plan: config bootstrap returned no scoutAgents from codex/model-policy.json')
+}
+if (!Object.keys(DECLARED_AGENT_MODELS).length) {
+  throw new Error('ultra-plan: config bootstrap returned no canonical agentModels')
+}
+if (!['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(EVALUATOR_CAPABILITY)) {
+  throw new Error('ultra-plan: evaluatorCapability must be SUPPORTED, UNSUPPORTED, or UNKNOWN')
 }
 
 if (!cfg.pluginRoot) {
@@ -320,7 +351,8 @@ if (!plan?.planPath) {
   throw new Error('ultra-plan: the synthesize agent returned no plan path — refusing to spend review spawns on a plan that does not exist')
 }
 
-// 4. Adversarial plan review — evaluator Mode 1, scored against the calibration anchors
+// 4. Adversarial plan review — evaluator Mode 1, scored against the calibration anchors. These are
+// mandatory review operations, not parent-mediated consultations, and never consume the SDD ledger.
 phase('Plan review')
 const ANCHORS = 'Score 1-10 on the four calibration anchors in ' + SKILL + '/loop-engineering.md § Calibration anchors. Verdict APPROVED only if Completeness ≥ 8 AND Atomicity ≥ 7 AND Risk Coverage ≥ 7 AND Dependency Order ≥ 8; otherwise REVISION_REQUIRED with concrete issues.'
 const reviewPrompt = (n) =>

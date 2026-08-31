@@ -9,7 +9,7 @@ the model reads the instruction, finds nothing, and carries on with less than it
 The audit that motivated this found ten of them in a repository whose CI was already green,
 including an agent that has never existed and three phases of `/verify` that were never written.
 
-Seven checks, and each one exists because a real reference was wrong in exactly that way:
+Eight checks, and each one exists because a real reference was wrong in exactly that way:
 
     subagent_type   an agent the plugin does not ship
     Workflow(name)  a workflow the plugin does not ship
@@ -17,6 +17,7 @@ Seven checks, and each one exists because a real reference was wrong in exactly 
     § N / Phase N   a section of another file that is not in it
     ${rulesDir}/x   a rule template the plugin does not ship
     ${CLAUDE_PLUGIN_ROOT}/x  a plugin-owned path that no longer exists
+    Hermes registrations   a native `graph-powers:<name>` route with no source artefact
     plugin:name     an artefact of ANOTHER plugin that nobody declared — the one class this gate
                     used to skip on principle, until eleven citations of `codex:rescue` proved
                     that "cannot verify" had been read as "do not look"
@@ -80,7 +81,7 @@ ROLE_LABELS = {
     "db state inspector", "db-state-inspector", "main",
 }
 
-SCAN = ["agents", "commands", "skills", "references", "templates", "hooks", "workflows"]
+SCAN = ["agents", "commands", "skills", "hermes", "references", "templates", "hooks", "workflows"]
 
 # Cardinal 5, in the field the twelve agent files actually carry. `role_type` is theirs; inventing a
 # second field for the gate's convenience would be a copy of what `agents/` already says, which is
@@ -129,6 +130,46 @@ def have_agents() -> set[str]:
 
 def have_skills() -> set[str]:
     return {os.path.basename(os.path.dirname(f)) for f in glob.glob("skills/*/SKILL.md")}
+
+
+def have_hermes_registrations() -> set[str]:
+    """Derive the native Hermes namespace from the same source directories as __init__.py."""
+    names = have_skills()
+    names.update(os.path.basename(os.path.dirname(f)) for f in glob.glob("hermes/skills/*/SKILL.md"))
+    names.update(
+        os.path.basename(f)[:-3]
+        for f in glob.glob("commands/*.md")
+        if os.path.basename(f).upper() != "AGENTS.MD"
+    )
+    names.update(
+        "agent-" + os.path.basename(f)[:-3]
+        for f in glob.glob("agents/*.md")
+        if os.path.basename(f).upper() != "AGENTS.MD"
+    )
+    return names
+
+
+def hermes_registration_collisions() -> list[str]:
+    """Detect source names that would make __init__.py fail closed at registration time."""
+    owners: dict[str, str] = {}
+    problems: list[str] = []
+
+    def add(name: str, path: str) -> None:
+        previous = owners.get(name)
+        if previous is not None:
+            problems.append(f"Hermes registration `{name}` collides between {previous} and {path}")
+        else:
+            owners[name] = path
+
+    for path in glob.glob("hermes/skills/*/SKILL.md") + glob.glob("skills/*/SKILL.md"):
+        add(os.path.basename(os.path.dirname(path)), path)
+    for path in glob.glob("commands/*.md"):
+        if os.path.basename(path).upper() != "AGENTS.MD":
+            add(os.path.basename(path)[:-3], path)
+    for path in glob.glob("agents/*.md"):
+        if os.path.basename(path).upper() != "AGENTS.MD":
+            add("agent-" + os.path.basename(path)[:-3], path)
+    return problems
 
 
 def have_workflows() -> set[str]:
@@ -392,7 +433,8 @@ def orchestration_policy() -> list[str]:
 
 def main() -> int:
     agents, skills, workflows, rules = have_agents(), have_skills(), have_workflows(), have_rule_templates()
-    problems: list[str] = []
+    hermes = have_hermes_registrations()
+    problems: list[str] = hermes_registration_collisions()
     checked = 0
 
     # A cited section is only checkable when the citation names the file: `§ 11.5` alone could be a
@@ -431,6 +473,8 @@ def main() -> int:
                     problems.append(external_problem(path, lineno(text, m.start()), name, "agent"))
                 continue
             checked += 1
+            if name.startswith(OWN_NAMESPACE + ":") and bare in hermes and bare.startswith("agent-"):
+                continue
             if bare not in agents:
                 problems.append(f"{path}:{lineno(text, m.start())}: subagent_type \"{name}\" — no agents/{bare}.md")
 
@@ -445,6 +489,8 @@ def main() -> int:
                     problems.append(external_problem(path, lineno(text, m.start()), name, "skill"))
                 continue
             checked += 1
+            if name.startswith(OWN_NAMESPACE + ":") and bare in hermes:
+                continue
             if bare not in skills and bare not in EXTERNAL_SKILLS:
                 problems.append(f"{path}:{lineno(text, m.start())}: Skill(\"{name}\") — no skills/{bare}/SKILL.md")
 

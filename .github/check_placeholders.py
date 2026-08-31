@@ -56,7 +56,7 @@ def main() -> int:
         schema = json.load(fh)
 
     files: list[str] = []
-    for root in ("skills", "commands", "agents", "references", "templates"):
+    for root in ("skills", "commands", "agents", "references", "templates", "hermes"):
         files += glob.glob(f"{root}/**/*.md", recursive=True)
 
     undeclared: dict[str, list[str]] = {}

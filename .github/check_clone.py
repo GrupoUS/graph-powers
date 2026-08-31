@@ -14,6 +14,7 @@ REQUIRED = [
     "codex/install.mjs", "codex/lib.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
     "cursor/install.mjs",
     "grok/install.mjs",
+    "hermes/install.mjs", "hermes/skills/graph-engineering/SKILL.md", "plugin.yaml", "__init__.py",
     "hooks/hooks.json", "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",
     ".github/check_oxc_policy.py", ".oxlintrc.json", ".oxfmtrc.json",
     "hooks/hooks-cursor.json",
@@ -29,7 +30,7 @@ REQUIRED = [
     "commands/setup.md", "references/shared/130-typescript7-oxc-gates.md",
     "docs/ARCHITECTURE.md", "docs/AUDIENCE.md",
 ]
-REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows", "codex/native-agents"]
+REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows", "hermes", "codex/native-agents"]
 MAX_BYTES = 4 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]

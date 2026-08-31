@@ -46,15 +46,17 @@ denies.
 
 ```bash
 hermes plugins install GrupoUS/graph-powers --enable
+hermes plugins show graph-powers
+hermes plugins doctor <clone> --ci
 ```
 
-Until that URL is on `main` with `plugin.yaml`, point Hermes at this checkout:
+The native package derives `graph-powers:<name>` from every `skills/*/SKILL.md`, command document,
+and `graph-powers:agent-<slug>` from every `agents/<slug>.md`. Git hooks are **NOT ENFORCED** in
+Hermes; use the parent agent's approvals for that boundary.
 
-```bash
-ln -sfn /path/to/graph-powers ~/.hermes/plugins/graph-powers
-hermes plugins enable graph-powers
-hermes plugins doctor ~/.hermes/plugins/graph-powers --ci
-```
+Some Hermes releases scan community Git trees before installation and may block this repository's
+intentional security examples. That is an upstream scanner decision; review its report or use an
+approved organization policy, and do not treat `--force` as a way around a dangerous verdict.
 
 Then one prompt, pasted into an agent session opened in your project:
 
@@ -77,7 +79,7 @@ Anyone who uses an agent CLI seriously ends up building a harness: a few subagen
 chained commands, hooks that stop an agent committing on its own. It works. Then a second project
 arrives, and the fastest way to have the same harness is to copy the folder.
 
-From there you have two harnesses. Then four. Each gets fixes the others do not, and nobody notices,
+From there you have two harnesses. Then five. Each gets fixes the others do not, and nobody notices,
 because nothing breaks — they just drift apart.
 
 Measured across five projects in one group, which is what produced this repository:
@@ -107,7 +109,7 @@ One copy of each artefact, in a plugin. Each project declares what is different 
 graph-powers/                        your project/
   agents/       12 agents              .graph-powers/config.json  <- the parameters
   skills/       13 bundled skills      .claude/rules/             <- only your domain
-  commands/     10 commands            .claude/agents/            <- only what is yours alone
+  commands/     12 commands            .claude/agents/            <- only what is yours alone
   hooks/        12 guardrails
   workflows/    2 orchestrations
   references/   safety + execution floors
@@ -133,7 +135,7 @@ differs per project stays in that project.
 
 | Installed once, globally | Where it lands |
 |---|---|
-| The Claude Code plugin — 12 agents, 13 bundled skills, 10 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
+| The Claude Code plugin — 12 agents, 13 bundled skills, 12 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
 | Codex native plugin: skills, guardrails and references | the versioned plugin cache shown by `codex plugin list --json` |
 | Codex native companion roles | `<codex-home>/agents/*.toml`, explicitly emitted from the plugin's tracked policy |
 | Codex clone fallback: skills and commands-as-skills | `~/.agents/skills/` |
@@ -171,18 +173,19 @@ cost you are choosing.
 
 ---
 
-## Four harnesses, one source
+## Five harnesses, one source
 
-Codex CLI, Cursor and Grok read different files from Claude Code, but the shapes line up. The
-installer generates those sides from the artefacts that already exist — nothing is maintained twice.
+Codex CLI, Cursor, Grok and Hermes read different files from Claude Code, but the shapes line up.
+The installers and native entrypoint generate those sides from the artefacts that already exist —
+nothing is maintained twice.
 
-| Surface | Claude Code | Codex CLI | Cursor | Grok CLI |
-|---|---|---|---|---|
-| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) |
-| Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` |
-| Subagents | `agents/*.md` | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files | The same markdown files |
-| Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files |
-| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) |
+| Surface | Claude Code | Codex CLI | Cursor | Grok CLI | Hermes Agent |
+|---|---|---|---|---|---|
+| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface |
+| Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` | `plugin.yaml` + `__init__.py`; `graph-powers:<name>` |
+| Subagents | `agents/*.md` | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files | The same markdown files | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
+| Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files | namespaced skills, e.g. `graph-powers:plan` |
+| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) | parent agent approvals |
 
 The Codex hooks file is **merged, never overwritten**. Other tools' installers write it too, and
 clobbering it would silently disable someone else's guardrails, which is this
@@ -190,6 +193,16 @@ project's own failure mode pointed the other way. Every entry added is recorded,
 `node <clone>/bin/graph-powers.mjs --uninstall` removes exactly what was added and leaves the rest
 standing. Cursor's permission file is operator posture and is not removed. Grok's `config.toml`
 is operator posture and is not removed.
+
+### Gauntlet execution
+
+`/gauntlet <approved-plan-file-or-directory> [--dry-run]` is the opt-in, high-assurance execution
+profile for an already approved structured plan. It keeps coupled work sequential, permits bounded
+parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
+read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
+the normal local route. The dry run validates and prints the schedule without acquiring a lease,
+writing or spawning. Codex exposes the same command as the generated `graph-powers-gauntlet` skill;
+Hermes translates the method but does not claim a `/gauntlet` slash-command surface.
 
 ---
 
@@ -240,7 +253,7 @@ Each skill states what it needs; none is required for the guardrails.
 
 ### Requirements
 
-- [Claude Code](https://claude.com/claude-code), [Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com), or [Grok CLI](https://docs.x.ai/build) — any one of them, or all four
+- [Claude Code](https://claude.com/claude-code), [Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com), [Grok CLI](https://docs.x.ai/build), or [Hermes Agent](https://hermes-agent.nousresearch.com/) — any one of them, or all five
 - **Python 3.10 or newer available as the literal `python3` command** — every hook declaration invokes
   that name; the installer refuses permissive posture if it is absent. The guardrails are standard
   library only, with no dependencies.
@@ -259,7 +272,7 @@ registry in between would add an account, a token and a release for every fix, a
 ```
 
 Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
-unless you also use Codex, Cursor or Grok. Zed consumes instructions/editor settings only; this
+unless you also use Codex, Cursor, Grok or Hermes. Zed consumes instructions/editor settings only; this
 repository does not implement a Zed lifecycle/tool-hook target.
 
 ### Codex CLI — native plugin (recommended)

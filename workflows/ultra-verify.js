@@ -88,9 +88,11 @@ const AG = (name) => (PLUGIN_AGENTS.has(name) ? `graph-powers:${name}` : name)
 // ── Config ───────────────────────────────────────────────────────────────────
 // A workflow script has no filesystem: its scope is `agent`, `parallel`, `phase`, `log`, `args`
 // and `budget`. The project's contract arrives passed in by the caller, or read by one cheap agent.
-const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'scoutAgents'], properties: {
+const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'scoutAgents', 'agentModels', 'evaluatorCapability'], properties: {
   pluginRoot: { type: 'string' },
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
+  agentModels: { type: 'object', minProperties: 1, additionalProperties: { type: 'string', minLength: 1 } },
+  evaluatorCapability: { type: 'string', enum: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'] },
   workBranch: { type: 'string' },
   paths: { type: 'object', properties: {
     frontendRoot: { type: 'string' }, backendRoot: { type: 'string' },
@@ -120,19 +122,31 @@ const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'scoutAgents'], 
   maxFixRounds: { type: 'number' },
   testRunner: { type: ['string', 'null'] },
 } }
-const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents'], properties: {
+const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents', 'agentModels', 'evaluatorCapability'], properties: {
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
+  agentModels: { type: 'object', minProperties: 1, additionalProperties: { type: 'string', minLength: 1 } },
+  evaluatorCapability: { type: 'string', enum: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'] },
 } }
 
 async function resolveConfig() {
   const supplied = args?.config && typeof args.config === 'object' ? args.config : null
-  if (Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length) return supplied
+  if (
+    Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length &&
+    supplied?.agentModels && typeof supplied.agentModels === 'object' &&
+    Object.keys(supplied.agentModels).length &&
+    ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(supplied?.evaluatorCapability)
+  ) return supplied
   if (supplied) {
     const policy = await agent(
-      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and return the agent names whose profile is "scout" as scoutAgents. Read-only; do not invent names.`,
+      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and the model field in each canonical agents/*.md frontmatter. Return scoutAgents from the Codex policy, agentModels as the complete agent-name to Claude-family map, and evaluatorCapability. Use SUPPORTED only when the caller supplies positive runtime/provider capability evidence for the Fable/advisor route; otherwise use UNKNOWN. When capability is UNKNOWN or UNSUPPORTED, keep the evaluator route on the safe Opus fallback and never emit Fable. Read-only; do not invent names or perform a live probe.`,
       { agentType: AG('explorer'), phase: 'Gates', schema: SCOUT_POLICY_SHAPE, label: 'config:policy', model: 'haiku' }
     )
-    return { ...supplied, scoutAgents: policy?.scoutAgents }
+    return {
+      ...supplied,
+      scoutAgents: policy?.scoutAgents,
+      agentModels: policy?.agentModels,
+      evaluatorCapability: policy?.evaluatorCapability,
+    }
   }
   return await agent(
     `Two things, both read-only.
@@ -150,9 +164,13 @@ async function resolveConfig() {
      invariants     <- chain.invariants, else []
       maxParallelWave <- graphGuardrails.maxParallelWave, else 3
       maxRepatch     <- graphGuardrails.maxRepatch, else 2
-       maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
-       testRunner     <- tooling.testRunner, else null
+      maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
+      testRunner     <- tooling.testRunner, else null
       scoutAgents    <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
+      agentModels    <- read the model field from every canonical <pluginRoot>/agents/*.md frontmatter
+      evaluatorCapability <- positive runtime/provider evidence supplied by the caller, else "UNKNOWN"; never probe live capability
+
+      If evaluatorCapability is not "SUPPORTED", use "opus" for agentModels.evaluator as the safe read-only fallback. Emit "fable" for that entry only when the caller has already supplied positive supported evidence.
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
     { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }
@@ -181,14 +199,27 @@ const boundedParallel = async (thunks) => {
   }
   return results
 }
-// The config bootstrap derives this set from codex/model-policy.json. Keep the workflow's model
-// values Claude-native: the semantic Codex policy belongs to the generators, while this workflow's
-// runtime still requires explicit haiku/opus tiers.
+// The config bootstrap derives the scout set from codex/model-policy.json and the complete model
+// map from canonical agent frontmatter. Keep workflow values Claude-native: the semantic Codex
+// policy belongs to the generators, while this workflow consumes the caller's capability-validated
+// Claude-family map.
 const SCOUT_AGENTS = new Set(Array.isArray(cfg.scoutAgents) ? cfg.scoutAgents : [])
-const M = (name) => (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+const DECLARED_AGENT_MODELS = cfg.agentModels && typeof cfg.agentModels === 'object' ? cfg.agentModels : {}
+const EVALUATOR_CAPABILITY = String(cfg.evaluatorCapability || 'UNKNOWN').toUpperCase()
+const M = (name) => {
+  const declared = typeof DECLARED_AGENT_MODELS[name] === 'string' ? DECLARED_AGENT_MODELS[name].trim().toLowerCase() : ''
+  if (name === 'evaluator' && declared === 'fable' && EVALUATOR_CAPABILITY !== 'SUPPORTED') return 'opus'
+  return declared || (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+}
 
 if (!SCOUT_AGENTS.size) {
   throw new Error('ultra-verify: config bootstrap returned no scoutAgents from codex/model-policy.json')
+}
+if (!Object.keys(DECLARED_AGENT_MODELS).length) {
+  throw new Error('ultra-verify: config bootstrap returned no canonical agentModels')
+}
+if (!['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(EVALUATOR_CAPABILITY)) {
+  throw new Error('ultra-verify: evaluatorCapability must be SUPPORTED, UNSUPPORTED, or UNKNOWN')
 }
 
 if (!cfg.pluginRoot) {
@@ -387,14 +418,15 @@ await agent(
 - EFFICIENCY: flag wasted work the diff introduces — redundant computation or repeated I/O, independent operations run sequentially, blocking work added to startup or hot paths. Also flag long-lived objects built from closures or captured environments (they keep the whole enclosing scope alive — a leak when that scope holds large values); prefer a structure copying only the fields it needs. Name the cheaper alternative.
 - ALTITUDE: check each change is implemented at the right depth, not as a fragile bandaid. Special cases layered on shared infrastructure mean the fix is not deep enough — prefer generalizing the underlying mechanism over adding special cases.${invariantClause}${deadCodeClause} ${GIT_RAILS}
 Return applied changes + gate evidence.`,
-  { agentType: AG('debugger'), phase: 'Simplify', schema: FIX, label: 'simplify', model: M('debugger') }
+  { agentType: AG('debugger'), phase: 'Simplify', schema: FIX, label: 'review:simplify', model: M('debugger') }
 )
 
-// 3. Adversarial verify (fan-out skeptics) — combat self-preferential bias
+// 3. Adversarial verify (fan-out skeptics) — combat self-preferential bias. Every call in this
+// panel is a review, not a consultation: it does not reserve or consume the parent SDD ledger.
 phase('Adversarial verify')
 const reqs = await agent(
   `Read the plan at ${PLAN_PATH}. Extract the flat requirement list (R1..Rn) from the acceptance criteria + the ## Verification steps. Read-only.`,
-  { agentType: AG('explorer'), phase: 'Adversarial verify', schema: REQS, label: 'extract-reqs', model: M('explorer') }
+  { agentType: AG('explorer'), phase: 'Adversarial verify', schema: REQS, label: 'review:extract-reqs', model: M('explorer') }
 )
 // Lenses are distinct QUESTIONS, never the same question asked N times — identical skeptics agree
 // with each other and miss the same things. Spec compliance is deliberately absent: the
@@ -488,7 +520,7 @@ const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => agent(
 PLAN: ${PLAN_PATH}
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it. Read-only.${SCOPE_LOCK}`,
-  { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `skeptic:${pass}:${l.name}`, model: M(l.agent ?? 'evaluator') }
+  { agentType: AG(l.agent ?? 'evaluator'), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent ?? 'evaluator') }
 ))
 let sk = (await boundedParallel(skMaker('init'))).filter(Boolean)
 const outOfScope = outOfScopeFrom(sk)
@@ -499,7 +531,7 @@ phase('Completeness')
 const completeMaker = (round) => agent(
   `Walk EVERY requirement from the plan at ${PLAN_PATH} against the ACTUAL git diff. Mark each done (file:line) / missing / partial, and record which agent should implement any gap. Detect scope drift (changed files not cited in the plan). This is the guard against agentic laziness and goal drift. Read-only.
 REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}`,
-  { agentType: AG('evaluator'), phase: round ? 'Fix loop' : 'Completeness', schema: COMPLETENESS, label: `completeness:${round || 0}`, model: M('evaluator') }
+  { agentType: AG('evaluator'), phase: round ? 'Fix loop' : 'Completeness', schema: COMPLETENESS, label: `review:completeness:${round || 0}`, model: M('evaluator') }
 )
 let c = await completeMaker(0)
 

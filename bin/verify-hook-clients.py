@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Verify the exact Graph Powers hook package each supported client will execute.
+"""Verify the exact Graph Powers package each supported client will execute.
 
 This is the shared precondition for permissive client posture. It reads client-owned registries,
 then validates the package at the exact recorded path against the canonical hook declaration inside
 that package. It never installs, updates, deletes, enables, trusts, or rewrites anything.
 
-Exit 0 means every requested, present client has an executable fail-open package. Exit 1 means a
-client must not be switched to bypass/unrestricted/always-approve. ``--json`` keeps the contract
-stable for the JavaScript installer and CI.
+Exit 0 means every requested, present client has a valid package or an explicitly reported absent
+runtime. Exit 1 means a client must not be switched to bypass/unrestricted/always-approve.
+``--json`` keeps the contract stable for the JavaScript installer and CI.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ MIN_CURSOR_HOOKS = 11
 RUNNER_MARKERS = ("runpy.run_path", "os.path.isfile", "run_name='__main__'")
 SCRIPT_RE = re.compile(r"(?:^|[\\/])hooks[\\/]([A-Za-z_][A-Za-z0-9_]*\.py)")
 ABSOLUTE_SCRIPT_RE = re.compile(
-    r'''(?<![\w%$])((?:[A-Za-z]:)?[\\/][^\s"';|&()]*\.(?:py|mjs|js|sh|ps1|exe|cmd|bat))'''
+    r"""(?<![\w%$])((?:[A-Za-z]:)?[\\/][^\s"';|&()]*\.(?:py|mjs|js|sh|ps1|exe|cmd|bat))"""
 )
 REQUIRED_PACKAGE_FILES = (
     "skills/planning/SKILL.md",
@@ -96,7 +96,13 @@ def python3_proof() -> dict[str, Any]:
         return proof
     try:
         run = subprocess.run(
-            ["python3", "-X", "utf8", "-c", "import json,sys;print(json.dumps(list(sys.version_info[:3])))"],
+            [
+                "python3",
+                "-X",
+                "utf8",
+                "-c",
+                "import json,sys;print(json.dumps(list(sys.version_info[:3])))",
+            ],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -153,7 +159,12 @@ def package_layout(client: str) -> tuple[str, str, str | None, int]:
     if client == "claude":
         return ".claude-plugin/plugin.json", "hooks/hooks.json", None, MIN_NATIVE_HOOKS
     if client == "codex":
-        return ".codex-plugin/plugin.json", "hooks/hooks.json", "./hooks/hooks.json", MIN_NATIVE_HOOKS
+        return (
+            ".codex-plugin/plugin.json",
+            "hooks/hooks.json",
+            "./hooks/hooks.json",
+            MIN_NATIVE_HOOKS,
+        )
     if client == "cursor":
         return (
             ".cursor-plugin/plugin.json",
@@ -162,7 +173,12 @@ def package_layout(client: str) -> tuple[str, str, str | None, int]:
             MIN_CURSOR_HOOKS,
         )
     if client == "grok":
-        return ".grok-plugin/plugin.json", "hooks/hooks.json", "./hooks/hooks.json", MIN_NATIVE_HOOKS
+        return (
+            ".grok-plugin/plugin.json",
+            "hooks/hooks.json",
+            "./hooks/hooks.json",
+            MIN_NATIVE_HOOKS,
+        )
     raise ValueError(f"unsupported package client: {client}")
 
 
@@ -171,7 +187,9 @@ def reference_hook_count(client: str, root: Path) -> tuple[int, str | None]:
     document, error = read_json(root / hooks_rel)
     if error:
         return minimum, f"canonical {client} hook reference is unavailable: {error}"
-    commands = flatten_cursor_hooks(document) if client == "cursor" else flatten_native_hooks(document)
+    commands = (
+        flatten_cursor_hooks(document) if client == "cursor" else flatten_native_hooks(document)
+    )
     if len(commands) < minimum:
         return minimum, (
             f"canonical {client} hook reference has {len(commands)} registrations; "
@@ -271,7 +289,9 @@ def inspect_package(
             result,
             f"corrupt {client} package: hook targets are missing: {', '.join(missing_scripts)}",
         )
-    missing_package_files = [relative for relative in REQUIRED_PACKAGE_FILES if not (root / relative).is_file()]
+    missing_package_files = [
+        relative for relative in REQUIRED_PACKAGE_FILES if not (root / relative).is_file()
+    ]
     result["requiredFiles"] = {
         "checked": list(REQUIRED_PACKAGE_FILES),
         "missing": missing_package_files,
@@ -284,6 +304,145 @@ def inspect_package(
         )
     return finish(result)
 
+
+def yaml_scalar(path: Path, key: str) -> str | None:
+    """Read one scalar from the small manifest subset this verifier owns."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    match = re.search(
+        rf"^{re.escape(key)}\s*:\s*(?:\"([^\"]*)\"|'([^']*)'|([^#\n]*))\s*$",
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        return None
+    return next((value.strip() for value in match.groups() if value is not None), None)
+
+
+class _HermesCapture:
+    """Minimal context used to prove the native entrypoint is skill-only."""
+
+    def __init__(self) -> None:
+        self.registrations: list[tuple[str, Path, str]] = []
+
+    def register_skill(self, name: str, path: Path, description: str = "", *args: Any) -> None:
+        self.registrations.append((name, path, description))
+
+
+def hermes_registrations(root: Path) -> tuple[list[tuple[str, Path, str]], str | None]:
+    """Load the entrypoint in isolation and capture its native skill registrations."""
+    entrypoint = root / "__init__.py"
+    if not entrypoint.is_file():
+        return [], f"Hermes entrypoint is missing: {entrypoint}"
+    try:
+        module_name = f"graph_powers_hermes_verify_{id(root)}"
+        spec = importlib.util.spec_from_file_location(module_name, entrypoint)
+        if spec is None or spec.loader is None:
+            return [], f"could not import Hermes entrypoint: {entrypoint}"
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        planned = module.planned_registrations(root)
+        context = _HermesCapture()
+        module.register(context)
+    except Exception as exc:
+        return [], f"Hermes entrypoint registration failed: {exc}"
+    expected = [(name, path, description) for name, path, description in planned]
+    actual = context.registrations
+    if [(name, path) for name, path, _ in actual] != [(name, path) for name, path, _ in expected]:
+        return actual, "Hermes register() output differs from planned_registrations()"
+    return actual, None
+
+
+def verify_hermes(args: argparse.Namespace, _python_proof: dict[str, Any]) -> dict[str, Any]:
+    """Verify the native Hermes manifest and entrypoint without mutating client state."""
+    result = base_result("hermes")
+    result["route"] = "native"
+    root = args.package_root or args.plugin_root
+    result["root"] = str(root)
+    result["posture"] = {"hooks": "NOT ENFORCED", "tools": "none"}
+
+    if not root.is_dir():
+        result["present"] = False
+        fail(result, f"Hermes package root does not exist: {root}")
+        return finish(result)
+
+    manifest_path = root / "plugin.yaml"
+    name = yaml_scalar(manifest_path, "name")
+    version = yaml_scalar(manifest_path, "version")
+    result["manifest"] = str(manifest_path)
+    result["version"] = version
+    if name != PLUGIN:
+        fail(result, f"corrupt Hermes package: manifest name is {name!r}, expected {PLUGIN!r}")
+    if not version:
+        fail(result, f"corrupt Hermes package: manifest version is missing: {manifest_path}")
+
+    source_manifest, source_error = read_json(args.plugin_root / ".claude-plugin/plugin.json")
+    if source_error:
+        fail(result, f"Hermes source manifest is unavailable: {source_error}")
+    source_version = source_manifest.get("version") if isinstance(source_manifest, dict) else None
+    expected_version = args.expected_version or (str(source_version) if source_version else None)
+    if expected_version and version != expected_version:
+        fail(result, f"Hermes package is {version}; this verifier requires {expected_version}")
+
+    try:
+        manifest_text = manifest_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        fail(result, f"could not read Hermes manifest: {exc}")
+        manifest_text = ""
+    for field in ("provides_tools: []", "provides_hooks: []"):
+        if field not in manifest_text:
+            fail(result, f"Hermes manifest must declare {field}")
+
+    registrations, registration_error = hermes_registrations(root)
+    if registration_error:
+        fail(result, registration_error)
+    names = [name for name, _path, _description in registrations]
+    if len(names) != len(set(names)):
+        fail(result, "Hermes registration names are not unique")
+    for required in ("graph-engineering", "planning", "plan", "agent-explorer"):
+        if required not in names:
+            fail(result, f"Hermes registration is missing graph-powers:{required}")
+    missing_paths = [str(path) for _name, path, _description in registrations if not path.is_file()]
+    if missing_paths:
+        fail(result, f"Hermes registration sources are missing: {', '.join(missing_paths)}")
+    result["registrations"] = len(registrations)
+    result["skills"] = {
+        "registrations": len(registrations),
+        "names": names,
+        "missingPaths": missing_paths,
+    }
+    if result["errors"]:
+        return finish(result)
+
+    hermes = shutil.which("hermes")
+    result["runtime"] = {"path": hermes, "doctor": None}
+    if not hermes:
+        result["status"] = "SKIPPED"
+        result["ok"] = True
+        warn(result, "Hermes runtime is not installed; static native-package checks passed")
+        return result
+
+    try:
+        doctor = subprocess.run(
+            [hermes, "plugins", "doctor", str(root), "--ci"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=60,
+        )
+        doctor_output = (doctor.stdout + doctor.stderr).strip()
+        result["runtime"]["doctor"] = {
+            "exitCode": doctor.returncode,
+            "output": doctor_output,
+        }
+        if doctor.returncode != 0:
+            fail(result, f"Hermes Doctor exited {doctor.returncode}: {doctor_output}")
+    except Exception as exc:
+        fail(result, f"Hermes Doctor probe failed: {exc}")
+    return finish(result)
 
 
 def effective_policy(plugin_root: Path, project_dir: Path) -> dict[str, Any]:
@@ -384,7 +543,10 @@ def verify_claude(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
         if isinstance(entry.get("installPath"), str) and entry["installPath"]
     }
     if len(roots) != 1:
-        fail(result, f"Claude Code install is ambiguous: {len(roots)} scoped package paths in {registry_path}")
+        fail(
+            result,
+            f"Claude Code install is ambiguous: {len(roots)} scoped package paths in {registry_path}",
+        )
         result["candidates"] = sorted(roots)
         return finish(result)
     root = resolved(next(iter(roots)))
@@ -410,19 +572,29 @@ def verify_claude(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
     enabled = enabled_plugins.get(PLUGIN_ID) if isinstance(enabled_plugins, dict) else None
     if enabled is None and args.scope != "user":
         user_document, _ = read_json(claude_settings_path("user", args.project_dir))
-        user_plugins = user_document.get("enabledPlugins", {}) if isinstance(user_document, dict) else {}
+        user_plugins = (
+            user_document.get("enabledPlugins", {}) if isinstance(user_document, dict) else {}
+        )
         enabled = user_plugins.get(PLUGIN_ID) if isinstance(user_plugins, dict) else None
     package["enabled"] = enabled is True
     package["settings"] = str(settings)
     if enabled is not True:
-        fail(package, f"Claude Code plugin {PLUGIN_ID} is installed but not enabled in effective settings")
+        fail(
+            package,
+            f"Claude Code plugin {PLUGIN_ID} is installed but not enabled in effective settings",
+        )
     if args.check_posture:
         permissions = document.get("permissions", {}) if isinstance(document, dict) else {}
         mode = permissions.get("defaultMode") if isinstance(permissions, dict) else None
         skip = document.get("skipAutoPermissionPrompt") if isinstance(document, dict) else None
         package["posture"] = {"settings": str(settings), "defaultMode": mode, "skipPrompt": skip}
-        if posture_level(args) == "autonomous" and (mode != "bypassPermissions" or skip is not True):
-            fail(package, "Claude autonomous posture requires bypassPermissions and skipAutoPermissionPrompt=true")
+        if posture_level(args) == "autonomous" and (
+            mode != "bypassPermissions" or skip is not True
+        ):
+            fail(
+                package,
+                "Claude autonomous posture requires bypassPermissions and skipAutoPermissionPrompt=true",
+            )
     if args.probe_guardrail:
         probe_guardrail(package, root)
     return finish(package)
@@ -457,7 +629,9 @@ def verify_cursor(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
             result["present"] = False
             fail(result, f"Cursor Graph Powers plugin cache is missing: {cache}")
             return finish(result)
-        directories = sorted((entry for entry in cache.iterdir() if entry.is_dir()), key=lambda path: path.name)
+        directories = sorted(
+            (entry for entry in cache.iterdir() if entry.is_dir()), key=lambda path: path.name
+        )
         if not directories:
             result["present"] = False
             fail(result, f"Cursor Graph Powers plugin cache is empty: {cache}")
@@ -494,7 +668,9 @@ def verify_cursor(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
         for candidate in candidates:
             key = semver_key(str(candidate["version"] or ""))
             if key is None:
-                fail(result, f"Cursor candidate has an unorderable version: {candidate['version']!r}")
+                fail(
+                    result, f"Cursor candidate has an unorderable version: {candidate['version']!r}"
+                )
             else:
                 keyed.append((key, candidate))
         if result["errors"]:
@@ -536,7 +712,10 @@ def verify_cursor(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
         if posture_level(args) == "autonomous" and (
             ide_mode != "unrestricted" or cli_mode != "unrestricted"
         ):
-            fail(selected, "Cursor autonomous posture requires unrestricted IDE and cursor-agent modes")
+            fail(
+                selected,
+                "Cursor autonomous posture requires unrestricted IDE and cursor-agent modes",
+            )
     if args.probe_guardrail and selected.get("root"):
         probe_guardrail(selected, resolved(selected["root"]))
     return finish(selected)
@@ -557,7 +736,10 @@ def run_inventory(command: list[str]) -> tuple[Any | None, str | None]:
     except Exception as exc:
         return None, f"{' '.join(command)} failed: {exc}"
     if run.returncode != 0:
-        return None, f"{' '.join(command)} exited {run.returncode}: {(run.stderr or run.stdout).strip()}"
+        return (
+            None,
+            f"{' '.join(command)} exited {run.returncode}: {(run.stderr or run.stdout).strip()}",
+        )
     try:
         return json.loads(run.stdout), None
     except ValueError as exc:
@@ -603,7 +785,9 @@ def verify_codex_clone(args: argparse.Namespace, python_proof: dict[str, Any]) -
     package = inspect_package(
         "codex",
         resolved(root_value),
-        declared_version=str(manifest.get("version")) if manifest.get("version") is not None else None,
+        declared_version=str(manifest.get("version"))
+        if manifest.get("version") is not None
+        else None,
         expected_version=args.expected_version,
         python_proof=python_proof,
         reference_root=args.plugin_root,
@@ -631,7 +815,10 @@ def verify_codex_clone(args: argparse.Namespace, python_proof: dict[str, Any]) -
     if installed_error:
         fail(package, f"Codex installed hooks are unavailable: {installed_error}")
     elif missing:
-        fail(package, f"Codex hooks.json is missing {len(missing)} command(s) recorded by its manifest")
+        fail(
+            package,
+            f"Codex hooks.json is missing {len(missing)} command(s) recorded by its manifest",
+        )
     if args.probe_guardrail and package.get("root"):
         probe_guardrail(package, resolved(package["root"]))
     return finish(package)
@@ -652,7 +839,9 @@ def verify_codex_native(
         fail(result, f"Codex native plugin inventory is unavailable: {inventory_error}")
         return finish(result)
     entries = document.get("installed", []) if isinstance(document, dict) else []
-    matches = [entry for entry in entries if isinstance(entry, dict) and entry.get("pluginId") == PLUGIN_ID]
+    matches = [
+        entry for entry in entries if isinstance(entry, dict) and entry.get("pluginId") == PLUGIN_ID
+    ]
     if not matches:
         result["present"] = False
         fail(result, f"Codex native plugin {PLUGIN_ID} is not installed")
@@ -730,7 +919,21 @@ def audit_codex_home() -> dict[str, Any]:
         if first:
             executable = first.group(1)
             if (
-                executable not in {"if", "for", "while", "case", "test", "[", "{", "command", "then", "else", "do", ":"}
+                executable
+                not in {
+                    "if",
+                    "for",
+                    "while",
+                    "case",
+                    "test",
+                    "[",
+                    "{",
+                    "command",
+                    "then",
+                    "else",
+                    "do",
+                    ":",
+                }
                 and not shutil.which(executable)
                 and not Path(executable).exists()
             ):
@@ -739,16 +942,22 @@ def audit_codex_home() -> dict[str, Any]:
             path = Path(path_text)
             foreign_platform = bool(re.match(r"^[A-Za-z]:[\\/]", path_text)) != windows_here
             if foreign_platform:
-                blocks.append(f"{event}: active command carries the other platform's path: {path_text}")
+                blocks.append(
+                    f"{event}: active command carries the other platform's path: {path_text}"
+                )
             elif not path.exists():
                 if "runpy.run_path" in native and "os.path.isfile" in native:
-                    risks.append(f"{event}: fail-open target is absent; this guardrail is inert until restart: {path_text}")
+                    risks.append(
+                        f"{event}: fail-open target is absent; this guardrail is inert until restart: {path_text}"
+                    )
                 else:
                     blocks.append(f"{event}: active command points at a missing file: {path_text}")
         for path_text in sorted(set(ABSOLUTE_SCRIPT_RE.findall(other))):
             same_platform = bool(re.match(r"^[A-Za-z]:[\\/]", path_text)) == windows_here
             if same_platform:
-                risks.append(f"{event}: alternate-platform command carries this platform's path: {path_text}")
+                risks.append(
+                    f"{event}: alternate-platform command carries this platform's path: {path_text}"
+                )
         if posix and not windows and ABSOLUTE_SCRIPT_RE.search(posix):
             notes.append(f"{event}: absolute command has no commandWindows")
 
@@ -757,7 +966,7 @@ def audit_codex_home() -> dict[str, Any]:
         text = config.read_text(encoding="utf-8", errors="replace")
     except OSError:
         text = ""
-    notify = re.search(r'^notify\s*=\s*\[([^\]]*)\]', text, re.MULTILINE)
+    notify = re.search(r"^notify\s*=\s*\[([^\]]*)\]", text, re.MULTILINE)
     if notify:
         quoted = re.findall(r'"((?:[^"\\]|\\.)*)"', notify.group(1))
         target = quoted[0].replace("\\\\", "\\") if quoted else ""
@@ -777,7 +986,9 @@ def audit_codex_home() -> dict[str, Any]:
         }
     )
     if conflicts:
-        notes.append(f"{len(conflicts)} file-sync conflict copy/copies exist in Codex or Claude home")
+        notes.append(
+            f"{len(conflicts)} file-sync conflict copy/copies exist in Codex or Claude home"
+        )
 
     result["hooks"] = {"file": str(hooks_path), "registrations": len(entries)}
     result["blocks"] = blocks
@@ -812,7 +1023,10 @@ def verify_codex(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict
     if native and clone:
         result = base_result("codex")
         result["route"] = "ambiguous"
-        fail(result, "Codex native and clone Graph Powers routes coexist; both register the same hooks")
+        fail(
+            result,
+            "Codex native and clone Graph Powers routes coexist; both register the same hooks",
+        )
         return finish(result)
     if native:
         return verify_codex_native(args, python_proof, document, inventory_error)
@@ -826,7 +1040,13 @@ def verify_codex(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict
 
 
 def grok_entries(document: Any) -> list[dict[str, Any]]:
-    values = document if isinstance(document, list) else document.get("installed", []) if isinstance(document, dict) else []
+    values = (
+        document
+        if isinstance(document, list)
+        else document.get("installed", [])
+        if isinstance(document, dict)
+        else []
+    )
     return [
         entry
         for entry in values
@@ -904,7 +1124,9 @@ def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[
         package = inspect_package(
             "grok",
             resolved(root_value),
-            declared_version=str(entry.get("version")) if entry.get("version") is not None else None,
+            declared_version=str(entry.get("version"))
+            if entry.get("version") is not None
+            else None,
             expected_version=args.expected_version,
             python_proof=python_proof,
             reference_root=args.plugin_root,
@@ -987,6 +1209,8 @@ def client_is_in_use(client: str) -> bool:
         return shutil.which("cursor-agent") is not None or (Path.home() / ".cursor").exists()
     if client == "grok":
         return shutil.which("grok") is not None or grok_root().exists()
+    if client == "hermes":
+        return shutil.which("hermes") is not None
     return False
 
 
@@ -1001,6 +1225,8 @@ def verify_one(client: str, args: argparse.Namespace, proof: dict[str, Any]) -> 
         return verify_cursor(args, proof)
     if client == "grok":
         return verify_grok(args, proof)
+    if client == "hermes":
+        return verify_hermes(args, proof)
     if client == "zed":
         result = base_result("zed")
         result.update(
@@ -1024,8 +1250,13 @@ def human_line(result: dict[str, Any]) -> str:
     if result.get("version"):
         details.append(f"version {result['version']}")
     registrations = result.get("hooks", {}).get("registrations")
+    if registrations is None:
+        registrations = result.get("registrations")
     if registrations is not None:
-        details.append(f"{registrations} hooks")
+        label = (
+            "hooks" if result.get("hooks", {}).get("registrations") is not None else "registrations"
+        )
+        details.append(f"{registrations} {label}")
     if result.get("route"):
         details.append(str(result["route"]))
     suffix = f" — {', '.join(details)}" if details else ""
@@ -1037,7 +1268,7 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument(
         "--client",
         required=True,
-        choices=("claude", "codex", "codex-home", "cursor", "grok", "zed", "all"),
+        choices=("claude", "codex", "codex-home", "cursor", "grok", "hermes", "zed", "all"),
     )
     cli.add_argument("--plugin-root", type=resolved, default=resolved(Path(__file__).parent.parent))
     cli.add_argument("--package-root", type=resolved)
@@ -1059,7 +1290,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     policy = effective_policy(args.plugin_root, args.project_dir)
     if args.client == "all":
         results = []
-        for client in ("claude", "codex", "cursor", "grok"):
+        for client in ("claude", "codex", "cursor", "grok", "hermes"):
             result = verify_one(client, args, proof)
             if not result.get("present") and not client_is_in_use(client):
                 result["errors"] = []

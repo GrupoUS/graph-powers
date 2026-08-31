@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: "Use proactively whenever something is broken: an error, a crash, a stack trace, a failing test or CI run, a 500, a hydration mismatch, or a regression that appeared after a deploy. Writes the fix as well as finding it. Delegate here on the first defect report, not after several failed attempts — that is the recovery protocol."
-model: opus
+model: sonnet
 color: orange
 role_type: worker
 # `Skill` is load-bearing: the preloaded `debugger` skill applies planning's canonical TDD policy

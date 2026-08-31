@@ -138,6 +138,64 @@ kilobytes to be told what this section already says.
 When all you need is the return shape, read the one file rather than the skill around it:
 `${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`.
 
+### §4a — Parent-mediated consultation ledger
+
+Consultation is a parent/controller capability, not a worker capability. The parent owns task
+identity, reservation, stable-key deduplication, the per-task key cap, and resume. Workers cannot
+spawn children. Evaluators, reviewers and critics are read-only, cannot request consultation, and
+ordinary review passes never consume consultation capacity. Tag every call as either `review` or
+`consult`; a review package must never be recorded in the consultation ledger.
+
+The request and result are one canonical JSON envelope. Every field below is required; a new request
+uses `status: "RESERVED"` and `verdict: "PENDING"`, while a result uses `status: "RECORDED"`,
+`"BLOCKED"`, or `"USER_REQUIRED"` and a matching non-pending verdict when applicable:
+
+```json
+{
+  "taskId": "T2",
+  "decisionKey": "architecture-boundary",
+  "question": "Which bounded design should the parent choose?",
+  "evidence": ["path:line or observed output"],
+  "options": ["option-a", "option-b"],
+  "recommendation": "option-a",
+  "risk": "what remains uncertain",
+  "verdict": "PENDING",
+  "requesterRole": "parent",
+  "depth": 0,
+  "backend": "evaluator",
+  "capabilityStatus": "SUPPORTED",
+  "status": "RESERVED"
+}
+```
+
+`decisionKey` is a stable, validated identifier supplied by the parent; it is never derived from
+question, evidence, or other sensitive prompt text. `taskId`, evidence and options are bounded and
+non-empty. Only `requesterRole: "parent"` or `"controller"` at `depth: 0` may reserve or record.
+The ledger permits one reservation/result per key and the script enforces the configured three-key
+task budget without counting reviews; a fresh task gets a fresh budget. A duplicate key returns its
+recorded result. On the cap it returns `USER_REQUIRED`; on unresolved capability or unavailable
+fallback it returns `BLOCKED`, without spawning or retrying. Both states are persistent resume facts.
+
+Capability routing uses declared metadata only; no live capability probe is performed. Native
+Fable/advisor is allowed only for `capabilityStatus: "SUPPORTED"`. `"UNSUPPORTED"` and `"UNKNOWN"`
+produce an explicit route to the existing read-only evaluator without emitting the native backend.
+If that evaluator/fallback is unavailable, the result is `BLOCKED`.
+
+The machine result may add `fallback: true` and a bounded `reason` to make that route explicit;
+these are routing metadata, not alternate envelopes.
+
+The executable interface is:
+
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" consult reserve <PLAN_FILE> --request-json <JSON>
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" consult record <PLAN_FILE> --result-json <JSON>
+```
+
+Both commands emit only the machine-readable envelope on stdout. Existing exit codes remain: `0`
+success, `2` invalid input, `3` missing task; consultation `USER_REQUIRED` and `BLOCKED` return `4`
+and never mean a successful consultation. The ledger is atomic and symlink-safe in the plan's
+existing SDD workspace; resume must read it, never reset or recreate it.
+
 ## §5 — Claude Code and Codex route the same, trigger differently
 
 The intent is identical in both. The trigger model is not, and pretending otherwise is how a Codex

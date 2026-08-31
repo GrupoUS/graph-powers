@@ -1,20 +1,21 @@
-name: graph-powers
-version: "1.14.0"
-description: >-
-  Graph Powers harness for Hermes: skills, agent contracts and the
-  graph-engineering translation. Git guardrails are NOT ENFORCED on Hermes
-  (same class as Zed); the parent carries the safety floor. No model-facing
-  tools.
-author: GrupoUS
-license: MIT AND Apache-2.0
-homepage: https://github.com/GrupoUS/graph-powers
+name: "graph-powers"
+version: "1.16.0"
+description: "Agents, skills, commands and git/execution guardrails that work in any repository, on Claude Code, Codex CLI, Cursor, Grok CLI and Hermes. The project declares its stack in .graph-powers/config.json and the plugin adapts; nothing here is specific to one product."
+author: "GrupoUS"
+license: "MIT AND Apache-2.0"
+homepage: "https://github.com/GrupoUS/graph-powers#readme"
 kind: standalone
 manifest_version: 1
 tags:
-  - harness
-  - skills
-  - delegation
-  - graph-powers
+  - "harness"
+  - "agents"
+  - "skills"
+  - "guardrails"
+  - "claude-code"
+  - "codex"
+  - "cursor"
+  - "grok"
+  - "hermes"
 provides_tools: []
 provides_hooks: []
 capabilities: []

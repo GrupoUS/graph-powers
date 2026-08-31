@@ -1,7 +1,7 @@
 ---
 name: performance-optimizer
 description: "Use proactively when something is measurably too slow, too large, or too exposed: slow paths, memory and CPU, bundle size, Core Web Vitals, benchmarks, the OWASP baseline, and search visibility. Writes the optimisation. Output that is wrong rather than slow is debugger."
-model: opus
+model: sonnet
 color: blue
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

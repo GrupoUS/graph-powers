@@ -19,6 +19,8 @@ import sdd as sdd_module
 
 class TaskOutput(TypedDict):
     id: str
+    acceptance: str
+    skill: str
     needs: list[str]
     reads: dict[str, str]
     steps: list[str]
@@ -33,6 +35,7 @@ class GateOutput(TypedDict):
 
 
 class ValidationOutput(TypedDict):
+    tier: str
     tasks: list[TaskOutput]
     gates: list[GateOutput]
     writeLease: list[str]
@@ -50,19 +53,21 @@ def gate(gate_id: str, *, checked: bool = False, check: str = "python -X utf8 -c
 """
 
 
-def plan_text(*tasks: str, gates: str | None = None) -> str:
+def plan_text(*tasks: str, gates: str | None = None, tier: str | None = "L4") -> str:
     if gates is None:
         phases = sorted(set(re.findall(r"\*\*T([0-9]+)", "\n".join(tasks))))
         gates = "\n".join(gate(f"G{phase}.1") for phase in phases)
-    return "# Plan\n\n## Phase 1 — Work [SEQUENTIAL]\n\n" + "\n".join(tasks) + "\n" + gates + "\n"
+    tier_line = f"**Tier:** {tier}\n\n" if tier is not None else ""
+    return "# Plan\n\n" + tier_line + "## Phase 1 — Work [SEQUENTIAL]\n\n" + "\n".join(tasks) + "\n" + gates + "\n"
 
 
-def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, tdd: str = "not-applicable (configuration)", steps: str = "1. Read the existing contract", evidence: str = "pending", checked: bool = False) -> str:
+def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, acceptance: str = "the focused check prints ok", skill: str = "none", tdd: str = "not-applicable (configuration)", steps: str = "1. Read the existing contract", evidence: str = "pending", checked: bool = False) -> str:
     mark = "x" if checked else " "
     return f"""- [{mark}] **{task_id}** — Deliver {task_id}
   Owns: `{owns}`
   Needs: {needs}
-  Agent: graph-powers:debugger · Skill: none · Effort: mechanical
+  Acceptance: {acceptance}
+  Agent: graph-powers:debugger · Skill: {skill} · Effort: mechanical
   CHECK: `python -X utf8 -c \"print('ok')\"`
   EXPECT: `ok`
   EVIDENCE: {evidence}
@@ -87,19 +92,75 @@ class SddCliTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def assert_valid(self, text: str, expected: int = 2) -> ValidationOutput:
+    def consult_request(
+        self,
+        *,
+        task_id_value: str = "T2",
+        decision_key: str = "architecture-boundary",
+        requester_role: str = "parent",
+        depth: int = 0,
+        backend: str = "evaluator",
+        capability_status: str = "SUPPORTED",
+    ) -> dict[str, object]:
+        return {
+            "taskId": task_id_value,
+            "decisionKey": decision_key,
+            "question": "Which bounded design should the parent choose?",
+            "evidence": ["existing contract", "focused test output"],
+            "options": ["preserve", "replace"],
+            "recommendation": "preserve",
+            "risk": "replacement could widen scope",
+            "verdict": "PENDING",
+            "requesterRole": requester_role,
+            "depth": depth,
+            "backend": backend,
+            "capabilityStatus": capability_status,
+            "status": "RESERVED",
+        }
+
+    def consult_plan(self, root: Path) -> Path:
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        return self.write_plan(root, plan_text(task("T1.1")))
+
+    def run_consult(
+        self,
+        action: str,
+        plan: Path,
+        envelope: dict[str, object],
+    ) -> subprocess.CompletedProcess[str]:
+        flag = "--request-json" if action == "reserve" else "--result-json"
+        return self.run_cli("consult", action, str(plan), flag, json.dumps(envelope))
+
+    def assert_valid(
+        self,
+        text: str,
+        expected: int = 2,
+        *,
+        profile: str = "default",
+    ) -> ValidationOutput:
         with tempfile.TemporaryDirectory() as directory:
             plan = self.write_plan(Path(directory), text)
-            result = self.run_cli("validate", str(plan), "--max-tasks", "10")
+            result = self.run_cli(
+                "validate", str(plan), "--max-tasks", "10", "--profile", profile,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertEqual(len(output["tasks"]), expected)
             return output
 
-    def assert_invalid(self, text: str, expected: str, *, max_tasks: int = 10) -> None:
+    def assert_invalid(
+        self,
+        text: str,
+        expected: str,
+        *,
+        max_tasks: int = 10,
+        profile: str = "default",
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             plan = self.write_plan(Path(directory), text)
-            result = self.run_cli("validate", str(plan), "--max-tasks", str(max_tasks))
+            result = self.run_cli(
+                "validate", str(plan), "--max-tasks", str(max_tasks), "--profile", profile,
+            )
             self.assertEqual(result.returncode, 2)
             self.assertIn(expected, result.stderr)
 
@@ -110,10 +171,33 @@ class SddCliTests(unittest.TestCase):
                 task("T2.1", "src/web.py", "T1.1 (reads: exported API response contract)"),
             )
         )
+        self.assertEqual(output["tier"], "L4")
+        self.assertEqual(output["tasks"][0]["acceptance"], "the focused check prints ok")
         self.assertEqual(output["tasks"][1]["needs"], ["T1.1"])
         self.assertEqual(output["tasks"][1]["reads"], {"T1.1": "exported API response contract"})
         self.assertEqual(output["writeLease"], ["src/api.py", "src/web.py"])
         self.assertEqual([item["id"] for item in output["gates"]], ["G1.1", "G2.1"])
+
+    def test_tier_is_required_for_mechanical_execution_routing(self) -> None:
+        self.assert_invalid(
+            plan_text(task("T1.1"), tier=None),
+            "missing required Tier",
+        )
+
+    def test_tier_normalizes_lowercase_across_the_supported_boundary(self) -> None:
+        for number in range(1, 7):
+            with self.subTest(tier=number):
+                output = self.assert_valid(
+                    plan_text(task("T1.1"), tier=f"l{number}"),
+                    expected=1,
+                )
+                self.assertEqual(output["tier"], f"L{number}")
+
+    def test_malformed_tier_routes_back_to_plan(self) -> None:
+        self.assert_invalid(
+            plan_text(task("T1.1"), tier="L7"),
+            "malformed Tier",
+        )
 
     def test_plan_requires_a_structured_phase_gate(self) -> None:
         self.assert_invalid(plan_text(task("T1.1"), gates=""), "missing structured gate")
@@ -235,9 +319,74 @@ class SddCliTests(unittest.TestCase):
         unknown = task("T1.1").replace("graph-powers:debugger", "graph-powers:not-a-real-agent")
         self.assert_invalid(plan_text(unknown), "unknown Agent")
 
+    def test_acceptance_is_required_and_must_be_observable(self) -> None:
+        missing = task("T1.1").replace("  Acceptance: the focused check prints ok\n", "")
+        self.assert_valid(plan_text(missing), expected=1)
+        self.assert_invalid(
+            plan_text(missing),
+            "missing required field Acceptance",
+            profile="gauntlet",
+        )
+        self.assert_invalid(
+            plan_text(task("T1.1", acceptance="<observable outcome>")),
+            "Acceptance is a placeholder",
+            profile="gauntlet",
+        )
+        self.assert_valid(
+            plan_text(task("T1.1", acceptance="looks correct")), expected=1,
+        )
+        self.assert_invalid(
+            plan_text(task("T1.1", acceptance="looks correct")),
+            "Acceptance is not observable",
+            profile="gauntlet",
+        )
+
+    def test_skill_must_be_none_or_resolve_to_a_bundled_skill(self) -> None:
+        self.assert_valid(plan_text(task("T1.1", skill="made-up")), expected=1)
+        self.assert_invalid(
+            plan_text(task("T1.1", skill="made-up")),
+            "unknown Skill",
+            profile="gauntlet",
+        )
+        bare = self.assert_valid(
+            plan_text(task("T1.1", skill="debugger")), expected=1, profile="gauntlet",
+        )
+        self.assertEqual(bare["tasks"][0]["skill"], "debugger")
+        namespaced = self.assert_valid(
+            plan_text(task("T1.1", skill="graph-powers:debugger")),
+            expected=1,
+            profile="gauntlet",
+        )
+        self.assertEqual(namespaced["tasks"][0]["skill"], "graph-powers:debugger")
+
+    def test_gauntlet_acquire_repeats_profile_admission_before_lease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            missing = task("T1.1").replace("  Acceptance: the focused check prints ok\n", "")
+            plan = self.write_plan(root, plan_text(missing))
+            default = self.run_cli("validate", str(plan), "--max-tasks", "10")
+            self.assertEqual(default.returncode, 0, default.stderr)
+
+            acquire = self.run_cli(
+                "acquire", str(plan), "--max-tasks", "10", "--profile", "gauntlet",
+            )
+
+            self.assertEqual(acquire.returncode, 2)
+            self.assertIn("missing required field Acceptance", acquire.stderr)
+            self.assertFalse((root / ".graph-powers/logs/write-lease.json").exists())
+
     def test_main_thread_agent_is_not_routable_in_phase_c(self) -> None:
         inline = task("T1.1").replace("graph-powers:debugger", "main")
         self.assert_invalid(plan_text(inline), "not routable in Phase C")
+
+    def test_read_only_worker_is_not_a_phase_c_writer(self) -> None:
+        read_only = task("T1.1").replace("graph-powers:debugger", "graph-powers:verification")
+        self.assert_valid(plan_text(read_only), expected=1)
+        self.assert_invalid(
+            plan_text(read_only),
+            "not a write-capable Phase C lane",
+            profile="gauntlet",
+        )
 
     def test_checked_task_requires_persisted_evidence(self) -> None:
         checked = task("T1.1", checked=True)
@@ -475,6 +624,182 @@ class SddCliTests(unittest.TestCase):
             ref_expression = self.run_cli("package", str(plan), "HEAD^{tree}", "HEAD")
             self.assertEqual(ref_expression.returncode, 2)
             self.assertIn("bad BASE", ref_expression.stderr)
+
+    def test_consult_reserve_record_and_duplicate_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.consult_request()
+
+            reserved = self.run_consult("reserve", plan, request)
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            reservation = json.loads(reserved.stdout)
+            self.assertEqual(reservation["status"], "RESERVED")
+            self.assertEqual(reservation["decisionKey"], request["decisionKey"])
+
+            result = dict(request)
+            result.update({"verdict": "PASS", "status": "RECORDED"})
+            recorded = self.run_consult("record", plan, result)
+            self.assertEqual(recorded.returncode, 0, recorded.stderr)
+            recorded_output = json.loads(recorded.stdout)
+            self.assertEqual(recorded_output["status"], "RECORDED")
+            self.assertEqual(recorded_output["verdict"], "PASS")
+
+            duplicate = self.run_consult("reserve", plan, request)
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            self.assertEqual(json.loads(duplicate.stdout), recorded_output)
+
+            duplicate_record = self.run_consult("record", plan, result)
+            self.assertEqual(duplicate_record.returncode, 0, duplicate_record.stderr)
+            self.assertEqual(json.loads(duplicate_record.stdout), recorded_output)
+
+    def test_consultation_cap_is_per_task_and_fresh_task_gets_new_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for number in range(1, 4):
+                request = self.consult_request(decision_key=f"choice-{number}")
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+            capped = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="choice-4"),
+            )
+            self.assertEqual(capped.returncode, 4)
+            capped_output = json.loads(capped.stdout)
+            self.assertEqual(capped_output["status"], "USER_REQUIRED")
+            self.assertIn("cap", capped_output["reason"])
+
+            fresh = self.run_consult(
+                "reserve", plan, self.consult_request(task_id_value="T3", decision_key="choice-1"),
+            )
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
+            self.assertEqual(json.loads(fresh.stdout)["status"], "RESERVED")
+
+    def test_consult_rejects_malformed_identity_and_forbidden_requesters(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for invalid in (
+                self.consult_request(task_id_value=""),
+                self.consult_request(decision_key="prompt contains sensitive text"),
+                self.consult_request(decision_key="../escape"),
+            ):
+                result = self.run_consult("reserve", plan, invalid)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse((root / ".graph-powers/logs/sdd" / root.name / "consultations.json").exists())
+
+            for role in ("evaluator", "reviewer", "critic"):
+                result = self.run_consult(
+                    "reserve", plan, self.consult_request(requester_role=role),
+                )
+                self.assertEqual(result.returncode, 2)
+            nested = self.run_consult("reserve", plan, self.consult_request(depth=1))
+            self.assertEqual(nested.returncode, 2)
+
+    def test_consult_requires_bounded_nonempty_evidence_and_options(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for field, value in (("evidence", []), ("options", []), ("evidence", ["x" * 4097])):
+                request = self.consult_request(decision_key=f"invalid-{field}-{len(str(value))}")
+                request[field] = value
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 2)
+            self.assertFalse((root / ".graph-powers/logs/sdd" / root.name / "consultations.json").exists())
+
+    def test_consult_capability_fallback_and_blocked_state_are_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            supported = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="native-supported", backend="fable"),
+            )
+            self.assertEqual(supported.returncode, 0, supported.stderr)
+            self.assertEqual(json.loads(supported.stdout)["backend"], "fable")
+            for status in ("UNSUPPORTED", "UNKNOWN"):
+                request = self.consult_request(
+                    decision_key=f"fallback-{status.lower()}",
+                    backend="fable",
+                    capability_status=status,
+                )
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = json.loads(result.stdout)
+                self.assertEqual(output["backend"], "evaluator")
+                self.assertEqual(output["capabilityStatus"], status)
+                self.assertNotIn("fable", result.stdout.lower())
+                self.assertTrue(output["fallback"])
+
+            blocked_request = self.consult_request(
+                task_id_value="T3",
+                decision_key="blocked-capability",
+                backend="fable",
+                capability_status="UNAVAILABLE",
+            )
+            blocked = self.run_consult("reserve", plan, blocked_request)
+            self.assertEqual(blocked.returncode, 4)
+            blocked_output = json.loads(blocked.stdout)
+            self.assertEqual(blocked_output["status"], "BLOCKED")
+            self.assertEqual(blocked_output["verdict"], "BLOCKED")
+
+            duplicate = self.run_consult("reserve", plan, blocked_request)
+            self.assertEqual(duplicate.returncode, 4)
+            self.assertEqual(json.loads(duplicate.stdout), blocked_output)
+
+    def test_consult_rejects_symlinked_ledger_and_concurrent_duplicate_is_atomic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            container = Path(directory)
+            root = container / "repo"
+            root.mkdir()
+            plan = self.consult_plan(root)
+            request = self.consult_request()
+            first = self.run_consult("reserve", plan, request)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            ledger = root / ".graph-powers/logs/sdd" / root.name / "consultations.json"
+            outside = container / "outside.json"
+            outside.write_text("outside\n", encoding="utf-8")
+            saved = json.loads(ledger.read_text(encoding="utf-8"))
+            ledger.unlink()
+            try:
+                ledger.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+            rejected = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="symlink-attempt"),
+            )
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("symlink", rejected.stderr.lower())
+            self.assertEqual(outside.read_text(encoding="utf-8"), "outside\n")
+            ledger.unlink()
+            ledger.write_text(json.dumps(saved), encoding="utf-8")
+
+            duplicate_request = self.consult_request(decision_key="concurrent")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(
+                    lambda _: self.run_consult("reserve", plan, duplicate_request), range(2),
+                ))
+            self.assertEqual([result.returncode for result in results], [0, 0])
+            self.assertEqual(json.loads(results[0].stdout), json.loads(results[1].stdout))
+
+    def test_consult_docs_define_one_envelope_and_separate_reviews(self) -> None:
+        sources = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                Path("references/execution-floor.md"),
+                Path("skills/senior-prompt-engineer/references/agent-handoff-contracts.md"),
+                Path("skills/planning/references/phase-c-executing-plans.md"),
+                Path("skills/planning/references/gauntlet-loop.md"),
+                Path("agents/evaluator.md"),
+            )
+        )
+        for field in (
+            "taskId", "decisionKey", "question", "evidence", "options", "recommendation",
+            "risk", "verdict", "requesterRole", "depth", "backend", "capabilityStatus", "status",
+        ):
+            self.assertIn(field, sources)
+        self.assertRegex(sources, r"(?i)review.{0,80}(separate|distinct|not).{0,80}consult")
+        self.assertRegex(sources, r"(?i)evaluator.{0,80}(no|cannot).{0,80}(spawn|consult)")
 
 
 if __name__ == "__main__":

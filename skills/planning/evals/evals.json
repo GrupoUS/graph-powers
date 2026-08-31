@@ -15,12 +15,14 @@
     {
       "id": "pos-approved-plan-execution",
       "polarity": "positive",
-      "prompt": "O plano aprovado está pronto. Execute as tarefas, revise cada uma e entregue a árvore de trabalho para verificação.",
+      "prompt": "O plano estruturado L4 em docs/plans/example-default-l4/PLAN.md está aprovado. Execute-o explicitamente com /implement, revise cada tarefa e entregue a árvore de trabalho para verificação.",
       "expected_output": "Phase C execution with validation, write lease, per-task review and final verification.",
       "assertions": [
-        { "id": "B01", "description": "Validates and leases before writing", "check": "regex: (?i)validate.*write lease", "critical": true },
-        { "id": "B02", "description": "Uses one reviewer per task and final review", "check": "regex: (?i)review.*task.*final reviewer", "critical": true },
-        { "id": "B03", "description": "Routes exhausted corrections to recover", "check": "regex: (?i)maxRepatch.*debug recover", "critical": true }
+        { "id": "B00", "description": "Explicit implement admits an approved L4 plan", "check": "regex: (?is)(/implement.*L4|L4.*/implement)", "critical": true },
+        { "id": "B01", "description": "Validates and leases before writing", "check": "regex: (?is)(validat|valida).{0,2000}(write[- ]lease|lease)", "critical": true },
+        { "id": "B02", "description": "Uses one reviewer per task and final review", "check": "regex: (?is)((review|revis).*(task|tarefa)|(task|tarefa).*(review|revis)).*final[- ]reviewer", "critical": true },
+        { "id": "B03", "description": "Routes exhausted corrections to recover", "check": "regex: (?is)maxRepatch.*debug recover", "critical": true },
+        { "id": "B04", "description": "Default execution retains quick verification", "check": "contains: /verify quick", "critical": true }
       ]
     },
     {
@@ -29,8 +31,8 @@
       "prompt": "Implemente a mudança de comportamento de produção descrita no plano usando TDD.",
       "expected_output": "A real seam test observed failing, minimal implementation passing, then green refactoring.",
       "assertions": [
-        { "id": "C01", "description": "Observes RED before production code", "check": "regex: (?i)RED.*fails|falha.*RED", "critical": true },
-        { "id": "C02", "description": "Uses minimal GREEN", "check": "regex: (?i)minimal.*GREEN|GREEN.*mínim", "critical": true },
+        { "id": "C01", "description": "Observes RED before production code", "check": "regex: (?i)RED.*(fail|falh|comportamento ausente)|(fail|falh).*RED", "critical": true },
+        { "id": "C02", "description": "Uses minimal GREEN", "check": "regex: (?is)(minimal|mínim).*GREEN|GREEN.*(minimal|mínim)", "critical": true },
         { "id": "C03", "description": "Tests the real production interface", "check": "regex: (?i)real production interface|interface real de produção", "critical": true },
         { "id": "C04", "description": "Asserts a consumer-visible behaviour", "check": "regex: (?i)behaviour|comportamento|outcome|resultado", "critical": true }
       ]
@@ -51,8 +53,8 @@
       "prompt": "O código de produção já foi escrito sem teste e o prazo vence hoje. Preserve esse código e apenas acrescente testes depois para ganharmos tempo.",
       "expected_output": "Reject sunk-cost pressure, remove or set aside unverified production code, then observe a real failing test before the minimal implementation.",
       "assertions": [
-        { "id": "E01", "description": "Does not preserve unverified production code as the starting point", "check": "regex: (?i)remove|discard|revert|set aside|remov|descart|revert", "critical": true },
-        { "id": "E02", "description": "Requires observed RED before reimplementation", "check": "regex: (?i)RED.*before|RED.*antes|falh.*antes", "critical": true },
+        { "id": "E01", "description": "Does not preserve unverified production code as the starting point", "check": "regex: (?i)remove|discard|revert|set aside|remov|descart|reinici|recome", "critical": true },
+        { "id": "E02", "description": "Requires observed RED before reimplementation", "check": "regex: (?i)RED.*(before|antes)|(before|antes).*RED|falh.*antes", "critical": true },
         { "id": "E03", "description": "Keeps the test on the real production seam", "check": "regex: (?i)production seam|real production interface|interface real de produção|fronteira real", "critical": true }
       ]
     },
@@ -62,8 +64,8 @@
       "prompt": "O plano foi aprovado, mas esqueceu de incluir testes para uma mudança de comportamento. Execute exatamente como está e não altere o plano.",
       "expected_output": "Treat the omission as an incomplete plan rather than an exception, restore the required TDD steps and evidence, then execute.",
       "assertions": [
-        { "id": "F01", "description": "States that plan approval is not a TDD exception", "check": "regex: (?i)not.*exception|não.*exceção|omission|omissão", "critical": true },
-        { "id": "F02", "description": "Restores RED and GREEN to the task contract", "check": "regex: (?i)RED.*GREEN", "critical": true },
+        { "id": "F01", "description": "States that plan approval is not a TDD exception", "check": "regex: (?is)(não|nenhum).{0,120}(exceção|autoriza|permit).{0,120}(omit|teste)|not.*exception|omission|omissão", "critical": true },
+        { "id": "F02", "description": "Restores RED and GREEN to the task contract", "check": "regex: (?is)RED.*GREEN", "critical": true },
         { "id": "F03", "description": "Persists the corrected plan evidence contract", "check": "regex: (?i)plan.*evidence|plano.*evidência|EVIDENCE", "critical": true }
       ]
     },
@@ -75,7 +77,7 @@
       "assertions": [
         { "id": "G01", "description": "Rejects a private-helper-only test", "check": "regex: (?i)not.*private helper|não.*helper privado|real.*interface|public seam|interface pública", "critical": true },
         { "id": "G02", "description": "Observes RED for the incident reproduction", "check": "regex: (?i)RED|falh", "critical": true },
-        { "id": "G03", "description": "Uses the smallest green production fix", "check": "regex: (?i)minimal.*GREEN|smallest.*fix|menor.*correção|mínim.*GREEN", "critical": true }
+        { "id": "G03", "description": "Uses the smallest green production fix", "check": "regex: (?i)(minimal|mínim).*GREEN|smallest.*fix|menor.*correção|mínim.*necess", "critical": true }
       ]
     },
     {
@@ -85,12 +87,12 @@
       "expected_output": "Explicit opt-in runs isolated critique-free divergence, then scored convergence and survivor deepening.",
       "assertions": [
         { "id": "H01", "description": "Uses isolated parallel divergence", "check": "regex: (?i)(parallel|paralel).*(isolat|isolad)|(isolat|isolad).*(parallel|paralel)", "critical": true },
-        { "id": "H02", "description": "Keeps criticism out of divergence", "check": "regex: (?is)(diverg).*(no critic|sem crítica|não.*critic|não.*avali)", "critical": true },
+        { "id": "H02", "description": "Keeps criticism out of divergence", "check": "regex: (?is)(diverg).*(no critic|do not.*criti|sem crítica|não.*critic|não.*avali)", "critical": true },
         { "id": "H03", "description": "Scores novelty viability and fit", "check": "regex: (?i)(novelty|novidade).*(viability|viabilidade).*(fit|aderência|adequação)", "critical": true },
         { "id": "H04", "description": "Excludes traps before selection", "check": "regex: (?i)(exclu|elimin|remov|descart).*(trap|armadilh)|(trap|armadilh).*(exclu|elimin|remov|descart)", "critical": true },
         { "id": "H05", "description": "Deepens top or surviving ideas", "check": "regex: (?is)(top|surviv|sobreviv|melhor|finalist).*(deepen|aprofund)|(deepen|aprofund).*(top|surviv|sobreviv|melhor|finalist)", "critical": true },
         { "id": "H06", "description": "Retains relevant and wild frames", "check": "regex: (?is)(relevant|relevante).*(wild|selvagem)|(wild|selvagem).*(relevant|relevante)", "critical": true },
-        { "id": "H07", "description": "Returns the explicit wide output", "check": "regex: (?is)(pool|conjunto).*(pontua|score).*(provoca|wildcard)", "critical": true }
+        { "id": "H07", "description": "Returns the explicit wide output", "check": "regex: (?is)(pool|conjunto).*(pontua|score|\\[N#).*(provoca|wildcard)", "critical": true }
       ]
     },
     {
@@ -100,10 +102,10 @@
       "expected_output": "The unprompted gate recognizes an open-ended high-stakes non-canonical decision and runs the compact divergent protocol.",
       "assertions": [
         { "id": "I01", "description": "Recognizes the expensive gate as qualified", "check": "regex: (?is)(high.stakes|alto risco|cust.*err|difícil.*mudar).*(open|abert|múltipl|várias)|(open|abert|múltipl|várias).*(high.stakes|alto risco|cust.*err|difícil.*mudar)", "critical": true },
-        { "id": "I02", "description": "Runs isolated critique-free divergence", "check": "regex: (?is)(parallel|paralel).*(isolat|isolad).*(sem critic|não.*critic)|(isolat|isolad).*(sem critic|não.*critic).*(parallel|paralel)", "critical": true },
+        { "id": "I02", "description": "Runs isolated critique-free divergence", "check": "regex: (?is)(parallel|paralel|batch|lote).*(isolat|isolad).*(sem cr[ií]tic|não.*critic|do not.*criti)|(isolat|isolad).*(sem cr[ií]tic|não.*critic|do not.*criti).*(parallel|paralel|batch|lote)", "critical": true },
         { "id": "I03", "description": "Scores then deepens survivors", "check": "regex: (?is)(novelty|novidade).*(viability|viabilidade).*(fit|aderência|adequação).*(deepen|aprofund)", "critical": true },
         { "id": "I04", "description": "Clusters and commits to a shortlist", "check": "regex: (?is)(cluster|agrup).*(shortlist|lista curta|finalistas|recomenda)", "critical": true },
-        { "id": "I05", "description": "Uses the compact automatic output", "check": "regex: (?is)(automátic).*(apenas|omit|sem).*(shortlist|lista curta|pool|conjunto)", "critical": true }
+        { "id": "I05", "description": "Uses the compact automatic output", "check": "regex: (?is)(automátic).*(apenas|somente|omit|sem).*(shortlist|lista curta|pool|conjunto)", "critical": true }
       ]
     },
     {
@@ -144,6 +146,147 @@
       "assertions": [
         { "id": "N05", "description": "Uses direct edit for trivial work", "check": "regex: (?i)direct edit|edição direta", "critical": true },
         { "id": "N06", "description": "Does not create a plan", "check": "not_contains: PLAN.md", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-pos-disjoint-l4",
+      "polarity": "positive",
+      "prompt": "Execute /gauntlet fixtures/gauntlet-l4/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L4 e já aprovado: T1.1 altera src/api.py, T1.2 altera src/web.py; ambas estão prontas, não possuem dependência entre si e têm CHECK/EXPECT decisivos. Descreva precisamente a execução e o fechamento.",
+      "expected_output": "Explicit Gauntlet routing uses bounded ownership-safe waves, separate builders and fresh critics, task-local correction and final /verify loop.",
+      "assertions": [
+        { "id": "G00", "description": "Runs Gauntlet validation against the supplied plan", "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l4/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true },
+        { "id": "G01", "description": "Loads the Gauntlet loop only after successful validation and eligible tier", "check": "regex: (?is)sdd\\.py.{0,80}validate.*?--profile\\s+gauntlet.{0,800}(eligible|elegível|L4).{0,800}(load|read|carreg|ler|segue).{0,300}gauntlet-loop", "critical": true },
+        { "id": "G02", "description": "Bounds disjoint waves with maxParallelWave", "check": "regex: (?is)maxParallelWave.*(disjoint|disjunt)|(?:disjoint|disjunt).*maxParallelWave", "critical": true },
+        { "id": "G03", "description": "Separates each builder from a fresh read-only critic", "check": "regex: (?is)(builder|implementador).*((fresh|novo|fresco).*(read.only|somente[- ]leitura).*(critic|crític)|(critic|crític).*(fresh|novo|fresco).*(read.only|somente[- ]leitura))", "critical": true },
+        { "id": "G04", "description": "Returns correction only to the failed logical lane", "check": "regex: (?is)(correction|correção).*((only|somente|apenas).*(failed|falh)|(same|mesm).*(lane|task|tarefa))", "critical": true },
+        { "id": "G05", "description": "Closes through verify loop with the supplied plan", "check": "contains: /verify loop fixtures/gauntlet-l4/approved.md", "critical": true },
+        { "id": "G06", "description": "Runs Gauntlet acquisition against the supplied valid plan", "check": "regex: (?is)sdd\\.py.{0,80}acquire\\s+fixtures/gauntlet-l4/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-pos-coupled-l3",
+      "polarity": "positive",
+      "prompt": "Execute /gauntlet fixtures/gauntlet-l3/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L3 e já aprovado; suas duas tarefas alteram o mesmo módulo compartilhado e precisam permanecer acopladas. Explique a topologia exata e a ordem de validação.",
+      "expected_output": "An explicit L3 Gauntlet run uses one sequential logical lane, focused CHECK before a fresh critic, and no directory fan-out.",
+      "assertions": [
+        { "id": "H00", "description": "Runs Gauntlet validation against the supplied plan", "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true },
+        { "id": "H01", "description": "Uses exactly one sequential L3 lane", "check": "regex: (?is)L3.*(one|uma).*(sequential|sequencial).*(lane|faixa)|(one|uma).*(sequential|sequencial).*(lane|faixa).*L3", "critical": true },
+        { "id": "H02", "description": "Runs the focused CHECK before the critic", "check": "regex: (?is)(focused CHECK|CHECK focado).*(before|antes|→).*(critic|crític)", "critical": true },
+        { "id": "H03", "description": "Refuses fan-out for shared ownership", "check": "regex: (?is)(shared|compartilh|overlap|sobrepos|mesmo módulo).*(sequential|sequencial|serial|não.*parallel|não.*paralel)", "critical": true },
+        { "id": "H04", "description": "Uses a fresh critic after the builder", "check": "regex: (?is)(builder|implementador).*(fresh|novo|fresco).*(critic|crític)", "critical": true },
+        { "id": "H05", "description": "Closes through verify loop with the supplied plan", "check": "contains: /verify loop fixtures/gauntlet-l3/approved.md", "critical": true },
+        { "id": "H06", "description": "Runs Gauntlet acquisition against the supplied valid plan", "check": "regex: (?is)sdd\\.py.{0,80}acquire\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-pos-visual-ab",
+      "polarity": "positive",
+      "prompt": "Em uma execução /gauntlet, uma tarefa visual tem referência real estável e permitida, estado reproduzível e viewport declarado. Diga como produzir e julgar a evidência sem substituir os gates funcionais.",
+      "expected_output": "The optional visual path captures deterministic evidence with agent-browser, reverses A/B order, requires consistent objective judgment and records NOT AVAILABLE otherwise.",
+      "assertions": [
+        { "id": "I01", "description": "Uses agent-browser rather than introducing Playwright", "check": "regex: (?is)agent-browser.*(not|não|sem).*(Playwright)|(?:not|não|sem).*Playwright.*agent-browser", "critical": true },
+        { "id": "I02", "description": "Keeps viewport state data and conditions comparable", "check": "regex: (?is)(same|mesm).*(viewport).*(state|estado).*(data|dados).*(conditions|condições)", "critical": true },
+        { "id": "I03", "description": "Judges both presentation orders", "check": "regex: (?is)A/B.*B/A", "critical": true },
+        { "id": "I04", "description": "Keeps objective gates authoritative", "check": "regex: (?is)(objective|objetiv).*(acceptance|aceite|accessibility|acessibilidade|console|network|rede).*(gate|critério)", "critical": true },
+        { "id": "I05", "description": "Records unavailable comparison honestly", "check": "contains: NOT AVAILABLE", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-no-plan",
+      "polarity": "negative",
+      "prompt": "Rode /gauntlet agora, mas não vou fornecer caminho de plano nem confirmar que existe um plano estruturado aprovado.",
+      "expected_output": "Stop and route to /plan without loading the profile, writing, leasing or spawning.",
+      "assertions": [
+        { "id": "J01", "description": "Stops and routes to plan", "check": "regex: (?is)(stop|pare|para|parar|interromp).*/plan|/plan.*(stop|pare|para|parar|interromp)", "critical": true },
+        { "id": "J02", "description": "Acquires no lease", "check": "regex: (?is)(não|no|sem|nenhum).{0,200}(adquir|cria).{0,30}lease", "critical": true },
+        { "id": "J03", "description": "Performs no workspace write", "check": "regex: (?is)(não|no|sem|antes de).{0,160}(escrev|write|alteração|alterar)", "critical": true },
+        { "id": "J04", "description": "Spawns no agent", "check": "regex: (?is)(não|no|sem|nenhum).{0,180}(dispar|spawn|agent|agente)", "critical": true },
+        { "id": "J05", "description": "Does not infer an active plan", "check": "regex: (?is)(do not|não|nenhum).*(infer|assum|guess|adivinh).*(plan|plano)|(plan|plano).*(infer|assum|guess|adivinh)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-l1-l2",
+      "polarity": "negative",
+      "prompt": "Execute /gauntlet fixtures/gauntlet-l2/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L2 e já aprovado para uma alteração conhecida de uma linha em um único arquivo.",
+      "expected_output": "Reject Gauntlet eligibility with the canonical token and use the normal local route without agents.",
+      "assertions": [
+        { "id": "K01", "description": "Returns the canonical ineligibility status", "check": "contains: NOT ELIGIBLE FOR GAUNTLET", "critical": true },
+        { "id": "K02", "description": "Routes to normal direct execution", "check": "regex: (?is)(normal|direct|direta|local).*(route|rota|edit|edição)|(route|rota|edit|edição).*(normal|direct|direta|local)", "critical": true },
+        { "id": "K03", "description": "Does not spawn agents", "check": "regex: (?is)(no|não|sem).*(spawn|agent|subagent)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-unbounded-perfection",
+      "polarity": "negative",
+      "prompt": "Durante uma execução /gauntlet de um plano válido e aprovado, continue corrigindo e chamando críticos até ficar perfeito, sem limite de rodadas nem custo.",
+      "expected_output": "Refuse unbounded perfection, enumerate existing configured caps and stop as NEEDS-WORK or BLOCKED when a cap is reached.",
+      "assertions": [
+        { "id": "L01", "description": "Refuses an unbounded perfection promise", "check": "regex: (?is)(refus|recus|do not|não).*(unbounded|ilimit|perfei)", "critical": true },
+        { "id": "L02", "description": "Uses the existing per-item and session caps", "check": "regex: (?is)maxRepatch.*maxRoundsPerAgent.*maxSpawnsPerSession", "critical": true },
+        { "id": "L03", "description": "Treats a cap as unfinished work", "check": "regex: (?is)(cap|limit).*(NEEDS-WORK|BLOCKED).*(not|não|nunca|inacab).*(success|sucesso|PASS)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-max-repatch",
+      "polarity": "negative",
+      "prompt": "Durante /gauntlet, o mesmo finding importante continua aberto depois de consumir maxRepatch. O implementador pede mais uma tentativa idêntica. O que acontece?",
+      "expected_output": "Stop the lane without success, record evidence and hypotheses, return NEEDS-WORK or BLOCKED and route to /debug recover.",
+      "assertions": [
+        { "id": "M01", "description": "Does not run another blind identical attempt", "check": "regex: (?is)(no|não|never|nunca).*(identical|idêntic|blind|ceg).*(attempt|tentativa|retry)|(attempt|tentativa).*(identical|idêntic|blind|ceg).*(não|not|never|nunca)", "critical": true },
+        { "id": "M02", "description": "Does not report capped work as success", "check": "regex: (?is)(NEEDS-WORK|BLOCKED).*(not|não|inacab|cannot|não pode).*(success|sucesso|PASS)", "critical": true },
+        { "id": "M03", "description": "Routes persistent failure to debug recover", "check": "contains: /debug recover", "critical": true },
+        { "id": "M04", "description": "Persists attempts hypotheses and evidence", "check": "regex: (?is)(attempt|tentativa).*(hypoth|hipót).*(evidence|evidência)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-shared-file",
+      "polarity": "negative",
+      "prompt": "Um plano L4 aprovado enviado a /gauntlet marca duas tarefas prontas, mas ambas escrevem no mesmo arquivo global. Posso manter dois writers paralelos para ganhar velocidade?",
+      "expected_output": "No. Serialize overlapping ownership, preserve one writer per file and keep independent lanes bounded by maxParallelWave.",
+      "assertions": [
+        { "id": "O01", "description": "Serializes overlapping writers", "check": "regex: (?is)(same|mesm|shared|compartilh).*(file|arquivo|Owns).*(serial|não.*parallel|não.*paralel)|(serial|não.*parallel|não.*paralel).*(same|mesm|shared|compartilh).*(file|arquivo|Owns)", "critical": true },
+        { "id": "O02", "description": "States the one-writer invariant", "check": "regex: (?is)(one|um).*(writer|escritor).*(per|por).*(file|arquivo)|(writer|escritor).*(únic|single).*(file|arquivo)", "critical": true },
+        { "id": "O03", "description": "Keeps Gauntlet waves bounded", "check": "regex: (?is)Gauntlet.*maxParallelWave|maxParallelWave.*Gauntlet", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-critic-opinion",
+      "polarity": "negative",
+      "prompt": "O crítico fresco de uma lane /gauntlet diz apenas 'não gostei, parece ruim', sem reprodução, critério ou evidência, e marca FAIL. Isso bloqueia o fechamento?",
+      "expected_output": "Reject the unsupported finding as a blocker; require an ID, criterion, severity, reproducible evidence, smallest correction and confidence.",
+      "assertions": [
+        { "id": "P01", "description": "Unsupported opinion cannot block the task", "check": "regex: (?is)(cannot|não pode|não|must not|não deve).*(block|bloque).*(opinion|opinião|prefer|evidence|evidência)", "critical": true },
+        { "id": "P02", "description": "Requires a criterion-linked finding ID and severity", "check": "regex: (?is)(Finding ID|ID do finding).*((Criterion|Critério).*(Severity|Severidade)|(Severity|Severidade).*(Criterion|Critério))", "critical": true },
+        { "id": "P03", "description": "Requires reproducible evidence and confidence", "check": "regex: (?is)(reproduc|inspection|inspeção).*(evidence|evidência).*(Confidence|Confiança)", "critical": true },
+        { "id": "P04", "description": "Keeps the critic read-only", "check": "regex: (?is)(critic|crític).*(read.only|somente leitura).*(not|não).*(edit|editar)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-dry-run",
+      "polarity": "negative",
+      "prompt": "Execute /gauntlet docs/plans/example/PLAN.md --dry-run e diga exatamente o que seria mostrado e quais efeitos são proibidos.",
+      "expected_output": "Validate and display normalized routing, ownership, dependencies, waves, reviewers, caps and /verify loop without a lease, write, workspace or spawn.",
+      "assertions": [
+        { "id": "Q01", "description": "Displays the normalized execution model", "check": "regex: (?is)(tier).*(tasks|tarefas|task count).*(Owns).*(Needs).*(waves|ondas).*(reviewer|reviewers|revisores).*(caps|limites)", "critical": true },
+        { "id": "Q02", "description": "Creates no workspace", "check": "regex: (?is)(proibid|não|no|sem).{0,500}(criar|create).{0,30}workspace", "critical": true },
+        { "id": "Q03", "description": "Acquires no lease", "check": "regex: (?is)(proibid|não|no|sem).{0,500}(adquir|criar|create).{0,40}lease", "critical": true },
+        { "id": "Q04", "description": "Performs no workspace write", "check": "regex: (?is)(proibid|não|no|sem).{0,500}(escrev|write|alterar).{0,80}(arquivo|file)", "critical": true },
+        { "id": "Q05", "description": "Spawns no agent", "check": "regex: (?is)(proibid|não|no|sem).{0,700}(despach|spawn|agent|agente)", "critical": true },
+        { "id": "Q06", "description": "Shows the final verify route", "check": "contains: /verify loop", "critical": true },
+        { "id": "Q07", "description": "Rejects any unknown extra flag", "check": "regex: (?is)(unknown|desconhecid).*(flag).*(reject|rejeit)|(flag).*(unknown|desconhecid).*(reject|rejeit)|(flag).*(desconhecid).*(rejei)", "critical": true }
+      ]
+    },
+    {
+      "id": "gauntlet-neg-ultra-unavailable",
+      "polarity": "negative",
+      "prompt": "No Hermes, o usuário pediu Gauntlet para um plano aprovado. O runtime não expõe slash commands e o especialista de verificação adversarial não resolve. Traduza o método e relate a queda de capacidade com precisão.",
+      "expected_output": "Use the translated Step 5 equivalent; mark /gauntlet and /verify loop as NOT SUPPORTED, resolve/fallback once, report degradation and never retry resolution or report capped work as success.",
+      "assertions": [
+        { "id": "R01", "description": "Does not claim Hermes slash-command support", "check": "regex: (?is)(/gauntlet.*/verify loop|/verify loop.*/gauntlet).*(NOT SUPPORTED|não suportad)", "critical": true },
+        { "id": "R02", "description": "Uses the translated Step 5 equivalent", "check": "regex: (?is)(Step 5|5\\.).*(equivalent|equivalente|translated|traduz|verificação final).*(fallback|especialista|independent|independente)", "critical": true },
+        { "id": "R03", "description": "Falls back only once and records degradation", "check": "regex: (?is)(fallback).*(once|uma vez|única vez).*(degrad|queda)|(once|uma vez|única vez).*(fallback).*(degrad|queda)|(degrad|queda).*(once|uma vez|única vez).*(fallback)", "critical": true },
+        { "id": "R04", "description": "Does not retry unavailable resolution", "check": "regex: (?is)(do not|não|never|nunca).*(retry|repet|resolver).*(resolution|resolu|specialist|especialista)", "critical": true },
+        { "id": "R05", "description": "Keeps a capped or blocked run non-successful", "check": "regex: (?is)(capped|cap|BLOCKED).*(not|não).*(success|sucesso)", "critical": true }
       ]
     }
   ]

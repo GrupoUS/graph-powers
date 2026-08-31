@@ -1,7 +1,7 @@
 ---
 name: verification
 description: "Use proactively after a UI or user-flow change to prove it works in a real browser: staging smoke runs, screenshots, console and page errors, network evidence, acceptance flows. Reports defects and never edits them."
-model: opus
+model: sonnet
 color: green
 role_type: worker
 tools: Read, Bash, Grep, Skill

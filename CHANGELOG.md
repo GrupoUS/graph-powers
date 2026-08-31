@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.16.0 — Hermes native package parity
+
+Hermes now has a generated `plugin.yaml`, a native `__init__.py` entrypoint, and a single derived
+registration set for every bundled skill, command document, and agent contract. The repository adds
+the focused Hermes verifier, clone/version/wiring gates, and CI coverage. Hermes hooks remain
+explicitly **NOT ENFORCED** because Claude's executable hook payload is not part of the verified
+Hermes contract.
+
+## 1.15.0 — bounded Gauntlet execution
+
+`/gauntlet <approved-plan-file-or-directory> [--dry-run]` adds an explicit high-assurance profile
+over planning Phase C. Valid plans now carry a normalized L1-L6 tier: L1-L2 is rejected from
+Gauntlet fan-out, L3 remains a single sequential lane, and L4+ may schedule only ready tasks with
+disjoint ownership. Every lane is controller-owned and bounded: focused check, fresh read-only
+critic, evidence-backed correction packet, correction review and the existing configured caps,
+followed by `/verify loop` while the execution lease is still held.
+
+The profile keeps visual A/B optional and deterministic, reverses comparison order to expose
+position bias, and never substitutes subjective preference for acceptance criteria. Codex derives
+`graph-powers-gauntlet` through the existing command generator; Cursor and Grok read the canonical
+command; Hermes documents an honest method translation while slash-command support remains absent.
+Eleven new pressure cases bring the planning eval suite to 24 cases, including dry-run side effects,
+coupled ownership, capped non-convergence and verification fallback.
+
 ## 1.14.0 — Hermes as a fifth client
 
 Hermes Agent loads Graph Powers through root `plugin.yaml` + `__init__.py`, which register every

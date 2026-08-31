@@ -204,7 +204,7 @@ def scan_js() -> list[str]:
     """The installers. Same defect class as `scan_python`, different runtime."""
     problems: list[str] = []
     roots = ("bin/*.mjs", "bin/*.js", "codex/*.mjs", "codex/*.js", "cursor/*.mjs", "cursor/*.js",
-             "grok/*.mjs", "grok/*.js",
+             "grok/*.mjs", "grok/*.js", "hermes/*.mjs",
              ".github/*.mjs", ".github/*.js", "workflows/*.js", "workflows/*.mjs")
     for path in sorted({p for root in roots for p in glob.glob(root)}):
         if path.replace(os.sep, "/") in EXEMPT_FILES:

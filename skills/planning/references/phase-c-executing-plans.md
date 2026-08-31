@@ -1,19 +1,21 @@
 # Phase C — Execute
 
-> Canonical execution engine for the planning chain. `/implement` resolves the plan and invokes
-> this phase; no independent execution skill or workflow is required.
+> Canonical execution engine for the planning chain. Adapters resolve the plan and invoke this
+> phase; no independent execution skill or workflow is required.
 
 ## Entry contract
 
 - Phase B is complete: `<plan dir>/PLAN.md` passed its required review and the user approved it.
-- Tier is **L5+** (at L4, the approved plan is the deliverable until the user invokes `/implement`).
+- Tier is **L5+** for automatic transition. Explicit `/implement` admits an approved L4 plan;
+  explicit Gauntlet admits an approved L3+ plan. L1-L2 never enter Phase C.
 - The current branch is `${git.workBranch}` and is not protected.
+- When and only when successful validation passed `profile: gauntlet`, read `references/gauntlet-loop.md` and apply its delta; a missing profile is always default.
 
 ## Exit contract
 
-Every task has implementation, one task review and evidence; every phase gate is met; the final
-declared gates and `/verify quick` pass; `/evolve auto` is run. Stop with reviewed, unstaged
-working-tree changes. Stage, commit, push, PR and merge require separate current-turn approval.
+Every task has implementation, one task review and evidence, and every phase gate is met. Default
+execution closes with `/verify quick`; Gauntlet uses its profile's `/verify loop <PLAN_FILE>` close. Both run
+`/evolve auto` only after PASS and stop reviewed and unstaged. Git actions need separate approval.
 
 ## Step 1 — Validate and lease
 
@@ -23,8 +25,8 @@ For `--dry-run`, validate without creating state:
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
 
-The command returns exit `0` only for a structured plan and emits normalized JSON with `tasks`,
-phase `gates` and `writeLease`; invalid plans return exit `2`. A legacy unstructured plan is rejected
+The command returns exit `0` only for a structured plan and emits normalized JSON with `tier`,
+`tasks`, phase `gates` and `writeLease`; invalid plans return exit `2`. A legacy plan is rejected
 and routed to `/plan`, never inferred. The validator checks unique IDs, task and gate fields,
 checked-box evidence, existing dependencies, the `reads` payload, acyclic dependencies, task count,
 phase-gate coverage and `Owns` conflicts. File overlap is valid only when a dependency makes the
@@ -35,6 +37,9 @@ For a real run, atomically validate and acquire the plan-scoped lease before the
 ```bash
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
+
+The default profile omits a profile flag. Gauntlet appends `--profile gauntlet` to both `validate`
+and `acquire`, so its Acceptance and bundled-Skill admission checks are repeated before lease.
 
 `acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics. Its `paths`
 are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase progress ledger
@@ -79,6 +84,24 @@ not edit the plan. Append one row to the plan workspace's `task-reviews.md`: tim
 package snapshot, reviewer verdict, correction count and deciding check output. Failed and blocked
 attempts get rows too, so resumption does not erase why a task was retried or stopped.
 
+### Parent-mediated consultation
+
+The controller is the only consultation requester and owns the stable `taskId`, validated
+`decisionKey`, reservation, deduplication, cap and resume state. Before any consultation, tag the
+operation `consult` and use the canonical request/result envelope and `sdd.py consult reserve`; tag
+ordinary task, correction and final evaluator calls `review`. Review calls are separate from
+consultations, do not consume the consultation budget, and must not reset its ledger on resume.
+Workers cannot spawn children; evaluators, reviewers and critics are read-only and cannot request a
+consultation. A duplicate decision key returns its recorded result, a capped request returns
+`USER_REQUIRED`, and unresolved capability or unavailable fallback returns `BLOCKED` without a spawn
+or retry; persistent uncertainty is returned to the user.
+
+Capability status is supplied by the parent and is not live-probed. Native Fable/advisor is selected
+only after positive `SUPPORTED` metadata. `UNSUPPORTED` or `UNKNOWN` selects the existing read-only
+evaluator as an explicit fallback without emitting the native backend. Record a result only through
+the same ledger with `sdd.py consult record`; the atomic, symlink-safe state lives in this plan's
+existing SDD workspace.
+
 ### Inline fallback
 
 If the runtime has no Agent tool, review the plan critically and surface blocking concerns before
@@ -109,10 +132,10 @@ After all phase gates, resolve the merge base between the approved target branch
 run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review package, the plan and
 task-review ledger to the separate read-only reviewer in
 `references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
-Minor findings and triage deferred or parked items. Then run `/verify quick`, followed by
-`/evolve auto` on PASS. On success or a safe abort, run `sdd.py release <PLAN_FILE>`; it removes only
-a lease whose canonical `plan` matches. If a final gate fails, leave the lease and working-tree
-state explicit until the failure is resolved or the plan is safely aborted.
+Minor findings and triage deferred or parked items. The default profile then runs `/verify quick`,
+`/evolve auto` on PASS and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
+`gauntlet-loop.md § Final close` while the lease remains held. A failing final gate leaves the lease
+and working-tree state explicit until resolution or a safe abort.
 
 ## Required invariants
 
