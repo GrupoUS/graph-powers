@@ -10,8 +10,14 @@
     "max"
   ],
   "topLevelReasoningEfforts": [
+    "low",
     "ultra"
   ],
+  "warningCategories": {
+    "topLevelProfileDowngraded": "top-level-only-profile",
+    "topLevelEffortDowngraded": "top-level-only-effort",
+    "modelOverrideUnverified": "model-override-unverified"
+  },
   "legacyTiers": {
     "haiku": "light",
     "sonnet": "standard",
@@ -49,6 +55,13 @@
       "reasoningEffort": "ultra",
       "topLevelOnly": true,
       "fallbackProfile": "judge",
+      "escalationProfile": null
+    },
+    "native-economic": {
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "low",
+      "topLevelOnly": true,
+      "fallbackProfile": "scout",
       "escalationProfile": null
     }
   },

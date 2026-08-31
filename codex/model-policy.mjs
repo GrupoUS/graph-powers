@@ -23,6 +23,7 @@ export const CODEX_AGENT_PROFILES = CODEX_MODEL_POLICY.agents;
 export const CODEX_PROFILE_DEFAULTS = CODEX_MODEL_POLICY.profiles;
 export const CODEX_REASONING_EFFORTS = CODEX_MODEL_POLICY.reasoningEfforts;
 export const CODEX_TOP_LEVEL_REASONING_EFFORTS = CODEX_MODEL_POLICY.topLevelReasoningEfforts;
+export const CODEX_WARNING_CATEGORIES = CODEX_MODEL_POLICY.warningCategories;
 export const CODEX_LEAF_AGENTS = new Set(CODEX_MODEL_POLICY.leafAgents ?? []);
 export const TIER_BY_MODEL = CODEX_MODEL_POLICY.legacyTiers;
 export const CLAUDE_MODEL_FAMILIES = new Set(Object.keys(TIER_BY_MODEL));
@@ -33,6 +34,12 @@ const SUBAGENT_PROFILES = new Set(
     .filter(([, value]) => value.topLevelOnly !== true)
     .map(([name]) => name),
 );
+
+for (const key of ["topLevelProfileDowngraded", "topLevelEffortDowngraded", "modelOverrideUnverified"]) {
+  if (typeof CODEX_WARNING_CATEGORIES?.[key] !== "string") {
+    throw new Error("Codex model policy warning categories are incomplete");
+  }
+}
 
 function text(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -47,9 +54,7 @@ function firstModel(candidates) {
     const value = text(candidate.value);
     if (!value) continue;
     if (!isCodexModelSlug(value)) {
-      throw new Error(
-        `invalid Codex model ${JSON.stringify(candidate.value)} from ${candidate.source}; Claude model families cannot enter Codex output`,
-      );
+      throw new Error("invalid Codex model override; Claude model families cannot enter Codex output");
     }
     return { ...candidate, value };
   }
@@ -60,11 +65,7 @@ function validateEffort(value, source, allowed = SUBAGENT_EFFORTS) {
   const effort = text(value).toLowerCase();
   if (!effort) return null;
   if (!allowed.has(effort)) {
-    throw new Error(
-      `invalid Codex reasoning effort ${JSON.stringify(value)} from ${source}; expected ${[
-        ...allowed,
-      ].join(", ")}`,
-    );
+    throw new Error("invalid Codex reasoning effort override");
   }
   return effort;
 }
@@ -95,19 +96,13 @@ function requestedProfile(agentName, settings, override, warnings) {
   const requested = text(override.profile) || text(settings?.profile) || semantic;
   if (!requested) return null;
   if (!own(CODEX_PROFILE_DEFAULTS, requested)) {
-    throw new Error(
-      `unknown Codex profile ${JSON.stringify(requested)} for ${agentName}; expected ${Object.keys(
-        CODEX_PROFILE_DEFAULTS,
-      ).join(", ")}`,
-    );
+    throw new Error("unknown Codex profile override");
   }
   if (CODEX_PROFILE_DEFAULTS[requested].topLevelOnly === true) {
     if (!semantic) {
-      throw new Error(`Codex profile ${requested} is top-level-only and cannot configure ${agentName}`);
+      throw new Error("top-level-only Codex profile cannot configure an extension agent");
     }
-    warnings.push(
-      `Codex profile ${requested} is top-level-only; ${agentName} kept semantic profile ${semantic}`,
-    );
+    warnings.push(CODEX_WARNING_CATEGORIES.topLevelProfileDowngraded);
     return semantic;
   }
   return requested;
@@ -149,7 +144,7 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
   const profileDefault = profile ? CODEX_PROFILE_DEFAULTS[profile] : null;
   const profileOverride = profile ? settings?.profiles?.[profile] : undefined;
   if (profileOverride !== undefined && (!profileOverride || typeof profileOverride !== "object")) {
-    throw new Error(`Codex profile override ${profile} must be an object`);
+    throw new Error("Codex profile override must be an object");
   }
 
   const legacy = legacySource(sourceAgent);
@@ -163,6 +158,9 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
     { value: settings?.model, source: "legacy-model" },
     { value: profileDefault?.model, source: "semantic-default" },
   ]);
+  if (modelChoice?.source !== "semantic-default" && modelChoice?.source !== "session-inheritance") {
+    warnings.push(CODEX_WARNING_CATEGORIES.modelOverrideUnverified);
+  }
 
   let effortChoice = null;
   for (const candidate of [
@@ -179,11 +177,9 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
     if (value === "ultra") {
       const safe = profileDefault?.reasoningEffort;
       if (!safe || safe === "ultra") {
-        throw new Error(`Codex Ultra is top-level-only and ${name} has no safe semantic fallback`);
+        throw new Error("top-level-only Codex effort has no safe semantic fallback");
       }
-      warnings.push(
-        `Codex Ultra is top-level-only; ${name} downgraded to ${profileDefault.model} + ${safe}`,
-      );
+      warnings.push(CODEX_WARNING_CATEGORIES.topLevelEffortDowngraded);
       effortChoice = { value: safe, source: "ultra-safe-fallback" };
       break;
     }
@@ -222,11 +218,11 @@ export function resolveCodexTopLevelProfile(profileName, settings = {}) {
   const name = text(profileName);
   const base = CODEX_PROFILE_DEFAULTS[name];
   if (!base?.topLevelOnly) {
-    throw new Error(`${JSON.stringify(profileName)} is not a top-level-only Codex profile`);
+    throw new Error("requested Codex profile is not top-level-only");
   }
   const override = settings?.profiles?.[name] ?? {};
   if (!override || typeof override !== "object") {
-    throw new Error(`Codex profile override ${name} must be an object`);
+    throw new Error("Codex profile override must be an object");
   }
   const model = firstModel([
     { value: override.model, source: "profile-override" },
@@ -234,8 +230,8 @@ export function resolveCodexTopLevelProfile(profileName, settings = {}) {
   ]);
   const reasoningEffort = validateEffort(
     override.reasoningEffort ?? override.effort ?? base.reasoningEffort,
-    `top-level profile ${name}`,
-    new Set(CODEX_TOP_LEVEL_REASONING_EFFORTS),
+    "top-level profile",
+    new Set([base.reasoningEffort]),
   );
   return {
     profile: name,
@@ -247,6 +243,9 @@ export function resolveCodexTopLevelProfile(profileName, settings = {}) {
       : "semantic-default",
     policySource: "codex/model-policy.json",
     topLevelOnly: true,
+    warnings: model?.source === "profile-override"
+      ? [CODEX_WARNING_CATEGORIES.modelOverrideUnverified]
+      : [],
   };
 }
 

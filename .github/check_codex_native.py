@@ -34,6 +34,10 @@ EXPECTED_POLICY = {
     "explorer": ("scout", "gpt-5.6-luna", "medium"),
     "librarian": ("scout", "gpt-5.6-luna", "medium"),
 }
+EXPECTED_TOP_LEVEL_PROFILES = {
+    "native-economic": ["gpt-5.6-luna", "low"],
+    "native-ultra": ["gpt-5.6-sol", "ultra"],
+}
 READ_ONLY_AGENTS = {
     "evaluator", "security-reviewer", "skill-improver", "ui-ux-designer", "explorer",
     "librarian", "verification",
@@ -200,6 +204,33 @@ def main() -> int:
         }:
             print(f"::error::unexpected native-ultra profile: {ultra_config}")
             return 1
+
+        economic_command = [
+            "bun",
+            "codex/native-plugin.mjs",
+            "--top-level-profile",
+            "native-economic",
+            "--out",
+            tmp,
+        ]
+        economic = subprocess.run(
+            economic_command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        economic_path = Path(tmp) / "native-economic.config.toml"
+        if economic.returncode != 0 or not economic_path.is_file():
+            print(economic.stderr)
+            print("::error::native-economic top-level profile was not emitted")
+            return 1
+        if tomllib.loads(economic_path.read_text(encoding="utf-8")) != {
+            "model": "gpt-5.6-luna",
+            "model_reasoning_effort": "low",
+        }:
+            print("::error::unexpected native-economic profile")
+            return 1
     # --dry-run does not print JSON. Rebuild in-process via a small Bun snippet.
     built = subprocess.run(
         [
@@ -209,6 +240,7 @@ def main() -> int:
 import { readFileSync } from "node:fs";
 import { agentToToml } from "./codex/install.mjs";
 import { buildMarketplace, buildNativeAgents, buildPluginManifest } from "./codex/native-plugin.mjs";
+import { resolveCodexAgentPolicy, resolveCodexTopLevelProfile } from "./codex/model-policy.mjs";
 const claude = JSON.parse(readFileSync(".claude-plugin/plugin.json", "utf8"));
 const market = JSON.parse(readFileSync(".claude-plugin/marketplace.json", "utf8"));
 const agents = buildNativeAgents(".");
@@ -216,11 +248,43 @@ const cloneAgents = Object.fromEntries(Object.keys(agents).map((file) => [
   file,
   agentToToml(readFileSync(`agents/${file.replace(/\\.toml$/, ".md")}`, "utf8")),
 ]));
+const paritySettings = {
+  agents: { evaluator: { model: "CODEX_SECRET_OVERRIDE_SENTINEL", reasoningEffort: "ultra" } },
+};
+const nativeWarnings = [];
+buildNativeAgents(".", paritySettings, (warning) => nativeWarnings.push(warning));
+const cloneWarnings = [];
+for (const file of Object.keys(agents)) {
+  agentToToml(readFileSync(`agents/${file.replace(/\\.toml$/, ".md")}`, "utf8"), paritySettings,
+    (warning) => cloneWarnings.push(warning));
+}
+const topLevelProfiles = Object.fromEntries(["native-economic", "native-ultra"].map((name) => {
+  const profile = resolveCodexTopLevelProfile(name);
+  return [name, [profile.model, profile.reasoningEffort]];
+}));
+const secretSentinel = "CODEX_SECRET_OVERRIDE_SENTINEL";
+const warningResult = resolveCodexAgentPolicy("evaluator", {
+  agents: { evaluator: { model: secretSentinel, reasoningEffort: "ultra" } },
+}, { model: "opus", effort: "xhigh" });
+let errorOutput = "";
+try {
+  resolveCodexAgentPolicy("evaluator", {
+    agents: { evaluator: { model: `claude-${secretSentinel}` } },
+  }, { model: "opus", effort: "xhigh" });
+} catch (error) {
+  errorOutput = String(error);
+}
 process.stdout.write(JSON.stringify({
   manifest: buildPluginManifest(claude),
   marketplace: buildMarketplace(market),
   agents,
   cloneAgents,
+  topLevelProfiles,
+  warningCategories: [...new Set(warningResult.warnings)].sort(),
+  warningOutput: warningResult.warnings.join("|"),
+  errorOutput,
+  nativeWarnings,
+  cloneWarnings,
 }));
 """,
         ],
@@ -240,6 +304,24 @@ process.stdout.write(JSON.stringify({
         return 1
     if data["marketplace"] != native_market:
         print("::error::.codex-plugin/marketplace.json is stale — run: bun codex/native-plugin.mjs")
+        return 1
+
+    if data.get("topLevelProfiles") != EXPECTED_TOP_LEVEL_PROFILES:
+        print(f"::error::top-level profile policy mismatch: {data.get('topLevelProfiles')}")
+        return 1
+    secret_sentinel = "CODEX_SECRET_OVERRIDE_SENTINEL"
+    secret_output = "".join(
+        str(data.get(key, ""))
+        for key in ("warningOutput", "errorOutput", "nativeWarnings", "cloneWarnings")
+    )
+    if secret_sentinel in secret_output:
+        print("::error::override diagnostics leaked a secret sentinel")
+        return 1
+    if data.get("nativeWarnings") != data.get("cloneWarnings"):
+        print("::error::native/clone override diagnostics differ")
+        return 1
+    if data.get("warningCategories") != ["model-override-unverified", "top-level-only-effort"]:
+        print(f"::error::unexpected warning categories: {data.get('warningCategories')}")
         return 1
 
     native_dir = ROOT / "codex/native-agents"

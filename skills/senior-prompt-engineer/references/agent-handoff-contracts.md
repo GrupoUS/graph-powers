@@ -82,6 +82,48 @@ Every agent returns this block at the end of its response. Single canonical shap
 }
 ```
 
+## 2a. Consultation request/result envelope
+
+This is the canonical request/result envelope used by the parent-mediated consultation ledger and
+mirrored in `references/execution-floor.md §4a`. It is one shape, not separate request and result
+schemas. All fields are required. A request starts as `RESERVED`/`PENDING`; a completed result is
+`RECORDED`, `BLOCKED`, or `USER_REQUIRED` and carries its explicit verdict.
+
+```json
+{
+  "taskId": "T2",
+  "decisionKey": "architecture-boundary",
+  "question": "Which bounded design should the parent choose?",
+  "evidence": ["path:line or observed output"],
+  "options": ["option-a", "option-b"],
+  "recommendation": "option-a",
+  "risk": "what remains uncertain",
+  "verdict": "PENDING",
+  "requesterRole": "parent",
+  "depth": 0,
+  "backend": "evaluator",
+  "capabilityStatus": "SUPPORTED",
+  "status": "RESERVED"
+}
+```
+
+The parent/controller owns identity, reservation, stable `decisionKey` deduplication, the per-task
+three-key cap, and resume. `decisionKey` is validated and supplied by the parent; it is never
+derived from sensitive prompt text. Only a parent/controller at depth zero may consult. A worker
+cannot spawn children. Evaluators, reviewers, and critics are read-only and cannot request a
+consultation; review calls are tagged separately and do not consume this budget. Duplicate keys
+return the recorded result. A capped request is `USER_REQUIRED`; unresolved capability or an
+unavailable fallback is `BLOCKED`, with no spawn or retry.
+
+Capability status is declared, never live-probed: native Fable/advisor is permitted only when
+`SUPPORTED`; `UNSUPPORTED` or `UNKNOWN` explicitly routes to the existing read-only evaluator
+without emitting the native backend. If the strong evaluator/fallback is unavailable, return
+`BLOCKED`. The executable ledger is `sdd.py consult reserve|record`; it is atomic, symlink-safe,
+machine-readable, and its `USER_REQUIRED`/`BLOCKED` result uses exit code `4`.
+
+A result may add `fallback: true` and a bounded `reason` as routing metadata; these do not form a
+second envelope.
+
 ---
 
 ## 3. Status semantics + invariants

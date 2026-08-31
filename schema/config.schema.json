@@ -8,6 +8,10 @@
       "type": "string",
       "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
     },
+    "codexTopLevelReasoningEffort": {
+      "type": "string",
+      "enum": ["low", "ultra"]
+    },
     "codexProfileName": {
       "type": "string",
       "enum": ["judge", "architect", "executor", "verifier", "scout"]
@@ -308,6 +312,21 @@
             },
             "scout": {
               "$ref": "#/definitions/codexModelEffortOverride"
+            },
+            "native-economic": {
+              "type": "object",
+              "description": "Explicit top-level Codex economical orchestration profile. It uses Luna with low reasoning effort and is never valid on a Graph Powers subagent or inside deterministic fan-out.",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasoningEffort": {
+                  "type": "string",
+                  "enum": ["low"]
+                }
+              },
+              "additionalProperties": false
             },
             "native-ultra": {
               "type": "object",

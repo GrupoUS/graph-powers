@@ -48,6 +48,19 @@ workspace, write any file or dispatch any agent. Reject unknown flags rather tha
   `${graphGuardrails.maxSpawnsPerSession}` and specialist rounds against
   `${graphGuardrails.maxRoundsPerAgent}`.
 
+Consultations are a separate parent-owned operation. Tag the critic/reviewer cycle `review` and the
+parent-mediated operation `consult`; critic and reviewer passes neither reserve nor consume a
+consultation key, and resuming Gauntlet never resets consultation state. Only the controller may
+submit the canonical envelope to `sdd.py consult reserve|record`. Builders, critics and evaluators
+cannot request or spawn a consultation. A duplicate key reuses its recorded result; a capped key is
+`USER_REQUIRED`, and unresolved capability or unavailable fallback is `BLOCKED` without spawn or
+retry. Persistent uncertainty returns to the user.
+
+Capability metadata is declared by the parent and never live-probed. Native Fable/advisor is allowed
+only on positive `SUPPORTED`; `UNSUPPORTED`/`UNKNOWN` explicitly falls back to the existing
+read-only evaluator without emitting the native backend. Keep this state in the existing SDD
+workspace ledger and preserve it across critic, correction and resume cycles.
+
 Phase C's inline self-review fallback is disabled for this profile. If an independent critic cannot
 be dispatched, stop `BLOCKED`, preserve the lease and report the unavailable review boundary; a
 builder may never serve as its own Gauntlet critic.

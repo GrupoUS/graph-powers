@@ -92,6 +92,45 @@ class SddCliTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
+    def consult_request(
+        self,
+        *,
+        task_id_value: str = "T2",
+        decision_key: str = "architecture-boundary",
+        requester_role: str = "parent",
+        depth: int = 0,
+        backend: str = "evaluator",
+        capability_status: str = "SUPPORTED",
+    ) -> dict[str, object]:
+        return {
+            "taskId": task_id_value,
+            "decisionKey": decision_key,
+            "question": "Which bounded design should the parent choose?",
+            "evidence": ["existing contract", "focused test output"],
+            "options": ["preserve", "replace"],
+            "recommendation": "preserve",
+            "risk": "replacement could widen scope",
+            "verdict": "PENDING",
+            "requesterRole": requester_role,
+            "depth": depth,
+            "backend": backend,
+            "capabilityStatus": capability_status,
+            "status": "RESERVED",
+        }
+
+    def consult_plan(self, root: Path) -> Path:
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        return self.write_plan(root, plan_text(task("T1.1")))
+
+    def run_consult(
+        self,
+        action: str,
+        plan: Path,
+        envelope: dict[str, object],
+    ) -> subprocess.CompletedProcess[str]:
+        flag = "--request-json" if action == "reserve" else "--result-json"
+        return self.run_cli("consult", action, str(plan), flag, json.dumps(envelope))
+
     def assert_valid(
         self,
         text: str,
@@ -585,6 +624,182 @@ class SddCliTests(unittest.TestCase):
             ref_expression = self.run_cli("package", str(plan), "HEAD^{tree}", "HEAD")
             self.assertEqual(ref_expression.returncode, 2)
             self.assertIn("bad BASE", ref_expression.stderr)
+
+    def test_consult_reserve_record_and_duplicate_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.consult_request()
+
+            reserved = self.run_consult("reserve", plan, request)
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            reservation = json.loads(reserved.stdout)
+            self.assertEqual(reservation["status"], "RESERVED")
+            self.assertEqual(reservation["decisionKey"], request["decisionKey"])
+
+            result = dict(request)
+            result.update({"verdict": "PASS", "status": "RECORDED"})
+            recorded = self.run_consult("record", plan, result)
+            self.assertEqual(recorded.returncode, 0, recorded.stderr)
+            recorded_output = json.loads(recorded.stdout)
+            self.assertEqual(recorded_output["status"], "RECORDED")
+            self.assertEqual(recorded_output["verdict"], "PASS")
+
+            duplicate = self.run_consult("reserve", plan, request)
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            self.assertEqual(json.loads(duplicate.stdout), recorded_output)
+
+            duplicate_record = self.run_consult("record", plan, result)
+            self.assertEqual(duplicate_record.returncode, 0, duplicate_record.stderr)
+            self.assertEqual(json.loads(duplicate_record.stdout), recorded_output)
+
+    def test_consultation_cap_is_per_task_and_fresh_task_gets_new_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for number in range(1, 4):
+                request = self.consult_request(decision_key=f"choice-{number}")
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+            capped = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="choice-4"),
+            )
+            self.assertEqual(capped.returncode, 4)
+            capped_output = json.loads(capped.stdout)
+            self.assertEqual(capped_output["status"], "USER_REQUIRED")
+            self.assertIn("cap", capped_output["reason"])
+
+            fresh = self.run_consult(
+                "reserve", plan, self.consult_request(task_id_value="T3", decision_key="choice-1"),
+            )
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
+            self.assertEqual(json.loads(fresh.stdout)["status"], "RESERVED")
+
+    def test_consult_rejects_malformed_identity_and_forbidden_requesters(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for invalid in (
+                self.consult_request(task_id_value=""),
+                self.consult_request(decision_key="prompt contains sensitive text"),
+                self.consult_request(decision_key="../escape"),
+            ):
+                result = self.run_consult("reserve", plan, invalid)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse((root / ".graph-powers/logs/sdd" / root.name / "consultations.json").exists())
+
+            for role in ("evaluator", "reviewer", "critic"):
+                result = self.run_consult(
+                    "reserve", plan, self.consult_request(requester_role=role),
+                )
+                self.assertEqual(result.returncode, 2)
+            nested = self.run_consult("reserve", plan, self.consult_request(depth=1))
+            self.assertEqual(nested.returncode, 2)
+
+    def test_consult_requires_bounded_nonempty_evidence_and_options(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for field, value in (("evidence", []), ("options", []), ("evidence", ["x" * 4097])):
+                request = self.consult_request(decision_key=f"invalid-{field}-{len(str(value))}")
+                request[field] = value
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 2)
+            self.assertFalse((root / ".graph-powers/logs/sdd" / root.name / "consultations.json").exists())
+
+    def test_consult_capability_fallback_and_blocked_state_are_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            supported = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="native-supported", backend="fable"),
+            )
+            self.assertEqual(supported.returncode, 0, supported.stderr)
+            self.assertEqual(json.loads(supported.stdout)["backend"], "fable")
+            for status in ("UNSUPPORTED", "UNKNOWN"):
+                request = self.consult_request(
+                    decision_key=f"fallback-{status.lower()}",
+                    backend="fable",
+                    capability_status=status,
+                )
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = json.loads(result.stdout)
+                self.assertEqual(output["backend"], "evaluator")
+                self.assertEqual(output["capabilityStatus"], status)
+                self.assertNotIn("fable", result.stdout.lower())
+                self.assertTrue(output["fallback"])
+
+            blocked_request = self.consult_request(
+                task_id_value="T3",
+                decision_key="blocked-capability",
+                backend="fable",
+                capability_status="UNAVAILABLE",
+            )
+            blocked = self.run_consult("reserve", plan, blocked_request)
+            self.assertEqual(blocked.returncode, 4)
+            blocked_output = json.loads(blocked.stdout)
+            self.assertEqual(blocked_output["status"], "BLOCKED")
+            self.assertEqual(blocked_output["verdict"], "BLOCKED")
+
+            duplicate = self.run_consult("reserve", plan, blocked_request)
+            self.assertEqual(duplicate.returncode, 4)
+            self.assertEqual(json.loads(duplicate.stdout), blocked_output)
+
+    def test_consult_rejects_symlinked_ledger_and_concurrent_duplicate_is_atomic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            container = Path(directory)
+            root = container / "repo"
+            root.mkdir()
+            plan = self.consult_plan(root)
+            request = self.consult_request()
+            first = self.run_consult("reserve", plan, request)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            ledger = root / ".graph-powers/logs/sdd" / root.name / "consultations.json"
+            outside = container / "outside.json"
+            outside.write_text("outside\n", encoding="utf-8")
+            saved = json.loads(ledger.read_text(encoding="utf-8"))
+            ledger.unlink()
+            try:
+                ledger.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+            rejected = self.run_consult(
+                "reserve", plan, self.consult_request(decision_key="symlink-attempt"),
+            )
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("symlink", rejected.stderr.lower())
+            self.assertEqual(outside.read_text(encoding="utf-8"), "outside\n")
+            ledger.unlink()
+            ledger.write_text(json.dumps(saved), encoding="utf-8")
+
+            duplicate_request = self.consult_request(decision_key="concurrent")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(
+                    lambda _: self.run_consult("reserve", plan, duplicate_request), range(2),
+                ))
+            self.assertEqual([result.returncode for result in results], [0, 0])
+            self.assertEqual(json.loads(results[0].stdout), json.loads(results[1].stdout))
+
+    def test_consult_docs_define_one_envelope_and_separate_reviews(self) -> None:
+        sources = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                Path("references/execution-floor.md"),
+                Path("skills/senior-prompt-engineer/references/agent-handoff-contracts.md"),
+                Path("skills/planning/references/phase-c-executing-plans.md"),
+                Path("skills/planning/references/gauntlet-loop.md"),
+                Path("agents/evaluator.md"),
+            )
+        )
+        for field in (
+            "taskId", "decisionKey", "question", "evidence", "options", "recommendation",
+            "risk", "verdict", "requesterRole", "depth", "backend", "capabilityStatus", "status",
+        ):
+            self.assertIn(field, sources)
+        self.assertRegex(sources, r"(?i)review.{0,80}(separate|distinct|not).{0,80}consult")
+        self.assertRegex(sources, r"(?i)evaluator.{0,80}(no|cannot).{0,80}(spawn|consult)")
 
 
 if __name__ == "__main__":

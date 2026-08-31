@@ -22,14 +22,15 @@ when the upstream text and Hermes disagree.
 | `Skill("debugger")` | `skill_view("graph-powers:debugger")` |
 | An agent's role contract | `skill_view("graph-powers:agent-debugger")` — one per upstream agent |
 | `run_in_background: true` | Nothing to set. A top-level `delegate_task` already runs in the background and posts its result back |
-| `${CLAUDE_PLUGIN_ROOT}/references/...` | `${CLAUDE_PLUGIN_ROOT}/references/...`, read with `read_file` |
+| `${CLAUDE_PLUGIN_ROOT}/references/...` | the installed plugin root's `references/...`, read with `read_file` |
 | Hooks that block a bad command | This skill + SOUL + Hermes approvals. Upstream hooks are not ported; the parent must carry and enforce the safety contract |
 | `Read` / `Glob` / `Grep` / `Bash` | `read_file` / `search_files` / `terminal` |
 | `WebSearch` / `WebFetch` / Tavily / Context7 | `web_search` / `web_extract`, unless the exact MCP is configured and needed |
 | `AskUserQuestion` | `clarify` in the parent; delegated children return the decision point instead of asking |
 
-Registered names are discovered at startup from every `skills/*/SKILL.md` and `agents/*.md`; this
-translation does not maintain a second inventory. Agent contracts use the `agent-` prefix.
+Registered names are discovered at startup from every `skills/*/SKILL.md`, `commands/*.md`, and
+`agents/*.md`; this translation does not maintain a second inventory. A command keeps its stem
+(`plan` becomes `graph-powers:plan`), and agent contracts use the `agent-` prefix.
 
 ## Step 0 — Classify, then spend proportionally
 
@@ -140,10 +141,11 @@ Hermes specifics that change the shape of a fan-out:
 
 ## Gauntlet profile — translated, not a slash command
 
-When the user asks for Gauntlet by name, `/gauntlet` is **NOT SUPPORTED** and `/verify loop` is
-**NOT SUPPORTED** as Hermes slash commands. Apply their method directly; never claim either command
-ran. Require one explicit approved structured plan, run Planning's `sdd.py validate ... --profile
-gauntlet`, and use its normalized tier. Missing or invalid input routes to planning; L1-L2 returns
+When the user asks for Gauntlet by name, `/gauntlet` and `/verify loop` remain **NOT SUPPORTED** as
+Hermes slash commands. Their command documents are available as `graph-powers:gauntlet` and
+`graph-powers:verify`; apply the method directly and never claim either slash command ran. Require
+one explicit approved structured plan, run Planning's `sdd.py validate ... --profile gauntlet`, and
+use its normalized tier. Missing or invalid input routes to planning; L1-L2 returns
 `NOT ELIGIBLE FOR GAUNTLET` and stays local.
 
 For eligible L3+, run Phase C's `sdd.py acquire ... --profile gauntlet` before any writer, then read

@@ -84,6 +84,24 @@ not edit the plan. Append one row to the plan workspace's `task-reviews.md`: tim
 package snapshot, reviewer verdict, correction count and deciding check output. Failed and blocked
 attempts get rows too, so resumption does not erase why a task was retried or stopped.
 
+### Parent-mediated consultation
+
+The controller is the only consultation requester and owns the stable `taskId`, validated
+`decisionKey`, reservation, deduplication, cap and resume state. Before any consultation, tag the
+operation `consult` and use the canonical request/result envelope and `sdd.py consult reserve`; tag
+ordinary task, correction and final evaluator calls `review`. Review calls are separate from
+consultations, do not consume the consultation budget, and must not reset its ledger on resume.
+Workers cannot spawn children; evaluators, reviewers and critics are read-only and cannot request a
+consultation. A duplicate decision key returns its recorded result, a capped request returns
+`USER_REQUIRED`, and unresolved capability or unavailable fallback returns `BLOCKED` without a spawn
+or retry; persistent uncertainty is returned to the user.
+
+Capability status is supplied by the parent and is not live-probed. Native Fable/advisor is selected
+only after positive `SUPPORTED` metadata. `UNSUPPORTED` or `UNKNOWN` selects the existing read-only
+evaluator as an explicit fallback without emitting the native backend. Record a result only through
+the same ledger with `sdd.py consult record`; the atomic, symlink-safe state lives in this plan's
+existing SDD workspace.
+
 ### Inline fallback
 
 If the runtime has no Agent tool, review the plan critically and surface blocking concerns before

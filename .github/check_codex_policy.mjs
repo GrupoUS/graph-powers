@@ -8,6 +8,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const EXPECTED_POLICY = {
@@ -52,6 +53,8 @@ const {
   CODEX_AGENT_PROFILES,
   CODEX_PROFILE_DEFAULTS,
   CODEX_REASONING_EFFORTS,
+  CODEX_TOP_LEVEL_REASONING_EFFORTS,
+  CODEX_WARNING_CATEGORIES,
   resolveCodexAgentPolicy,
   resolveCodexTopLevelProfile,
 } = policy;
@@ -85,8 +88,12 @@ const resolve = (name, settings = {}) =>
 assert(Object.keys(EXPECTED_POLICY).length === 12, "oracle must contain all 12 canonical agents");
 assert(CODEX_AGENT_PROFILES && typeof CODEX_AGENT_PROFILES === "object", "CODEX_AGENT_PROFILES is missing");
 assert(CODEX_PROFILE_DEFAULTS && typeof CODEX_PROFILE_DEFAULTS === "object", "CODEX_PROFILE_DEFAULTS is missing");
+assert(CODEX_WARNING_CATEGORIES && typeof CODEX_WARNING_CATEGORIES === "object", "CODEX_WARNING_CATEGORIES is missing");
 const efforts = Array.from(CODEX_REASONING_EFFORTS ?? []);
 assert(efforts.includes("max"), `max is not accepted; efforts=${JSON.stringify(efforts)}`);
+const topLevelEfforts = Array.from(CODEX_TOP_LEVEL_REASONING_EFFORTS ?? []);
+assert(topLevelEfforts.includes("low") && topLevelEfforts.includes("ultra"),
+  "top-level policy must accept both economical low and Ultra efforts");
 
 for (const [name, expected] of Object.entries(EXPECTED_POLICY)) {
   const actual = resolve(name);
@@ -104,6 +111,10 @@ const perAgent = { model: "override-model", reasoningEffort: "high" };
 assert(equal(resolve("explorer", { agentOverrides: { explorer: perAgent }, agents: { explorer: perAgent } }), {
   profile: "scout", model: "override-model", effort: "high", topLevelOnly: false,
 }), "explicit per-agent override did not win");
+assert(resolveCodexAgentPolicy("explorer", { agents: { explorer: perAgent } },
+  sourceAgent("explorer", EXPECTED_POLICY.explorer)).warnings.includes(
+  CODEX_WARNING_CATEGORIES.modelOverrideUnverified,
+), "arbitrary model override did not emit its fixed diagnostic category");
 assert(equal(resolve("explorer", { profile: "judge" }), {
   profile: "judge", model: "gpt-5.6-sol", effort: "max", topLevelOnly: false,
 }), "explicit profile override did not win");
@@ -158,6 +169,9 @@ assert(claudeModelRejected, "Claude model family leaked through an explicit Code
 const ultra = CODEX_PROFILE_DEFAULTS["native-ultra"];
 assert(ultra && effortOf(ultra) === "ultra" && ultra.topLevelOnly === true,
   "native-ultra must be explicit and top-level-only");
+const economic = CODEX_PROFILE_DEFAULTS["native-economic"];
+assert(economic && economic.model === "gpt-5.6-luna" && effortOf(economic) === "low" &&
+  economic.topLevelOnly === true, "native-economic must be Luna low and top-level-only");
 let evaluatorUltra;
 try {
   evaluatorUltra = resolve("evaluator", { profile: "native-ultra" });
@@ -176,11 +190,22 @@ const directUltra = resolveCodexAgentPolicy(
 );
 assert(directUltra.model === "gpt-5.6-sol" && directUltra.reasoningEffort === "max",
   `evaluator Ultra safe fallback is not Sol Max: ${JSON.stringify(directUltra)}`);
-assert(directUltra.warnings.some((warning) => warning.includes("top-level-only")),
-  "evaluator Ultra fallback emitted no diagnostic");
+assert(equal(directUltra.warnings, [CODEX_WARNING_CATEGORIES.topLevelEffortDowngraded]),
+  "evaluator Ultra fallback did not emit its fixed diagnostic category");
+const economicLeaf = resolve("debugger", { profile: "native-economic" });
+assert(equal(economicLeaf, {
+  profile: "executor", model: "gpt-5.6-luna", effort: "max", topLevelOnly: false,
+}), `native-economic was not safely downgraded for a leaf: ${JSON.stringify(economicLeaf)}`);
+assert(equal(resolveCodexAgentPolicy("debugger", { profile: "native-economic" },
+  sourceAgent("debugger", EXPECTED_POLICY.debugger)).warnings,
+  [CODEX_WARNING_CATEGORIES.topLevelProfileDowngraded]),
+  "native-economic leaf rejection did not emit its fixed diagnostic category");
 const topLevelUltra = resolveCodexTopLevelProfile("native-ultra");
 assert(topLevelUltra.model === "gpt-5.6-sol" && topLevelUltra.reasoningEffort === "ultra" &&
   topLevelUltra.topLevelOnly === true, "native-ultra did not resolve as an explicit top-level profile");
+const topLevelEconomic = resolveCodexTopLevelProfile("native-economic");
+assert(topLevelEconomic.model === "gpt-5.6-luna" && topLevelEconomic.reasoningEffort === "low" &&
+  topLevelEconomic.topLevelOnly === true, "native-economic did not resolve as an explicit top-level profile");
 
 const schema = JSON.parse(
   readFileSync(new URL("../schema/config.schema.json", import.meta.url), "utf8"),
@@ -189,6 +214,10 @@ const schemaEfforts = schema.definitions?.codexReasoningEffort?.enum ?? [];
 assert(equal(schemaEfforts, efforts),
   `schema effort enum drifted from model policy: ${JSON.stringify(schemaEfforts)}`);
 assert(!schemaEfforts.includes("ultra"), "schema exposes Ultra as an ordinary subagent effort");
+assert(equal(schema.definitions?.codexTopLevelReasoningEffort?.enum, topLevelEfforts),
+  "schema top-level effort enum drifted from model policy");
+assert(schema.properties?.codex?.properties?.profiles?.properties?.["native-economic"],
+  "schema does not expose native-economic profile overrides");
 
 // Exercise both renderers with non-default settings. Sharing the resolver is necessary but this
 // comparison proves neither renderer drops or renames the resolved fields on its own surface.
@@ -217,19 +246,41 @@ const paritySettings = {
   profiles: { executor: { model: "gpt-5.6-terra", reasoningEffort: "high" } },
   agents: { evaluator: { model: "operator-sol", reasoningEffort: "xhigh" } },
 };
-const nativeAgents = buildNativeAgents(ROOT, paritySettings);
+const nativeWarnings = [];
+const nativeAgents = buildNativeAgents(ROOT, paritySettings, (warning) => nativeWarnings.push(warning));
+const cloneWarnings = [];
 const scalar = (source, key, separator = "=") => {
   const re = new RegExp(`^${key}\\s*${separator}\\s*["']?([^"'\\r\\n#]+)`, "m");
   return re.exec(source)?.[1]?.trim() ?? null;
 };
 for (const name of Object.keys(EXPECTED_POLICY)) {
   const source = readFileSync(new URL(`../agents/${name}.md`, import.meta.url), "utf8");
-  const clone = agentToToml(source, paritySettings);
+  const clone = agentToToml(source, paritySettings, (warning) => cloneWarnings.push(warning));
   const native = nativeAgents[`${name}.toml`];
   assert(scalar(clone, "model") === scalar(native, "model"),
     `${name}: override model differs between clone and native renderers`);
   assert(scalar(clone, "model_reasoning_effort") === scalar(native, "model_reasoning_effort"),
     `${name}: override effort differs between clone and native renderers`);
 }
+assert(equal(cloneWarnings, nativeWarnings), "override diagnostics differ between clone and native renderers");
+
+const secretSentinel = "CODEX_SECRET_OVERRIDE_SENTINEL";
+const secretProbe = spawnSync(process.execPath, ["-e", `
+import { resolveCodexAgentPolicy } from "./codex/model-policy.mjs";
+const source = { model: "opus", effort: "xhigh" };
+try {
+  resolveCodexAgentPolicy("evaluator", {
+    agents: { evaluator: { model: "claude-${secretSentinel}", reasoningEffort: "ultra" } },
+  }, source);
+} catch (error) {
+  process.stderr.write(String(error));
+}
+const result = resolveCodexAgentPolicy("evaluator", {
+  agents: { evaluator: { model: "${secretSentinel}", reasoningEffort: "ultra" } },
+}, source);
+process.stdout.write(result.warnings.join("|"));
+`], { encoding: "utf8" });
+const secretOutput = `${secretProbe.stdout ?? ""}${secretProbe.stderr ?? ""}`;
+assert(!secretOutput.includes(secretSentinel), "override diagnostics leaked a secret sentinel");
 
 console.log(`codex-policy: ${Object.keys(EXPECTED_POLICY).length} defaults, overrides, native-companion parity and Ultra guard checked`);
