@@ -42,7 +42,7 @@ LOOP <phase>:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
     - CTX-GUARD : context > ~80K → handoff artifact + reset (§ Context Reset Protocol)
-    - COST-GUARD: width `graphGuardrails.maxParallelWave` / Phase C correction cap `${graphGuardrails.maxRepatch}`
+    - COST-GUARD: width `graphGuardrails.maxParallelWave` / cumulative `graphGuardrails.maxSpawnsPerWorkflow` / Phase C correction cap `${graphGuardrails.maxRepatch}`
   terminal: goal PASS → next phase | any guard trips → escalate / halt
 ```
 
@@ -88,7 +88,7 @@ Calibrate evaluator judgment against them before each session to prevent score d
 
 | Score | Completeness | Atomicity | Risk Coverage | Dependency Order |
 |-------|-------------|-----------|---------------|-----------------|
-| **9** | Every requirement maps to ≥1 task; edge cases covered | Each step is clearly one action (2-5 min), no ambiguity | Top 5 risks with mitigations, all BLOCK items addressed | Can execute in order without backtracking |
+| **9** | Every requirement maps to ≥1 task; edge cases covered | Each task is one natural, independently verifiable deliverable, no ambiguity | Top 5 risks with mitigations, all BLOCK items addressed | Can execute in order without backtracking |
 | **7** | All requirements covered, minor edge cases missing | Most steps atomic, 1-2 slightly large but splittable | Major risks identified, some mitigations vague | Order works, minor dependency question |
 | **5** | Core requirements covered, 1-2 missing | Mix of atomic and vague steps | Some risks noted, mitigations missing | Some tasks could conflict, needs clarification |
 | **3** | Several requirements missing or vague | Steps like "implement auth" with no decomposition | Risks absent or trivial | Order unclear or has explicit conflict |
@@ -99,7 +99,8 @@ At/above threshold → goal PASS → exit. Below → FAIL with actionable feedba
 
 > **Loop budget (cost control).** Thresholds give the loop a terminal; the budget keeps it from
 > running away. CTX-GUARD = the Context Reset Protocol (§ below) at ~80K tokens. COST-GUARD =
-> Phase C correction cap `${graphGuardrails.maxRepatch}` + `graphGuardrails.maxParallelWave` in flight. Together they prevent "context overflow" and
+> Phase C correction cap `${graphGuardrails.maxRepatch}` + `graphGuardrails.maxParallelWave` in flight
+> + cumulative `graphGuardrails.maxSpawnsPerWorkflow`. Together they prevent "context overflow" and
 > "runaway spend".
 
 ---
@@ -253,7 +254,7 @@ read them as "all clauses true → exit".
 |---|---|---|---|
 | **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect → clarify → compare → design → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable destination → do not plan) |
 | **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** self-review passes **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved; at L5+, GATE 2 meets the 4 anchors | map files/interfaces → write tasks → self-review → at L5+ `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** task review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: implementer → task review → correction review when needed → close the task, and its verification releases what it unblocked | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` · CTX-GUARD reset > 80K · then `/debug recover` |
+| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** its wave Evaluator review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: grouped specialist lanes → one consolidated Evaluator per wave → grouped correction when needed → close verified tasks | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` and total `graphGuardrails.maxSpawnsPerWorkflow` · CTX-GUARD reset > 80K · then `/debug recover` |
 
 ---
 

@@ -394,7 +394,8 @@
         "maxFixRounds": {
           "type": "integer",
           "minimum": 1,
-          "description": "Fix rounds before the verify chain stops and reports what is still open. Absent lets the workflow choose from its token budget."
+          "maximum": 1,
+          "description": "Fix rounds before the verify chain stops and reports what is still open. One grouped correction may be followed by one fresh adversarial confirmation; absent uses that bounded default."
         },
         "riskSurfaces": {
           "type": "array",
@@ -490,6 +491,7 @@
         },
         "lenses": {
           "type": "array",
+          "maxItems": 4,
           "description": "Extra adversarial review lenses, on top of correctness, security, performance and design. Each lens is a distinct QUESTION — identical skeptics agree with each other and miss the same things.",
           "items": {
             "type": "object",
@@ -500,7 +502,8 @@
               },
               "agent": {
                 "type": "string",
-                "description": "Which subagent asks it. Defaults to evaluator."
+                "enum": ["evaluator", "security-reviewer", "ui-ux-designer"],
+                "description": "Existing read-only Graph Powers role that owns this question. Defaults to evaluator; compatible lenses are consolidated by role rather than spawning one agent per lens."
               },
               "when": {
                 "type": "array",
@@ -523,13 +526,13 @@
     },
     "graphGuardrails": {
       "type": "object",
-      "description": "Hard ceilings on the execution graph, enforced by graph_guardrails.py. They exist to catch runaway loops, not to squeeze normal work — calibrate by measuring, not by guessing.",
+      "description": "Hard ceilings on the execution graph. graph_guardrails.py enforces direct Agent calls; shipped workflow scripts and Phase C dispatch reservations enforce their own cumulative total because inner workflow spawns bypass the hook.",
       "properties": {
         "maxSpawnsPerSession": {
           "type": "integer",
           "minimum": 1,
           "default": 25,
-          "description": "Agent spawns inside spawnWindowMinutes. Counted from session start instead, this became a session-lifetime quota: a long session hit it on the first spawn of an unrelated later task and then refused every spawn for the rest of the day."
+          "description": "Direct Agent spawns inside spawnWindowMinutes. This does not cover agents launched inside Workflow scripts."
         },
         "maxRoundsPerAgent": {
           "type": "integer",
@@ -546,18 +549,28 @@
         "maxParallelWave": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 3,
           "default": 3,
-          "description": "Agents in one wave of the build chain, and fixes in one round of the verify chain. An oversized wave is split and logged, never truncated."
+          "description": "Agents concurrently in flight. This is a maximum, never a target; excess independent work waits for a later checkpoint within maxSpawnsPerWorkflow."
+        },
+        "maxSpawnsPerWorkflow": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "default": 8,
+          "description": "Cumulative dispatches in one workflow invocation, including config/bootstrap, specialists, reviewers, retries and confirmations. At the cap the workflow returns partial evidence as NEEDS_WORK or BLOCKED; it never starts another workflow or silently omits a required gate."
         },
         "maxTasksPerPlan": {
           "type": "integer",
           "minimum": 1,
-          "default": 40,
-          "description": "Runaway backstop: a plan with more tasks than this throws instead of quietly implementing part of it."
+          "maximum": 12,
+          "default": 12,
+          "description": "Runaway backstop: larger work is decomposed into reviewed plans instead of creating one execution graph whose implementer/reviewer cycles exhaust the workflow budget."
         },
         "maxRepatch": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 2,
           "default": 2,
           "description": "How many times the verify chain re-patches one failing item before reporting it blocked. Without it a single unfixable item consumes every round."
         }

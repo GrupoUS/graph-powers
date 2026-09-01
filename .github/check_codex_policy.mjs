@@ -17,11 +17,11 @@ const EXPECTED_POLICY = {
   "skill-improver": ["judge", "gpt-5.6-sol", "max"],
   "ui-ux-designer": ["judge", "gpt-5.6-sol", "max"],
   "project-planner": ["architect", "gpt-5.6-sol", "max"],
-  debugger: ["executor", "gpt-5.6-luna", "max"],
-  "frontend-specialist": ["executor", "gpt-5.6-luna", "max"],
-  "mobile-developer": ["executor", "gpt-5.6-luna", "max"],
-  "performance-optimizer": ["executor", "gpt-5.6-luna", "max"],
-  verification: ["verifier", "gpt-5.6-luna", "max"],
+  debugger: ["executor", "gpt-5.6-terra", "high"],
+  "frontend-specialist": ["executor", "gpt-5.6-terra", "high"],
+  "mobile-developer": ["executor", "gpt-5.6-terra", "high"],
+  "performance-optimizer": ["executor", "gpt-5.6-terra", "high"],
+  verification: ["verifier", "gpt-5.6-terra", "high"],
   explorer: ["scout", "gpt-5.6-luna", "medium"],
   librarian: ["scout", "gpt-5.6-luna", "medium"],
 };
@@ -198,7 +198,7 @@ assert(equal(directUltra.warnings, [CODEX_WARNING_CATEGORIES.topLevelEffortDowng
   "evaluator Ultra fallback did not emit its fixed diagnostic category");
 const economicLeaf = resolve("debugger", { profile: "native-economic" });
 assert(equal(economicLeaf, {
-  profile: "executor", model: "gpt-5.6-luna", effort: "max", topLevelOnly: false,
+  profile: "executor", model: "gpt-5.6-terra", effort: "high", topLevelOnly: false,
 }), `native-economic was not safely downgraded for a leaf: ${JSON.stringify(economicLeaf)}`);
 assert(equal(resolveCodexAgentPolicy("debugger", { profile: "native-economic" },
   sourceAgent("debugger", EXPECTED_POLICY.debugger)).warnings,

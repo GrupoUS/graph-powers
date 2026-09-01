@@ -607,3 +607,28 @@ read the caller's allowlist (rubric W2, "dangling when the citing agent lacks th
 Replaced by a path read of `${CLAUDE_PLUGIN_ROOT}/skills/animate/SKILL.md`, which also sidesteps
 the personal-scope `animate` that shadows the plugin's on this machine; Codex mirrors regenerated.
 The gate that would have caught it is the one Mode B runs by hand, not any script here.
+
+## Round 9 — 2026-09-01 · bounded workflow fan-out and canonical model routing
+
+**Hypothesis:** parallelism could retain independent specialist work and adversarial review while a
+cumulative workflow cap, role clustering and one Evaluator per acceptance boundary removed the
+100-agent cascade. The same role could select an economical, balanced or judging model on Claude
+Code and Codex without a second hand-maintained spawn list.
+
+**Change:** added `maxSpawnsPerWorkflow`; routed every shipped workflow call through one counter;
+grouped custom lenses, Phase C tasks and corrections by existing Graph Powers role; removed nested
+review commands and per-finding refuters. Native Claude spawns keep agent frontmatter models,
+workflow calls require the canonical model map, and Codex maps scout/executor-verify/judge roles to
+Luna/Terra/Sol through its existing semantic policy. Skill eval baselines now sample changed and
+boundary cases instead of doubling every case.
+
+**Measurement:** both workflow dry runs stop at 8 spawns, including overflow and caller-poisoned
+model fixtures; 47 planning tests prove the plan-scoped counter survives resume, refuses dispatch 9,
+holds at 8 under 10 concurrent reservations and resets only under a new lease. Codex policy and
+native/clone parity pass for 12 roles. Context
+floor is 269,953/270,000 B and listing is 10,109/10,752 chars; wiring checks 459 references and
+12 agents with no unresolved route, and portability reports zero findings.
+
+**Verdict: PASS.** Width remains useful but is no longer mistaken for a cumulative brake. The
+remaining unmeasured boundary is a provider-internal retry below one `agent()` call; the plugin does
+not claim to count it.

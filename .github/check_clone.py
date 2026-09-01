@@ -23,14 +23,17 @@ REQUIRED = [
     ".cursor-plugin/plugin.json",
     ".grok-plugin/plugin.json", ".grok-plugin/marketplace.json",
     ".codex-plugin/plugin.json", ".codex-plugin/marketplace.json",
-    "codex/native-plugin.mjs",
+    "codex/native-plugin.mjs", "codex/native-command-skills/verify/SKILL.md",
     "AGENT_SETUP.md", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md",
     "DESIGN.md", "PRODUCT.md", "REVIEW.md", "AGENTS.md", "CONTRIBUTING.md",
     "templates/zed/settings.json", "templates/vscode/settings.json", "templates/vscode/extensions.json",
     "commands/setup.md", "references/shared/130-typescript7-oxc-gates.md",
     "docs/ARCHITECTURE.md", "docs/AUDIENCE.md",
 ]
-REQUIRED_DIRS = ["agents", "skills", "commands", "references", "templates", "examples", "workflows", "hermes", "codex/native-agents"]
+REQUIRED_DIRS = [
+    "agents", "skills", "commands", "references", "templates", "examples", "workflows",
+    "hermes", "codex/native-agents", "codex/native-command-skills",
+]
 MAX_BYTES = 4 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]

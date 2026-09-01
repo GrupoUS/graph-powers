@@ -144,32 +144,33 @@ code. Written as `1 → 2 → 3` they looked sequential and were not, and that a
 free parallelism into wasted wall-clock.
 
 Follow `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, then dispatch **in one
-message**, every track `run_in_background: true`. Every agent below is read-only **by
+message**, every applicable track `run_in_background: true`. Every agent below is read-only **by
 frontmatter**, never by a prose
 "do not fix" — the incident that rule comes from is in
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`.
 
 | Track | Agent | Asks | Fires when |
 |---|---|---|---|
-| Floor | `graph-powers:explorer` | § 2, every clause, with the command that proves each | always |
-| Correctness | `graph-powers:evaluator` | does the diff do what the plan said, and nothing else | always |
+| Acceptance | `graph-powers:evaluator` | § 2 floor evidence plus whether the diff does what the plan said, and nothing else | always |
 | Security | `graph-powers:security-reviewer` | tenant, personal data, authorization, secrets, weakened defaults | `auth`, `api` or `schema` touched |
 | Design | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport | `web` touched |
 
-The project extends this list through `chain.lenses` — each entry a `name`, its own `checks`, an
-optional `agent` and a `when` — the same contract `graph-powers:ultra-verify` honours. A lens naming
-an agent this plugin does not ship is **named in the output before the batch runs**: a misspelt value
-otherwise drops a lens silently and the run reports one check fewer than it claims.
+The project extends these questions through `chain.lenses`. Fold compatible checks into the three
+roles above; do not create one agent per lens. If a distinct role is genuinely required, it replaces
+the least relevant optional track so the batch remains at three agents. A lens naming an agent this
+plugin does not ship is **named in the output before the batch runs**.
 
 Each track returns the findings table of
 `${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/parallel-batch-contracts.md`, **plus
 one line naming what it checked and found clean.** Without that line "two tracks agree" is not
 evidence and "only one track raised it" cannot be told from "only one track looked".
 
-Run when `$ARGUMENTS` contains `full` or `loop`, or when an argument-less run inherits an L3+ task.
+Run when `$ARGUMENTS` contains `full`, or when an argument-less run inherits an L3+ task.
 An argument-less unknown-tier run also executes this batch: silence about the originating tier is
 not evidence that the work is small. Skip only for explicit `quick`, or when the current task was
-explicitly classified L1-L2; those are gates plus the floor on the main thread.
+explicitly classified L1-L2; those are gates plus the floor on the main thread. In `loop` mode skip
+this batch: `graph-powers:ultra-verify` owns the same Evaluator and specialist boundary, and nesting
+both would review the same diff twice.
 
 ## 1.6 `loop` mode — hand the plan-measured half to the workflow
 
@@ -199,9 +200,10 @@ the round ceiling stopped the loop, not that the work is done.
 
 ## 2. Safety floor check
 
-**Who runs this.** In full mode the Floor track of § 1.5 gathers the evidence in the background while
+**Who runs this.** In full mode the Acceptance track of § 1.5 gathers the evidence in the background while
 the gates run; this section is where its return is checked, clause by clause, and where the verdict
-on it is recorded. In `quick` mode there is no batch, so the main thread runs the commands itself.
+on it is recorded. In `quick` and `loop` modes there is no separate Floor track, so the main thread
+runs the commands itself.
 Either way the clauses and the evidence they require are identical — and an unrun clause is reported
 as unrun, never folded into a pass.
 

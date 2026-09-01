@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.17.0 — bounded fan-out and semantic agent tiers
+
+Workflow executions now have a hard cumulative ceiling in addition to parallel width: every config
+lookup, specialist, correction and review passes through one counted dispatcher, with an oversized
+fixture proving that neither custom lenses nor malformed config can cross the limit. Related work is
+clustered by existing Graph Powers role, Phase C persists idempotent dispatch reservations across
+controller resumes, and review commands use one adversarial Evaluator per acceptance boundary
+instead of nested audits or one refuter per finding.
+
+Dynamic routing accepts canonical Graph Powers agents instead of invented names. Claude Code native
+spawns retain the model declared in agent frontmatter and workflow calls resolve the same canonical
+family explicitly. Codex keeps judges/architects on Sol and scouts on Luna while moving executors and
+verification to the balanced Terra tier; both Codex generators consume the same semantic policy.
+
+Codex command entrypoints now use generated native skills such as `$graph-powers:verify`, because
+Codex rejects plugin-defined `/verify` before plugin routing and skips command migration for the
+`$ARGUMENTS` templates that Graph Powers uses. The clone fallback remains `$graph-powers-verify`;
+both routes derive from `commands/`, and regression coverage protects paths and URLs from command-
+reference rewriting.
+
 ## 1.16.0 — Hermes native package parity
 
 Hermes now has a generated `plugin.yaml`, a native `__init__.py` entrypoint, and a single derived

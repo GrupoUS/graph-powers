@@ -131,6 +131,23 @@ class SddCliTests(unittest.TestCase):
         flag = "--request-json" if action == "reserve" else "--result-json"
         return self.run_cli("consult", action, str(plan), flag, json.dumps(envelope))
 
+    def run_dispatch(
+        self,
+        plan: Path,
+        key: str,
+        *,
+        kind: str = "writer",
+        role: str = "graph-powers:debugger",
+        maximum: int = 8,
+    ) -> subprocess.CompletedProcess[str]:
+        return self.run_cli(
+            "dispatch", "reserve", str(plan),
+            "--key", key,
+            "--kind", kind,
+            "--role", role,
+            "--max-spawns", str(maximum),
+        )
+
     def assert_valid(
         self,
         text: str,
@@ -478,6 +495,96 @@ class SddCliTests(unittest.TestCase):
             release = self.run_cli("release", str(winner))
             self.assertEqual(release.returncode, 0, release.stderr)
             self.assertFalse(lease_path.exists())
+
+    def test_dispatch_cap_survives_resume_and_resets_only_for_a_new_lease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            for number in range(1, 8):
+                reserved = self.run_dispatch(plan, f"wave-1:writer-{number}")
+                self.assertEqual(reserved.returncode, 0, reserved.stderr)
+                self.assertEqual(json.loads(reserved.stdout)["sequence"], number)
+            final = self.run_dispatch(
+                plan,
+                "final:evaluator",
+                kind="evaluator",
+                role="graph-powers:evaluator",
+            )
+            self.assertEqual(final.returncode, 0, final.stderr)
+            self.assertEqual(json.loads(final.stdout)["sequence"], 8)
+
+            duplicate = self.run_dispatch(plan, "wave-1:writer-1")
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            duplicate_output = json.loads(duplicate.stdout)
+            self.assertTrue(duplicate_output["resumed"])
+            self.assertEqual(duplicate_output["used"], 8)
+
+            ninth = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(ninth.returncode, 4)
+            self.assertEqual(json.loads(ninth.stdout)["status"], "BLOCKED")
+
+            resumed = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            still_blocked = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(still_blocked.returncode, 4)
+
+            released = self.run_cli("release", str(plan))
+            self.assertEqual(released.returncode, 0, released.stderr)
+            reacquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(reacquired.returncode, 0, reacquired.stderr)
+            fresh = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
+            self.assertEqual(json.loads(fresh.stdout)["sequence"], 1)
+
+    def test_dispatch_requires_lease_canonical_role_and_schema_ceiling(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            unleased = self.run_dispatch(plan, "wave-1:writer-1")
+            self.assertEqual(unleased.returncode, 2)
+            self.assertIn("active plan write lease", unleased.stderr)
+
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            read_only_writer = self.run_dispatch(
+                plan, "wave-1:writer-1", role="graph-powers:evaluator"
+            )
+            self.assertEqual(read_only_writer.returncode, 2)
+            self.assertIn("write-capable", read_only_writer.stderr)
+            invented = self.run_dispatch(
+                plan, "wave-1:bootstrap", kind="bootstrap", role="graph-powers:invented"
+            )
+            self.assertEqual(invented.returncode, 2)
+            self.assertIn("existing graph-powers agent", invented.stderr)
+            over_schema = self.run_dispatch(plan, "wave-1:writer-1", maximum=9)
+            self.assertEqual(over_schema.returncode, 2)
+            self.assertIn("between 1 and 8", over_schema.stderr)
+
+    def test_concurrent_dispatch_reservations_cannot_cross_the_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+                results = list(pool.map(
+                    lambda number: self.run_dispatch(plan, f"parallel:writer-{number}"),
+                    range(10),
+                ))
+
+            self.assertEqual([result.returncode for result in results].count(0), 8)
+            self.assertEqual([result.returncode for result in results].count(4), 2)
+            ledger_path = root / ".graph-powers/logs/sdd" / root.name / "dispatches.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(ledger["reservations"]), 8)
+            self.assertEqual(
+                sorted(entry["sequence"] for entry in ledger["reservations"].values()),
+                list(range(1, 9)),
+            )
 
     def test_exclusive_write_publishes_only_complete_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

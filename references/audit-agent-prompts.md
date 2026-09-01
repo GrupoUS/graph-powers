@@ -1,32 +1,31 @@
 # Audit agent prompts
 
-> Loaded by `/debug audit`. The four prompts below are used **verbatim** — a prompt improvised at
+> Loaded by `/debug audit`. The bounded prompts below are used **verbatim** — a prompt improvised at
 > dispatch time produces findings that cannot be compared across runs.
 
-Nine dimensions, four agents, one message. Each agent gets a disjoint slice: two agents covering the
-same files is wasted parallelism and produces duplicate findings the consolidator then has to
-de-duplicate by hand.
+Nine dimensions, one base Evaluator plus at most two surface specialists, one message. The batch is
+small by design: assurance comes from distinct questions, not from sending many agents over the
+same files.
 
 | Agent | subagent_type | Dimensions |
 |---|---|---|
-| 1 | `graph-powers:evaluator` | D1 architecture · D2 structure |
-| 2 | `graph-powers:explorer` | D3 code quality · D8 dependencies · D9 technical debt · D7 tests and CI |
-| 3 | `graph-powers:explorer` | D4 documentation · D5 missing flows |
-| 4 | `graph-powers:ui-ux-designer` | D6 UX |
+| Base | `graph-powers:evaluator` | D1-D5 · D7-D9; always |
+| Security | `graph-powers:security-reviewer` | exploitability and data boundaries; sensitive surfaces only |
+| UX | `graph-powers:ui-ux-designer` | D6 UX; frontend surface only |
 
-**Every one of the four is read-only by frontmatter**, and that is the whole point of the column.
+**Every dispatched role is read-only by frontmatter**, and that is the whole point of the column.
 An audit is a review, and this repository has already paid for handing a review to a write-capable
 agent: one "partitioned ownership" of the diff it was reviewing and reverted about eighty lines of
 it to HEAD. The incident is recorded in
-`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`. Until 1.7.0 three of these four
-slots named `graph-powers:debugger` or `graph-powers:frontend-specialist`, both of which carry
+`${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`. Earlier slots named
+`graph-powers:debugger` or `graph-powers:frontend-specialist`, both of which carry
 `Write` and `Edit`, and the only thing standing between them and the diff was the prose line in the
 preamble below — which is a request, not a permission.
 
-D7 sits with agent 2 rather than with UX because judging whether a gate would actually fail needs
+D7 sits with the Evaluator rather than with UX because judging whether a gate would actually fail needs
 `Bash`, and `graph-powers:ui-ux-designer` deliberately has none.
 
-All four spawn with `run_in_background: true` in a single message. Resolve every `${…}` placeholder
+All applicable roles spawn with `run_in_background: true` in a single message. Resolve every `${…}` placeholder
 from the project config **before** dispatching — a subagent inherits nothing and will otherwise
 invent the paths.
 
@@ -78,59 +77,43 @@ RETURN
 
 ---
 
-## Agent 1 — architecture and structure (D1-D2)
+## Base Evaluator — consolidated repository audit (D1-D5, D7-D9)
 
 ```
-TASK: Audit architecture and structure.
+TASK: Adversarially audit the repository across every non-UX dimension below. Treat this as one
+acceptance boundary: report each defect once and do not delegate or spawn refuters.
 
 D1 Architecture — layer boundaries, dependency direction, cyclic imports, a module that knows about
    a layer it should not, a singleton re-instantiated in three places.
 D2 Structure — directory layout against the declared layer map, files in the wrong layer, an entry
    index that does not export what the tree implies.
+D3 Code quality — swallowed errors, live unchecked nullability, divergent duplication and functions
+   doing unrelated jobs.
+D4 Documentation — commands, flags, paths or prerequisites that do not match the tree or runtime.
+D5 Missing flows — unhandled errors, retries, dead letters and first-run paths assumed but absent.
+D7 Tests and CI — untested critical paths, assertions that assert nothing, gates that cannot fail and
+   ignored CI failures.
+D8 Dependencies — actionable advisories, abandoned or redundant packages and unjustified direct
+   dependencies.
+D9 Technical debt — stale TODO/FIXME, dead exports, commented-out blocks and expired shims.
 
 Read ${CLAUDE_PLUGIN_ROOT}/skills/planning/references/layer-map.md for the ordering this is judged
 against, then read the project's own layer map in ${rulesDir}/ if it has one — it wins.
 
-A finding here must name the import or the path that proves it. "The architecture is unclear" is not
-a finding.
+A finding must name the import, path, command or runtime evidence that proves it. Rank by concrete
+failure impact, not by aesthetics. "The architecture is unclear" is not a finding.
 ```
 
-## Agent 2 — code quality, dependencies, technical debt, tests and CI (D3, D8, D9, D7)
+## Security specialist — sensitive surfaces only
 
 ```
-TASK: Audit code quality, dependency health, technical debt and the test/CI surface.
-
-D3 Code quality — error handling that swallows, unchecked nullability on a live path, duplicated
-   logic that has already diverged, a function doing four things.
-D8 Dependencies — advisories, abandoned packages, two libraries doing the same job, a direct
-   dependency that is only used once.
-D9 Technical debt — TODO/FIXME older than the last release, commented-out blocks, dead exports,
-   a compatibility shim whose other side is gone.
-D7 Tests and CI — critical paths with no test, tests that assert nothing, a gate that cannot fail,
-   a CI job whose failure is ignored, a flaky test nobody has quarantined. Check that each declared
-   gate would actually fail on a real defect: a gate that always passes is worse than a missing one,
-   because the report line reads as covered.
-
-Read ${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md first.
-
-Rank by what would actually fail, not by what is ugliest.
+TASK: Audit only the sensitive surfaces named by the controller for exploitable authorization,
+tenant isolation, personal-data, payment, secret-handling, injection and unsafe-default defects.
+Trace each finding to a reachable boundary and concrete failure scenario. Do not repeat general
+quality findings the Evaluator owns.
 ```
 
-## Agent 3 — documentation and missing flows (D4-D5)
-
-```
-TASK: Audit documentation accuracy and find flows that were never finished.
-
-D4 Documentation — a README command that does not run, a documented flag that does not exist, a
-   path cited that is not there, a setup step that silently requires something undocumented.
-   Verify by running or by opening the file. A doc claim you did not check is not a finding.
-D5 Missing flows — an error state with no handler, a form with no failure path, a webhook with no
-   retry, a queue with no dead letter, a first-run experience with nothing in it.
-
-The most valuable finding in this slice is the flow everyone assumed existed.
-```
-
-## Agent 4 — UX (D6)
+## UX specialist — frontend surface only (D6)
 
 ```
 TASK: Audit the user experience surface, by reading it.

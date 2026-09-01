@@ -70,9 +70,10 @@ Symptom-to-cause lookups for all three: `Skill("debugger") § Common Root Causes
 It is a sweep, not an incident, and the difference is that **nothing is fixed while it inventories.**
 
 1. Pre-flight + browser check.
-2. Dispatch four sub-agents at once: A (browser baseline of the critical flows), B (structural sweep
-   across the codebase), C (known-pattern cross-reference), D (foreign-key integrity, orphaned rows,
-   missing indexes).
+2. Dispatch a bounded batch: A (`graph-powers:verification`) for the browser baseline when a UI
+   exists; one `graph-powers:explorer` package combining B-D (structure, known patterns and data
+   integrity); and `graph-powers:security-reviewer` only when a sensitive surface exists. Never one
+   agent per audit dimension.
 3. **Inventory only.** Classify every finding P0-P3. No edits in this phase.
 4. Present the findings table and let the user prioritize.
 5. Fix P0 one at a time, verifying after each; then P1, then P2.
@@ -92,9 +93,10 @@ Dispatched **after** Step 1 produced a runnable reproducer. Read
 scope, a shared return contract and single-message dispatch.
 
 **Shared contract for every template below.** `run_in_background: true`. Read-only **by frontmatter,
-never by instruction**: B, C and D use `subagent_type: "graph-powers:explorer"`
+never by instruction**: B, C and D are consolidated into one package for
+`subagent_type: "graph-powers:explorer"`
 (`disallowedTools: Write, Edit`), and A uses `subagent_type: "graph-powers:verification"`, the browser
-specialist, which carries `Skill` so it can load `webapp-testing`. All four were
+specialist, which carries `Skill` so it can load `webapp-testing`. These roles were
 `graph-powers:debugger` once — told in prose to fix nothing while holding `Write` and `Edit`, which is
 the incident recorded in `references/anti-patterns.md`. Return under 2000 tokens, findings as
 `| # | Finding | Confidence (1-5) | Source | Impact |`, and pass the symptom, the failing

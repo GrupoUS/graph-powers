@@ -72,4 +72,7 @@ Controller integration: read every summary → verify no overlapping changed pat
 
 ## When NOT to parallelize
 
-Failures are **related** (one root cause — fix one reruns the others) · tasks share state (schema module, cross-cutting singletons, single browser session) · spawn count would exceed 5 · subagent return would exceed 2000 tokens · user typed "one at a time" / "sequential".
+Failures are **related** (one root cause — fix one reruns the others) · tasks share state (schema
+module, cross-cutting singletons, single browser session) · the batch would exceed
+`graphGuardrails.maxSpawnsPerWorkflow` after reserving its final Evaluator · subagent return would
+exceed 2000 tokens · user typed "one at a time" / "sequential".

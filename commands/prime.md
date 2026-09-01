@@ -54,18 +54,23 @@ git log --oneline -10
 
 If `${rulesDir}/routing-supplements.md` exists, note it for stage 2 deep loading.
 
-### 0.1 Auto-research flag (default ON for L3+)
+### 0.1 Targeted research (only when prime itself needs it)
 
-If `$ARGUMENTS` contains `--no-auto-research` → skip. Otherwise on **L3+ intent** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` — Complexity Routing`), spawn discovery agents BEFORE returning prime output:
+If `$ARGUMENTS` contains `--no-auto-research` → skip. Otherwise, on **L3+ intent** (per
+`${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`), dispatch only the independently
+useful research that this context load cannot answer itself:
 
-```ts
-Agent({ subagent_type: "graph-powers:explorer",  run_in_background: true, prompt: "<scoped repo discovery>" })
-Agent({ subagent_type: "graph-powers:librarian", run_in_background: true, prompt: "<external doc lookup>" })
-```
+- `graph-powers:explorer` when a concrete repository fact is still unresolved.
+- `graph-powers:librarian` when a decision depends on current external API, version or advisory
+  evidence.
+- Both, in the same background batch, only when both scopes are necessary and independent.
 
-Both calls go in the SAME assistant turn (parallel). Non-blocking — return prime output while they run; their results merge on the next user turn. The rule behind that is the execution floor's §1 and §2; this command only names the moment it applies.
+Do not pre-spawn either agent merely because the tier is L3+, and do not duplicate research that the
+next `/research` or `/plan` invocation already owns. L3 uses at most one specialist here; L4+ may use
+the pair. Return prime output while a justified background dispatch runs.
 
-If discovery agents return conflicting signals about scope/architecture, invoke `mcp__sequential-thinking__sequentialthinking` to reconcile **before** dispatching a stage. L4+ MUST · L3 SHOULD · L1-L2 skip.
+If two results conflict, the parent reconciles their cited evidence before dispatching a stage; do
+not spawn a refuter for each claim.
 
 ---
 

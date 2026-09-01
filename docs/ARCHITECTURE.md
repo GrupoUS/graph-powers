@@ -285,11 +285,12 @@ Recorded so they do not come back as proposals:
 
 ## 10. What is still open
 
-- **The spawn ceiling does not cover agents launched by a workflow**, which do not pass the same
-  interception point. It holds for direct spawns. This matters more since 1.3.0, because the plugin
-  now ships workflows: the ceilings that bound them are their own (`maxParallelWave`,
-  `maxTasksPerPlan`, `maxRepatch`, and the round limit), declared in the config and enforced in the
-  script rather than by the hook.
+- **Workflow agents still bypass the direct-spawn interception point**, so the hook's session
+  ceiling cannot observe them. Shipped workflows now route every inner call through their own
+  cumulative dispatcher, hard-clamped by `maxSpawnsPerWorkflow`, in addition to width, task,
+  re-patch and round bounds. The workflow gate runs an oversized fixture to prove the cumulative
+  cap. A runtime-internal retry hidden below `agent()` would remain outside both counters; no such
+  retry is assumed or reported as covered.
 - **The ceiling defaults** live in `schema/config.schema.json` and are starting points rather than
   measured values. Calibrating their rolling spawn window, specialist rounds and wave width needs
   real usage data; this document deliberately does not duplicate them.

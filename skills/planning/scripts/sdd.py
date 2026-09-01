@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Plan workspaces, task briefs, review packages, consultation ledgers and plan validation.
+"""Plan workspaces, task briefs, review packages, bounded dispatches and plan validation.
 
-One script, seven subcommands, one location rule — so a brief and the package that reviews it can
+One script, eight subcommands, one location rule — so a brief and the package that reviews it can
 never land in different directories:
 
     python -X utf8 sdd.py workspace PLAN_FILE                  -> prints the plan's workspace
@@ -10,6 +10,7 @@ never land in different directories:
     python -X utf8 sdd.py validate  PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py release   PLAN_FILE                 -> remove only that plan's lease
+    python -X utf8 sdd.py dispatch reserve PLAN_FILE --key KEY --kind KIND --role ROLE --max-spawns N
     python -X utf8 sdd.py consult reserve PLAN_FILE --request-json JSON
     python -X utf8 sdd.py consult record  PLAN_FILE --result-json JSON
 
@@ -40,9 +41,9 @@ index, HEAD and every ref are untouched; only blob and tree objects are written,
 `git stash create` writes too. The snapshot id is printed and named inside the file, so the next fix
 round packages `SNAPSHOT..HEAD` and the re-review sees only the fix.
 
-Exit codes, as upstream: 0 done · 2 usage or bad input · 3 task not found. Consultation states
-`USER_REQUIRED` and `BLOCKED` return 4 with their JSON result on stdout; all other failures are one
-line on stderr.
+Exit codes, as upstream: 0 done · 2 usage or bad input · 3 task not found. Bounded dispatch or
+consultation states `USER_REQUIRED` and `BLOCKED` return 4 with their JSON result on stdout; all
+other failures are one line on stderr.
 """
 
 from __future__ import annotations
@@ -51,6 +52,7 @@ import argparse
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -314,7 +316,9 @@ CONSULTATION_BACKENDS = {"evaluator", "fable", "advisor"}
 MAX_CONSULTATION_TEXT = 4096
 MAX_CONSULTATION_ITEM = 2048
 MAX_CONSULTATION_OPTIONS = 32
-CONSULTATION_EXIT = 4
+BOUNDED_EXIT = 4
+DISPATCH_KINDS = {"bootstrap", "writer", "evaluator", "correction", "confirmation"}
+PLUGIN_SCHEMA = Path(__file__).resolve().parents[3] / "schema" / "config.schema.json"
 
 
 def _consultation_error(message: str) -> NoReturn:
@@ -474,9 +478,9 @@ def _read_consultation_ledger(path: Path) -> dict[str, Any]:
     return value
 
 
-def _write_consultation_ledger(path: Path, value: dict[str, Any]) -> None:
+def _write_json_ledger(path: Path, value: dict[str, Any], label: str) -> None:
     if path.is_symlink():
-        fail(f"refusing symlink consultation ledger: {path.as_posix()}", 2)
+        fail(f"refusing symlink {label} ledger: {path.as_posix()}", 2)
     encoded = json.dumps(value, ensure_ascii=False, indent=2) + "\n"
     try:
         descriptor, staging_name = tempfile.mkstemp(
@@ -507,27 +511,27 @@ def _write_consultation_ledger(path: Path, value: dict[str, Any]) -> None:
             except FileNotFoundError:
                 pass
     except OSError as error:
-        fail(f"cannot publish consultation ledger {path.as_posix()}: {error}", 2)
+        fail(f"cannot publish {label} ledger {path.as_posix()}: {error}", 2)
 
 
 @contextmanager
-def _consultation_lock(directory: Path) -> Iterator[None]:
-    lock = directory / "consultations.lock"
+def _ledger_lock(directory: Path, stem: str, label: str) -> Iterator[None]:
+    lock = directory / f"{stem}.lock"
     deadline = time.monotonic() + 5
     descriptor = -1
     while True:
         if lock.is_symlink():
-            fail(f"refusing symlink consultation lock: {lock.as_posix()}", 2)
+            fail(f"refusing symlink {label} lock: {lock.as_posix()}", 2)
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
         try:
             descriptor = os.open(lock, flags, 0o600)
             break
         except FileExistsError:
             if time.monotonic() >= deadline:
-                fail("consultation ledger lock timeout", CONSULTATION_EXIT)
+                fail(f"{label} ledger lock timeout", BOUNDED_EXIT)
             time.sleep(0.01)
         except OSError as error:
-            fail(f"cannot acquire consultation ledger lock: {error}", 2)
+            fail(f"cannot acquire {label} ledger lock: {error}", 2)
     try:
         os.close(descriptor)
         yield
@@ -537,11 +541,11 @@ def _consultation_lock(directory: Path) -> Iterator[None]:
         except FileNotFoundError:
             pass
         except OSError as error:
-            fail(f"cannot release consultation ledger lock: {error}", 2)
+            fail(f"cannot release {label} ledger lock: {error}", 2)
 
 
 def _consultation_result_code(output: dict[str, Any]) -> int:
-    return CONSULTATION_EXIT if output["status"] in {"USER_REQUIRED", "BLOCKED"} else 0
+    return BOUNDED_EXIT if output["status"] in {"USER_REQUIRED", "BLOCKED"} else 0
 
 
 def consult(plan: Path, action: str, raw_json: str) -> tuple[dict[str, Any], int]:
@@ -570,7 +574,7 @@ def consult(plan: Path, action: str, raw_json: str) -> tuple[dict[str, Any], int
         )
     directory = workspace(plan)
     ledger_path = directory / "consultations.json"
-    with _consultation_lock(directory):
+    with _ledger_lock(directory, "consultations", "consultation"):
         ledger = _read_consultation_ledger(ledger_path)
         tasks = ledger["tasks"]
         task_decisions = tasks.setdefault(envelope["taskId"], {})
@@ -585,9 +589,9 @@ def consult(plan: Path, action: str, raw_json: str) -> tuple[dict[str, Any], int
                 status="USER_REQUIRED",
                 fallback=fallback,
                 reason="consultation cap reached; parent must ask the user",
-            ), CONSULTATION_EXIT
+            ), BOUNDED_EXIT
         task_decisions[envelope["decisionKey"]] = envelope
-        _write_consultation_ledger(ledger_path, ledger)
+        _write_json_ledger(ledger_path, ledger, "consultation")
         return envelope, _consultation_result_code(envelope)
 
 
@@ -599,7 +603,7 @@ def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]
     envelope = _validate_consultation_envelope(raw, "record")
     directory = workspace(plan)
     ledger_path = directory / "consultations.json"
-    with _consultation_lock(directory):
+    with _ledger_lock(directory, "consultations", "consultation"):
         ledger = _read_consultation_ledger(ledger_path)
         tasks = ledger["tasks"]
         task_decisions = tasks.get(envelope["taskId"], {})
@@ -616,7 +620,7 @@ def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]
         envelope["backend"] = existing["backend"]
         envelope["fallback"] = existing.get("fallback", False)
         task_decisions[envelope["decisionKey"]] = envelope
-        _write_consultation_ledger(ledger_path, ledger)
+        _write_json_ledger(ledger_path, ledger, "consultation")
         return envelope, _consultation_result_code(envelope)
 
 
@@ -1169,6 +1173,144 @@ def _read_lease(path: Path) -> dict[str, Any]:
     return value
 
 
+def _dispatch_error(message: str) -> NoReturn:
+    fail(f"dispatch: {message}", 2)
+
+
+def _workflow_spawn_ceiling(value: int) -> int:
+    """Validate against the shipped schema instead of copying its hard maximum here."""
+    try:
+        schema = json.loads(PLUGIN_SCHEMA.read_text(encoding="utf-8"))
+        contract = schema["properties"]["graphGuardrails"]["properties"][
+            "maxSpawnsPerWorkflow"
+        ]
+        minimum = int(contract["minimum"])
+        maximum = int(contract["maximum"])
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        _dispatch_error(f"cannot read maxSpawnsPerWorkflow from schema: {error}")
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        _dispatch_error(f"max-spawns must be between {minimum} and {maximum}")
+    return value
+
+
+def _dispatch_role(kind: str, role: str) -> str:
+    if kind not in DISPATCH_KINDS:
+        _dispatch_error(f"kind must be one of {', '.join(sorted(DISPATCH_KINDS))}")
+    match = AGENT_ID.fullmatch(role)
+    if not match or not (AGENTS_DIR / f"{match.group('slug')}.md").is_file():
+        _dispatch_error("role must name an existing graph-powers agent")
+    if kind in {"writer", "correction"} and _agent_lane(role) != "routable":
+        _dispatch_error(f"{kind} requires a write-capable Graph Powers role")
+    if kind in {"evaluator", "confirmation"} and role != "graph-powers:evaluator":
+        _dispatch_error(f"{kind} requires graph-powers:evaluator")
+    return role
+
+
+def _dispatch_run(plan: Path) -> tuple[str, Path]:
+    """Return the active lease run id and workspace, refusing unleased reservations."""
+    root = repo_root(plan)
+    relative_plan = _relative_plan(plan, root)
+    logs = _existing_secure_directory(root, ".graph-powers", "logs")
+    if logs is None:
+        _dispatch_error("reserve requires an active plan write lease")
+    lease_path = logs / "write-lease.json"
+    if not lease_path.exists():
+        _dispatch_error("reserve requires an active plan write lease")
+    lease = _read_lease(lease_path)
+    if lease["plan"] != relative_plan:
+        _dispatch_error(f"write lease belongs to {lease['plan']}, not {relative_plan}")
+    run_id = lease.get("runId")
+    if not isinstance(run_id, str) or not run_id:
+        run_id = f"legacy:{relative_plan}"
+    return run_id, workspace(plan)
+
+
+def _read_dispatch_ledger(path: Path, run_id: str) -> dict[str, Any]:
+    if path.is_symlink():
+        fail(f"refusing symlink dispatch ledger: {path.as_posix()}", 2)
+    if not path.exists():
+        return {"version": 1, "runId": run_id, "maxSpawns": None, "reservations": {}}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        fail(f"cannot read dispatch ledger {path.as_posix()}: {error}", 2)
+    if not isinstance(value, dict) or value.get("version") != 1:
+        fail(f"invalid dispatch ledger: {path.as_posix()}", 2)
+    if value.get("runId") != run_id:
+        return {"version": 1, "runId": run_id, "maxSpawns": None, "reservations": {}}
+    reservations = value.get("reservations")
+    maximum = value.get("maxSpawns")
+    if (
+        not isinstance(reservations, dict)
+        or (maximum is not None and (isinstance(maximum, bool) or not isinstance(maximum, int)))
+        or any(not isinstance(entry, dict) for entry in reservations.values())
+    ):
+        fail(f"invalid dispatch ledger: {path.as_posix()}", 2)
+    return value
+
+
+def reserve_dispatch(
+    plan: Path, key: str, kind: str, role: str, max_spawns: int
+) -> tuple[dict[str, Any], int]:
+    """Atomically reserve one actual child dispatch, idempotently across controller resumes."""
+    if not DECISION_KEY.fullmatch(key):
+        _dispatch_error("key must be a bounded lowercase stable identifier, never prompt text")
+    role = _dispatch_role(kind, role)
+    max_spawns = _workflow_spawn_ceiling(max_spawns)
+    run_id, directory = _dispatch_run(plan)
+    ledger_path = directory / "dispatches.json"
+    with _ledger_lock(directory, "dispatches", "dispatch"):
+        ledger = _read_dispatch_ledger(ledger_path, run_id)
+        configured = ledger["maxSpawns"]
+        if configured is None:
+            ledger["maxSpawns"] = max_spawns
+        elif configured != max_spawns:
+            _dispatch_error(
+                f"max-spawns changed inside one workflow ({configured} to {max_spawns})"
+            )
+        reservations = ledger["reservations"]
+        existing = reservations.get(key)
+        if existing is not None:
+            if existing.get("kind") != kind or existing.get("role") != role:
+                _dispatch_error("an existing dispatch key cannot change kind or role")
+            used = len(reservations)
+            return {
+                **existing,
+                "used": used,
+                "remaining": max_spawns - used,
+                "maxSpawns": max_spawns,
+                "resumed": True,
+            }, 0
+        used = len(reservations)
+        if used >= max_spawns:
+            return {
+                "status": "BLOCKED",
+                "dispatchKey": key,
+                "kind": kind,
+                "role": role,
+                "used": used,
+                "remaining": 0,
+                "maxSpawns": max_spawns,
+                "reason": "workflow dispatch cap reached; persist deferred work and return",
+            }, BOUNDED_EXIT
+        entry = {
+            "status": "RESERVED",
+            "dispatchKey": key,
+            "kind": kind,
+            "role": role,
+            "sequence": used + 1,
+        }
+        reservations[key] = entry
+        _write_json_ledger(ledger_path, ledger, "dispatch")
+        return {
+            **entry,
+            "used": used + 1,
+            "remaining": max_spawns - used - 1,
+            "maxSpawns": max_spawns,
+            "resumed": False,
+        }, 0
+
+
 def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, Any]:
     """Validate the plan and create its write lease with an atomic create-if-absent."""
     normalized, errors = validate_plan(plan, max_tasks, profile)
@@ -1183,15 +1325,16 @@ def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, A
         relative_plan,
         ".graph-powers/logs/progress.md",
         f".graph-powers/logs/sdd/{plan_slug(plan)}/task-reviews.md",
+        f".graph-powers/logs/sdd/{plan_slug(plan)}/dispatches.json",
     ]
     paths = sorted({*normalized["writeLease"], *state_paths})
-    payload = {"plan": relative_plan, "paths": paths}
+    payload = {"plan": relative_plan, "paths": paths, "runId": secrets.token_hex(12)}
     encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     try:
         _write_text_no_symlink(lease_path, encoded, exclusive=True)
     except FileExistsError:
         existing = _read_lease(lease_path)
-        if existing != payload:
+        if existing.get("plan") != relative_plan or existing.get("paths") != paths:
             fail(
                 f"write lease conflict: {existing['plan']} already owns {lease_path.as_posix()}", 2
             )
@@ -1335,6 +1478,17 @@ def main(argv: list[str] | None = None) -> int:
     p_release = sub.add_parser("release", help="release only the write lease owned by this plan")
     p_release.add_argument("plan")
 
+    p_dispatch = sub.add_parser("dispatch", help="reserve one bounded Phase C agent dispatch")
+    dispatch_sub = p_dispatch.add_subparsers(dest="dispatch_action", required=True)
+    p_dispatch_reserve = dispatch_sub.add_parser(
+        "reserve", help="reserve one stable dispatch key against the plan workflow cap"
+    )
+    p_dispatch_reserve.add_argument("plan")
+    p_dispatch_reserve.add_argument("--key", required=True)
+    p_dispatch_reserve.add_argument("--kind", choices=tuple(sorted(DISPATCH_KINDS)), required=True)
+    p_dispatch_reserve.add_argument("--role", required=True)
+    p_dispatch_reserve.add_argument("--max-spawns", type=int, required=True)
+
     p_consult = sub.add_parser("consult", help="reserve or record a parent-mediated consultation")
     consult_sub = p_consult.add_subparsers(dest="consult_action", required=True)
     p_reserve = consult_sub.add_parser("reserve", help="reserve one stable decision key")
@@ -1365,6 +1519,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
     elif args.command == "release":
         release(plan)
+    elif args.command == "dispatch":
+        output, code = reserve_dispatch(
+            plan, args.key, args.kind, args.role, args.max_spawns
+        )
+        print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=False))
+        return code
     elif args.command == "consult":
         if args.consult_action == "reserve":
             output, code = consult(plan, "reserve", args.request_json)

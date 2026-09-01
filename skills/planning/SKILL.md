@@ -116,7 +116,8 @@ on every parallel phase + user approved; at L5+, GATE 2 also meets the calibrati
 ## Step 3 — Phase C: Execute (automatic L5+; `/implement` L4+; Gauntlet L3+) → `references/phase-c-executing-plans.md`
 
 **Engine:** `/implement <plan dir>` drives the default rolling dispatcher and only explicit
-`/gauntlet` after tier validation passes `profile: gauntlet`. Both use fresh task reviewers,
+`/gauntlet` after tier validation passes `profile: gauntlet`. Both use one fresh Evaluator per
+writer wave,
 ownership-safe dispatch, focused checks, phase gates and the atomic `sdd.py acquire` lease. A lease
 from another plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR
 and merge each need separate current-turn authorization, and **nothing auto-merges**.
@@ -133,7 +134,7 @@ verification passes (`/verify quick` default, `/verify loop <PLAN_FILE>` Gauntle
 | GATE 1 | After the Phase A spec | `graph-powers:project-planner` | L4+ |
 | GATE 2 | After the Phase B plan | `graph-powers:evaluator` Mode 1 | L5+ |
 | GATE 3 | After the plan, before approval | `graph-powers:evaluator` Mode 3 | L6+ |
-| TASK REVIEW | After every implementer task PASS | one read-only reviewer: compliance first, then quality/KISS | L5+, every task |
+| WAVE REVIEW | After each writer wave's focused checks pass | one `graph-powers:evaluator`: compliance per task, then quality/KISS and integration | L5+, every wave |
 
 Phase review corrections use `${graphGuardrails.maxRepatch}`; exhaustion routes to `/debug recover`.
 Other phase-specific review guards are defined by their phase reference.
@@ -145,7 +146,7 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 
 | Signal | Action |
 |---|---|
-| Fan-out would exceed `graphGuardrails.maxParallelWave` | Split the phase, or checkpoint with the user |
+| Fan-out would exceed `graphGuardrails.maxParallelWave` or cumulative dispatch would exceed `graphGuardrails.maxSpawnsPerWorkflow` | Shrink/group the wave while reserving the final Evaluator; otherwise checkpoint `BLOCKED` with completed and deferred task IDs |
 | BLOCKED from a subagent / correction cap exhausted | Surface it and route to `/debug recover`; do not retry blind |
 | User typed "stop" / "wait" / "pause" | Halt immediately |
 | Scope keeps expanding mid-Phase A | Decompose into sub-projects; brainstorm only the first |

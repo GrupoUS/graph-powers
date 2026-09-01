@@ -4,8 +4,8 @@
 name = "verification"
 description = "Use proactively after a UI or user-flow change to prove it works in a real browser: staging smoke runs, screenshots, console and page errors, network evidence, acceptance flows. Reports defects and never edits them."
 # Codex policy: profile=verifier; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "high"
 
 developer_instructions = '''
 Graph Powers read-only intent: this source agent denies Write and Edit. Codex role files inherit the parent sandbox and approval posture, so hard enforcement requires the entire parent review session to run read-only; in a write-capable mixed workflow this role boundary is advisory.

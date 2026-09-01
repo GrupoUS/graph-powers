@@ -20,6 +20,12 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
+Graph Powers command documents are skills on Codex, not plugin-defined slash commands. With the
+native plugin, invoke verification as `$graph-powers:verify quick`, or open `/skills` and choose
+`graph-powers:verify`. The clone fallback keeps its global name `$graph-powers-verify`. The literal
+`/verify` spelling belongs to Claude Code; Codex rejects unknown slash commands before a plugin can
+route them.
+
 **Cursor** — install the plugin from the marketplace, then once per machine write the IDE Run Mode
 (this is the file Auto-review actually reads; `cli-config.json` is only `cursor-agent`):
 
@@ -184,7 +190,7 @@ nothing is maintained twice.
 | Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface |
 | Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` | `plugin.yaml` + `__init__.py`; `graph-powers:<name>` |
 | Subagents | `agents/*.md` | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files | The same markdown files | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
-| Commands | `commands/*.md` (`/name`) | skills (Codex deprecated custom prompts) | The same markdown files | The same markdown files | namespaced skills, e.g. `graph-powers:plan` |
+| Commands | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>` | The same markdown files | The same markdown files | namespaced skills, e.g. `graph-powers:plan` |
 | IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) | parent agent approvals |
 
 The Codex hooks file is **merged, never overwritten**. Other tools' installers write it too, and
@@ -201,7 +207,7 @@ profile for an already approved structured plan. It keeps coupled work sequentia
 parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
 read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
 the normal local route. The dry run validates and prints the schedule without acquiring a lease,
-writing or spawning. Codex exposes the same command as the generated `graph-powers-gauntlet` skill;
+writing or spawning. Codex exposes the same command as the generated `$graph-powers:gauntlet` skill;
 Hermes translates the method but does not claim a `/gauntlet` slash-command surface.
 
 ---
@@ -306,7 +312,7 @@ route inherits one session model for all twelve agents. The defaults encode the 
 node:
 
 - judges and architects: `gpt-5.6-sol` + `max`;
-- executors and the verifier: `gpt-5.6-luna` + `max`;
+- executors and the verifier: `gpt-5.6-terra` + `high`;
 - scouts: `gpt-5.6-luna` + `medium`.
 
 The tracked files under `codex/native-agents/` are portable source snapshots. The `--out` step

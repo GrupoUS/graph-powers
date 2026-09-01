@@ -219,12 +219,17 @@ Share the cases with the user for review before running them.
 
 ### 5b. Run with-skill against baseline
 
-For each case, spawn two subagents in the same turn — one with the skill loaded, one without, or
-with the previous version when iterating. Save to `iteration-N/eval-<id>/with_skill/outputs/` and
-`without_skill/outputs/`.
+Run the with-skill case once. Baseline only the smallest discriminating sample: at least one
+representative positive and one nearest-boundary negative, plus any case whose assertion or trigger
+changed in this iteration. Reuse a valid prior baseline for unchanged cases and record its source;
+do not spawn a second agent for every case merely to recreate the same control.
 
-Launch both together. Spawning the with-skill runs first and the baselines later wastes the
-wall-clock the parallel spawn exists to save.
+Launch the selected with-skill and baseline cases in bounded waves, consolidating cases that share
+one skill/listing into the same evaluation package when isolation is not the variable under test.
+Count every run against `graphGuardrails.maxSpawnsPerWorkflow`, reserve the final
+`graph-powers:skill-improver` verdict, and checkpoint remaining cases instead of opening another
+workflow. Parallelism improves wall-clock only inside that total; it is not permission to double the
+entire suite.
 
 ### 5c. Draft assertions while the runs complete
 

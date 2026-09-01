@@ -62,10 +62,10 @@ Before spawning sub-agents, write a user-facing explanation:
 Show this to the user, then proceed immediately. The user reads and thinks while sub-agents work
 in parallel.
 
-### Step 2 — Spawn Sub-agents
+### Step 2 — Dispatch the bounded design batch
 
-Spawn 3+ sub-agents in parallel. Each must produce a **radically different** interface for the
-module.
+Dispatch two or three existing `graph-powers:project-planner` agents in parallel, only when their
+constraints are independently useful. Each must produce a **radically different** interface for the module.
 
 Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency
 category, what sits behind the seam). The brief is independent of the user-facing explanation in
@@ -76,8 +76,8 @@ Step 1. Give each agent a different design constraint:
 - **Agent 2 — Flexible:** "Maximise flexibility: support many use cases and extension."
 - **Agent 3 — Default-optimised:** "Optimise for the most common caller: make the default case
   trivial."
-- **Agent 4 — Ports (if applicable):** "Design around ports and adapters for cross-seam
-  dependencies."
+When ports/adapters matter, fold that constraint into the most relevant brief rather than creating a
+fourth agent.
 
 Include the vocabulary from `architecture_patterns.md` and the project's domain language in the
 brief so each sub-agent names things consistently.

@@ -1,5 +1,5 @@
 ---
-description: "Review a pull request or a branch before it merges. Use when the user names a PR number, asks to review the branch, the diff or their changes, or asks what a reviewer would say. Combines an adversarial evaluator, a security reviewer, the code-review skill and /debug audit, applies its built-in feedback protocol, and returns a verdict plus a ready-to-post comment body. Read-only; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix, --no-debug. Do not use to apply the findings (/implement) or to run the gates (/verify)."
+description: "Review a PR, branch or diff before merge. Uses one adversarial Evaluator plus only surface-required security/design specialists, then returns prioritized findings, a verdict and a ready comment. Read-only unless --fix; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix. Not for plan execution (/implement) or gate proof (/verify)."
 workflow_type: prompt-chaining
 ---
 
@@ -32,14 +32,11 @@ Every PR comment and every P0/P1 finding passes through the § 4.1 receiving-fee
 before it turns into a decision.
 ```
 
-This command changes **source** only under an explicit `--fix`, and then only through a foreground
-`graph-powers:debugger` agent with gates between fixes.
+This command changes **source** only under an explicit `--fix`, through the smallest bounded set of
+existing write-capable Graph Powers roles with disjoint ownership.
 
-One honest exception, because "read-only" was overstated before: § 3F runs `/debug audit pr`, which
-writes its consolidated report to `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`. That happens in the default
-mode, with no `--fix`. It touches no source and no git state, but it is a file this command creates
-— say so in the output rather than letting the claim stand. `--no-debug` skips 3F and with it the
-report.
+The default creates no report and nests no review command; `code-review` and `/debug audit pr`
+remain separate, explicit products.
 
 ---
 
@@ -65,7 +62,7 @@ base, and — for a PR — `gh` auth and PR metadata.
 **Only when `full` mode is requested**, additionally load, in full: `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md`,
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/structural-quality.md`,
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/anti-patterns.md`, and the nearest `AGENTS.md`
-for every touched path. `full` overrides `--quick` and `--no-debug`.
+for every touched path. `full` overrides `--quick`.
 
 ---
 
@@ -124,9 +121,7 @@ Every unresolved field is a stop, not a placeholder.
 ## 3. Review paths (parallel)
 
 Follow `070-parallel-agent-spawn.md`, then dispatch **every applicable track in one message**, each
-`run_in_background: true`. Until 1.7.0 this section was titled "(parallel)" and
-said "dispatch in one message" while naming no agent to dispatch — four prose headings and no
-`subagent_type` anywhere. The table below is the dispatch.
+`run_in_background: true`. The table below is the complete dispatch.
 
 **Codex routing note.** This command owns the deterministic review fan-out and its bounds; the
 semantic agent policy only selects the model lane for each dispatched role. Do not layer the
@@ -139,30 +134,19 @@ request; the incident behind that rule is in
 
 | # | Agent | The question it asks | Fires when |
 |---|---|---|---|
-| 3A | `graph-powers:evaluator` | is it correct, and does it hold structurally | always |
+| 3A | `graph-powers:evaluator` | is it correct, structurally sound, and free of hot-path regressions | always |
 | 3B | `graph-powers:security-reviewer` | is it exploitable — tenant, personal data, authorization, secrets | sensitive surface touched, or `full` |
-| 3C | `graph-powers:explorer` | did this regress a hot path — N+1, `select *`, missing FK index, bundle growth | `api`, `schema` or `web` touched |
-| 3D | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport; motion via `animate` review mode | `web` touched |
-| 3E | `code-review:code-review` | the optional skill's own lens | when the plugin is installed |
-| 3F | `/debug audit pr` | code quality, dependencies, technical debt on changed files | not `--quick`, not `--no-debug` |
+| 3C | `graph-powers:ui-ux-designer` | tokens, states, keyboard, contrast, smallest viewport; motion via `animate` review mode | `web` touched |
 
-For 3E, when available, invoke `Skill("code-review:code-review")` on the same change set. It runs in
-this thread and returns `UNAVAILABLE` rather than being silently omitted when the skill cannot load.
+The Evaluator's consolidated prompt includes the hot-path checklist when `api`, `schema` or `web`
+is touched: N+1, `select *`, missing FK index and bundle growth. This keeps one adversarial owner for
+correctness and structural quality instead of spawning another generalist over the same diff.
 
-3C and 3D are new, and they are not inventions: `graph-powers:ultra-verify` has run
-`performance-regression` and `design-tokens-a11y` as built-in lenses all along. A review command
-missing two lenses its sibling workflow already had was the gap, not the addition.
-
-3C asks the performance question through `graph-powers:explorer` rather than through
-`graph-powers:performance-optimizer`, and the reason is the rule three lines above: that specialist
-resolves with `Write` and `Edit` and no `disallowedTools`. It is the right agent to *fix* a hot path
-and the wrong one to *review* it. The question it is asked here is a pattern hunt over a diff, which
-is what the explorer is for.
-
-**The project extends this table.** `chain.lenses` in the config is a first-class contract — each
+**The project extends these questions.** `chain.lenses` in the config is a first-class contract — each
 entry a `name`, its own binding `checks`, an optional `agent` and a `when` — and the schema states
 the principle it exists for: *each lens is a distinct question; identical skeptics agree with each
-other and miss the same things*. Honour every lens whose `when` matches the touched surfaces. A lens
+other and miss the same things*. Fold compatible checks into 3A-3C; never spawn one agent per lens.
+A genuinely distinct role replaces the least relevant optional track so the batch stays at three. A lens
 naming an agent this plugin does not ship is **named in the output before the batch runs**, because
 a misspelt value otherwise spawns nothing and the review reports one check fewer than it claims.
 
@@ -181,14 +165,8 @@ Without it, § 4's "only one path raised it, the others checked" cannot be evalu
 return contract said "findings only, no summary", which made half of the consolidation rule dead
 text. Negative coverage is evidence and has to be asked for.
 
-Each track is blind to the others by construction, and where it cannot be — 3E is a `Skill()` and 3F
-a slash command, both running in this thread — say so rather than claiming an isolation that is not
-there.
-
-### 3F narrows
-
-`/debug audit pr` covers code quality, dependencies and technical debt on changed files only. It
-writes `docs/AUDIT-REPORT-<YYYY-MM-DD>.md`; see the Iron Law note about what "read-only" means here.
+Each dispatched track is blind to the others by construction. One consolidated Evaluator review is
+the acceptance boundary; do not add a refuter for each finding.
 
 ## 4. Receive and consolidate
 
@@ -207,16 +185,16 @@ For every human comment and generated finding:
 3. **Verify** — check the claim against the current code, tests and supported runtime.
 4. **Evaluate** — decide whether it is technically sound for this codebase.
 5. **Respond** — classify it `implement`, `clarify` or `pushback`, with the evidence or question.
-6. **Implement** — one item at a time, testing each before starting the next. In this command that
-   step runs only under explicit `--fix`; otherwise it is deferred to the authorised fix path.
+6. **Implement** — preserve one-item traceability while clustering compatible items into the
+   bounded role packages in § 6. This runs only under explicit `--fix`; otherwise it is deferred.
 
 Nothing is edited until **every** item has reached step 5. One unclear item blocks all fixes: list
 every unclear item and ask first, because related feedback implemented from a partial understanding
 is still wrong.
 
 **Check the source.** User feedback is trusted once understood, but unclear scope still blocks.
-For an external reviewer — including this harness's evaluator, security review, code-review skill
-and `/debug audit` — verify five things before implementing: it is correct here; it preserves
+For an external reviewer — including this harness's evaluator and security or design review —
+verify five things before implementing: it is correct here; it preserves
 existing behaviour; the reason for the current code is understood; it works on every supported
 platform and version; and the reviewer had the necessary context. A finding with confidence 2 or
 below is not implemented unless marked `[ASSUMED]` and accepted explicitly. Wrong feedback gets
@@ -289,10 +267,7 @@ even when the verdict is approve>
 |---|---|---|
 | evaluator (3A) | APPROVED / CHANGES_REQUESTED / SKIPPED | P0=<n> P1=<n> P2=<n> |
 | security-reviewer (3B) | PASS / FINDINGS / SKIPPED (+reason) | <n> |
-| explorer, performance lens (3C) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
-| ui-ux-designer (3D) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
-| code-review skill (3E) | PASS / FINDINGS / UNAVAILABLE | <n> |
-| /debug audit pr (3F) | PASS / FINDINGS / SKIPPED | <n> |
+| ui-ux-designer (3C) | PASS / FINDINGS / SKIPPED (surface untouched) | <n> |
 | project lenses (`chain.lenses`) | per lens: PASS / FINDINGS / SKIPPED / AGENT NOT FOUND | <names> |
 | Change set | baseRef `<ref>` · confidence high/low · graph USED / SKIPPED | <n files> |
 | Declared gates | per gate: PASS / FAIL / NOT DECLARED | <evidence> |
@@ -324,12 +299,21 @@ the person decides and runs it.
 
 1. After every item has reached § 4.1 step 5 and no `clarify` item remains, list the `implement`
    items, P0 first.
-2. One item at a time, foreground `graph-powers:debugger`: failing test first, then the fix.
-3. Between items, run only that item's focused regression check. After the batch, run resolved project-wide gates once; JS/TS gates follow `references/shared/130-typescript7-oxc-gates.md`.
-4. Stop after `graphGuardrails.maxRepatch` failed attempts on the same file → `/debug recover`.
-   Read the number from the config; do not hardcode one. This line said "three" while the schema
-   default is 2 and `/verify` reads the key — three sibling artefacts, two ceilings.
-5. Re-run the affected review path on the result. A fix nobody re-reviewed is an untested claim.
+2. Group compatible items by disjoint ownership and existing writer role: general or security fix →
+   `graph-powers:debugger`; web UI → `graph-powers:frontend-specialist`; measured performance →
+   `graph-powers:performance-optimizer`; mobile → `graph-powers:mobile-developer`. Never dispatch a
+   read-only reviewer as a fixer, invent a role, or create one agent per finding.
+3. Reserve one fresh Evaluator re-review, then dispatch at most `graphGuardrails.maxParallelWave`
+   writer packages in one bounded wave. The initial review, writers and re-review together stay
+   within `graphGuardrails.maxSpawnsPerWorkflow`; defer excess packages explicitly.
+4. Inside each package, keep item-level evidence: failing behavior test first, minimal fix, then its
+   focused regression check. Run resolved project-wide gates once after the wave; JS/TS gates follow
+   `references/shared/130-typescript7-oxc-gates.md`.
+5. Stop after `graphGuardrails.maxRepatch` failed attempts on the same file → `/debug recover`.
+   Read the number from config; do not hardcode it.
+6. Give the whole corrected diff and original accepted findings to one fresh
+   `graph-powers:evaluator`. This is the only correction re-review; do not re-run one path per
+   finding. Open P0/P1 remains `REQUEST CHANGES`.
 
 Never commit. The fixes land in the working tree; the person commits them.
 
@@ -344,10 +328,7 @@ Never commit. The fixes land in the working tree; the person commits them.
 | 2 bundle | yes | yes | yes | yes | yes |
 | 3A evaluator | yes | yes (+ source citation per finding) | skip | yes | yes |
 | 3B security-reviewer | yes | yes | only if sensitive surface | yes | yes |
-| 3C explorer, performance lens | if surface touched | yes | skip | if surface touched | yes |
-| 3D ui-ux-designer | if `web` touched | yes | skip | if `web` touched | yes |
-| 3E code-review skill | yes | yes | skip | yes | yes |
-| 3F /debug audit pr | yes (skip on `--no-debug`) | yes (`--no-debug` overridden) | skip | limited | yes |
+| 3C ui-ux-designer | if `web` touched | yes | skip | if `web` touched | yes |
 | project `chain.lenses` | per `when` | all | skip | per `when` | per `when` |
 | 4 consolidate | yes | yes | yes | yes (no PR comments) | yes |
 | 5 output | yes | yes | yes | yes | yes |

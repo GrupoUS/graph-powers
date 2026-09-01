@@ -35,18 +35,22 @@ workspace, write any file or dispatch any agent. Reject unknown flags rather tha
 
 ## Scheduler
 
-- L3 uses exactly one sequential builder/critic lane. This is the explicit Gauntlet exception that
+- L3 uses exactly one sequential builder lane and one Evaluator review per completed wave. This is the explicit Gauntlet exception that
   allows an approved structured L3 plan; ordinary L3 still uses Planning's inline path.
-- L4+ may fill a wave only with ready tasks whose `Owns` are pairwise disjoint, bounded by
-  `${graphGuardrails.maxParallelWave}`. Release a lane's paths only after that task closes.
+- L4+ may fill a wave only with ready tasks whose `Owns` are pairwise disjoint. Cluster tasks owned
+  by the same existing Graph Powers writer role into the fewest useful lane packages, bounded by
+  `${graphGuardrails.maxParallelWave}`. Release paths only after the wave Evaluator closes the task.
 - One writer per file: parallel lanes never share an `Owns` path. Shared schema, migrations, global
   styles, singletons, lockfiles, generated clients or one browser session force serialization;
   directory boundaries do not prove independence.
 - A task in correction does not block independent lanes unless its paths or promised interface are
   their dependency. Mixed results preserve PASS diffs and re-dispatch only the failed lane.
 - Builders and critics MUST NOT dispatch children. The controller counts all dispatches against
-  `${graphGuardrails.maxSpawnsPerSession}` and specialist rounds against
-  `${graphGuardrails.maxRoundsPerAgent}`.
+  cumulative `${graphGuardrails.maxSpawnsPerWorkflow}`, direct `${graphGuardrails.maxSpawnsPerSession}`
+  and specialist `${graphGuardrails.maxRoundsPerAgent}`, reserving the final Evaluator before a wave.
+- Every dispatch names a role from the Graph Powers assignment matrix. Native Claude spawns inherit
+  that role's frontmatter model; generated Codex roles use the semantic Codex model policy. Never
+  invent an agent name, use a generic runtime agent or override the role's model at the call site.
 
 Consultations are a separate parent-owned operation. Tag the critic/reviewer cycle `review` and the
 parent-mediated operation `consult`; critic and reviewer passes neither reserve nor consume a
@@ -65,26 +69,27 @@ Phase C's inline self-review fallback is disabled for this profile. If an indepe
 be dispatched, stop `BLOCKED`, preserve the lease and report the unavailable review boundary; a
 builder may never serve as its own Gauntlet critic.
 
-## One lane cycle
+## One wave cycle
 
 ```text
-builder attempt
-  → controller focused CHECK
-    → fresh read-only critic
-      → PASS: close task
-      → FAIL: correction packet to the same logical lane
-        → controller focused CHECK
-          → fresh correction reviewer
-            → PASS: close task
-            → FAIL: next bounded attempt
+grouped builder lane attempts (parallel only when Owns are disjoint)
+  → controller focused CHECK per task
+    → one fresh read-only graph-powers:evaluator for the whole wave
+      → PASS per task + integration PASS: close those tasks
+      → FAIL: grouped correction packets to the owning logical lanes
+        → controller focused CHECK per corrected task
+          → one fresh Evaluator for the correction wave
+            → PASS: close corrected tasks
+            → FAIL: next bounded attempt or stop at cap
       → BLOCKED: supply missing factual context once, otherwise stop
 ```
 
-The builder receives only its task block, `Owns`, required dependency payloads, open finding IDs and
-failed evidence — never the full plan or another task. Builder `PASS` is a claim. The controller
+Each builder receives only the related task blocks in its lane package, their disjoint `Owns`,
+required dependency payloads, open finding IDs and failed evidence — never the full plan or another
+lane's task. Builder `PASS` is a claim. The controller
 runs the exact focused `CHECK` first and requires both successful exit and `EXPECT`; a failed check
-returns directly to the lane without spending a critic dispatch. A green check produces Phase C's
-review package for one fresh read-only critic, which treats the builder report as unverified.
+returns directly to the lane without spending an Evaluator dispatch. Green checks produce Phase C's
+review packages for one fresh read-only Evaluator, which treats every builder report as unverified.
 
 Every correction packet contains:
 
@@ -103,8 +108,8 @@ touch only the lane's `Owns` and may not reopen unrelated code.
 
 ## Critic contract
 
-The existing task reviewer still decides compliance first and quality/KISS second. Under this
-profile both the initial task critic and every correction critic normalize their evidence-backed
+The existing wave Evaluator still decides compliance first and quality/KISS second per task, then
+integration. Under this profile both the initial wave review and the one correction re-review normalize their evidence-backed
 return as:
 
 ```text
@@ -126,7 +131,7 @@ Checked clean:
 Recommendation: close task | correct findings | route to debug recover
 ```
 
-Correction critics preserve prior finding IDs, mark each one resolved or still open, and assign an
+Correction reviews preserve prior finding IDs, mark each one resolved or still open, and assign an
 ID plus the same matrix fields to any new regression. The critic is read-only and must not stage,
 commit, spawn, widen scope or re-evaluate unrelated
 files except a regression directly caused by the diff. Preference, “looks bad”, “not impressive”
@@ -134,15 +139,16 @@ or any finding without a criterion and reproducible evidence is non-blocking. Se
 findings and evidence to the builder, never private reasoning.
 
 Close a task only when its focused check and `EXPECT` pass, every changed path is inside `Owns`,
-compliance and quality pass, no Critical or Important finding remains, and deciding evidence is
+its compliance and quality pass, the wave integration verdict passes, no Critical or Important finding remains, and deciding evidence is
 written to the existing plan plus `task-reviews.md`. Failed and blocked attempts remain in that
 ledger; no second state machine or ledger is created.
 
 ## Caps and non-convergence
 
 Use only configured limits: `${graphGuardrails.maxRepatch}` per failing item,
-`${graphGuardrails.maxRoundsPerAgent}` per specialist, `${graphGuardrails.maxSpawnsPerSession}` per
-session, `${graphGuardrails.maxParallelWave}` in flight, `${graphGuardrails.maxTasksPerPlan}` at
+`${graphGuardrails.maxRoundsPerAgent}` per specialist, `${graphGuardrails.maxSpawnsPerWorkflow}` per
+workflow invocation, `${graphGuardrails.maxSpawnsPerSession}` for direct calls,
+`${graphGuardrails.maxParallelWave}` in flight, `${graphGuardrails.maxTasksPerPlan}` at
 validation and `${chain.maxFixRounds}` for final verification. Never raise, reset or replace one
 with a literal.
 

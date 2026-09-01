@@ -21,8 +21,11 @@ import { basename, join } from "node:path";
 import { CODEX_AGENT_PROFILES } from "../codex/model-policy.mjs";
 
 const CONFIG_SCHEMA = JSON.parse(readFileSync("schema/config.schema.json", "utf8"));
-const DEFAULT_MAX_PARALLEL_WAVE =
-  CONFIG_SCHEMA.properties.graphGuardrails.properties.maxParallelWave.default;
+const GUARDRAIL_SCHEMA = CONFIG_SCHEMA.properties.graphGuardrails.properties;
+const DEFAULT_MAX_PARALLEL_WAVE = GUARDRAIL_SCHEMA.maxParallelWave.default;
+const MAX_MAX_PARALLEL_WAVE = GUARDRAIL_SCHEMA.maxParallelWave.maximum;
+const DEFAULT_MAX_SPAWNS_PER_WORKFLOW = GUARDRAIL_SCHEMA.maxSpawnsPerWorkflow.default;
+const MAX_MAX_SPAWNS_PER_WORKFLOW = GUARDRAIL_SCHEMA.maxSpawnsPerWorkflow.maximum;
 
 const CODEX_SCOUT_AGENTS = new Set(
   Object.entries(CODEX_AGENT_PROFILES)
@@ -97,6 +100,37 @@ function checkPolicy(path, source) {
           `POLICY ${path}: ${label} maxParallelWave fallback must match schema default ${DEFAULT_MAX_PARALLEL_WAVE}`,
         );
     }
+    const hardMaximum = source.match(
+      /Math\.min\(positiveNumber\(cfg\.maxParallelWave,\s*[0-9]+\),\s*([0-9]+)/,
+    );
+    if (!hardMaximum || Number(hardMaximum[1]) !== MAX_MAX_PARALLEL_WAVE)
+      problems.push(
+        `POLICY ${path}: maxParallelWave must be hard-clamped to schema maximum ${MAX_MAX_PARALLEL_WAVE}`,
+      );
+  }
+  if (source.includes("cfg.maxSpawnsPerWorkflow")) {
+    const codeLimit = source.match(
+      /Math\.min\(positiveNumber\(cfg\.maxSpawnsPerWorkflow,\s*([0-9]+)\),\s*([0-9]+)/,
+    );
+    const promptFallback = source.match(
+      /maxSpawnsPerWorkflow\s*<-\s*graphGuardrails\.maxSpawnsPerWorkflow,\s*else\s*([0-9]+)/,
+    );
+    if (
+      !codeLimit ||
+      Number(codeLimit[1]) !== DEFAULT_MAX_SPAWNS_PER_WORKFLOW ||
+      Number(codeLimit[2]) !== MAX_MAX_SPAWNS_PER_WORKFLOW
+    )
+      problems.push(
+        `POLICY ${path}: maxSpawnsPerWorkflow runtime fallback/maximum must match schema ${DEFAULT_MAX_SPAWNS_PER_WORKFLOW}/${MAX_MAX_SPAWNS_PER_WORKFLOW}`,
+      );
+    if (!promptFallback || Number(promptFallback[1]) !== DEFAULT_MAX_SPAWNS_PER_WORKFLOW)
+      problems.push(
+        `POLICY ${path}: config bootstrap maxSpawnsPerWorkflow fallback must match schema default ${DEFAULT_MAX_SPAWNS_PER_WORKFLOW}`,
+      );
+    if (!source.includes("workflowSpawns++") || !source.includes("return await agent(prompt, options)"))
+      problems.push(
+        `POLICY ${path}: every inner agent must pass through the cumulative workflow dispatch counter`,
+      );
   }
   return problems;
 }
@@ -120,6 +154,37 @@ function readAgentModels() {
     models.set(basename(file, ".md"), declared ? declared[1].toLowerCase() : null);
   }
   return models;
+}
+
+function readWritableAgents() {
+  const writable = new Set();
+  if (!existsSync("agents")) return writable;
+  for (const file of readdirSync("agents").filter((name) => name.endsWith(".md"))) {
+    const source = readFileSync(join("agents", file), "utf8");
+    const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source)?.[1] ?? "";
+    const tools = /^tools:\s*(.*)$/m.exec(front)?.[1] ?? "";
+    const denied = /^disallowedTools:\s*(.*)$/m.exec(front)?.[1] ?? "";
+    if (
+      /^role_type:\s*worker\s*$/m.test(front) &&
+      /(?:^|,\s*)Write(?:\s*,|$)/.test(tools) &&
+      /(?:^|,\s*)Edit(?:\s*,|$)/.test(tools) &&
+      !/\b(?:Write|Edit)\b/.test(denied)
+    ) writable.add(basename(file, ".md"));
+  }
+  return writable;
+}
+
+function checkWriterSet(path, source, writable) {
+  if (!path.endsWith("ultra-verify.js")) return [];
+  const block = source.match(/const WRITER_AGENT_ENUM = \[([\s\S]*?)\]\s*\.filter/);
+  if (!block) return [`WRITER ${path}: no closed writer-only agent enum`];
+  const listed = [...block[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  const problems = listed
+    .filter((name) => !writable.has(name))
+    .map((name) => `WRITER ${path}: read-only or non-worker graph-powers:${name} can enter a fix group`);
+  if (!source.includes("writerFor(item.agent)"))
+    problems.push(`WRITER ${path}: finding roles are not defensively mapped through writerFor`);
+  return problems;
 }
 
 /**
@@ -335,6 +400,8 @@ function sampleFor(schema) {
         if (key === "scoutAgents") out[key] = [...CODEX_SCOUT_AGENTS];
         else if (key === "agentModels") out[key] = Object.fromEntries(readAgentModels());
         else if (key === "evaluatorCapability") out[key] = "SUPPORTED";
+        else if (key === "maxSpawnsPerWorkflow")
+          out[key] = DEFAULT_MAX_SPAWNS_PER_WORKFLOW;
         else out[key] = sampleFor(sub);
       }
       return out;
@@ -438,10 +505,23 @@ const WILL_EXECUTE = !CHECKING_ONE_OFF || RUN_REQUESTED;
 
 function fallbackArgsFor(workflowName) {
   return workflowName === "ultra-plan"
-    ? { task: "dry-run task", config: { pluginRoot: "plugin", planDir: "docs/plans" } }
+    ? {
+        task: "dry-run task",
+        config: {
+          pluginRoot: "plugin",
+          planDir: "docs/plans",
+          maxSpawnsPerWorkflow: DEFAULT_MAX_SPAWNS_PER_WORKFLOW,
+        },
+      }
     : {
         planPath: "dry-run/plan.md",
-        config: { pluginRoot: "plugin", maxParallelWave: 1, maxRepatch: 1, maxFixRounds: 1 },
+        config: {
+          pluginRoot: "plugin",
+          maxParallelWave: 1,
+          maxSpawnsPerWorkflow: DEFAULT_MAX_SPAWNS_PER_WORKFLOW,
+          maxRepatch: 1,
+          maxFixRounds: 1,
+        },
       };
 }
 
@@ -472,6 +552,7 @@ for (const f of files) {
 
 const agentModels = readAgentModels();
 const agentsOnDisk = new Set(agentModels.keys());
+const writableAgents = readWritableAgents();
 
 function capabilityFixtureArgs(workflowName, capabilityStatus) {
   const declared = Object.fromEntries(agentModels);
@@ -485,12 +566,37 @@ function capabilityFixtureArgs(workflowName, capabilityStatus) {
     agentModels: declared,
     evaluatorCapability: capabilityStatus,
     maxParallelWave: 1,
+    maxSpawnsPerWorkflow: DEFAULT_MAX_SPAWNS_PER_WORKFLOW,
     maxRepatch: 1,
     maxFixRounds: 1,
   };
   return workflowName === "ultra-plan"
     ? { task: "capability fixture", config }
     : { planPath: "dry-run/plan.md", config };
+}
+
+function overflowFixtureArgs(workflowName) {
+  const fixture = capabilityFixtureArgs(workflowName, "SUPPORTED");
+  fixture.config.maxParallelWave = MAX_MAX_PARALLEL_WAVE + 100;
+  fixture.config.maxSpawnsPerWorkflow = MAX_MAX_SPAWNS_PER_WORKFLOW + 100;
+  if (workflowName === "ultra-verify") {
+    fixture.config.lenses = Array.from({ length: 20 }, (_, index) => ({
+      name: `overflow-${index}`,
+      agent: "evaluator",
+      when: [],
+      checks: ["adversarial overflow fixture"],
+    }));
+  }
+  return fixture;
+}
+
+function poisonedModelFixtureArgs(workflowName) {
+  const fixture = capabilityFixtureArgs(workflowName, "SUPPORTED");
+  fixture.config.scoutAgents = ["evaluator"];
+  fixture.config.agentModels = Object.fromEntries(
+    [...agentModels.keys()].map((name) => [name, "opus"]),
+  );
+  return fixture;
 }
 
 if (CHECKING_ONE_OFF && RUN_REQUESTED)
@@ -545,6 +651,12 @@ for (const file of files) {
     failed++;
     continue;
   }
+  const writerProblems = checkWriterSet(path, source, writableAgents);
+  if (writerProblems.length) {
+    for (const problem of writerProblems) console.error(problem);
+    failed++;
+    continue;
+  }
 
   // Every workflow here takes a string first argument (a task, or a plan path). Passing one
   // exercises the real path; passing nothing exercises the guard that should reject it.
@@ -555,6 +667,13 @@ for (const file of files) {
       // oxlint-disable-next-line no-await-in-loop
       const { spawned } = await dryRun(body, "dry-run/plan.md");
       spawnCount = spawned.length;
+      if (spawnCount > MAX_MAX_SPAWNS_PER_WORKFLOW) {
+        console.error(
+          `SPAWN  ${path}: ordinary dry run exceeded maxSpawnsPerWorkflow (${spawnCount} > ${MAX_MAX_SPAWNS_PER_WORKFLOW})`,
+        );
+        failed++;
+        continue;
+      }
       const types = spawned.map((s) => s.agentType);
       const unnamespaced = [...new Set(types)].filter(
         (a) => a !== "(inherited)" && !a.includes(":") && agentsOnDisk.has(a),
@@ -579,6 +698,13 @@ for (const file of files) {
         // same deterministic fan-out bound as the ordinary invocation.
         // oxlint-disable-next-line no-await-in-loop
         const fallback = await dryRun(body, fallbackArgsFor(meta.name));
+        if (fallback.spawned.length > MAX_MAX_SPAWNS_PER_WORKFLOW) {
+          console.error(
+            `SPAWN  ${path}: config fallback exceeded maxSpawnsPerWorkflow (${fallback.spawned.length} > ${MAX_MAX_SPAWNS_PER_WORKFLOW})`,
+          );
+          failed++;
+          continue;
+        }
         if (fallback.spawned.length > spawnCount) {
           console.error(
             `SPAWN  ${path}: config fallback expanded the fan-out from ${spawnCount} to ${fallback.spawned.length} spawns`,
@@ -631,6 +757,38 @@ for (const file of files) {
             failed++;
             break;
           }
+        }
+        // Caller config supplies project values and capability evidence, never the canonical role
+        // registry. A complete-looking but poisoned model/scout map must be discarded and rebuilt
+        // from codex/model-policy.json plus agents/*.md before any specialist dispatch.
+        // oxlint-disable-next-line no-await-in-loop
+        const poisoned = await dryRun(body, poisonedModelFixtureArgs(meta.name));
+        if (poisoned.spawned.length > MAX_MAX_SPAWNS_PER_WORKFLOW) {
+          console.error(
+            `SPAWN  ${path}: poisoned-model fixture exceeded maxSpawnsPerWorkflow (${poisoned.spawned.length} > ${MAX_MAX_SPAWNS_PER_WORKFLOW})`,
+          );
+          failed++;
+          continue;
+        }
+        const poisonedProblems = checkModels(path, poisoned.spawned, agentModels, {
+          allowEvaluatorCapabilityFallback: true,
+        });
+        if (poisonedProblems.length) {
+          for (const problem of poisonedProblems) console.error(problem);
+          failed++;
+          continue;
+        }
+        // Malformed callers may exceed both configured bounds and may supply an arbitrarily large
+        // custom lens set. Runtime clamping must still keep the whole workflow at the schema's hard
+        // maximum; width-only checks cannot catch the historical 100+ cumulative dispatch cascade.
+        // oxlint-disable-next-line no-await-in-loop
+        const overflow = await dryRun(body, overflowFixtureArgs(meta.name));
+        if (overflow.spawned.length > MAX_MAX_SPAWNS_PER_WORKFLOW) {
+          console.error(
+            `SPAWN  ${path}: overflow fixture exceeded maxSpawnsPerWorkflow (${overflow.spawned.length} > ${MAX_MAX_SPAWNS_PER_WORKFLOW})`,
+          );
+          failed++;
+          continue;
         }
       } catch (error) {
       console.error(`RUN    ${path}: ${error.message}`);

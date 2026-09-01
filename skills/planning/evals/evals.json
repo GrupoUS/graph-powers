@@ -16,11 +16,11 @@
       "id": "pos-approved-plan-execution",
       "polarity": "positive",
       "prompt": "O plano estruturado L4 em docs/plans/example-default-l4/PLAN.md está aprovado. Execute-o explicitamente com /implement, revise cada tarefa e entregue a árvore de trabalho para verificação.",
-      "expected_output": "Phase C execution with validation, write lease, per-task review and final verification.",
+      "expected_output": "Phase C execution with validation, write lease, grouped writer lanes, one Evaluator review per wave and final verification.",
       "assertions": [
         { "id": "B00", "description": "Explicit implement admits an approved L4 plan", "check": "regex: (?is)(/implement.*L4|L4.*/implement)", "critical": true },
         { "id": "B01", "description": "Validates and leases before writing", "check": "regex: (?is)(validat|valida).{0,2000}(write[- ]lease|lease)", "critical": true },
-        { "id": "B02", "description": "Uses one reviewer per task and final review", "check": "regex: (?is)((review|revis).*(task|tarefa)|(task|tarefa).*(review|revis)).*final[- ]reviewer", "critical": true },
+        { "id": "B02", "description": "Uses one consolidated Evaluator per wave and a separate final review", "check": "regex: (?is)(one|um).*(Evaluator|avaliador).*(wave|onda).*(final[- ]review|revisão final|final reviewer)", "critical": true },
         { "id": "B03", "description": "Routes exhausted corrections to recover", "check": "regex: (?is)maxRepatch.*debug recover", "critical": true },
         { "id": "B04", "description": "Default execution retains quick verification", "check": "contains: /verify quick", "critical": true }
       ]
@@ -152,12 +152,12 @@
       "id": "gauntlet-pos-disjoint-l4",
       "polarity": "positive",
       "prompt": "Execute /gauntlet fixtures/gauntlet-l4/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L4 e já aprovado: T1.1 altera src/api.py, T1.2 altera src/web.py; ambas estão prontas, não possuem dependência entre si e têm CHECK/EXPECT decisivos. Descreva precisamente a execução e o fechamento.",
-      "expected_output": "Explicit Gauntlet routing uses bounded ownership-safe waves, separate builders and fresh critics, task-local correction and final /verify loop.",
+      "expected_output": "Explicit Gauntlet routing uses bounded ownership-safe writer waves, one fresh Evaluator per wave, grouped correction and final /verify loop.",
       "assertions": [
         { "id": "G00", "description": "Runs Gauntlet validation against the supplied plan", "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l4/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true },
         { "id": "G01", "description": "Loads the Gauntlet loop only after successful validation and eligible tier", "check": "regex: (?is)sdd\\.py.{0,80}validate.*?--profile\\s+gauntlet.{0,800}(eligible|elegível|L4).{0,800}(load|read|carreg|ler|segue).{0,300}gauntlet-loop", "critical": true },
         { "id": "G02", "description": "Bounds disjoint waves with maxParallelWave", "check": "regex: (?is)maxParallelWave.*(disjoint|disjunt)|(?:disjoint|disjunt).*maxParallelWave", "critical": true },
-        { "id": "G03", "description": "Separates each builder from a fresh read-only critic", "check": "regex: (?is)(builder|implementador).*((fresh|novo|fresco).*(read.only|somente[- ]leitura).*(critic|crític)|(critic|crític).*(fresh|novo|fresco).*(read.only|somente[- ]leitura))", "critical": true },
+        { "id": "G03", "description": "Uses one fresh read-only Evaluator for the whole writer wave", "check": "regex: (?is)(one|um).*(fresh|novo|fresco).*(read.only|somente[- ]leitura).*(Evaluator|avaliador).*(wave|onda)", "critical": true },
         { "id": "G04", "description": "Returns correction only to the failed logical lane", "check": "regex: (?is)(correction|correção).*((only|somente|apenas).*(failed|falh)|(same|mesm).*(lane|task|tarefa))", "critical": true },
         { "id": "G05", "description": "Closes through verify loop with the supplied plan", "check": "contains: /verify loop fixtures/gauntlet-l4/approved.md", "critical": true },
         { "id": "G06", "description": "Runs Gauntlet acquisition against the supplied valid plan", "check": "regex: (?is)sdd\\.py.{0,80}acquire\\s+fixtures/gauntlet-l4/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true }
@@ -167,13 +167,13 @@
       "id": "gauntlet-pos-coupled-l3",
       "polarity": "positive",
       "prompt": "Execute /gauntlet fixtures/gauntlet-l3/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L3 e já aprovado; suas duas tarefas alteram o mesmo módulo compartilhado e precisam permanecer acopladas. Explique a topologia exata e a ordem de validação.",
-      "expected_output": "An explicit L3 Gauntlet run uses one sequential logical lane, focused CHECK before a fresh critic, and no directory fan-out.",
+      "expected_output": "An explicit L3 Gauntlet run uses one sequential logical lane, focused CHECK before one fresh wave Evaluator, and no directory fan-out.",
       "assertions": [
         { "id": "H00", "description": "Runs Gauntlet validation against the supplied plan", "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true },
         { "id": "H01", "description": "Uses exactly one sequential L3 lane", "check": "regex: (?is)L3.*(one|uma).*(sequential|sequencial).*(lane|faixa)|(one|uma).*(sequential|sequencial).*(lane|faixa).*L3", "critical": true },
-        { "id": "H02", "description": "Runs the focused CHECK before the critic", "check": "regex: (?is)(focused CHECK|CHECK focado).*(before|antes|→).*(critic|crític)", "critical": true },
+        { "id": "H02", "description": "Runs the focused CHECK before the wave Evaluator", "check": "regex: (?is)(focused CHECK|CHECK focado).*(before|antes|→).*(Evaluator|avaliador)", "critical": true },
         { "id": "H03", "description": "Refuses fan-out for shared ownership", "check": "regex: (?is)(shared|compartilh|overlap|sobrepos|mesmo módulo).*(sequential|sequencial|serial|não.*parallel|não.*paralel)", "critical": true },
-        { "id": "H04", "description": "Uses a fresh critic after the builder", "check": "regex: (?is)(builder|implementador).*(fresh|novo|fresco).*(critic|crític)", "critical": true },
+        { "id": "H04", "description": "Uses one fresh Evaluator after the builder wave", "check": "regex: (?is)(builder|implementador).*(one|um).*(fresh|novo|fresco).*(Evaluator|avaliador)", "critical": true },
         { "id": "H05", "description": "Closes through verify loop with the supplied plan", "check": "contains: /verify loop fixtures/gauntlet-l3/approved.md", "critical": true },
         { "id": "H06", "description": "Runs Gauntlet acquisition against the supplied valid plan", "check": "regex: (?is)sdd\\.py.{0,80}acquire\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet", "critical": true }
       ]
@@ -222,7 +222,7 @@
       "expected_output": "Refuse unbounded perfection, enumerate existing configured caps and stop as NEEDS-WORK or BLOCKED when a cap is reached.",
       "assertions": [
         { "id": "L01", "description": "Refuses an unbounded perfection promise", "check": "regex: (?is)(refus|recus|do not|não).*(unbounded|ilimit|perfei)", "critical": true },
-        { "id": "L02", "description": "Uses the existing per-item and session caps", "check": "regex: (?is)maxRepatch.*maxRoundsPerAgent.*maxSpawnsPerSession", "critical": true },
+        { "id": "L02", "description": "Uses the existing item, specialist, workflow and direct-session caps", "check": "regex: (?is)maxRepatch.*maxRoundsPerAgent.*maxSpawnsPerWorkflow.*maxSpawnsPerSession", "critical": true },
         { "id": "L03", "description": "Treats a cap as unfinished work", "check": "regex: (?is)(cap|limit).*(NEEDS-WORK|BLOCKED).*(not|não|nunca|inacab).*(success|sucesso|PASS)", "critical": true }
       ]
     },
