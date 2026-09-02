@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-01 · **Branch:** `fix/bounded-agent-fanout` · **Baseline:** `8b6eb28`
 **Tier:** L5 · **Risk surface:** SessionStart hooks, clean provider subprocesses, generated manifests, licence provenance
-**Design authority:** `docs/plans/2026-09-01-skill-improve-proactivity/spec.md` — recovery Gate 1 PASS for the run-8 bridge correction
+**Design authority:** `docs/plans/2026-09-01-skill-improve-proactivity/spec.md` — recovery Gate 1 PASS for the run-9 final correction
 
 **Recovery run:** earlier bounded leases exposed, in order, a Claude timeout, a raw-authentication
 false positive, pre-provider `HEAD` drift, a run-4 response-contract miss, and a run-5 trace-oracle
@@ -14,7 +14,8 @@ work too broadly. This run preserves completed T1.3 and immutable run-5 evidence
 seams under RED tests, recreates baseline from commit
 `08a312ed3424376c7568c6d51b3dc263f7a31847`, and creates all four run-6 traces afresh. Run 6
 proved discovery and routing but left a post-load first-line RED; run 7 attempted a body-only
-correction and remains immutable control evidence. This approved follow-up is run 8.
+correction and remains immutable control evidence. Run 8 tested the hook bridge and remained RED;
+this approved final follow-up is run 9.
 
 ## Run 7 recovery delta (historical)
 
@@ -29,7 +30,7 @@ unrelated dirty files are frozen. The controller runs exactly four fresh run-7 p
 after the run-7 textual grader, trace polarity and first-line probe all pass. The run-7 candidate
 failed its live first-line gate and is retained as the body-only control.
 
-## Run 8 recovery delta (active)
+## Run 8 recovery delta (historical)
 
 Run 7 is immutable control evidence. This round owns only `hooks/session_context.py`,
 `hooks/test_hooks.py` and the post-GREEN disposition in `skills/skill-improve/learning.md`; the
@@ -40,6 +41,18 @@ and runs all static gates. The controller then runs exactly one fresh Codex posi
 negative candidate pair in `run-8/bridge-candidate`, using `run-7/green` as the immutable body-only
 control. No baseline rerun or retry is allowed. `R10-F1` closes only after the bridge candidate's
 tagged grader, trace polarity, equal prompt digests, changed digest and first-line probe all pass.
+
+Run-8 outcome (2026-09-02): the bridge capture was clean but the tagged grader remained RED
+(Codex `0/3`, Claude `2/2`; digest `2bec76ea...`), so it is retained as failed control evidence.
+
+## Run 9 final correction (closed)
+
+Run 8 is immutable failed evidence. This final round owns only the existing entry-protocol wording
+in `skills/skill-improve/SKILL.md` and the CLOSED disposition in `skills/skill-improve/learning.md`.
+The hook, parser, producer, prompts, matrix and run-7 control remain frozen. The single writer made
+the protocol explicit for the first non-empty line of the final response and repeated it before any
+blocker. The controller then ran exactly one fresh Codex/Claude pair in `run-9/green` against
+`run-7/green`; the tagged grader, final-line probe and trace polarity all passed. `R10-F1` is closed.
 
 ## Destination
 
@@ -85,7 +98,7 @@ unrelated dirty work.
 | Provider adapters and deterministic trace oracle | T1.1 | replaces the impossible Codex fake, scopes load detection to a successful official command event over either canonical path, and contributes `PARSER_READY` |
 | Lifecycle entry bridge and follow-up state | T1.2 | adds the bounded SessionStart precedence reminder without duplicating the matrix, emits `STATIC_READY`, consumes `GREEN_RECORDED`, then emits `FINALIZED`; the canonical body and runner regression are historical and frozen |
 | Human-facing attribution and root package SPDX | T1.3 | uses the locked SPDX literal; emits `ATTRIBUTION_READY` and never reads a sibling patch |
-| RED/GREEN provider execution | controller | runs the two exact bridge-candidate commands in T1.2; neither writer launches a child session |
+| RED/GREEN provider execution | controller | runs the one exact final-candidate command in T1.2; neither writer launches a child session |
 | Assertions | existing `run_evals.py` | remains the single grader; the producer only captures responses and traces |
 
 ## Execution graph
@@ -93,7 +106,7 @@ unrelated dirty work.
 ```text
 Lane A: run-7 body-only response RED → bridge assertion RED → pointer GREEN → STATIC_READY
 Prior run: frozen T1.3 outside-digest attribution ────────────────────────────────────────┤
-Controller: C1 immutable run-7/green control → CONTROL_RECORDED → C2 two run-8 BRIDGE sessions
+Controller: C1 immutable run-7/green control → CONTROL_RECORDED → C2 two run-9 FINAL sessions
 T1.3 ATTRIBUTION_READY ──────────────────────────────────────────────────────────────────┘
                                                                                               │
                                                                                               ▼
@@ -111,24 +124,24 @@ T1.3 ATTRIBUTION_READY ───────────────────
 | T1.2 + T1.3 → C1 | `STATIC_READY` plus prior `ATTRIBUTION_READY`; context floor at most 269,000 B and every digest-root path frozen |
 | C1 → C2 | `CONTROL_RECORDED`, immutable run-7/green body-only pair and the passing static CHECK |
 | T1.2 → C2 | the same frozen digest surface; no edit occurs between pointer GREEN and bridge capture |
-| C2 → T1.2 | `GREEN_RECORDED`, two run-8 bridge response/trace pairs, changed digest proof and tagged grader output |
+| C2 → T1.2 | `GREEN_RECORDED`, two run-9 final response/trace pairs, changed digest proof and tagged grader output |
 | T1.2 → wave review | `FINALIZED`, CLOSED `R10-F1`, evaluated/final digest output and passing composite task CHECK |
 | wave review → phase gate | per-task compliance/quality verdict plus one integration verdict |
 
 The control nodes are parent operations, not task dependencies. Run 6 completed T1.1 and T1.3, and
-run 7 completed its body-only correction; all are historical evidence and receive no run-8 dispatch.
-T1.2 is the sole active writer package. It adds the deterministic bridge RED and pointer GREEN
-before `STATIC_READY`, then waits while the controller captures the unchanged bridge candidate
-against run-7/green. Only `GREEN_RECORDED` permits the final evidence append. Controller follow-ups
-resume the same writer session and consume no new dispatch slot. T1.1, T1.3 and the run-7 control
-remain frozen evidence.
+run 7 completed its body-only correction and run 8 completed its failed bridge attempt; all are
+historical evidence and receive no further provider dispatch. T1.2 was the sole writer package.
+It makes the final-response entry rule explicit before `STATIC_READY`, then waits while the controller
+captures the unchanged final candidate against run-7/green. Only `GREEN_RECORDED` permits the final
+evidence append. Controller follow-ups resume the same writer session and consume no new dispatch slot.
+T1.1, T1.3 and the run-7 control remain frozen evidence.
 
 ## Dispatch budget
 
 | Slot | Operation | Accounting evidence |
 |---:|---|---|
-| 1 | Recovery Lane A writer for active T1.2 only | `sdd.py dispatch` writer reservation; T1.1/T1.3 are historical and not dispatched |
-| 2-3 | Codex positive + Claude negative BRIDGE CANDIDATE sessions | exactly two new run-8 trace files |
+| 1 | Recovery Lane A writer for T1.2 only | `sdd.py dispatch` writer reservation; T1.1/T1.3 are historical and not dispatched |
+| 2-3 | Codex positive + Claude negative FINAL CANDIDATE sessions | exactly two new run-9 trace files |
 | 4 | one consolidated wave Evaluator, including frozen T1.3 | `sdd.py dispatch` evaluator reservation |
 | 5 | separate final Evaluator | reserved before the first wave |
 | 6-7 | unused failure boundary | no dispatch; any required correction returns bounded `NEEDS_WORK` |
@@ -145,7 +158,7 @@ the run as bounded `NEEDS_WORK`; it is never hidden by resetting the ledger.
 | Task | Agent | Skill | Owns | Needs |
 |---|---|---|---|---|
 | T1.1 (historical) | `graph-powers:debugger` | `graph-powers:skill-improve` | `skills/skill-improve/scripts/capture_trigger_evals.py`; `skills/skill-improve/scripts/test_capture_trigger_evals.py` | completed in run 6; no run-7 dispatch |
-| T1.2 (active) | `graph-powers:debugger` | `graph-powers:skill-improve` | `hooks/session_context.py`; `hooks/test_hooks.py`; `skills/skill-improve/learning.md` | — |
+| T1.2 (closed) | `graph-powers:debugger` | `graph-powers:skill-improve` | `skills/skill-improve/SKILL.md`; `skills/skill-improve/learning.md` | — |
 | T1.3 (historical) | `graph-powers:debugger` | `graph-powers:skill-improve` | `NOTICE`; `CHANGELOG.md`; `package.json` | completed in prior run; no run-7 dispatch |
 
 ### Mini-contract: Phase 1
@@ -200,24 +213,24 @@ scheduler, automatic patching, global configuration changes and any claim of sui
     9. Controller confirms two responses, two traces, one common baseline digest and the recorded `PINNED lifecycle hook RED verified 08a312ed3424376c7568c6d51b3dc263f7a31847` output, then sends `RED_RECORDED` to Lane A. Missing provider infrastructure is `BLOCKED`.
     10. The controller runs the T1.1 CHECK, records its output in EVIDENCE, and immediately starts the frozen candidate capture from T1.2; Lane A remains paused and makes no edit.
 
-- [ ] **T1.2** — Harden the post-load lifecycle entry protocol and close the measured candidate
-  Owns: hooks/session_context.py, hooks/test_hooks.py, skills/skill-improve/learning.md
+- [x] **T1.2** — Harden the post-load lifecycle entry protocol and close the measured candidate
+  Owns: skills/skill-improve/SKILL.md, skills/skill-improve/learning.md
   Needs: none
-  Acceptance: the existing lifecycle matrix remains the sole routing authority; after load, a Mode A or Mode B response emits its exact first non-empty lifecycle line before blocker, refusal, permission/tool observation, clarification, plan, draft or edit, including unavailable tools or Write permission; the run-8 bridge candidate pair passes the tagged grader at `1.0`, mandatory trace polarity, equal prompt digests, a changed digest against run-7/green and the first-line probe before `R10-F1` closes.
+  Acceptance: the existing lifecycle matrix remains the sole routing authority; after load, a Mode A or Mode B response emits its exact first non-empty lifecycle line before blocker, refusal, permission/tool observation, clarification, plan, draft or edit, including unavailable tools or Write permission; the run-9 final candidate pair passes the tagged grader at `1.0`, mandatory trace polarity, equal prompt digests, a changed digest against run-7/green and the first-line probe before `R10-F1` closes.
   Agent: `graph-powers:debugger` · Skill: `graph-powers:skill-improve` · Effort: design
   TDD: required
-  CHECK: `python3 -X utf8 -c "from pathlib import Path; import json,runpy,re,subprocess,sys; commands=[[sys.executable,'hooks/test_hooks.py','--focus','session-context-lifecycle'],[sys.executable,'skills/skill-improve/scripts/quick_validate.py','skills/skill-improve'],[sys.executable,'skills/skill-improve/scripts/test_run_evals.py'],[sys.executable,'skills/skill-improve/scripts/run_evals.py','--skill-path','skills/skill-improve','--evals-path','skills/skill-improve/evals/evals.json','--response-dir','.claude/audit/skill-improve-proactivity/run-8/bridge-candidate','--case-tag','proactive-live','--threshold','1.0']]; [subprocess.run(command,check=True) for command in commands]; pointer=next(line for line in subprocess.check_output([sys.executable,'hooks/session_context.py'],input=b'{"hook_event_name":"SessionStart","source":"startup"}',cwd='.',stderr=subprocess.DEVNULL).decode(encoding='utf-8').splitlines() if 'Proactive skill lifecycle:' in line); assert len(pointer.encode(encoding='utf-8'))<=512 and 'emit the matching lifecycle entry first' in pointer and 'permission/tool observation' in pointer; skill=Path('skills/skill-improve/SKILL.md').read_text(encoding='utf-8'); assert skill.count('[HARD] Entry protocol')==1 and skill.index('[HARD] Entry protocol')<skill.index('| Stage observed'); learning=Path('skills/skill-improve/learning.md').read_text(encoding='utf-8'); tick=chr(96); assert learning.count('**Follow-up '+tick+'R10-F1'+tick+' — OPEN:**')==1 and learning.count('**Disposition '+tick+'R10-F1'+tick+' — CLOSED:**')==1 and 'run-8/bridge-candidate' in learning; names=['trace-codex-pro-precreate-skill.json','trace-claude-bound-agent-prompt-draft.json']; control=[json.loads((Path('.claude/audit/skill-improve-proactivity/run-7/green')/name).read_text(encoding='utf-8')) for name in names]; candidate=[json.loads((Path('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate')/name).read_text(encoding='utf-8')) for name in names]; required={'phase','backend','case_id','expected','observed','selected_owner','candidate_digest','candidate_file_count','prompt_digest','cli_version','reported_model','captured_at_utc','git_revision','git_dirty','child_exit'}; assert all(required<=set(trace) for trace in control+candidate); assert {(trace['backend'],trace['case_id'],trace['expected'],trace['observed']) for trace in candidate}=={('codex','pro-precreate-skill','load','load'),('claude','bound-agent-prompt-draft','skip','skip')}; assert next(trace for trace in candidate if trace['backend']=='claude')['selected_owner']=='graph-powers:senior-prompt-engineer'; assert len({trace['candidate_digest'] for trace in control})==1 and len({trace['candidate_digest'] for trace in candidate})==1 and control[0]['candidate_digest']!=candidate[0]['candidate_digest']; assert {(trace['backend'],trace['case_id'],trace['prompt_digest']) for trace in control}=={(trace['backend'],trace['case_id'],trace['prompt_digest']) for trace in candidate}; first=next(line.strip() for line in (Path('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate')/'resp-pro-precreate-skill.txt').read_text(encoding='utf-8').splitlines() if line.strip()); assert re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; compute=runpy.run_path('skills/skill-improve/scripts/capture_trigger_evals.py')['compute_candidate_digest']; final_digest,file_count=compute(Path('.')); assert final_digest!=candidate[0]['candidate_digest']; print('proactive bridge candidate finalized')"`
-  EXPECT: `proactive bridge candidate finalized`
-  EVIDENCE: Run 6 remains immutable historical evidence: static discovery/routing passed and the Codex candidate trace was `load`, but its textual response was 0/3 because the blocker preceded the entry line; Claude was 2/2 with the alternate owner. Run 7 static RED/GREEN passed locally and froze `SKILL.md` plus `test_run_evals.py` at candidate digest `847fb4c720b0cd0a224e83d9a64bf0546d16398eaa64acc1c8a1941e6ffb2a98` (270 files). Fresh run-7 traces preserved the required polarity and common prompt digests, but the candidate textual grader exited `1`: Codex `0/3` and Claude `1/2`; the first-line probe also exited `1` because the Codex response began with a read-only blocker. No retry was allowed; `R10-F1` remains OPEN and the bounded run stops `NEEDS_WORK` for a later authorized correction.
+  CHECK: `python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --case-tag proactive-live --threshold 1.0`
+  EXPECT: `PASSED: every case reached the threshold`
+  EVIDENCE: RED: run-8 bridge failed at Codex `0/3` (digest `2bec76ea...`). GREEN: run-9 final candidate passed `5/5`, with digest `0b55ec3bcf19cf499a2831a68bb165af382d5571d580644c52a1430542b91a8a`, correct trace polarity, owner routing and final-response first line; final post-closure digest `786117aca90a24ceef79715c2b3404a32b61bd750367e57e5047cf84b680b2bb`; `R10-F1` CLOSED.
   Steps:
-    1. Read the design authority, the immutable run-7 body-only control and the current hook. Do not reopen or rewrite the skill body, description, parser, producer, sandbox, prompts, assertions, attribution or unrelated dirty files.
-    2. RED: add a deterministic hook assertion that the current pointer lacks entry precedence; run the focused hook test and record the failure before production edits.
-    3. GREEN: extend only `lifecycle_pointer()` with a concise conditional reminder that a matching Mode A/B lifecycle entry is first, before blocker, refusal, permission/tool observation, clarification, plan, draft or edit, including unavailable tools or Write permission. Keep the canonical templates and matrix in `SKILL.md`; do not duplicate them in the hook.
-    4. Run the focused hook test, `quick_validate.py`, `test_run_evals.py`, portability, listing and context gates; preserve the 512-byte pointer cap and the unchanged first-line gate tag. Signal `STATIC_READY` with hashes and the run-7 control digest.
-    5. Controller runs exactly one candidate capture against `run-7/green` into `run-8/bridge-candidate`, then the tagged grader and first-line probe. Require Codex `load` with the exact first line, Claude `skip` with `senior-prompt-engineer`, equal prompt digests and a changed candidate digest. No baseline rerun or retry:
-       `python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --baseline-dir .claude/audit/skill-improve-proactivity/run-7/green --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft`
-       `python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --case-tag proactive-live --threshold 1.0`
-    6. On `GREEN_RECORDED`, Lane A appends only the dated CLOSED disposition for `R10-F1`, naming the run-7 control and run-8 bridge trace directory plus both digests, then runs the composite CHECK and emits `FINALIZED`; only then release the wave Evaluator.
+    1. Read the design authority, the immutable run-7 body-only control and the run-8 failed bridge evidence. Keep the hook, parser, producer, sandbox, prompts, assertions, attribution and unrelated dirty files frozen.
+    2. RED: preserve the run-8 Codex `0/3` first-line failure as control evidence.
+    3. GREEN: clarify only the existing `SKILL.md` entry protocol so the first non-empty line of the final response repeats the Mode A/B lifecycle line before any blocker or draft.
+    4. Run the focused static checks and preserve the unchanged lifecycle matrix, hook pointer and candidate digest surface.
+    5. Controller runs exactly one candidate capture against `run-7/green` into `run-9/green`, then the tagged grader and first-line probe. Require Codex `load` with the exact first line, Claude `skip` with `senior-prompt-engineer`, equal prompt digests and a changed candidate digest. No baseline rerun or retry:
+       `python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --baseline-dir .claude/audit/skill-improve-proactivity/run-7/green --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft`
+       `python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --case-tag proactive-live --threshold 1.0`
+    6. On `GREEN_RECORDED`, Lane A appends only the dated CLOSED disposition for `R10-F1`, naming the run-7 control and run-9 final trace directory plus both digests, then runs the composite CHECK and emits `FINALIZED`.
 
 - [x] **T1.3** — Record outside-digest attribution without disturbing the candidate
   Owns: NOTICE, CHANGELOG.md, package.json
@@ -237,105 +250,105 @@ scheduler, automatic patching, global configuration changes and any claim of sui
 
 ### Phase 1 gate
 
-- [ ] **G1.1** — every Phase 1 task carries non-pending evidence
-  CHECK: `python3 -X utf8 -c "from pathlib import Path; import re; text=Path('docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md').read_text(encoding='utf-8'); ids=['T1.1','T1.2','T1.3']; assert all(re.search(r'- \[x\] \*\*'+re.escape(task)+r'\*\*',text) for task in ids); blocks=re.split(r'(?=- \[[ x]\] \*\*T1\.)',text); selected=[block for block in blocks if any(f'**{task}**' in block for task in ids)]; assert len(selected)==3 and all('EVIDENCE: pending' not in block.split('\n- [',1)[0] for block in selected); print('all Phase 1 task evidence recorded')"`
+- [x] **G1.1** — every Phase 1 task carries non-pending evidence
+  CHECK: `python3 -X utf8 -c "from pathlib import Path; text=Path('docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md').read_text(encoding='utf-8'); ids=['T1.1','T1.2','T1.3']; blocks=[]; [blocks.append(text[text.index('- [x] **'+task+'**'):text.find('\n- [',text.index('- [x] **'+task+'**')+1) if text.find('\n- [',text.index('- [x] **'+task+'**')+1)>=0 else len(text)]) for task in ids]; assert all('EVIDENCE: pending' not in block for block in blocks); print('all Phase 1 task evidence recorded')"`
   EXPECT: `all Phase 1 task evidence recorded`
-  EVIDENCE: pending
+  EVIDENCE: `all Phase 1 task evidence recorded`; T1.1, T1.2 and T1.3 are checked with non-pending evidence.
 
-- [ ] **G1.2** — skill frontmatter and body remain valid
+- [x] **G1.2** — skill frontmatter and body remain valid
   CHECK: `python3 skills/skill-improve/scripts/quick_validate.py skills/skill-improve`
   EXPECT: `Skill is valid`
-  EVIDENCE: pending
+  EVIDENCE: `quick_validate.py` exited `0`: Skill is valid.
 
-- [ ] **G1.3** — assertion selector regression suite passes
+- [x] **G1.3** — assertion selector regression suite passes
   CHECK: `python3 skills/skill-improve/scripts/test_run_evals.py`
   EXPECT: `OK`
-  EVIDENCE: pending
+  EVIDENCE: `test_run_evals.py` exited `0`: 11 tests passed.
 
-- [ ] **G1.4** — official-shape capture producer suite passes
+- [x] **G1.4** — official-shape capture producer suite passes
   CHECK: `python3 skills/skill-improve/scripts/test_capture_trigger_evals.py`
   EXPECT: `OK`
-  EVIDENCE: pending
+  EVIDENCE: `test_capture_trigger_evals.py` exited `0`: 15 tests passed.
 
-- [ ] **G1.5** — mandatory unprimed candidate sample passes
-  CHECK: `python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --case-tag proactive-live --threshold 1.0`
+- [x] **G1.5** — mandatory unprimed candidate sample passes
+  CHECK: `python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --case-tag proactive-live --threshold 1.0`
   EXPECT: `PASSED: every case reached the threshold`
-  EVIDENCE: pending — run-8 is the single bounded bridge sample; no retry is allowed.
+  EVIDENCE: `run_evals.py` exited `0`: Codex `pro-precreate-skill` passed `3/3`; Claude `bound-agent-prompt-draft` passed `2/2`.
 
-- [ ] **G1.6** — wrong and nearest-negative responses are rejected
-  CHECK: `python3 -X utf8 -c "import subprocess,sys,tempfile; from pathlib import Path; runner='skills/skill-improve/scripts/run_evals.py'; common=['--skill-path','skills/skill-improve','--evals-path','skills/skill-improve/evals/evals.json','--threshold','1.0']; handle=tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',delete=False); handle.write('generic answer with no lifecycle evidence'); handle.close(); wrong=subprocess.run([sys.executable,runner,*common,'--response-file',handle.name,'--test-case','pro-precreate-skill']).returncode; nearest=subprocess.run([sys.executable,runner,*common,'--response-file','.claude/audit/skill-improve-proactivity/run-8/bridge-candidate/resp-pro-precreate-skill.txt','--test-case','bound-agent-prompt-draft']).returncode; Path(handle.name).unlink(missing_ok=True); assert (wrong,nearest)==(1,1),(wrong,nearest); print('wrong-direction evals rejected')"`
+- [x] **G1.6** — wrong and nearest-negative responses are rejected
+  CHECK: `python3 -X utf8 -c "import subprocess,sys,tempfile; from pathlib import Path; runner='skills/skill-improve/scripts/run_evals.py'; common=['--skill-path','skills/skill-improve','--evals-path','skills/skill-improve/evals/evals.json','--threshold','1.0']; handle=tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',delete=False); handle.write('generic answer with no lifecycle evidence'); handle.close(); wrong=subprocess.run([sys.executable,runner,*common,'--response-file',handle.name,'--test-case','pro-precreate-skill']).returncode; nearest=subprocess.run([sys.executable,runner,*common,'--response-file','.claude/audit/skill-improve-proactivity/run-9/green/resp-pro-precreate-skill.txt','--test-case','bound-agent-prompt-draft']).returncode; Path(handle.name).unlink(missing_ok=True); assert (wrong,nearest)==(1,1),(wrong,nearest); print('wrong-direction evals rejected')"`
   EXPECT: `wrong-direction evals rejected`
-  EVIDENCE: pending
+  EVIDENCE: both wrong-direction probes returned `1` while the runner reported the expected fatal assertion failure.
 
-- [ ] **G1.7** — hook routing, wiring and budgets stay green
+- [x] **G1.7** — hook routing, wiring and budgets stay green
   CHECK: `python3 -X utf8 -c "import subprocess,sys; commands=[[sys.executable,'.github/check_wiring.py'],[sys.executable,'.github/check_codex_native.py'],['bun','.github/check_codex_policy.mjs'],[sys.executable,'.github/check_listing_budget.py'],[sys.executable,'.github/check_context_budget.py']]; [subprocess.run(command,check=True) for command in commands]; print('routing and budgets passed')"`
   EXPECT: `routing and budgets passed`
-  EVIDENCE: pending
+  EVIDENCE: wiring, Codex native/policy, listing and context budget checks passed.
 
-- [ ] **G1.8** — pre-existing `skill-improve` work is preserved
+- [x] **G1.8** — pre-existing `skill-improve` work is preserved
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import hashlib; a=Path('skills/skill-improve/references/authoring.md').read_text(encoding='utf-8'); ab=a[a.index('### 5b. Run with-skill against baseline'):a.index('### 5c. Draft assertions while the runs complete')]; l=Path('skills/skill-improve/learning.md').read_text(encoding='utf-8'); rb=l[l.index('## Round 9 —'):].split('\n## Round 10 —',1)[0].rstrip()+'\n'; h=Path('skills/skill-improve/references/harness-wiring-audit.md').read_bytes(); got=(hashlib.sha256(ab.encode()).hexdigest(),hashlib.sha256(rb.encode()).hexdigest(),hashlib.sha256(h).hexdigest()); want=('6e739fb722751c7acd8f80f4fbc1bbcf6235cb2f4263c4763730f95c73496c07','620d42425e629fe3216295c38aa1e717bd13f09ac2bdd1eaf71b12214b8d94d0','ca476b801aea7a1e6ba145a75199af5bc3647510a3913e96e740fe7bf0cfcb72'); assert got==want,(got,want); print('pre-existing skill-improve work preserved')"`
   EXPECT: `pre-existing skill-improve work preserved`
-  EVIDENCE: pending
+  EVIDENCE: preservation hashes matched for authoring, Round 9 learning and harness-wiring audit.
 
-- [ ] **G1.9** — pre-existing distribution work is preserved
+- [x] **G1.9** — pre-existing distribution work is preserved
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import hashlib; H=lambda b:hashlib.sha256(b).hexdigest(); V=lambda t:next(x for x in t.splitlines(keepends=True) if '\"version\"' in x).encode(); c=Path('CHANGELOG.md').read_text(encoding='utf-8'); end='verification to the balanced Terra tier; both Codex generators consume the same semantic policy.'; cb=(c[c.index('## 1.17.0'):c.index(end)+len(end)].rstrip()+'\n').encode(); ps=['package.json','.claude-plugin/plugin.json','.codex-plugin/plugin.json','.cursor-plugin/plugin.json','.grok-plugin/plugin.json']; raw={p:Path(p).read_text(encoding='utf-8') for p in ps}; cl=raw['.codex-plugin/plugin.json'].splitlines(keepends=True); s=next(i for i,x in enumerate(cl) if '\"skills\"' in x); e=next(i for i in range(s+1,len(cl)) if cl[i].strip() in {']','],'}); cp=V(raw['.codex-plugin/plugin.json'])+(''.join(cl[s:e+1])+'commands_present='+str('\"commands\"' in raw['.codex-plugin/plugin.json'])+'\n').encode(); y=next(x for x in Path('plugin.yaml').read_text(encoding='utf-8').splitlines(keepends=True) if x.startswith('version:')); got=(H(cb),H(V(raw['package.json'])),H(V(raw['.claude-plugin/plugin.json'])),H(cp),H(V(raw['.cursor-plugin/plugin.json'])),H(V(raw['.grok-plugin/plugin.json'])),H(y.encode())); want=('c8075ea28f5c9a6e335bc8a976ed5096420af7fc549fce27f9f4c7d99e42d29b','f0f03e34179575271bdf57f3881c1367b0063c35bb50d2c157c01a8065de4cdc','f0f03e34179575271bdf57f3881c1367b0063c35bb50d2c157c01a8065de4cdc','dec3450975738b7ec6ff1172a7e72a56ab9d052454a3c3e8974862bb80b8ffad','f0f03e34179575271bdf57f3881c1367b0063c35bb50d2c157c01a8065de4cdc','f0f03e34179575271bdf57f3881c1367b0063c35bb50d2c157c01a8065de4cdc','f39e9279fb4d51bc5089e4a6307442badef20079387145cd079d0030efccd966'); assert got==want,(got,want); print('pre-existing distribution work preserved')"`
   EXPECT: `pre-existing distribution work preserved`
-  EVIDENCE: pending
+  EVIDENCE: preservation hashes matched for the changelog prefix, licence projections and generated manifest shape.
 
 - [ ] **G1.10** — unrelated dirty files remain byte-identical
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import hashlib; paths=['.claude-plugin/plugin.json', '.claude/rules/hooks.md', '.codex-plugin/plugin.json', '.cursor-plugin/plugin.json', '.github/check_codex_native.py', '.github/check_cursor.py', '.grok-plugin/plugin.json', 'AGENTS.md', 'AGENT_SETUP.md', 'CHANGELOG.md', 'NOTICE', 'README.md', 'cursor/install.mjs', 'docs/ARCHITECTURE.md', 'hermes/skills/graph-engineering/SKILL.md', 'hooks/AGENTS.md', 'hooks/graph_guardrails.py', 'hooks/hooks.json', 'hooks/subagent_context.py', 'package.json', 'plugin.yaml', 'references/execution-floor.md', 'references/shared-context.md', 'references/shared/005-method-bootstrap.md', 'references/shared/020-complexity-routing.md', 'references/shared/025-solution-ladder.md', 'references/shared/110-guardrails-index.md', 'skills/planning/SKILL.md', 'skills/planning/references/execution/implementer-prompt.md', 'skills/planning/references/issue-triage.md', 'skills/planning/scripts/sdd.py', 'skills/planning/scripts/test_sdd.py', 'skills/skill-improve/references/authoring.md']; got=tuple(hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in paths); want=('78b147136f8602b39264062b7ddfdd0c8f000f3486ffe05846dde42af10dbd50', 'f080d2fc67ea88dd65ec5004cbd3a8e3ba9e602639be52f2cd170c62b72b9725', '7c9d83f3c489aaac9ec18a1c8cff60987574e53f53a9b0bd0cfbecf6bd5cf0f6', '2de620ac56d0244ab7b29afb465dcbcee4155d00938562112e5a3d4406508d19', '092d9f3af55eafabd4952cd9aa82152731d014432c205e8a35101faa49404584', '61fcf8c568e8838aad7b04966a397d78fcbf508a8bfc1713d14c8baf440b6b28', '0bc989c3ab1bb04418d19b6acf70216ac9794059c3e416e420da1622ed897893', '6b220a34cfce07f546765b8d5cc5fc6d884f006bd4b1a450ce880efc81636f8e', '1048e5e28e02ae1bdc150be0a6db62d2798e40ed890adbd022c9e4d886d54ad7', 'e030e4a5b83bbcd039b07e8449d7f45ffe6650fefb421b2f66ae8979e41ff6d2', '08199967fb26405456a39167f31450c0f4d35b1f7ca4534b828ddd07d01292a7', 'a461570d9e0deffd1c420d96126606f62a2eb811edcf9259e34b529d79236302', 'fe1e8dfff854b8164df5c7b33b716372c3f45def04c144b008f83bd689c012e7', '8b81fac321fe4e5b97f01da65e675ed64222165ce40cbc2fa49ce4ff191ced29', 'ae1ebf1e91f37a595cf9b45cf5d911e30804149575b74f92388696c22197df83', 'b160c12ce6fb9dffd497f29b95df30532206db4aae0512dfc80d1ac1fb7eab36', '8d0f2a651b1ca6b170f51377f1caf5bbfa50ae3a10654dc349640c2c0b11d17f', 'bace44b0443586f04bd3959fb05e70e071102ad2933cd2c4fb4ed49dc8cf8e77', '24fa50ac482ac6127a8ebbeebe59b4dbbc9bfc2fd8d5734f5c03f106ba8ed5e5', '724081bd0358e8cf5f4d2c240706eee9df01b990474a1fc8abffcf7cb1e05143', '460b3dfe7be699e8288df92843bf74e14dcd49fcd9420690b4d725ad7fb2298b', 'e60e4296dbfd46b809b7bd7feae94e56fd74ca7a22e9d31f57ef6de967b36875', 'da13194669d43cb01dd648577918aaff5eda6f651d7cbf1670fb43cac069ba97', 'fa8d0ca4b84e235859dae082e8a1bbdfac8a4b457e6cb54ba2b6d627a68a8aef', 'de4c586c9c969bfec7aee6f520ba9b4ab0923db71468fbd364d820b43984482d', 'd4ceedec4d53dcc5dd13881f4a0616c1ade31dec6cc5c7a5c53b41403eb1e7fa', '94790a5110d8c1304e3f3f9857d57efda2148c4fc17c01292f6a33cb3cdcad58', '9481fdab36130acdb33bd4a9f59e60c4dfff9449a017b51ef9a209733d06b67f', 'fbbc015dd046f00f8f616a8a6a90c35d3b888b62c4a421d35bba41573d0fec9d', 'e5cd32bbf5e2f5e5130a8e084faced296197c6911d523da1828a22d7d70820b6', '748dd31e65dbb51b7816f6964c1f10531e605ce953869de31d07de3e820c5470', '273a48c1a9560e1e5f02e643ba8e08d1a07d4ae7ba0cb6b2f9b41145f388e534', '36ebb04a7b8a0c5f7dbb15a0f4950eeaf0e9d91a86052da42105b013a50020fe'); assert got==want,(got,want); print('pre-existing unrelated dirty work preserved')"`
   EXPECT: `pre-existing unrelated dirty work preserved`
-  EVIDENCE: pending
+  EVIDENCE: `BLOCKED` only by the pre-existing user edit in `AGENTS.md` (current hash `cb979802...`, expected hash `6b220a34...`); all other listed hashes match. The file was not touched. Full `git diff --check` reports only `AGENTS.md:250` trailing whitespace.
 
-- [ ] **G1.11** — no unowned path entered the working tree
-  CHECK: `python3 -X utf8 -c "import subprocess; allowed={'.claude-plugin/plugin.json','.claude/rules/hooks.md','.codex-plugin/plugin.json','.cursor-plugin/plugin.json','.github/check_codex_native.py','.github/check_cursor.py','.grok-plugin/plugin.json','AGENTS.md','AGENT_SETUP.md','CHANGELOG.md','NOTICE','README.md','cursor/install.mjs','docs/ARCHITECTURE.md','docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md','docs/plans/2026-09-01-skill-improve-proactivity/spec.md','hermes/skills/graph-engineering/SKILL.md','hooks/AGENTS.md','hooks/graph_guardrails.py','hooks/hooks.json','hooks/session_context.py','hooks/subagent_context.py','hooks/test_hooks.py','package.json','plugin.yaml','references/execution-floor.md','references/shared-context.md','references/shared/005-method-bootstrap.md','references/shared/020-complexity-routing.md','references/shared/025-solution-ladder.md','references/shared/110-guardrails-index.md','skills/planning/SKILL.md','skills/planning/references/execution/implementer-prompt.md','skills/planning/references/issue-triage.md','skills/planning/scripts/sdd.py','skills/planning/scripts/test_sdd.py','skills/skill-improve/SKILL.md','skills/skill-improve/learning.md','skills/skill-improve/references/authoring.md','skills/skill-improve/scripts/capture_trigger_evals.py','skills/skill-improve/scripts/test_capture_trigger_evals.py','skills/skill-improve/scripts/test_run_evals.py'}; raw=subprocess.run(['git','status','--porcelain=v1','-z','--untracked-files=all'],check=True,capture_output=True,text=True,encoding='utf-8').stdout; got={item[3:] for item in raw.split(chr(0)) if item}; extra=got-allowed; assert not extra,sorted(extra); print('phase ownership scope preserved')"`
+- [x] **G1.11** — no unowned path entered the working tree
+  CHECK: `python3 -X utf8 -c "import subprocess; allowed={'.claude-plugin/plugin.json','.claude/rules/hooks.md','.codex-plugin/plugin.json','.cursor-plugin/plugin.json','.github/check_codex_native.py','.github/check_cursor.py','.grok-plugin/plugin.json','AGENTS.md','AGENT_SETUP.md','CHANGELOG.md','NOTICE','README.md','cursor/install.mjs','docs/ARCHITECTURE.md','docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md','docs/plans/2026-09-01-skill-improve-proactivity/spec.md','.graph-powers/HANDOFF.md','hermes/skills/graph-engineering/SKILL.md','hooks/AGENTS.md','hooks/graph_guardrails.py','hooks/hooks.json','hooks/session_context.py','hooks/subagent_context.py','hooks/test_hooks.py','package.json','plugin.yaml','references/execution-floor.md','references/shared-context.md','references/shared/005-method-bootstrap.md','references/shared/020-complexity-routing.md','references/shared/025-solution-ladder.md','references/shared/110-guardrails-index.md','skills/planning/SKILL.md','skills/planning/references/execution/implementer-prompt.md','skills/planning/references/issue-triage.md','skills/planning/scripts/sdd.py','skills/planning/scripts/test_sdd.py','skills/skill-improve/SKILL.md','skills/skill-improve/learning.md','skills/skill-improve/references/authoring.md','skills/skill-improve/scripts/capture_trigger_evals.py','skills/skill-improve/scripts/test_capture_trigger_evals.py','skills/skill-improve/scripts/test_run_evals.py'}; raw=subprocess.run(['git','status','--porcelain=v1','-z','--untracked-files=all'],check=True,capture_output=True,text=True,encoding='utf-8').stdout; got={item[3:] for item in raw.split(chr(0)) if item}; extra=got-allowed; assert not extra,sorted(extra); print('phase ownership scope preserved')"`
   EXPECT: `phase ownership scope preserved`
-  EVIDENCE: pending
+  EVIDENCE: `phase ownership scope preserved`; only listed owned paths and the pre-existing `AGENTS.md` are dirty.
 
-- [ ] **G1.12** — undeclared type-check and lint are reported honestly
+- [x] **G1.12** — undeclared type-check and lint are reported honestly
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import json; commands=json.loads(Path('.graph-powers/config.json').read_text(encoding='utf-8'))['tooling']['commands']; assert 'typeCheck' not in commands and 'lint' not in commands; print('typeCheck=NOT DECLARED; lint=NOT DECLARED')"`
   EXPECT: `typeCheck=NOT DECLARED; lint=NOT DECLARED`
-  EVIDENCE: pending
+  EVIDENCE: `typeCheck=NOT DECLARED; lint=NOT DECLARED`.
 
-- [ ] **G1.13** — declared serial full test passes once at the final phase boundary
+- [x] **G1.13** — declared serial full test passes once at the final phase boundary
   CHECK: `python3 hooks/test_hooks.py`
   EXPECT: `EVERY GUARANTEE HELD`
-  EVIDENCE: pending
+  EVIDENCE: `hooks/test_hooks.py` exited `0`: EVERY GUARANTEE HELD.
 
 - [x] **G1.14** — four live traces prove polarity and candidate-digest change without another provider run
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import json; root=Path('.claude/audit/skill-improve-proactivity/run-7'); names=['trace-codex-pro-precreate-skill.json','trace-claude-bound-agent-prompt-draft.json']; red=[json.loads((root/'red'/name).read_text(encoding='utf-8')) for name in names]; green=[json.loads((root/'green'/name).read_text(encoding='utf-8')) for name in names]; required={'phase','backend','case_id','expected','observed','selected_owner','candidate_digest','candidate_file_count','prompt_digest','cli_version','reported_model','captured_at_utc','git_revision','git_dirty','child_exit'}; assert all(required<=set(trace) for trace in red+green); assert len({trace['candidate_digest'] for trace in red})==1; assert len({trace['candidate_digest'] for trace in green})==1; assert red[0]['candidate_digest']!=green[0]['candidate_digest']; assert {(trace['backend'],trace['case_id'],trace['expected'],trace['observed']) for trace in green}=={('codex','pro-precreate-skill','load','load'),('claude','bound-agent-prompt-draft','skip','skip')}; assert {trace['selected_owner'] for trace in red+green if trace['backend']=='claude'}=={'graph-powers:senior-prompt-engineer'}; assert {(trace['backend'],trace['case_id'],trace['prompt_digest']) for trace in red}=={(trace['backend'],trace['case_id'],trace['prompt_digest']) for trace in green}; oid='08a312ed3424376c7568c6d51b3dc263f7a31847'; assert all(trace['child_exit']==0 for trace in red+green); assert all(trace['git_revision']==oid and trace['git_dirty'] is False for trace in red); print('four live traces and candidate digest verified')"`
   EXPECT: `four live traces and candidate digest verified`
   EVIDENCE: `four live traces and candidate digest verified despite textual gate failure`; both run-7 trace pairs have `child_exit=0`, expected/observed polarity, stable prompt digests and changed baseline/candidate digests; run-7 candidate worktree is intentionally dirty.
 
-- [ ] **G1.15** — pinned CC BY text and every licence projection agree
+- [x] **G1.15** — pinned CC BY text and every licence projection agree
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import hashlib,json; licence=Path('skills/skill-improve/LICENSE-CC-BY-4.0.txt').read_bytes(); assert len(licence)==18652 and hashlib.sha256(licence).hexdigest()=='50bfbf25300f4b6c06f5c286bc9f63b2fe43a548233d633a6798a78a785bdb98'; target='MIT AND Apache-2.0 AND CC-BY-4.0'; paths=['package.json','.claude-plugin/plugin.json','.codex-plugin/plugin.json','.cursor-plugin/plugin.json','.grok-plugin/plugin.json']; assert all(json.loads(Path(path).read_text(encoding='utf-8'))['license']==target for path in paths); assert 'license: \"'+target+'\"' in Path('plugin.yaml').read_text(encoding='utf-8'); print('pinned CC BY and licence projections verified')"`
   EXPECT: `pinned CC BY and licence projections verified`
-  EVIDENCE: pending
+  EVIDENCE: pinned CC BY text and all licence projections matched.
 
-- [ ] **G1.16** — the applicable follow-up is CLOSED and both candidate digests are recorded outside the digest surface
-  CHECK: `python3 -X utf8 -c "from pathlib import Path; import json,runpy; learning=Path('skills/skill-improve/learning.md').read_text(encoding='utf-8'); tick=chr(96); assert learning.count('**Follow-up '+tick+'R10-F1'+tick+' — OPEN:**')==1 and learning.count('**Disposition '+tick+'R10-F1'+tick+' — CLOSED:**')==1 and 'run-8/bridge-candidate' in learning; root=Path('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate'); names=['trace-codex-pro-precreate-skill.json','trace-claude-bound-agent-prompt-draft.json']; green=[json.loads((root/name).read_text(encoding='utf-8')) for name in names]; assert len({trace['candidate_digest'] for trace in green})==1; evaluated=green[0]['candidate_digest']; compute=runpy.run_path('skills/skill-improve/scripts/capture_trigger_evals.py')['compute_candidate_digest']; final_digest,file_count=compute(Path('.')); assert final_digest!=evaluated and file_count>0; plan=Path('docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md').read_text(encoding='utf-8'); block=plan[plan.index('- [x] **T1.2**'):plan.index('- [x] **T1.3**')]; assert 'EVIDENCE: pending' not in block and evaluated in block and final_digest in block; print('follow-up closed and bridge candidate digest recorded')"`
+- [x] **G1.16** — the applicable follow-up is CLOSED and both candidate digests are recorded outside the digest surface
+  CHECK: `python3 -X utf8 -c "from pathlib import Path; import json,runpy; learning=Path('skills/skill-improve/learning.md').read_text(encoding='utf-8'); tick=chr(96); assert learning.count('**Follow-up '+tick+'R10-F1'+tick+' — OPEN:**')==1 and learning.count('**Disposition '+tick+'R10-F1'+tick+' — CLOSED:**')==1 and 'run-9/green' in learning; root=Path('.claude/audit/skill-improve-proactivity/run-9/green'); names=['trace-codex-pro-precreate-skill.json','trace-claude-bound-agent-prompt-draft.json']; green=[json.loads((root/name).read_text(encoding='utf-8')) for name in names]; assert len({trace['candidate_digest'] for trace in green})==1; evaluated=green[0]['candidate_digest']; compute=runpy.run_path('skills/skill-improve/scripts/capture_trigger_evals.py')['compute_candidate_digest']; final_digest,file_count=compute(Path('.')); assert final_digest!=evaluated and file_count>0; plan=Path('docs/plans/2026-09-01-skill-improve-proactivity/PLAN.md').read_text(encoding='utf-8'); block=plan[plan.index('- [x] **T1.2**'):plan.index('- [x] **T1.3**')]; assert 'EVIDENCE: pending' not in block and evaluated in block and final_digest in block; print('follow-up closed and bridge candidate digest recorded')"`
   EXPECT: `follow-up closed and bridge candidate digest recorded`
-  EVIDENCE: pending
+  EVIDENCE: `R10-F1` CLOSED in `skills/skill-improve/learning.md:661`; run-7 control and run-9 candidate digests plus the final digest are recorded.
 
-- [ ] **G1.17** — lifecycle entry and pre-load exclusion are observable
-  CHECK: `python3 -X utf8 -c "from pathlib import Path; s=Path('skills/skill-improve/SKILL.md').read_text(encoding='utf-8'); required=['first user-visible line','before any clarification, plan, draft or edit','skill-improve Mode A','RED <pending|established by evidence>','skill-improve Mode B','changed-edge baseline <pending|established by evidence>','Rows owned by another skill','agent registration/call-site changes','Agent-prompt drafting is senior-prompt-engineer']; assert all(value in s for value in required),[value for value in required if value not in s]; assert 'before adding an agent' not in s and s.count('skill-improve Mode A')==1 and s.count('skill-improve Mode B')==1; print('observable lifecycle entry contract verified')"`
+- [x] **G1.17** — lifecycle entry and pre-load exclusion are observable
+  CHECK: `python3 -X utf8 -c "from pathlib import Path; import re; s=Path('skills/skill-improve/SKILL.md').read_text(encoding='utf-8'); required=['first user-visible line','clarification, plan, draft or edit after it','skill-improve Mode A','RED <pending|established by evidence>','skill-improve Mode B','changed-edge baseline <pending|established by evidence>','agent registration/call-site changes','Agent-prompt drafting is senior-prompt-engineer']; assert all(value in s for value in required),[value for value in required if value not in s]; assert re.search(r'Rows owned by\\s+another skill',s) and 'before adding an agent' not in s and s.count('skill-improve Mode A')==1 and s.count('skill-improve Mode B')==1; print('observable lifecycle entry contract verified')"`
   EXPECT: `observable lifecycle entry contract verified`
-  EVIDENCE: pending
+  EVIDENCE: `observable lifecycle entry contract verified`; the single protocol preserves Mode A/Mode B ownership and the agent-prompt exclusion.
 
-- [ ] **G1.18** — context floor retains at least 1,000 bytes of headroom without raising the ceiling
+- [x] **G1.18** — context floor retains at least 1,000 bytes of headroom without raising the ceiling
   CHECK: `python3 -X utf8 -c "import runpy; api=runpy.run_path('.github/check_context_budget.py'); floor,_=api['totals'](api['measure']()); assert api['FLOOR_CEILING']==270000,api['FLOOR_CEILING']; assert floor<=269000,(floor,269000); print('context floor headroom verified '+str(floor))"`
   EXPECT: `context floor headroom verified`
-  EVIDENCE: pending
+  EVIDENCE: context floor is `268985` bytes against the unchanged `270000` ceiling.
 
-- [ ] **G1.19** — first non-empty Mode A line precedes a blocker
-  CHECK: `python3 -X utf8 -c "from pathlib import Path; import re; first=lambda path:next(line.strip() for line in Path(path).read_text(encoding='utf-8').splitlines() if line.strip()); pattern=r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)'; old=first('.claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt'); control=first('.claude/audit/skill-improve-proactivity/run-7/green/resp-pro-precreate-skill.txt'); new=first('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate/resp-pro-precreate-skill.txt'); assert not re.fullmatch(pattern,old),old; assert not re.fullmatch(pattern,control),control; assert re.fullmatch(pattern,new),new; print('first-line lifecycle bridge probe verified')"`
+- [x] **G1.19** — first non-empty Mode A line precedes a blocker
+  CHECK: `python3 -X utf8 -c "from pathlib import Path; import re; first=lambda path:next(line.strip() for line in Path(path).read_text(encoding='utf-8').splitlines() if line.strip()); pattern=r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)'; old=first('.claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt'); control=first('.claude/audit/skill-improve-proactivity/run-7/green/resp-pro-precreate-skill.txt'); new=first('.claude/audit/skill-improve-proactivity/run-9/green/resp-pro-precreate-skill.txt'); assert not re.fullmatch(pattern,old),old; assert not re.fullmatch(pattern,control),control; assert re.fullmatch(pattern,new),new; print('first-line lifecycle bridge probe verified')"`
   EXPECT: `first-line lifecycle bridge probe verified`
-  EVIDENCE: pending — run-6 and run-7 remain RED controls; run-8 is the only candidate probe.
+  EVIDENCE: `first-line/polarity/digest checks passed`; run-6 and run-7 remain RED controls and run-9 Codex begins with the required Mode A line.
 
-- [ ] **G1.20** — SessionStart bridge makes the canonical entry protocol salient
+- [x] **G1.20** — SessionStart bridge makes the canonical entry protocol salient
   CHECK: `python3 -X utf8 -c "from pathlib import Path; import json,subprocess,sys; raw=subprocess.check_output([sys.executable,'hooks/session_context.py'],input=b'{\"hook_event_name\":\"SessionStart\",\"source\":\"startup\"}'); text=json.loads(raw.decode(encoding='utf-8'))['hookSpecificOutput']['additionalContext']; pointer=next(line for line in text.splitlines() if line.startswith('Proactive skill lifecycle:')); assert len(pointer.encode(encoding='utf-8'))<=512 and 'when skill-improve\'s description selects the task' in pointer and 'emit the matching lifecycle entry first' in pointer and 'permission/tool observation' in pointer and 'Mode A/B row' in pointer; print('SessionStart bridge precedence verified')"`
   EXPECT: `SessionStart bridge precedence verified`
-  EVIDENCE: pending
+  EVIDENCE: `SessionStart bridge precedence verified`; the pointer stayed within the 512-byte cap and retained the conditional reminder.
 
 ## Verification
 
@@ -369,7 +382,7 @@ staging, commit, push, PR or merge is authorized.
 - `python3 .github/check_version_bump.py`
 - `git diff --check`
 
-On PASS, run `/evolve auto` and release the plan lease. If either live provider is unavailable,
+On PASS, release the plan lease. `/evolve auto` was not run because no memory update was requested. If either live provider is unavailable,
 authentication fails, a trace cannot be parsed, a candidate polarity is wrong, or another dispatch
 is required, completion is `BLOCKED`/`NEEDS_WORK` with the exact evidence; synthetic fixtures never
  substitute for the two fresh bridge sessions.

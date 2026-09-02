@@ -28,12 +28,12 @@ second evidenced claimant escalates A → B.
 
 ## Proactive lifecycle
 
-**[HARD] Entry protocol.** For an owned row, the first user-visible line is
-`skill-improve Mode A — <slug>: RED <pending|established by evidence>` or
-`skill-improve Mode B — <slug>: changed-edge baseline <pending|established by evidence>`.
-Emit it before blocker, refusal, permission/tool observation, or before any clarification, plan, draft or edit,
-even when tools or Write permission are unavailable. Rows owned by another skill
-emit neither; task-boundary evidence stays separate.
+**[HARD] Entry protocol.** For an owned row, the first user-visible line — the first non-empty line
+of the final response — is `skill-improve Mode A — <slug>: RED <pending|established by evidence>` or
+`skill-improve Mode B — <slug>: changed-edge baseline <pending|established by evidence>`. Repeat or prepend
+it to the final response even if an earlier update emitted it. Put blocker/refusal, permission/tool observation,
+clarification, plan, draft or edit after it, even when tools or Write permission are unavailable. Rows owned by
+another skill emit neither; task-boundary evidence stays separate.
 
 This matrix is the one routing authority when an eligible event is observed. It selects a stage, not
 an always-on observer; Mode B remains report-only.

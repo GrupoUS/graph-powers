@@ -59,9 +59,10 @@ both described agent work broadly enough to trigger before the lifecycle matrix 
 agent-prompt exclusion. Run 5 remains immutable failed evidence. Run 6 is preserved as the bounded
 parser/routing measurement: discovery is GREEN, but its Codex response missed the mandatory
 first-line protocol. Run 7 is immutable body-only correction evidence: the entry rule was made
-salient in `SKILL.md`, but the loaded Codex response still put the blocker first. Run 8 therefore
-reopens only the existing `SessionStart` pointer seam and launches one fresh Codex/Claude bridge
-pair against the run-7 control.
+salient in `SKILL.md`, but the loaded Codex response still put the blocker first. Run 8 then tested
+the existing `SessionStart` pointer seam and remained RED. Run 9 made the smallest final-response
+wording correction and launched one fresh Codex/Claude pair against the run-7 control; both cases
+passed.
 
 This is an **L5** change: it crosses skill routing, SessionStart hook output, behaviour evals and
 distribution attribution. Explicit `/gauntlet` therefore becomes eligible after the structured plan
@@ -92,7 +93,7 @@ is approved.
 | W6 | Existing bounded-fanout work remains intact | Exact hashes of the already-dirty skill blocks plus changelog prefix, source versions and generated Codex manifest shape | Every phase |
 | W7 | Skill listing stays below both per-entry and shared ceilings | `quick_validate.py` and `check_listing_budget.py` | Behaviour and final phases |
 | W8 | The new always-on posture is exactly one bounded line and does not duplicate the lifecycle matrix | Hook assertion: one occurrence, no newline, rendered UTF-8 length at most 512 bytes; context-budget gate separately stays green | Hook and final phases |
-| W9 | A loaded Mode A response emits its lifecycle line before any blocker or permission report | First non-empty response line probe: run-6 RED, run-7 body-only control RED, run-8 bridge candidate GREEN; A01-A03 remain unchanged | Behaviour and final phases |
+| W9 | A loaded Mode A response emits its lifecycle line before any blocker or permission report | First non-empty response line probe: run-6 RED, run-7 body-only control RED, run-8 bridge RED, run-9 final candidate GREEN; A01-A03 remain unchanged | Behaviour and final phases |
 
 ### Executable acceptance probes
 
@@ -115,13 +116,13 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
    body-only control:
 
    ```text
-   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --baseline-dir .claude/audit/skill-improve-proactivity/run-7/green --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
-   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --case-tag proactive-live --threshold 1.0
+    python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --baseline-dir .claude/audit/skill-improve-proactivity/run-7/green --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
+    python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-9/green --case-tag proactive-live --threshold 1.0
    ```
 
     **EXPECT:** capture never appends probe language and emits one trace plus one response per trial.
     The run-7 GREEN pair is the immutable body-only control; this run launches exactly two fresh
-    provider sessions after changing only the SessionStart bridge.
+    provider sessions after changing only the final-response entry wording.
    Codex load evidence is an official successful `item.completed` `command_execution` whose
    `command` names the canonical source or installed skill path; response text, aggregated output,
    failed commands and implicit selection are all `skip`.
@@ -130,7 +131,7 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
     `PASS codex:pro-precreate-skill expected=load observed=load` and
    `PASS claude:bound-agent-prompt-draft expected=skip observed=skip` and
    `PASS candidate-digest changed`; the tagged assertion gate exits `0`. The first non-empty line of
-    the run-8 Codex response full-matches `skill-improve Mode A — skill-authoring: RED (pending|established by evidence)`;
+     the run-9 Codex response full-matches `skill-improve Mode A — skill-authoring: RED (pending|established by evidence)`;
     the run-6 response and run-7 body-only control are preserved RED fixtures for this probe. RED is evidence, not required to
    fail organically; at least the new hook assertion is
    RED before production edits. Missing CLI, auth failure, malformed/incomplete JSONL, missing trace
@@ -142,11 +143,11 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
    ```text
     python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert not re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-6 first-line RED preserved')"
     python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-7/green/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert not re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-7 body-only control RED preserved')"
-    python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-8 bridge first-line probe passed')"
+     python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-9/green/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-9 final first-line probe passed')"
    ```
 
     **EXPECT:** the run-6 and run-7 commands prove their first lines are not the required entry; the
-    run-8 command exits `0` and prints `run-8 bridge first-line probe passed`.
+     run-9 command exits `0` and prints `run-9 final first-line probe passed`.
 
 3. Hook, routing and budgets:
 
@@ -409,17 +410,17 @@ task-boundary row still reports deciding evidence at close.
 
 | Layer | Owner | Change |
 |---|---|---|
-| Session activation | `hooks/session_context.py` | **Run 8 seam.** Keep the canonical path, relative fallback and fail-open contract; extend only `lifecycle_pointer()` with a conditional reminder that a matching Mode A/B lifecycle entry is the first output before blockers, refusals, permission/tool observations, clarification, plans, drafts or edits. |
-| Hook contract | `hooks/test_hooks.py` | **Run 8 regression.** Keep one bounded, one-line pointer for Claude Code and Codex, the unchanged first-line gate tag, canonical path and description-selection condition; assert the new entry-precedence wording without copying the matrix or templates. |
-| Lifecycle router | `skills/skill-improve/SKILL.md` | **Completed in run 7 and frozen.** Keep the only stage → owner → timing → evidence → exclusion matrix and the single `[HARD]` entry protocol; run 8 changes no body bytes. |
+| Session activation | `hooks/session_context.py` | **Completed in run 8 and frozen.** Keep the canonical path, relative fallback and fail-open contract; the bounded pointer remains the provider-neutral reminder. |
+| Hook contract | `hooks/test_hooks.py` | **Completed in run 8 and frozen.** Keep one bounded, one-line pointer for Claude Code and Codex, the unchanged first-line gate tag, canonical path and description-selection condition; assert entry precedence without copying the matrix or templates. |
+| Lifecycle router | `skills/skill-improve/SKILL.md` | **Run 9 final correction.** Keep the only stage → owner → timing → evidence → exclusion matrix and the single `[HARD]` entry protocol; clarify that the first non-empty final-response line is emitted before blockers. |
 | Authoring behaviour | `skills/skill-improve/references/authoring.md` | Keep lifecycle RED, repeated-failure threshold, unprimed-trial and disposition rules outside the hashed `5b` block; receive the moved validator/runner explanations as their one canonical home. |
 | Behaviour oracle | `skills/skill-improve/evals/evals.json` | Preserve the completed positive/negative lifecycle cases and the separately tagged live pair; prompts and assertions do not change after run-4. |
-| Assertion selector | `skills/skill-improve/scripts/run_evals.py`, `test_run_evals.py` | `run_evals.py` and its completed `--case-tag` contract are frozen from run 6. Run 7's deterministic first-non-empty-line regression remains; run 8 adds no provider assertion or parser change. Existing all-case and `--test-case` semantics remain unchanged. |
+| Assertion selector | `skills/skill-improve/scripts/run_evals.py`, `test_run_evals.py` | `run_evals.py` and its completed `--case-tag` contract are frozen from run 6. Run 7's deterministic first-non-empty-line regression remains; run 9 adds no provider assertion or parser change. Existing all-case and `--test-case` semantics remain unchanged. |
 | Trace producer | `skills/skill-improve/scripts/capture_trigger_evals.py`, `test_capture_trigger_evals.py` | **Completed and frozen from run 6.** Both backend adapters, the exact failure contract, successful official command-execution event boundary, caller-supplied canonical paths and ignored response/trace artefacts are not reopened in run 7. |
-| Round record | `skills/skill-improve/learning.md` | Preserve the completed template, Round 10 and OPEN `R10-F1`; run 8 appends only its CLOSED disposition after the bridge candidate GREEN. |
+| Round record | `skills/skill-improve/learning.md` | Preserve the completed template, Round 10 and OPEN `R10-F1`; run 9 appends only its CLOSED disposition after the final candidate GREEN. |
 | Local dogfood | `.claude/rules/artifacts.md` | Preserve its completed canonical lifecycle pointer and task-close evidence rule. |
 | Digest-owned licence source | `.claude-plugin/plugin.json`, `skills/skill-improve/LICENSE-CC-BY-4.0.txt` | Verify and freeze the completed CC BY file and hand-owned SPDX source before providers; do not rewrite either in run 7. |
-| Outside-digest attribution | `NOTICE`, `CHANGELOG.md`, `package.json` | Preserve the completed T1.3 attribution and locked `MIT AND Apache-2.0 AND CC-BY-4.0` expression; no run-8 writer owns these files. |
+| Outside-digest attribution | `NOTICE`, `CHANGELOG.md`, `package.json` | Preserve the completed T1.3 attribution and locked `MIT AND Apache-2.0 AND CC-BY-4.0` expression; no run-9 writer owns these files. |
 | Generated distribution | `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`, `plugin.yaml` | Verify that the completed projections match `.claude-plugin/plugin.json`, then freeze them before providers. Never hand-edit or regenerate unchanged projections during run 8. |
 
 No generated Codex companion changes are needed unless an agent source changes; this design does not
@@ -488,7 +489,7 @@ expected eval outcome.
 - Per-case `run_evals.py --test-case ... --threshold 1.0` while iterating.
 - One tagged `--response-dir ... --case-tag proactive-live --threshold 1.0` gate over the mandatory
   fresh-session pair; zero selected cases and missing responses fail.
-- One first-non-empty-line probe over `run-8/bridge-candidate/resp-pro-precreate-skill.txt`; it must
+- One first-non-empty-line probe over `run-9/green/resp-pro-precreate-skill.txt`; it must
   match `skill-improve Mode A — skill-authoring: RED (pending|established by evidence)` and must
   reject both preserved `run-6/green/resp-pro-precreate-skill.txt` and run-7 body-only control
   responses.
@@ -503,20 +504,15 @@ expected eval outcome.
 
 ### Gauntlet close
 
-The approved recovery plan resumes one stateful hook/eval writer; the outside-digest attribution task
-is complete and frozen. Run 6 is immutable parser/routing evidence, and run 7 is immutable body-only
-entry evidence. The independent run-8 evaluator identified the existing `SessionStart` pointer as
-the smallest seam that can make the already-canonical body rule salient to a loaded provider. Before
-any provider in run 8, the writer adds a deterministic hook assertion RED, extends only
-`lifecycle_pointer()`, runs all static gates and signals `STATIC_READY`. The controller then runs
-exactly one fresh Codex/Claude candidate pair against the immutable run-7 GREEN control; no baseline
-rerun, retry or prompt priming is allowed. Thus the parent-controlled order is run-7 evidence →
-bridge assertion RED → pointer GREEN → static gates → run-8 bridge candidate → tagged grader and
-first-line probe → CLOSED disposition. The plan reserves one wave Evaluator plus the separate final
-Evaluator, preserves focused evidence in the plan, then runs the repository's complete gate list
-through `/verify loop <PLAN_FILE>`. Any provider or gate failure stops as bounded `NEEDS_WORK` for a
-later user-requested run. A deliberately wrong response must exit `1`; a correct response graded
-against a nearest negative must also exit `1`.
+The approved recovery plan resumes one stateful skill writer; the outside-digest attribution task is
+complete and frozen. Run 6 is immutable parser/routing evidence, run 7 is immutable body-only entry
+evidence, and run 8 is the failed bridge control. The final run-9 correction changes only the
+response-entry wording in `SKILL.md`, runs the static gates, then executes exactly one fresh
+Codex/Claude pair against the immutable run-7 GREEN control; no baseline rerun, retry or prompt
+priming is allowed. The parent-controlled order is run-8 RED → minimal wording change → static gates
+→ run-9 candidate → tagged grader and first-line probe → CLOSED disposition. The candidate passed;
+the plan records the evidence and releases the lease. A deliberately wrong response must exit `1`;
+a correct response graded against a nearest negative must also exit `1`.
 
 ## Assumptions
 
@@ -547,9 +543,9 @@ against a nearest negative must also exit `1`.
 
 No design choice is deferred to Phase B. It must preserve completed attribution, keep one stateful
 writer on the lifecycle-owned paths, and preserve the parent-controlled order run-7 evidence →
-deterministic bridge RED → pointer GREEN → static gates → fresh run-8 bridge candidate without
-letting the writer spawn clean sessions. Runs 4, 5, 6 and 7 remain historical evidence; their
-prompts, assertions and artefacts stay unchanged, and run 8 creates exactly two fresh traces. The
+run-8 RED → minimal final-response wording → static gates → fresh run-9 candidate without letting
+the writer spawn clean sessions. Runs 4, 5, 6, 7 and 8 remain historical evidence; their prompts,
+assertions and artefacts stay unchanged, and run 9 creates exactly two fresh traces. The
 licence decision remains closed: keep the existing Apache
 text, ship CC BY 4.0 beside it, attribute the
 pinned source, retain the two hand-owned package expressions and keep generated client manifests in

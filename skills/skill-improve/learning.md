@@ -657,3 +657,9 @@ prompts with their candidate digest and selected owner.
 owner for both traces at threshold `1.0`?
 **Applies when:** event `proactive-routing`
 **Close with:** `.claude/audit/skill-improve-proactivity/green` trace pair and tagged grader result.
+
+**Disposition `R10-F1` — CLOSED:** 2026-09-02 — `run-7/green` is the body-only control
+(`847fb4c720b0cd0a224e83d9a64bf0546d16398eaa64acc1c8a1941e6ffb2a98`); the final candidate is
+`run-9/green` (`0b55ec3bcf19cf499a2831a68bb165af382d5571d580644c52a1430542b91a8a`) at
+`.claude/audit/skill-improve-proactivity/run-9/green`. The tagged `proactive-live` grader passed
+5/5 assertions, and final-first-line plus trace-polarity checks passed.
