@@ -722,6 +722,18 @@ async function runSchedulingFixtures() {
     problems.push(`SCHED ultra-verify: cap-8 non-clean fixture threw ${error.message}`);
   }
 
+  const cleanWebArgs = capabilityFixtureArgs("ultra-verify", "SUPPORTED");
+  cleanWebArgs.config.paths = { frontendRoot: "src" };
+  cleanWebArgs.config.commands = { test: "bun test" };
+  try {
+    const run = await dryRun(workflowBody("ultra-verify"), cleanWebArgs, { respond: cleanVerifyResponse });
+    const labels = run.spawned.map((spawn) => spawn.label);
+    if (run.result?.verdict !== "VERIFIED" || !labels.includes("review:skeptic:init:design-tokens-a11y"))
+      problems.push(`SCHED ultra-verify: clean web fixture skipped design or returned ${run.result?.verdict} (${labels.join(", ")})`);
+  } catch (error) {
+    problems.push(`SCHED ultra-verify: clean web fixture threw ${error.message}`);
+  }
+
   const semanticCases = [
     ["low-confidence scope", "NEEDS-WORK", ({ opts }) => opts.label === "scope" ? { changedFiles: ["src/core.js"], baseRef: "HEAD", touched: {}, confidence: "low" } : undefined],
     ["contradictory web scope", "NEEDS-WORK", ({ prompt, opts }) => opts.label === "scope" ? { changedFiles: ["web/page.tsx"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(prompt).map((name) => [name, false])), confidence: "high" } : undefined],

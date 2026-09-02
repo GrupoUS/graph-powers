@@ -643,9 +643,11 @@ REQUIREMENTS: Read every acceptance criterion and ## Verification step directly 
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it.${pass === 'final' && l.name === 'correctness' ? ' This is the one post-correction Evaluator boundary: also walk every requirement against the current diff and return items plus drift.' : ''} Read-only.${SCOPE_LOCK}`,
   { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: l.name === 'correctness' ? CORRECTNESS_SKEPTIC : SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
 ))
-// Reserve one grouped correction plus the final evaluator and final gates. The optional design
-// lens yields first; correctness and the required security lens remain ahead of it.
-let sk = (await boundedParallel(skMaker('init'), 3, 'initial adversarial review')).filter(Boolean)
+// Keep the post-correction Evaluator and final gates available if the initial panel finds work.
+// A clean panel needs neither boundary, so the optional design lens can use the remaining slot
+// within the cap-8 budget. If findings remain without correction capacity, the workflow reports
+// NEEDS-WORK instead of silently omitting a required correction.
+let sk = (await boundedParallel(skMaker('init'), 2, 'initial adversarial review')).filter(Boolean)
 unresolvedSignals.push(...malformedFindingSignalsFrom(sk, 'initial'))
 const returnedInitialLenses = new Set(sk.map((result) => result?.lens))
 for (const lens of lenses) {

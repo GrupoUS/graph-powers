@@ -20,9 +20,6 @@
     "grok",
     "hermes"
   ],
-  "skills": [
-    "./skills/",
-    "./codex/native-command-skills/"
-  ],
+  "skills": ["./skills/", "./codex/native-command-skills/"],
   "hooks": "./hooks/hooks.json"
 }

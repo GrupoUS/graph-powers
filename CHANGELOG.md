@@ -4,8 +4,8 @@
 
 The detached updater now follows the configured Git source for an installed native Codex plugin,
 reinstalls `graph-powers@graph-powers`, and regenerates the companion agent TOML files in the shared
-Codex home. Codex Desktop receives the same refreshed cache when its app-server uses that home; a
-new conversation or full app restart remains required for an already-running process.
+Codex home. Codex Desktop receives the same refreshed cache when its app-server uses that home; a new
+conversation or full app restart remains required for an already-running process.
 
 The legacy Codex clone updater remains as a fallback when no native plugin is installed. Dirty source
 trees are left untouched, source heads and pending companion generation are recorded, and the hook

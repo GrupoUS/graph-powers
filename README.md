@@ -90,12 +90,12 @@ because nothing breaks — they just drift apart.
 
 Measured across five projects in one group, which is what produced this repository:
 
-| | |
-|---|---|
-| Files with the same name in ≥4 of the 5 projects | 221 |
-| Of those, **byte-for-byte identical** | **45** |
-| Of those, diverged | **176** |
-| Files that existed in only one project | 178 |
+|                                                  |         |
+| ------------------------------------------------ | ------- |
+| Files with the same name in ≥4 of the 5 projects | 221     |
+| Of those, **byte-for-byte identical**            | **45**  |
+| Of those, diverged                               | **176** |
+| Files that existed in only one project           | 178     |
 
 The cost is not tidiness. Two security defects fixed in **one** of the projects were still live in
 the other four:
@@ -130,7 +130,6 @@ Claude Code precedence is `Managed > CLI > Project > User > Plugin`. A project t
 version of anything puts the file in its `.claude/` and it beats the plugin's — no fork, no
 uninstall. **The plugin is the floor, not the cage.**
 
-
 ---
 
 ## Global by preference, local only when it must be
@@ -139,23 +138,23 @@ The harness is byte-for-byte identical in every project. So it installs **once p
 serves every repository you have — including the ones you have not created yet. Only what genuinely
 differs per project stays in that project.
 
-| Installed once, globally | Where it lands |
-|---|---|
-| The Claude Code plugin — 12 agents, 13 bundled skills, 12 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies |
-| Codex native plugin: skills, guardrails and references | the versioned plugin cache shown by `codex plugin list --json` |
-| Codex native companion roles | `<codex-home>/agents/*.toml`, explicitly emitted from the plugin's tracked policy |
-| Codex clone fallback: skills and commands-as-skills | `~/.agents/skills/` |
-| Codex clone fallback: subagents, guardrails and references | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/` |
+| Installed once, globally                                                                                          | Where it lands                                                                    |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| The Claude Code plugin — 12 agents, 13 bundled skills, 12 commands, 12 guardrails, 2 workflows, shared references | `~/.claude/settings.json` (`--scope user`). One install, zero copies              |
+| Codex native plugin: skills, guardrails and references                                                            | the versioned plugin cache shown by `codex plugin list --json`                    |
+| Codex native companion roles                                                                                      | `<codex-home>/agents/*.toml`, explicitly emitted from the plugin's tracked policy |
+| Codex clone fallback: skills and commands-as-skills                                                               | `~/.agents/skills/`                                                               |
+| Codex clone fallback: subagents, guardrails and references                                                        | `~/.codex/agents/*.toml` · `~/.codex/hooks.json` · `~/.codex/graph-powers/`       |
 
-| Stays in the project | Why it cannot be global |
-|---|---|
-| `.graph-powers/config.json` | The branch, the gate commands, the paths, the opt-in prefix — different in every repository by definition |
-| `.claude/rules/` · `.codex/rules/` | Domain knowledge. Generic process comes from the plugin; these answer questions only this project asks |
-| `DESIGN.md` · `PRODUCT.md` · `REVIEW.md` | This project's design, product and review authorities |
-| `CLAUDE.md` · `AGENTS.md` | Its identity and invariants |
-| `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | Only what this project genuinely overrides — and by precedence, an override here beats the plugin |
+| Stays in the project                                      | Why it cannot be global                                                                                   |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.graph-powers/config.json`                               | The branch, the gate commands, the paths, the opt-in prefix — different in every repository by definition |
+| `.claude/rules/` · `.codex/rules/`                        | Domain knowledge. Generic process comes from the plugin; these answer questions only this project asks    |
+| `DESIGN.md` · `PRODUCT.md` · `REVIEW.md`                  | This project's design, product and review authorities                                                     |
+| `CLAUDE.md` · `AGENTS.md`                                 | Its identity and invariants                                                                               |
+| `.claude/agents/`, `.claude/skills/`, `.claude/commands/` | Only what this project genuinely overrides — and by precedence, an override here beats the plugin         |
 
-**Why one global copy is correct rather than sloppy:** the guardrails read *the project's own*
+**Why one global copy is correct rather than sloppy:** the guardrails read _the project's own_
 config at runtime. The same twelve files enforce `dev-test` and `ACME_ALLOW_COMMIT` in one
 repository and `develop` and `OTHER_ALLOW_COMMIT` in the next. Copying the harness into each project
 would buy nothing and reintroduce exactly the divergence this plugin exists to end — eleven skills
@@ -185,13 +184,13 @@ Codex CLI, Cursor, Grok and Hermes read different files from Claude Code, but th
 The installers and native entrypoint generate those sides from the artefacts that already exist —
 nothing is maintained twice.
 
-| Surface | Claude Code | Codex CLI | Cursor | Grok CLI | Hermes Agent |
-|---|---|---|---|---|---|
-| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface |
-| Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` | `plugin.yaml` + `__init__.py`; `graph-powers:<name>` |
-| Subagents | `agents/*.md` | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files | The same markdown files | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
-| Commands | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>` | The same markdown files | The same markdown files | namespaced skills, e.g. `graph-powers:plan` |
-| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`) | `~/.grok/config.toml` (`[ui] permission_mode`) | parent agent approvals |
+| Surface          | Claude Code               | Codex CLI                                                                                                                                                                                        | Cursor                                                                                          | Grok CLI                                                                           | Hermes Agent                                           |
+| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Guardrails       | `hooks/hooks.json`        | The same declaration, merged into `~/.codex/hooks.json`                                                                                                                                          | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface               |
+| Skills           | `skills/<name>/SKILL.md`  | `.agents/skills/<name>/SKILL.md`                                                                                                                                                                 | The same files, via `.cursor-plugin/`                                                           | The same files, via `.grok-plugin/`                                                | `plugin.yaml` + `__init__.py`; `graph-powers:<name>`   |
+| Subagents        | `agents/*.md`             | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files                                                                         | The same markdown files                                                            | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
+| Commands         | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>`                                                                                                               | The same markdown files                                                                         | The same markdown files                                                            | namespaced skills, e.g. `graph-powers:plan`            |
+| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml`                                                                                                                                                                           | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`)                       | `~/.grok/config.toml` (`[ui] permission_mode`)                                     | parent agent approvals                                 |
 
 The Codex hooks file is **merged, never overwritten**. Other tools' installers write it too, and
 clobbering it would silently disable someone else's guardrails, which is this
@@ -224,8 +223,8 @@ nine commands cannot run without is not tooling around the harness, it is the ha
 snapshot would go stale, so none of it is a snapshot — each piece is rewritten for this plugin's
 rules, and what stays external is optional.
 
-| Dependency | What it brings | Why it stays external |
-|---|---|---|
+| Dependency                                                                               | What it brings                                                                                                                                                                                      | Why it stays external                                                                                |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | [emil-design-eng and apple-design](https://github.com/emilkowalski/skills) (skills, MIT) | Optional supplements to the plugin's own `animate` skill: `/design` loads them when installed — the invisible details, materials, gesture-driven fluidity. Absent, `animate` carries the pass alone | Two skill folders from one repository, one `SKILL.md` each; install by copy with the one-liner below |
 
 ```bash
@@ -437,20 +436,20 @@ so an older clone install must be removed before switching routes.
 Clone anywhere you like; `~/.graph-powers/src` is only a suggestion, and the installer records
 wherever it actually ran from so updates find it again.
 
-| Option | What it does |
-|---|---|
+| Option                                            | What it does                                                                                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `--target claude\|codex\|cursor\|grok\|both\|all` | Which supported client to configure. Cursor still requires its marketplace plugin first; Zed has no hook target. `both` is Claude + Codex |
-| `--scope user` | Writes to `~/.claude/settings.json`. **Default** — one install serves every project on the machine |
-| `--scope project` | Writes to `.claude/settings.json`, versioned. Use when the team must get the harness by cloning the repository |
-| `--scope local` | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team |
-| `--force` | Reinstall the global half even when it is already at this version |
-| `--config` | Also writes a starting `.graph-powers/config.json`, inferred from the stack |
-| `--setup-oxc` | Installs local TypeScript 7, `oxlint` and `oxfmt`, then configures Zed plus VS Code/Cursor project settings |
-| `--package-manager NAME` | Overrides Oxc setup detection: `bun`, `npm`, `pnpm` or `yarn` |
-| `--prefix NAME` | Opt-in key prefix (with `--config`). Default: the directory name |
-| `--source <org/repo\|path>` | Where the marketplace comes from. Useful for a fork or a local clone |
-| `--update` | `git pull --ff-only` on the clone, then reinstall from it |
-| `--uninstall` | Removes exactly the Codex artefacts a previous run recorded. Cursor permissions and Grok config.toml stay |
+| `--scope user`                                    | Writes to `~/.claude/settings.json`. **Default** — one install serves every project on the machine                                        |
+| `--scope project`                                 | Writes to `.claude/settings.json`, versioned. Use when the team must get the harness by cloning the repository                            |
+| `--scope local`                                   | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team                                                 |
+| `--force`                                         | Reinstall the global half even when it is already at this version                                                                         |
+| `--config`                                        | Also writes a starting `.graph-powers/config.json`, inferred from the stack                                                               |
+| `--setup-oxc`                                     | Installs local TypeScript 7, `oxlint` and `oxfmt`, then configures Zed plus VS Code/Cursor project settings                               |
+| `--package-manager NAME`                          | Overrides Oxc setup detection: `bun`, `npm`, `pnpm` or `yarn`                                                                             |
+| `--prefix NAME`                                   | Opt-in key prefix (with `--config`). Default: the directory name                                                                          |
+| `--source <org/repo\|path>`                       | Where the marketplace comes from. Useful for a fork or a local clone                                                                      |
+| `--update`                                        | `git pull --ff-only` on the clone, then reinstall from it                                                                                 |
+| `--uninstall`                                     | Removes exactly the Codex artefacts a previous run recorded. Cursor permissions and Grok config.toml stay                                 |
 
 ### Staying current
 
@@ -462,11 +461,11 @@ At session start, at most once every twelve hours, a detached worker updates the
 own. A user-level scheduler can invoke the same worker between sessions when an installation needs
 to follow GitHub without waiting for a new task:
 
-| Harness | What runs | Applies |
-|---|---|---|
-| Claude Code | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers` | Next session start |
+| Harness                             | What runs                                                                                                                      | Applies                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Claude Code                         | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers`                         | Next session start                             |
 | Codex native + Desktop shared route | `git pull --ff-only` on the configured source, `codex plugin add graph-powers@graph-powers`, then regenerate `~/.codex/agents` | Next Codex session or new Desktop conversation |
-| Codex CLI clone fallback | `git pull --ff-only` on the clone, then regenerate — only when no native plugin is installed | Next session start |
+| Codex CLI clone fallback            | `git pull --ff-only` on the clone, then regenerate — only when no native plugin is installed                                   | Next session start                             |
 
 The native Codex route also covers ChatGPT Desktop when its app-server uses the same Codex home.
 Updating disk does not reload an already-running process: start a new conversation, and fully quit
@@ -549,16 +548,16 @@ One file per project, with a safe default for everything. The full contract is
 }
 ```
 
-| Field | What it is for |
-|---|---|
-| `git.workBranch` · `git.protectedBranches` | Where work happens, and what no agent touches without approval |
-| `git.optInPrefix` | Prefix of the keys that release a risky action |
-| `tooling.commands.*` | The literal command behind each gate — **and the tool it names has to be installed**, see below |
-| `paths.*` | Where code lives. An empty field means the project has no such layer, and plans must not invent one |
-| `project.stack` | Turns on the stack-gated skills |
-| `codex.profile` · `codex.profiles.*` · `codex.agents.*` | Semantic Codex model/effort overrides; per-agent wins, and `native-ultra` is top-level-only |
-| `codex.model` · `codex.models.{heavy,standard,light}` · `codex.reasoningEffort` | Backward-compatible flat/tier/global overrides used before the semantic default |
-| `autonomy.*` | How much runs without asking — see below |
+| Field                                                                           | What it is for                                                                                      |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `git.workBranch` · `git.protectedBranches`                                      | Where work happens, and what no agent touches without approval                                      |
+| `git.optInPrefix`                                                               | Prefix of the keys that release a risky action                                                      |
+| `tooling.commands.*`                                                            | The literal command behind each gate — **and the tool it names has to be installed**, see below     |
+| `paths.*`                                                                       | Where code lives. An empty field means the project has no such layer, and plans must not invent one |
+| `project.stack`                                                                 | Turns on the stack-gated skills                                                                     |
+| `codex.profile` · `codex.profiles.*` · `codex.agents.*`                         | Semantic Codex model/effort overrides; per-agent wins, and `native-ultra` is top-level-only         |
+| `codex.model` · `codex.models.{heavy,standard,light}` · `codex.reasoningEffort` | Backward-compatible flat/tier/global overrides used before the semantic default                     |
+| `autonomy.*`                                                                    | How much runs without asking — see below                                                            |
 
 ### The tools you declare have to exist
 
@@ -611,7 +610,6 @@ A project **without** a config keeps working on the defaults — the git rails s
 the default branch and prefix. The file lives at `.graph-powers/config.json`; `.claude/config.json`
 is still read, for projects that only ever run Claude Code.
 
-
 ---
 
 ## Autonomy — how much runs without asking
@@ -636,10 +634,10 @@ Do not write `"bashDefault": "ask"` under `"level": "autonomous"`. The per-field
 and that combination is `Hook PreToolUse:Bash requires confirmation for this command`. To keep
 asking, use `"level": "guarded"` (or `--autonomy guarded`).
 
-| Level | An unrecognised command | Cleanup (`rm -rf build`, caches) | Commit / push |
-|---|---|---|---|
-| `autonomous` **(installer default)** | runs | runs | run without an opt-in key |
-| `guarded` (schema default when the field is absent) | asks | asks | need `<PREFIX>_ALLOW_COMMIT=1` in the turn |
+| Level                                               | An unrecognised command | Cleanup (`rm -rf build`, caches) | Commit / push                              |
+| --------------------------------------------------- | ----------------------- | -------------------------------- | ------------------------------------------ |
+| `autonomous` **(installer default)**                | runs                    | runs                             | run without an opt-in key                  |
+| `guarded` (schema default when the field is absent) | asks                    | asks                             | need `<PREFIX>_ALLOW_COMMIT=1` in the turn |
 
 Override any single action without leaving the level:
 
@@ -657,8 +655,8 @@ hand:
     "machineWide": true,
     "level": "autonomous",
     "destructiveFloor": true,
-    "git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" }
-  }
+    "git": { "commit": "ask", "push": "ask", "protectedBranch": "ask" },
+  },
 }
 ```
 
@@ -709,18 +707,18 @@ Codex still requires explicit trust in `/hooks` before the registrations execute
 of the audit's findings: two of the projects had **nine hooks each, written and never connected**.
 They existed on disk and never ran once.
 
-| Guardrail | What it does | How to release it |
-|---|---|---|
-| `git_commit_gate` · `git_push_gate` · `git_branch_gate` | Nothing is committed, pushed, or lands on a protected branch without approval in the turn | `<PREFIX>_ALLOW_COMMIT=1` etc. |
-| `graph_guardrails` | Kill switch (`AGENT_STOP` at the root), spawn ceiling, per-agent round ceiling, write lease | `<PREFIX>_ALLOW_SPAWN_OVER=1`, `<PREFIX>_ALLOW_OFF_LEASE=1` |
-| `protect_files` | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles` | — |
-| `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
-| `tool_approver` | The approval prompt for every tool that is not Bash — subagent spawns, MCP calls, fetches, workflows. Answers it under `autonomous`, stays out of the way under `guarded`, and never overrides a `PreToolUse` denial | `autonomy.toolDefault` |
-| `auto_update` | Updates Claude Code and the configured Codex native/Desktop route in a detached process; keeps the clone fallback for legacy installs | `autoUpdate.enabled: false` |
-| `branch_session_notice` · `session_context` · `subagent_context` · `notify` | Inform; never block — `subagent_context` carries the solution ladder into every subagent | — |
+| Guardrail                                                                   | What it does                                                                                                                                                                                                         | How to release it                                           |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `git_commit_gate` · `git_push_gate` · `git_branch_gate`                     | Nothing is committed, pushed, or lands on a protected branch without approval in the turn                                                                                                                            | `<PREFIX>_ALLOW_COMMIT=1` etc.                              |
+| `graph_guardrails`                                                          | Kill switch (`AGENT_STOP` at the root), spawn ceiling, per-agent round ceiling, write lease                                                                                                                          | `<PREFIX>_ALLOW_SPAWN_OVER=1`, `<PREFIX>_ALLOW_OFF_LEASE=1` |
+| `protect_files`                                                             | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles`                                                                                                                                       | —                                                           |
+| `commit_audit_gate` · `smart_bash_approver` · `ultracite`                   | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit                                                                                                      | `gates.preCommitAudit`, `autonomy`, `tooling.commands`      |
+| `tool_approver`                                                             | The approval prompt for every tool that is not Bash — subagent spawns, MCP calls, fetches, workflows. Answers it under `autonomous`, stays out of the way under `guarded`, and never overrides a `PreToolUse` denial | `autonomy.toolDefault`                                      |
+| `auto_update`                                                               | Updates Claude Code and the configured Codex native/Desktop route in a detached process; keeps the clone fallback for legacy installs                                                                                | `autoUpdate.enabled: false`                                 |
+| `branch_session_notice` · `session_context` · `subagent_context` · `notify` | Inform; never block — `subagent_context` carries the solution ladder into every subagent                                                                                                                             | —                                                           |
 
 All of them are **fail-open**: missing, unreadable or mistyped configuration falls back to the
-defaults instead of taking the session down. A guardrail that breaks your work when *it* has the
+defaults instead of taking the session down. A guardrail that breaks your work when _it_ has the
 bug teaches people to switch guardrails off.
 
 ```bash
@@ -764,26 +762,26 @@ purpose.
 ## Documentation
 
 **The specs the plugin installs into your project.** These three are not documents about Graph
-Powers — each one specifies what the *host project's* counterpart must contain, how to source every
+Powers — each one specifies what the _host project's_ counterpart must contain, how to source every
 section from the repository, and how to improve an existing one without destroying decisions. The
 setup playbook applies them in Step 6.
 
-| Spec | Produces, in your project | Answers |
-|---|---|---|
-| [`DESIGN.md`](DESIGN.md) | your `DESIGN.md` | When two visual decisions conflict, which one wins? |
-| [`PRODUCT.md`](PRODUCT.md) | your `PRODUCT.md` | When a change is technically fine but the product is worse, what catches it? |
-| [`REVIEW.md`](REVIEW.md) | your `REVIEW.md` | What does this project refuse to merge? |
+| Spec                       | Produces, in your project | Answers                                                                      |
+| -------------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| [`DESIGN.md`](DESIGN.md)   | your `DESIGN.md`          | When two visual decisions conflict, which one wins?                          |
+| [`PRODUCT.md`](PRODUCT.md) | your `PRODUCT.md`         | When a change is technically fine but the product is worse, what catches it? |
+| [`REVIEW.md`](REVIEW.md)   | your `REVIEW.md`          | What does this project refuse to merge?                                      |
 
 **About the plugin itself.**
 
-| File | What it holds |
-|---|---|
-| [`AGENT_SETUP.md`](AGENT_SETUP.md) | The setup playbook the agent executes |
-| [`docs/AUDIENCE.md`](docs/AUDIENCE.md) | Who Graph Powers is for, what it solves, what it does **not** |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The decisions, and what was refused, with reasons |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to review a change to Graph Powers |
-| [`AGENTS.md`](AGENTS.md) | Rules for agents working in this repository |
-| [`schema/config.schema.json`](schema/config.schema.json) | The project parameter contract |
+| File                                                     | What it holds                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------- |
+| [`AGENT_SETUP.md`](AGENT_SETUP.md)                       | The setup playbook the agent executes                         |
+| [`docs/AUDIENCE.md`](docs/AUDIENCE.md)                   | Who Graph Powers is for, what it solves, what it does **not** |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)           | The decisions, and what was refused, with reasons             |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                     | How to review a change to Graph Powers                        |
+| [`AGENTS.md`](AGENTS.md)                                 | Rules for agents working in this repository                   |
+| [`schema/config.schema.json`](schema/config.schema.json) | The project parameter contract                                |
 
 ---
 

@@ -13,9 +13,9 @@
     "cursor",
     "grok",
     "grok-cli",
-    "hermes",
     "guardrails",
     "harness",
+    "hermes",
     "hooks",
     "skills"
   ],
