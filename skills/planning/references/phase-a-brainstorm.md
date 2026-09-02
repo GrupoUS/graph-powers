@@ -93,10 +93,10 @@ This pass is expensive and off by default. Run it immediately when the user expl
 the problem has multiple viable answers, choosing the obvious answer wrongly is costly, and the user
 did not ask for a quick, standard, canonical, textbook or one-line answer. Otherwise go to Step 4.
 
-**Diverge without critique.** Select up to five frames within the wave width supplied by
-`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`: four problem-relevant and one
-wild when width allows; at reduced width, retain one wild. A smaller explicit request may use up to
-three. Useful frames fit in one pool: constraints/hardware · regulator/provability · novice/no
+**Diverge without critique.** Select two or three genuinely distinct frames within the wave width
+and cumulative total supplied by
+`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`; keep one wild frame only when
+it can change the decision. Useful frames fit in one pool: constraints/hardware · regulator/provability · novice/no
 conventions · attacker/failure
 inversion · biology/emergence · logistics/queues · game/feedback loops · markets/incentives · direct
 inversion · zero-resource or unlimited-resource extreme · remove the load-bearing assumption ·
@@ -117,8 +117,9 @@ frame; an explicitly small request uses four.
 judge their own output (`references/loop-engineering.md § Generator-Evaluator Loop`). Score each idea
 0–10 on novelty, viability and fit; rank by `0.35N + 0.40V + 0.25F`, flag hidden-cost or premature-
 abstraction traps, and cluster 3–6 groups by underlying angle rather than wording. Exclude traps and
-take the top three. Deepen those in one second isolated parallel batch: 4–8 sentence sketch,
-load-bearing risk, first concrete step, and 3–5 variations, hybrids or unlocks.
+take the top three. The parent deepens the survivors into a 4–8 sentence sketch, load-bearing risk,
+first concrete step, and 3–5 variations, hybrids or unlocks; do not open a second agent batch over
+the same ideas.
 
 **Present proportionally.** For explicit wide ideation, show: brief → clustered pool with
 `[N# V# F#]` → 2–4 shortlisted options and separate traps → three deep dives → one wildcard

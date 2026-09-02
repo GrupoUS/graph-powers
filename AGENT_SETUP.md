@@ -337,7 +337,7 @@ skills is the middle class, so the real prerequisite list is far shorter than th
 
 #### `python3` is the name, and 3.10 is the floor
 
-All fourteen hook scripts — fifteen event registrations because the Bash approver also handles
+All fifteen hook scripts — sixteen event registrations because the Bash approver also handles
 `PermissionRequest` — spell the interpreter `python3`, with no fallback. Where it answers to
 `python` or `py -3` and not to `python3` — the common case on
 Windows — every guardrail fails to start. **Cardinal 3 makes hooks fail open**, so nothing reports
@@ -476,7 +476,7 @@ row("package manager", ", ".join(managers) or "NONE", "REQUIRED", "every per-cal
 
 print("-- on PATH --")
 for name, level, who in (
-    ("python3",       "REQUIRED",    "the literal name all 14 hook scripts / 15 registrations invoke"),
+    ("python3",       "REQUIRED",    "the literal name all 15 hook scripts / 16 registrations invoke"),
     ("git",           "REQUIRED",    "every command; the guardrails read the worktree"),
     ("node",          "REQUIRED",    "workflows, bin/, the Codex installer, 18+"),
     ("claude",        "REQUIRED",    "the harness; evaluator Mode 5 runs it headless"),
@@ -1237,7 +1237,7 @@ Then prove the exact user `installPath` rather than a neighbouring cache directo
 python3 -X utf8 "$PLUGIN/bin/verify-hook-clients.py" --client claude --scope user --project-dir . --probe-guardrail
 ```
 
-It must report the canonical `hooks/hooks.json`, fourteen scripts/fifteen registrations and guarded
+It must report the canonical `hooks/hooks.json`, fifteen scripts/sixteen registrations and guarded
 runners. Only then apply Step 3's posture, run `node "$PLUGIN/bin/audit-settings.mjs"` before removing
 any accumulated project hook, and restart Claude Code — the update command itself states that a
 restart is required.
@@ -1254,7 +1254,7 @@ Five states are separate and each has its own proof:
 |---|---|---|
 | Plugin installed and enabled | `codex plugin list --json` contains enabled `graph-powers@graph-powers` | install with 9c |
 | Method skills packaged | Step 10 § 7b reports both skill files present in the listed plugin source | update or reinstall the plugin; never copy one skill separately |
-| Hooks discovered | `/hooks` lists fifteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
+| Hooks discovered | `/hooks` lists sixteen registrations sourced from `graph-powers@graph-powers` | restart once; then verify the package contains `hooks/hooks.json` |
 | Hooks approved | `/hooks` shows those entries enabled/trusted | approve them explicitly; installation never grants trust |
 | Hooks executing | `codex exec --skip-git-repo-check "reply with: ok"` reports `Completed` | use the diagnostic matrix in 9e |
 
@@ -1335,7 +1335,7 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
-Then restart Codex and approve the fifteen registrations in `/hooks`. The native loader discovers
+Then restart Codex and approve the sixteen registrations in `/hooks`. The native loader discovers
 `hooks/hooks.json` inside the plugin cache and resolves `${CLAUDE_PLUGIN_ROOT}` itself; no generated
 copy in `~/.codex/hooks.json` is involved.
 
@@ -1357,7 +1357,7 @@ bun "$PLUGIN/.github/check_codex_policy.mjs"
 python3 -X utf8 "$PLUGIN/.github/check_codex_native.py"
 ```
 
-The default split is Sol Max for judges/architects, Luna Max for executors/verifier and Luna Medium
+The default split is Sol Max for judges/architects, Terra High for executors/verifier and Luna Medium
 for scouts. A Claude family in either output, session inheritance for a canonical agent, or a
 native-companion/clone mismatch is a failure. `codex.profiles.*`, `codex.agents.*` and the legacy
 `codex.model`, `codex.models.*`, `codex.reasoningEffort` fields are clone-generation overrides;
@@ -1532,7 +1532,7 @@ process.
    product exposes no evidence, report `Codex Desktop: UNVERIFIED` rather than borrowing the CLI row.
 2. After any plugin/cache update, fully quit Desktop and confirm the old app-server process exited;
    then open a new task in the repository.
-3. Verify plugin version, fifteen hook registrations/trust, and one harmless completed turn from
+3. Verify plugin version, sixteen hook registrations/trust, and one harmless completed turn from
    the Desktop task. If Desktop does not expose hook telemetry, say which half could not be proved.
 
 ### 9g — Wire Cursor, if the project uses it
@@ -1552,7 +1552,7 @@ Four states, each with its own proof:
 
 Do not write a user `~/.cursor/hooks.json` that always allows. The plugin hooks are the
 guardrails; unrestricted Run Mode is what stops the Yes/No on classified commands. Git commit
-and push still ask. `rm -rf /` still denies. PermissionRequest and Notification do not exist on
+and push still ask. `rm -rf /` still denies. PermissionRequest, Notification and SubagentStart do not exist on
 Cursor — `tool_approver` and `notify` are skipped on purpose, and `smart_bash_approver` still
 runs at `preToolUse`.
 

@@ -13,7 +13,8 @@
 
 ## Exit contract
 
-Every task has implementation, one task review and evidence, and every phase gate is met. Default
+Every task has implementation and evidence, every dispatched wave has one consolidated adversarial
+Evaluator review, and every phase gate is met. Default
 execution closes with `/verify quick`; Gauntlet uses its profile's `/verify loop <PLAN_FILE>` close. Both run
 `/evolve auto` only after PASS and stop reviewed and unstaged. Git actions need separate approval.
 
@@ -41,9 +42,9 @@ python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <P
 The default profile omits a profile flag. Gauntlet appends `--profile gauntlet` to both `validate`
 and `acquire`, so its Acceptance and bundled-Skill admission checks are repeated before lease.
 
-`acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics. Its `paths`
-are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase progress ledger
-and this plan's task-review ledger. A concurrent controller can observe the same empty state, but
+`acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics and a run ID.
+Its `paths` are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase
+progress ledger, task-review ledger and dispatch ledger. A concurrent controller can observe the same empty state, but
 only one atomic create wins; an existing lease for another plan is a conflict and is never merged or
 overwritten. Create the workspace only after acquisition.
 
@@ -56,32 +57,48 @@ Their dependencies count as verified. Validation rejects a checked task that sti
 
 ## Step 2 — Rolling task loop
 
-Dispatch every task whose `Needs` are verified and whose `Owns` paths collide with nothing in
-flight, up to `graphGuardrails.maxParallelWave`. Review each result immediately, then release the
-paths and dispatch newly unblocked work. A task with no dependency payload cannot be treated as
-independent.
+Build a wave from tasks whose `Needs` are verified and whose `Owns` paths are pairwise disjoint. Then
+cluster those tasks by the same declared Graph Powers writer role and compatible context into the
+fewest useful lane packages, up to `graphGuardrails.maxParallelWave`. A task with no dependency
+payload cannot be treated as independent.
 
-For each task use one fresh implementer from `references/execution/implementer-prompt.md`, with the
-task block pasted verbatim. The worker follows the task's TDD status and does not write outside
-`Owns`. Handle its status explicitly: `PASS` continues to the focused check and review; `FAIL`
-re-dispatches only that task with the report and failed evidence, counting against
-`${graphGuardrails.maxRepatch}`; `BLOCKED` receives missing factual context once, otherwise stops and
-routes to `/debug recover`. Never retry unchanged.
+Reserve `graph-powers:evaluator` for final review before the first wave. Before every child call:
 
-After a PASS and green focused check, run `sdd.py package <PLAN_FILE> <TASK_BASE> HEAD` and give the
-resulting review package, task block and implementer report to one fresh read-only reviewer using
-`references/execution/task-reviewer-prompt.md`. It returns two verdicts in one review: compliance
-first, then quality/KISS. Preserve the package's printed working-tree snapshot as the next
-`TASK_BASE` and, when correction is required, as `FIX_BASE`. Package each correction as
-`FIX_BASE..HEAD` for `references/execution/correction-reviewer-prompt.md`. Correction count is
-limited only by `${graphGuardrails.maxRepatch}`; exhaustion routes to `/debug recover`.
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" dispatch reserve <PLAN_FILE> --key <stable-key> --kind <kind> --role graph-powers:<agent> --max-spawns <graphGuardrails.maxSpawnsPerWorkflow>
+```
 
-Close a task only when the focused `CHECK` passes, changed paths are a subset of `Owns`, and the
-reviewer is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
+Kinds are bootstrap, writer, evaluator, correction and confirmation. Only the fresh `status:
+RESERVED` response from an atomic reservation authorizes exactly one matching child call.
+`status: ALREADY_RESERVED` is a successful resume fact, never an authorization, even though it
+returns exit 0. The persisted reservation is the irrevocable attempt and cap consumption: if the
+controller crashes after receiving `RESERVED` but before spawning, resume must not launch with that
+key. Reconcile the missing/unknown child evidence, then reserve a new stable retry key for any real
+retry; that new attempt consumes another dispatch slot. `dispatches.json` survives resume under the
+lease run ID. Reservation 9 is `BLOCKED`: persist completed/deferred IDs and return. Only a later
+user-requested run may release and reacquire; never reset automatically.
+
+Cluster each package under a write-capable role from
+`${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` and
+`references/execution/implementer-prompt.md`. Never invent/generalize a role or override its model:
+Claude Code uses canonical frontmatter and Codex its semantic policy. Paste every task block; limit
+writes to their `Owns` union. Re-dispatch one grouped correction only on changed evidence;
+unresolved `BLOCKED` routes to `/debug recover`.
+
+After focused checks pass, package tasks from the common `TASK_BASE`. One fresh
+`graph-powers:evaluator` receives every task block, package and implementer report through
+`references/execution/task-reviewer-prompt.md`, returning per-task compliance/quality and one
+integration verdict. Preserve its snapshot as the next base. Group corrections by writer role and
+disjoint ownership; one fresh `graph-powers:evaluator` re-reviews the whole correction wave through
+`references/execution/correction-reviewer-prompt.md`. Never review per finding; exhaustion of
+`${graphGuardrails.maxRepatch}` routes to `/debug recover`.
+
+Close a task only when its focused `CHECK` passes, changed paths are a subset of `Owns`, and its
+wave Evaluator verdict is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
 output (plus RED/GREEN/refactor evidence when TDD is required) and checks the task box. For either
 explicit exception status, retain its reason and run the applicable focused check. Implementers do
 not edit the plan. Append one row to the plan workspace's `task-reviews.md`: timestamp, task ID,
-package snapshot, reviewer verdict, correction count and deciding check output. Failed and blocked
+package snapshot, wave Evaluator verdict, correction count and deciding check output. Failed and blocked
 attempts get rows too, so resumption does not erase why a task was retried or stopped.
 
 ### Parent-mediated consultation
@@ -89,7 +106,7 @@ attempts get rows too, so resumption does not erase why a task was retried or st
 The controller is the only consultation requester and owns the stable `taskId`, validated
 `decisionKey`, reservation, deduplication, cap and resume state. Before any consultation, tag the
 operation `consult` and use the canonical request/result envelope and `sdd.py consult reserve`; tag
-ordinary task, correction and final evaluator calls `review`. Review calls are separate from
+ordinary task, correction, wave Evaluator and final Evaluator calls `review`. Review calls are separate from
 consultations, do not consume the consultation budget, and must not reset its ledger on resume.
 Workers cannot spawn children; evaluators, reviewers and critics are read-only and cannot request a
 consultation. A duplicate decision key returns its recorded result, a capped request returns
@@ -106,7 +123,7 @@ existing SDD workspace.
 
 If the runtime has no Agent tool, review the plan critically and surface blocking concerns before
 code, then execute tasks sequentially in the main thread. Keep the same briefs, TDD status, focused
-checks, packages, evidence writes and stop conditions; self-review each task against both verdicts
+checks, packages, evidence writes and stop conditions; self-review each wave against both verdicts
 in the task-reviewer prompt and report that independent review was unavailable. If the Agent tool
 exists but a declared write-capable lane does not resolve, stop — do not silently replace it with a
 general agent or the main thread.
@@ -130,7 +147,7 @@ passing result.
 
 After all phase gates, resolve the merge base between the approved target branch and `HEAD`, then
 run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review package, the plan and
-task-review ledger to the separate read-only reviewer in
+task-review ledger to a separate `graph-powers:evaluator` in
 `references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
 Minor findings and triage deferred or parked items. The default profile then runs `/verify quick`,
 `/evolve auto` on PASS and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
@@ -139,7 +156,10 @@ and working-tree state explicit until resolution or a safe abort.
 
 ## Required invariants
 
-- One reviewer per task; the final reviewer is a separate role.
+- One consolidated Evaluator per dispatched wave; at most one fresh correction re-review; the final
+  Evaluator is a separate acceptance boundary.
+- Every dispatch names an existing Graph Powers role and counts toward
+  `graphGuardrails.maxSpawnsPerWorkflow`; width and total are ceilings, never quotas.
 - No task or phase gate is checked while `EVIDENCE` is pending.
 - Tests go through the real production interface. Trivial functions need no direct test when their
   consumer-visible behaviour is covered.

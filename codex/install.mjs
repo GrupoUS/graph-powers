@@ -577,6 +577,31 @@ const skipJunk = (src, entry) =>
   entry.endsWith(".pyc") ||
   (entry === "AGENTS.md" && src.replace(/\\/g, "/").endsWith("/skills/AGENTS.md"));
 
+/** Rewrite only standalone Graph Powers command tokens. Paths, URLs, link destinations and
+ *  Windows drive paths are data, not invocations, and must survive byte-for-byte. */
+export function rewriteCodexCommandRefs(text, commandNames, separator = "-") {
+  return commandNames.reduce((result, name) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(
+      `(^|[\\s\`'"(\\[{>|])/${escaped}(?=$|[\\s\`'"),\\]}:;!?—–])`,
+      "gm",
+    );
+    return result.replace(pattern, (match, prefix, offset, source) => {
+      const slashOffset = offset + prefix.length;
+      const leftContext = source.slice(Math.max(0, slashOffset - 256), slashOffset);
+      // Markdown destinations include `[x](/verify)`, `[x]( /verify )` and `[x]: /verify`.
+      if (/\]\s*(?:\(|:)\s*$/.test(leftContext)) return match;
+      // Quoted root-relative values in HTML, JSX and JSON are paths, not invocations.
+      if (
+        (prefix === '"' || prefix === "'") &&
+        /(?:=|:|\{|\[|,)\s*["']$/.test(leftContext)
+      )
+        return match;
+      return `${prefix}$graph-powers${separator}${name}`;
+    });
+  }, text);
+}
+
 /**
  * Skills, commands-as-skills, subagents and shared references — the four surfaces Codex reads.
  *
@@ -593,29 +618,33 @@ function writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written,
   log(`${paths.skills}/ (${listDirs(join(pluginRoot, "skills")).length} skills)`);
 
   // Commands become skills: Codex deprecated custom prompts in favour of them.
-  for (const file of listMarkdown(join(pluginRoot, "commands"))) {
+  const commandFiles = listMarkdown(join(pluginRoot, "commands"));
+  const commandNames = commandFiles.map((file) => basename(file, ".md"));
+  for (const file of commandFiles) {
     const name = basename(file, ".md");
     const { data, body } = parseFrontmatter(
       readFileSync(join(pluginRoot, "commands", file), "utf8"),
     );
     if (!data.description) continue;
-    written.push(join(paths.skills, `graph-powers-${name}`));
-    emit(
-      join(paths.skills, `graph-powers-${name}`, "SKILL.md"),
-      rewrite(
+    const description = rewriteCodexCommandRefs(String(data.description), commandNames);
+    const skillBody = rewrite(
+      rewriteCodexCommandRefs(
         [
           "---",
           `name: graph-powers-${name}`,
-          `description: ${JSON.stringify(String(data.description))}`,
+          `description: ${JSON.stringify(description)}`,
           "---",
           "",
-          `> Generated from the \`/${name}\` command of Graph Powers. On Claude Code this is a slash`,
-          "> command; Codex reads it as a skill, which is the surface Codex kept.",
+          `> Generated from the Graph Powers command named \`${name}\`. Codex exposes it as the skill`,
+          `> \`$graph-powers-${name}\`; invoke that name directly or select it through \`/skills\`.`,
           "",
           body.trimStart(),
         ].join("\n"),
+        commandNames,
       ),
     );
+    written.push(join(paths.skills, `graph-powers-${name}`));
+    emit(join(paths.skills, `graph-powers-${name}`, "SKILL.md"), skillBody);
   }
 
   // Subagents. Rewritten before translation, not after: the agent bodies carry the same

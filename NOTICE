@@ -57,6 +57,19 @@ Modifications by GrupoUS, as required by section 4(b) of that License:
                            only the decisions this harness owns.
 
 ================================================================================
+Creative Commons Attribution 4.0 International — adapted material, not redistributed verbatim
+================================================================================
+
+  skills/skill-improve/
+
+Adapted from `one-skill-to-rule-them-all` at
+https://github.com/rebelytics/one-skill-to-rule-them-all, pinned at commit
+510caad26c907793e48306262af216ff9f71c9f7, by Eoghan Henn/Rebelytics and licensed
+under CC BY 4.0. Graph Powers adapted its layered lifecycle activation, unprimed trigger
+trials and explicit follow-up dispositions, rewriting those mechanisms for this repository's
+existing bounded two-mode harness. No upstream file is redistributed verbatim.
+
+================================================================================
 Apache License 2.0 and MIT — source-informed synthesis, not verbatim redistribution
 ================================================================================
 
@@ -164,6 +177,17 @@ which claimed every web UI, was narrowed to landing and marketing surfaces. Two 
 were corrected against official 2026 sources — FAQ rich-result deprecation and current
 `text-wrap: pretty` support — and one
 rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
+
+  references/shared/025-solution-ladder.md
+  hooks/subagent_context.py
+
+Adapted from https://github.com/DietrichGebert/ponytail (MIT, Copyright (c) 2026 DietrichGebert),
+read 2026-09-02: the seven-rung ladder, the never-simplified-away list and the output rule of its
+`ponytail` skill were folded into one shared reference that binds at every tier, and its
+`SubagentStart` injection (the answer to its issue #252 — SessionStart context never reaches a
+subagent) became one Python hook that mirrors the ladder in a bounded paragraph. Its intensity
+levels, mode tracker, statusline, review/audit/debt skills and host adapters were not copied; the
+escalation this harness already has (`/gauntlet`, `/verify loop`) is the "ultra" here.
 
 ================================================================================
 MIT — source-informed synthesis, not verbatim redistribution

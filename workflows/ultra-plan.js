@@ -1,7 +1,7 @@
 export const meta = {
   name: 'ultra-plan',
   description: 'Fan-out focused research + synthesize one reviewed implementation plan (framing → competing approaches → writing-plans format → anchor-scored evaluator gate). Writes the plan to the project\'s plan directory and commits nothing.',
-  whenToUse: 'Start of any L3+ feature. Researches the codebase and, only when needed, external docs; drafts competing approaches; synthesizes one phased plan with atomic disjoint-file tasks; then adversarially reviews it against the calibration anchors. L1-L2 trivial tasks exit early (direct edit). Pass the task as args, or { task, config }.',
+  whenToUse: 'Accelerate L4+ planning when independent research scopes exist. Researches the codebase and, only when needed, external docs; drafts competing approaches; synthesizes one phased plan with atomic disjoint-file tasks; then runs one adversarial Evaluator gate. L1-L3 stay on the direct or single-specialist planning path. Pass the task as args, or { task, config }.',
   phases: [
     { title: 'Frame', model: 'haiku' },
     { title: 'Fan-out research' },
@@ -32,8 +32,10 @@ export const meta = {
 //     review anchors     → loop-engineering.md § Calibration anchors
 //     agent routing      → dispatch-matrix.md
 //
-// Worst-case spawns: 1 config (bare invocation only) + 1 frame + (≤4 explore + 1 conditional librarian)
-//   + 2 approaches + 1 synth + 1 review (+1 revise +1 re-review) (+1 L6 architecture pass) = ≤ 14.
+// Every dispatch, including config bootstrap and re-review, passes through `dispatch` below. The
+// workflow-wide hard cap comes from graphGuardrails.maxSpawnsPerWorkflow (default and maximum 8),
+// while maxParallelWave limits only simultaneous work. Research is reduced before either bound is
+// crossed; the final Evaluator gate is reserved before any optional scout runs.
 //
 // Fail fast, never half-succeed: each stage throws if its input did not survive (dead frame → no
 // angles; every research agent dead; both approaches dead; synthesize returned no path). All four
@@ -98,6 +100,8 @@ const CONFIG_SHAPE = { type: 'object', required: ['pluginRoot', 'planDir', 'scou
     schemaRoot: { type: 'string' }, mobileRoot: { type: 'string' },
   } },
   riskSurfaces: { type: 'array', items: { type: 'string' } },
+  maxParallelWave: { type: 'number' },
+  maxSpawnsPerWorkflow: { type: 'number' },
 } }
 const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents', 'agentModels', 'evaluatorCapability'], properties: {
   scoutAgents: { type: 'array', minItems: 1, items: { type: 'string' } },
@@ -105,16 +109,27 @@ const SCOUT_POLICY_SHAPE = { type: 'object', required: ['scoutAgents', 'agentMod
   evaluatorCapability: { type: 'string', enum: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'] },
 } }
 
+const positiveNumber = (value, fallback) => Number.isFinite(value) && value > 0 ? value : fallback
+let WORKFLOW_CAP = 8
+let workflowSpawns = 0
+let workflowCapped = false
+let deferredDispatches = 0
+const remainingWorkflowSpawns = () => Math.max(0, WORKFLOW_CAP - workflowSpawns)
+const dispatch = async (prompt, options) => {
+  if (workflowSpawns >= WORKFLOW_CAP) {
+    workflowCapped = true
+    log(`ultra-plan dispatch refused at graphGuardrails.maxSpawnsPerWorkflow=${WORKFLOW_CAP}`)
+    return null
+  }
+  workflowSpawns++
+  return await agent(prompt, options)
+}
+
 async function resolveConfig() {
   const supplied = args?.config && typeof args.config === 'object' ? args.config : null
-  if (
-    Array.isArray(supplied?.scoutAgents) && supplied.scoutAgents.length &&
-    supplied?.agentModels && typeof supplied.agentModels === 'object' &&
-    Object.keys(supplied.agentModels).length &&
-    ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(supplied?.evaluatorCapability)
-  ) return supplied
   if (supplied) {
-    const policy = await agent(
+    const suppliedCapability = String(supplied.evaluatorCapability || '').toUpperCase()
+    const policy = await dispatch(
       `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and the model field in each canonical agents/*.md frontmatter. Return scoutAgents from the Codex policy, agentModels as the complete agent-name to Claude-family map, and evaluatorCapability. Use SUPPORTED only when the caller supplies positive runtime/provider capability evidence for the Fable/advisor route; otherwise use UNKNOWN. When capability is UNKNOWN or UNSUPPORTED, keep the evaluator route on the safe Opus fallback and never emit Fable. Read-only; do not invent names or perform a live probe.`,
       { agentType: AG('explorer'), phase: 'Frame', schema: SCOUT_POLICY_SHAPE, label: 'config:policy', model: 'haiku' }
     )
@@ -122,10 +137,12 @@ async function resolveConfig() {
       ...supplied,
       scoutAgents: policy?.scoutAgents,
       agentModels: policy?.agentModels,
-      evaluatorCapability: policy?.evaluatorCapability,
+      evaluatorCapability: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(suppliedCapability)
+        ? suppliedCapability
+        : policy?.evaluatorCapability,
     }
   }
-  return await agent(
+  return await dispatch(
     `Two things, both read-only.
 
 1. Locate the graph-powers plugin root — the directory that contains \`skills/planning/references/phase-b-writing-plans.md\`. Use Glob, never a hardcoded path: it differs per machine and per install. Return it as \`pluginRoot\`, without a trailing slash. If you cannot find it, return the empty string rather than guessing.
@@ -136,6 +153,8 @@ async function resolveConfig() {
      locale        <- project.locale, else "en-US"
      paths         <- paths.frontendRoot / backendRoot / schemaRoot / mobileRoot; omit any that is absent
      riskSurfaces  <- chain.riskSurfaces, else ["auth","payment","PII","schema","env","ci"]
+     maxParallelWave <- graphGuardrails.maxParallelWave, else 3
+     maxSpawnsPerWorkflow <- graphGuardrails.maxSpawnsPerWorkflow, else 8
      scoutAgents   <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
      agentModels   <- read the model field from every canonical <pluginRoot>/agents/*.md frontmatter
      evaluatorCapability <- positive runtime/provider evidence supplied by the caller, else "UNKNOWN"; never probe live capability
@@ -160,10 +179,28 @@ const SURFACES = (cfg.riskSurfaces ?? []).length
 const SCOUT_AGENTS = new Set(Array.isArray(cfg.scoutAgents) ? cfg.scoutAgents : [])
 const DECLARED_AGENT_MODELS = cfg.agentModels && typeof cfg.agentModels === 'object' ? cfg.agentModels : {}
 const EVALUATOR_CAPABILITY = String(cfg.evaluatorCapability || 'UNKNOWN').toUpperCase()
+WORKFLOW_CAP = Math.min(positiveNumber(cfg.maxSpawnsPerWorkflow, 8), 8)
+const WAVE_CAP = Math.min(positiveNumber(cfg.maxParallelWave, 3), 3, WORKFLOW_CAP)
+const boundedParallel = async (thunks, reserve = 0, label = 'batch') => {
+  const allowed = Math.max(0, Math.min(thunks.length, remainingWorkflowSpawns() - reserve))
+  if (allowed < thunks.length) {
+    workflowCapped = true
+    deferredDispatches += thunks.length - allowed
+    log(`${label}: keeping ${allowed}/${thunks.length} dispatches inside the workflow total; ${thunks.length - allowed} deferred`)
+  }
+  const results = []
+  for (let index = 0; index < allowed; index += WAVE_CAP) {
+    // oxlint-disable-next-line no-await-in-loop
+    const batch = await parallel(thunks.slice(index, Math.min(index + WAVE_CAP, allowed)).map((run) => async () => run()))
+    results.push(...batch)
+  }
+  return results
+}
 const M = (name) => {
   const declared = typeof DECLARED_AGENT_MODELS[name] === 'string' ? DECLARED_AGENT_MODELS[name].trim().toLowerCase() : ''
   if (name === 'evaluator' && declared === 'fable' && EVALUATOR_CAPABILITY !== 'SUPPORTED') return 'opus'
-  return declared || (SCOUT_AGENTS.has(name) ? 'haiku' : 'opus')
+  if (!declared) throw new Error(`ultra-plan: graph-powers:${name} has no canonical model declaration`)
+  return declared
 }
 
 if (!SCOUT_AGENTS.size) {
@@ -180,6 +217,22 @@ if (!cfg.pluginRoot) {
   throw new Error('ultra-plan: could not locate the graph-powers plugin root, so no agent can read the planning guides. Pass it as args.config.pluginRoot.')
 }
 const SKILL = `${cfg.pluginRoot}/skills/planning/references`
+
+// The bootstrap is non-skippable. Below seven slots there is no way to retain the frame, one
+// evidence scout, both competing approaches, synthesis, and the mandatory evaluator boundary.
+// Return that fact to the caller instead of consuming a reserved boundary and then throwing.
+const MINIMUM_PLANNING_SPAWNS = 7
+if (WORKFLOW_CAP < MINIMUM_PLANNING_SPAWNS) {
+  return {
+    status: 'BLOCKED',
+    capped: true,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches,
+    reason: `ultra-plan needs at least ${MINIMUM_PLANNING_SPAWNS} total workflow slots, including mandatory config bootstrap, to preserve research, competing approaches, synthesis, and evaluator review`,
+    next: 'Raise only this invocation\'s configured workflow budget within the schema cap, or use the direct planning path for a narrower task.',
+  }
+}
 
 // Shared guards — appended to every prompt instead of repeating per agent.
 const NO_SKILL = 'Do NOT invoke Skill("planning") — this workflow owns the orchestration; READ the named guide only for format and conventions.'
@@ -231,7 +284,7 @@ const REVISED = { type: 'object', required: ['revised'], properties: {
 
 // 1. Frame — classify intent + list the highest-signal research angles (haiku)
 phase('Frame')
-const frame = await agent(
+const frame = await dispatch(
   `Frame and classify this task following ${cfg.pluginRoot}/skills/planning/SKILL.md § Step 0 and ${SKILL}/phase-a-brainstorm.md § Core method and sizing (problem framing + scope decomposition + viable alternatives). ${NO_SKILL}
 TASK: ${TASK}
 Return: intent level L1-L6 (per the skill's Step 0 tier gate), a one-paragraph restated goal, open unknowns, 3-4 highest-signal codebase research angles, externalResearchNeeded=true only when the decision depends on current external API/security/version behaviour, and risk surfaces (${SURFACES.join('/')}, or none). ${RO}`,
@@ -259,6 +312,16 @@ if ((level === 'L1' || level === 'L2') && !risky.length) {
     reason: `${level} trivial — the planning chain's Step 0 routes this to direct edit (no plan file). Implement directly; no ultra-plan output. If you disagree with the classification, re-run stating an explicit tier floor in the task string.`,
   }
 }
+if (level === 'L3' && !risky.length) {
+  return {
+    skipped: true,
+    intentLevel: level,
+    restatedGoal: frame.restatedGoal,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    reason: 'L3 single-domain work uses at most one existing specialist on an independently useful scope; ultra-plan fan-out is reserved for L4+.',
+  }
+}
 
 // 2. Fan-out — parallel codebase research (+ external only when required) AND 2 competing approaches
 phase('Fan-out research')
@@ -266,23 +329,23 @@ const angles = frame.researchAngles.slice(0, 4)
 // When needed, librarian stays first: downstream prompts hard-slice the JSON, so external findings
 // must not become the truncated tail. Purely internal work pays no external-research spawn.
 const externalResearch = frame.externalResearchNeeded ? [
-  () => agent(
+  () => dispatch(
     `Research EXTERNAL knowledge for this task: library/API behavior, current best practices, version pitfalls, security advisories.
 TASK: ${TASK}
 Return findings + citations. Never touch the filesystem.`,
     { agentType: AG('librarian'), phase: 'Fan-out research', schema: RESEARCH, label: 'librarian', model: M('librarian') }
   ),
 ] : []
-const research = (await parallel([
+const research = (await boundedParallel([
   ...externalResearch,
-  ...angles.map((a, i) => () => agent(
+  ...angles.map((a, i) => () => dispatch(
     `Research this angle (internal codebase ONLY): existing patterns, reusable helpers/primitives, impacted files, conventions to match.
 TASK: ${TASK}
 ANGLE: ${a}
 Return concrete findings + reusable files (path + why). ${RO}`,
     { agentType: AG('explorer'), phase: 'Fan-out research', schema: RESEARCH, label: `explore:${i}`, model: M('explorer') }
   )),
-])).filter(Boolean)
+], 4, 'research')).filter(Boolean)
 // parallel() maps a dead agent to null, so a total wipeout arrives here as []. Synthesizing from
 // [] produces an internally consistent plan with no evidence behind it — and the reviewer only
 // reads the plan file, never the research, so that plan scores well and passes the gate.
@@ -291,17 +354,17 @@ if (!research.length) {
 }
 
 const riskWord = cfg.displayName ? `${cfg.displayName} risks` : 'project-specific risks'
-const approaches = (await parallel(
-  ['reuse-first', 'robustness-first'].map((lens) => () => agent(
+const approaches = (await boundedParallel(
+  ['reuse-first', 'robustness-first'].map((lens) => () => dispatch(
     `Propose ONE implementation approach through the "${lens}" lens, following the option format in ${SKILL}/phase-a-brainstorm.md § Step 4 (recommendation + pros/cons + ${riskWord} + layer chain). ${NO_SKILL}
 TASK: ${TASK}
 RESEARCH: ${JSON.stringify(research).slice(0, 6000)}
 Return name, summary, tradeoffs, risk. ${RO}`,
     { agentType: AG('project-planner'), phase: 'Fan-out research', schema: APPROACH, label: `approach:${lens}`, model: M('project-planner') }
-  ))
+  )), 2, 'approaches'
 )).filter(Boolean)
-if (!approaches.length) {
-  throw new Error('ultra-plan: both competing-approach agents failed — refusing to synthesize with nothing to choose between')
+if (approaches.length < 2) {
+  throw new Error('ultra-plan: both competing approaches are required inside the workflow budget — refusing to synthesize a one-option plan')
 }
 
 // Anonymize before the synthesizer chooses. `robustness-first` and `reuse-first` are loaded names:
@@ -333,8 +396,8 @@ const schemaRule = paths.schemaRoot
 const l6Extra = isL6
   ? `\nL6+/RISKY (${[level, ...risky].join(', ')}): per ${SKILL}/phase-b-writing-plans.md § Risk, ALSO add a pre-mortem table (Probability×Impact, BLOCK items mitigated), an ADR for the chosen approach, and a per-task Risk field. Add a tenant/PII/idempotency/index guard note to each affected task.`
   : ''
-const plan = await agent(
-  `Synthesize ONE phased implementation plan. Read ${SKILL}/phase-b-writing-plans.md and follow its format exactly: atomic 2-5min tasks → [SEQUENTIAL]/[PARALLEL-SAFE] phase grouping (layer order via ${SKILL}/layer-map.md) → DISJOINT-file enforcement per wave → dispatch matrix table (agent/skill per ${SKILL}/dispatch-matrix.md) → Loop contract. ${NO_SKILL}
+const plan = await dispatch(
+  `Synthesize ONE phased implementation plan. Read ${SKILL}/phase-b-writing-plans.md and follow its format exactly: atomic tasks at their natural deliverable boundary → [SEQUENTIAL]/[PARALLEL-SAFE] phase grouping (layer order via ${SKILL}/layer-map.md) → DISJOINT-file enforcement per wave → dispatch matrix table (agent/skill per ${SKILL}/dispatch-matrix.md) → Loop contract. ${NO_SKILL}
 TASK: ${TASK}
 FRAME: ${JSON.stringify(frame)}
 RESEARCH: ${JSON.stringify(research).slice(0, 12000)}
@@ -355,37 +418,32 @@ if (!plan?.planPath) {
 // mandatory review operations, not parent-mediated consultations, and never consume the SDD ledger.
 phase('Plan review')
 const ANCHORS = 'Score 1-10 on the four calibration anchors in ' + SKILL + '/loop-engineering.md § Calibration anchors. Verdict APPROVED only if Completeness ≥ 8 AND Atomicity ≥ 7 AND Risk Coverage ≥ 7 AND Dependency Order ≥ 8; otherwise REVISION_REQUIRED with concrete issues.'
+const RISK_REVIEW = isL6
+  ? ` This is also the single Mode 3 architecture boundary for risky surfaces (${[level, ...risky].join(', ')}): block only for irreversible/unrecoverable data loss, cross-tenant or PII exposure, auth/permission bypass, unsafe migration, or no rollback path; keep advisory hardening in issues.`
+  : ''
 const reviewPrompt = (n) =>
-  `evaluator Mode 1 (Plan Review)${n > 1 ? ' — re-review after revision' : ''}. Read the plan at ${plan?.planPath}. Critique for: ambiguities, vague or missing acceptance criteria, scope creep, wrong agent dispatch, disjoint-file violations, missing tenant/PII/idempotency/index guards, layer-ordering errors. ${ANCHORS} ${RO}`
+  `evaluator Mode 1 (Plan Review)${n > 1 ? ' — re-review after revision' : ''}. Read the plan at ${plan?.planPath}. Critique for: ambiguities, vague or missing acceptance criteria, scope creep, wrong agent dispatch, disjoint-file violations, missing tenant/PII/idempotency/index guards, layer-ordering errors. ${ANCHORS}${RISK_REVIEW} ${RO}`
 
-let review = await agent(reviewPrompt(1), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:1', model: M('evaluator') })
+let review = await dispatch(reviewPrompt(1), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:1', model: M('evaluator') })
 // Only revise when there is something to revise, and only re-review when the revision actually
 // happened: an unschema'd revise agent that died silently is otherwise indistinguishable from a
 // real revision, and the re-review then spends an opus agent re-reading an unchanged file and
 // returning the same issues — which reads as "the planner could not fix these".
-if (review?.verdict === 'REVISION_REQUIRED' && review?.issues?.length) {
-  const revision = await agent(
+if (review?.verdict === 'REVISION_REQUIRED' && review?.issues?.length && remainingWorkflowSpawns() >= 2) {
+  const revision = await dispatch(
     `Revise the plan at ${plan.planPath} to resolve these issues, keeping the ${SKILL}/phase-b-writing-plans.md format. ${NO_SKILL} Keep it on disk, commit nothing.
 ISSUES: ${JSON.stringify(review.issues)}
 Return revised:true only if you actually edited the file, plus a one-line summary of the changes.`,
     { agentType: AG('project-planner'), phase: 'Plan review', schema: REVISED, label: 'revise', model: M('project-planner') }
   )
   if (revision?.revised) {
-    review = await agent(reviewPrompt(2), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:2', model: M('evaluator') })
+    review = await dispatch(reviewPrompt(2), { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:2', model: M('evaluator') })
   } else {
     log('Revision did not happen (agent returned nothing or reported no edit) — keeping the first review verdict')
   }
-}
-
-// L6+/risky: one architecture pass (skill GATE 3 — evaluator Mode 3) on top of Mode 1.
-let architecture = null
-if (isL6) {
-  architecture = await agent(
-    `evaluator Mode 3 (Architecture Analysis) on the plan at ${plan?.planPath}. This task touches risky surfaces (${[level, ...risky].join(', ')}). Assess: irreversible-data risk, tenant isolation, auth/permission scope, migration safety, idempotency, rollback path.
-VERDICT RULE — apply literally, because this verdict BLOCKS the run: return APPROVED unless you find a blocking architectural defect (irreversible or unrecoverable data loss · cross-tenant or PII exposure · auth/permission bypass · unsafe or irreversible migration · no rollback path). Advisory improvements, "consider also", and second-order nice-to-haves belong in issues and must NOT flip the verdict to REVISION_REQUIRED. Mode 3's own rubric has no pass/fail concept, so this rule is the criterion.
-Return verdict + concrete issues. ${RO}`,
-    { agentType: AG('evaluator'), phase: 'Plan review', schema: REVIEW, label: 'review:arch', model: M('evaluator') }
-  )
+} else if (review?.verdict === 'REVISION_REQUIRED' && review?.issues?.length) {
+  workflowCapped = true
+  log('Plan needs material revision, but the workflow total cannot reserve both the writer and one fresh Evaluator re-review — returning the open issues instead of accepting an unreviewed revision')
 }
 
 // ── Gate — the anchors are a contract, not a suggestion ──────────────────────
@@ -396,17 +454,17 @@ const ANCHOR_FLOOR = { completeness: 8, atomicity: 7, riskCoverage: 7, dependenc
 const belowFloor = Object.entries(ANCHOR_FLOOR)
   .filter(([k, min]) => !(review?.scores?.[k] >= min))
   .map(([k, min]) => `${k} ${review?.scores?.[k] ?? 'n/a'} < ${min}`)
-// A risky task whose architecture pass never returned is NOT the same as one that passed:
-// a dead Mode 3 agent must block, or the L6 gate silently evaporates. Same for review.
-const archMissing = isL6 && !architecture
-const archBlocked = archMissing || (!!architecture && architecture.verdict !== 'APPROVED')
+// A risky task whose consolidated Evaluator gate never returned is not the same as one that passed:
+// the architecture boundary is folded into that one gate, so a missing result still blocks.
+const archMissing = isL6 && !review
+const archBlocked = isL6 && (!review || review.verdict !== 'APPROVED')
 const approved = review?.verdict === 'APPROVED' && belowFloor.length === 0 && !archBlocked
 const gateReasons = [
   !review ? 'plan review agent returned nothing' : '',
   review?.verdict === 'REVISION_REQUIRED' ? 'evaluator verdict REVISION_REQUIRED' : '',
   review && belowFloor.length ? `anchors below floor: ${belowFloor.join(', ')}` : '',
-  archMissing ? `architecture pass (evaluator Mode 3) did not return on a risky task (${[level, ...risky].join(', ')})` : '',
-  !archMissing && archBlocked ? 'architecture pass (evaluator Mode 3) verdict not APPROVED' : '',
+  archMissing ? `consolidated evaluator architecture boundary did not return on a risky task (${[level, ...risky].join(', ')})` : '',
+  !archMissing && archBlocked ? 'consolidated evaluator architecture boundary not APPROVED' : '',
 ].filter(Boolean)
 if (!approved) log(`Plan review did NOT pass — ${gateReasons.join(' · ')}`)
 
@@ -422,8 +480,12 @@ return {
   reviewVerdict: review?.verdict,
   reviewScores: review?.scores,
   belowFloor,
-  architectureVerdict: architecture?.verdict ?? null,
-  openIssues: [...(review?.issues ?? []), ...(architecture?.issues ?? [])],
+  architectureVerdict: isL6 ? (review?.verdict ?? null) : null,
+  openIssues: review?.issues ?? [],
+  workflowSpawns,
+  workflowSpawnCap: WORKFLOW_CAP,
+  deferredDispatches,
+  capped: workflowCapped,
   next: approved
     ? `Present the plan for human approval, then run /implement ${plan?.planPath}`
     : `BLOCKED — the plan did NOT pass review (${gateReasons.join(' · ')}). Do NOT run /implement yet: resolve openIssues in ${plan?.planPath}, then re-review. The plan file is on disk and uncommitted.`,

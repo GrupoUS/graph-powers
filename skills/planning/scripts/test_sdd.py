@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import os
 import re
 import subprocess
 import sys
@@ -130,6 +131,23 @@ class SddCliTests(unittest.TestCase):
     ) -> subprocess.CompletedProcess[str]:
         flag = "--request-json" if action == "reserve" else "--result-json"
         return self.run_cli("consult", action, str(plan), flag, json.dumps(envelope))
+
+    def run_dispatch(
+        self,
+        plan: Path,
+        key: str,
+        *,
+        kind: str = "writer",
+        role: str = "graph-powers:debugger",
+        maximum: int = 8,
+    ) -> subprocess.CompletedProcess[str]:
+        return self.run_cli(
+            "dispatch", "reserve", str(plan),
+            "--key", key,
+            "--kind", kind,
+            "--role", role,
+            "--max-spawns", str(maximum),
+        )
 
     def assert_valid(
         self,
@@ -319,6 +337,150 @@ class SddCliTests(unittest.TestCase):
         unknown = task("T1.1").replace("graph-powers:debugger", "graph-powers:not-a-real-agent")
         self.assert_invalid(plan_text(unknown), "unknown Agent")
 
+    def test_codex_clone_resolves_canonical_runtime_files_for_both_scopes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            container = Path(directory)
+            plugin_root = SCRIPT.parents[3]
+
+            for scope in ("user", "project"):
+                with self.subTest(scope=scope):
+                    root = container / f"repo-{scope}"
+                    root.mkdir()
+                    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                    home = container / f"home-{scope}"
+                    codex_home = home / ".codex"
+                    installed_script = (
+                        home / ".agents/skills/planning/scripts/sdd.py"
+                        if scope == "user"
+                        else root / ".agents/skills/planning/scripts/sdd.py"
+                    )
+                    installed_script.parent.mkdir(parents=True)
+                    installed_script.write_bytes(SCRIPT.read_bytes())
+                    manifest = (
+                        codex_home / "graph-powers-installed.json"
+                        if scope == "user"
+                        else root / ".graph-powers/installed.json"
+                    )
+                    manifest.parent.mkdir(parents=True)
+                    manifest.write_text(
+                        json.dumps(
+                            {
+                                "version": 1,
+                                "pluginRoot": str(plugin_root),
+                                "scope": scope,
+                                "complete": True,
+                                "paths": [str(installed_script.parents[1])],
+                            }
+                        ),
+                        encoding="utf-8",
+                    )
+                    plan = self.write_plan(root, plan_text(task("T1.1")))
+                    env = {
+                        **os.environ,
+                        "CODEX_HOME": str(codex_home),
+                        "HOME": str(home),
+                    }
+
+                    validated = subprocess.run(
+                        [
+                            sys.executable,
+                            "-X",
+                            "utf8",
+                            str(installed_script),
+                            "validate",
+                            str(plan),
+                            "--max-tasks",
+                            "10",
+                        ],
+                        cwd=root,
+                        env=env,
+                        capture_output=True,
+                        encoding="utf-8",
+                        check=False,
+                    )
+                    self.assertEqual(validated.returncode, 0, validated.stderr)
+
+                    acquired = subprocess.run(
+                        [
+                            sys.executable,
+                            "-X",
+                            "utf8",
+                            str(installed_script),
+                            "acquire",
+                            str(plan),
+                            "--max-tasks",
+                            "10",
+                        ],
+                        cwd=root,
+                        env=env,
+                        capture_output=True,
+                        encoding="utf-8",
+                        check=False,
+                    )
+                    self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+                    dispatched = subprocess.run(
+                        [
+                            sys.executable,
+                            "-X",
+                            "utf8",
+                            str(installed_script),
+                            "dispatch",
+                            "reserve",
+                            str(plan),
+                            "--key",
+                            f"{scope}:writer-1",
+                            "--kind",
+                            "writer",
+                            "--role",
+                            "graph-powers:debugger",
+                            "--max-spawns",
+                            "8",
+                        ],
+                        cwd=root,
+                        env=env,
+                        capture_output=True,
+                        encoding="utf-8",
+                        check=False,
+                    )
+                    self.assertEqual(dispatched.returncode, 0, dispatched.stderr)
+                    self.assertEqual(json.loads(dispatched.stdout)["status"], "RESERVED")
+
+    def test_codex_clone_without_manifest_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            container = Path(directory)
+            root = container / "repo"
+            root.mkdir()
+            installed_script = container / "home/.agents/skills/planning/scripts/sdd.py"
+            installed_script.parent.mkdir(parents=True)
+            installed_script.write_bytes(SCRIPT.read_bytes())
+            plan = self.write_plan(root, plan_text(task("T1.1")))
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-X",
+                    "utf8",
+                    str(installed_script),
+                    "validate",
+                    str(plan),
+                    "--max-tasks",
+                    "10",
+                ],
+                cwd=root,
+                env={
+                    **os.environ,
+                    "CODEX_HOME": str(container / "empty-codex-home"),
+                    "HOME": str(container / "home"),
+                },
+                capture_output=True,
+                encoding="utf-8",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("unknown Agent graph-powers:debugger", result.stderr)
+
     def test_acceptance_is_required_and_must_be_observable(self) -> None:
         missing = task("T1.1").replace("  Acceptance: the focused check prints ok\n", "")
         self.assert_valid(plan_text(missing), expected=1)
@@ -478,6 +640,139 @@ class SddCliTests(unittest.TestCase):
             release = self.run_cli("release", str(winner))
             self.assertEqual(release.returncode, 0, release.stderr)
             self.assertFalse(lease_path.exists())
+
+    def test_dispatch_cap_survives_resume_and_resets_only_for_a_new_lease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            for number in range(1, 8):
+                reserved = self.run_dispatch(plan, f"wave-1:writer-{number}")
+                self.assertEqual(reserved.returncode, 0, reserved.stderr)
+                self.assertEqual(json.loads(reserved.stdout)["sequence"], number)
+            final = self.run_dispatch(
+                plan,
+                "final:evaluator",
+                kind="evaluator",
+                role="graph-powers:evaluator",
+            )
+            self.assertEqual(final.returncode, 0, final.stderr)
+            self.assertEqual(json.loads(final.stdout)["sequence"], 8)
+
+            duplicate = self.run_dispatch(plan, "wave-1:writer-1")
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            duplicate_output = json.loads(duplicate.stdout)
+            self.assertTrue(duplicate_output["resumed"])
+            self.assertEqual(duplicate_output["used"], 8)
+
+            ninth = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(ninth.returncode, 4)
+            self.assertEqual(json.loads(ninth.stdout)["status"], "BLOCKED")
+
+            resumed = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            still_blocked = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(still_blocked.returncode, 4)
+
+            released = self.run_cli("release", str(plan))
+            self.assertEqual(released.returncode, 0, released.stderr)
+            reacquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(reacquired.returncode, 0, reacquired.stderr)
+            fresh = self.run_dispatch(plan, "wave-2:writer-1")
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
+            self.assertEqual(json.loads(fresh.stdout)["sequence"], 1)
+
+    def test_duplicate_dispatch_key_returns_no_second_launch_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            first = self.run_dispatch(plan, "wave-1:writer-1")
+            resumed = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            duplicate = self.run_dispatch(plan, "wave-1:writer-1")
+            retry = self.run_dispatch(plan, "wave-1:writer-1-retry")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            self.assertEqual(retry.returncode, 0, retry.stderr)
+            self.assertEqual(json.loads(first.stdout)["status"], "RESERVED")
+            self.assertEqual(json.loads(duplicate.stdout)["status"], "ALREADY_RESERVED")
+            self.assertEqual(json.loads(retry.stdout)["sequence"], 2)
+
+    def test_concurrent_duplicate_dispatch_keys_authorize_exactly_one_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+                results = list(pool.map(
+                    lambda _number: self.run_dispatch(plan, "parallel:writer-1"),
+                    range(10),
+                ))
+
+            outputs = [json.loads(result.stdout) for result in results]
+            self.assertTrue(all(result.returncode == 0 for result in results))
+            self.assertEqual([output["status"] for output in outputs].count("RESERVED"), 1)
+            self.assertEqual(
+                [output["status"] for output in outputs].count("ALREADY_RESERVED"), 9,
+            )
+            ledger_path = root / ".graph-powers/logs/sdd" / root.name / "dispatches.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(ledger["reservations"]), 1)
+
+    def test_dispatch_requires_lease_canonical_role_and_schema_ceiling(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            unleased = self.run_dispatch(plan, "wave-1:writer-1")
+            self.assertEqual(unleased.returncode, 2)
+            self.assertIn("active plan write lease", unleased.stderr)
+
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            read_only_writer = self.run_dispatch(
+                plan, "wave-1:writer-1", role="graph-powers:evaluator"
+            )
+            self.assertEqual(read_only_writer.returncode, 2)
+            self.assertIn("write-capable", read_only_writer.stderr)
+            invented = self.run_dispatch(
+                plan, "wave-1:bootstrap", kind="bootstrap", role="graph-powers:invented"
+            )
+            self.assertEqual(invented.returncode, 2)
+            self.assertIn("existing graph-powers agent", invented.stderr)
+            over_schema = self.run_dispatch(plan, "wave-1:writer-1", maximum=9)
+            self.assertEqual(over_schema.returncode, 2)
+            self.assertIn("between 1 and 8", over_schema.stderr)
+
+    def test_concurrent_dispatch_reservations_cannot_cross_the_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+                results = list(pool.map(
+                    lambda number: self.run_dispatch(plan, f"parallel:writer-{number}"),
+                    range(10),
+                ))
+
+            self.assertEqual([result.returncode for result in results].count(0), 8)
+            self.assertEqual([result.returncode for result in results].count(4), 2)
+            ledger_path = root / ".graph-powers/logs/sdd" / root.name / "dispatches.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(ledger["reservations"]), 8)
+            self.assertEqual(
+                sorted(entry["sequence"] for entry in ledger["reservations"].values()),
+                list(range(1, 9)),
+            )
 
     def test_exclusive_write_publishes_only_complete_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

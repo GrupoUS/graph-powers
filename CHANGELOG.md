@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.18.0 — the solution ladder, and the lower tier by default
+
+Adapted from Ponytail (MIT, `NOTICE`): a seven-rung solution ladder — does this need to exist,
+already here, stdlib, native, installed dependency, one line, then the minimum that works — now
+binds every writer at every tier (`references/shared/025-solution-ladder.md`). It reaches the main
+thread through the session tag and every subagent through a new `SubagentStart` hook,
+`hooks/subagent_context.py`, which never waits on stdin and stays under a byte cap the test suite
+holds. Planning cites it in place of its KISS/YAGNI bullets, the implementer prompt climbs it before
+the first edit, and the stopping table gains one row: a task, file or abstraction with no named
+consumer is cut, not planned.
+
+Tier ties now resolve downward. `020-complexity-routing.md`, the execution floor, the planning
+skill, issue triage and the Hermes skill all said the opposite — take the higher tier when unsure —
+and "too simple to need a design is itself the red flag" was the sentence that turned a direct edit
+into a chain. Evidence still raises the tier: a surface in `chain.riskSurfaces`, a second domain, a
+failing gate. Doubt alone does not. The spawn and round ceilings now name the direct path when they
+fire, not only the override.
+
+Measured while deciding what not to change (2026-09-02, Linux, a `git status` payload, best of three
+runs per hook): the plugin's six PreToolUse processes cost 149 ms per Bash call, 21-28 ms each, so
+no dispatcher was added — the time this release recovers is in what the rules asked the model to
+do, not in the hooks.
+
+## 1.17.1 — proactive lifecycle and Codex clone SDD routing
+
+Skill Improve now announces eligible lifecycle work before the first draft or edit, captures the
+changed-edge evidence that decides Mode A or Mode B, and records the CC BY 4.0 source used for the
+adaptation.
+
+The Codex clone SDD helper now resolves canonical agent definitions and the dispatch schema through
+the complete installer manifest in both user and project scopes. Invalid, incomplete, unregistered
+or symlinked manifests fail closed. The native Codex gate installs both clone variants and exercises
+`validate`, `acquire` and `dispatch reserve` end to end.
+
+## 1.17.0 — bounded fan-out and semantic agent tiers
+
+Workflow executions now have a hard cumulative ceiling in addition to parallel width: every config
+lookup, specialist, correction and review passes through one counted dispatcher, with an oversized
+fixture proving that neither custom lenses nor malformed config can cross the limit. Related work is
+clustered by existing Graph Powers role, Phase C persists idempotent dispatch reservations across
+controller resumes, and review commands use one adversarial Evaluator per acceptance boundary
+instead of nested audits or one refuter per finding.
+
+Dynamic routing accepts canonical Graph Powers agents instead of invented names. Claude Code native
+spawns retain the model declared in agent frontmatter and workflow calls resolve the same canonical
+family explicitly. Codex keeps judges/architects on Sol and scouts on Luna while moving executors and
+verification to the balanced Terra tier; both Codex generators consume the same semantic policy.
+
+Codex command entrypoints now use generated native skills such as `$graph-powers:verify`, because
+Codex rejects plugin-defined `/verify` before plugin routing and skips command migration for the
+`$ARGUMENTS` templates that Graph Powers uses. The clone fallback remains `$graph-powers-verify`;
+both routes derive from `commands/`, and regression coverage protects paths and URLs from command-
+reference rewriting.
+
+Skill Improve now records a CC BY 4.0 adaptation from Rebelytics's
+`one-skill-to-rule-them-all` at commit `510caad26c907793e48306262af216ff9f71c9f7`, by Eoghan
+Henn: layered lifecycle activation, unprimed trigger trials and explicit follow-up dispositions
+were rewritten for the existing bounded two-mode harness.
+
 ## 1.16.0 — Hermes native package parity
 
 Hermes now has a generated `plugin.yaml`, a native `__init__.py` entrypoint, and a single derived

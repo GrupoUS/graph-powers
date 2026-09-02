@@ -201,7 +201,7 @@ process.stdout.write(JSON.stringify({
         return 1
 
     skipped = set(data["skipped"])
-    if skipped != {"PermissionRequest", "Notification"}:
+    if skipped != {"PermissionRequest", "Notification", "SubagentStart"}:
         print(f"::error::unexpected skipped Cursor events: {sorted(skipped)}")
         return 1
 
@@ -248,7 +248,7 @@ process.stdout.write(JSON.stringify({
         return 1
 
     print(
-        "cursor artefacts match emit; PermissionRequest and Notification skipped; "
+        "cursor artefacts match emit; PermissionRequest, Notification and SubagentStart skipped; "
         f"{len(commands)} registrations; bounded Stop follow-ups; no plugin-root leak"
     )
     return 0

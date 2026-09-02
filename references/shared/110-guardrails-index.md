@@ -45,13 +45,16 @@ shell syntax rather than just text the hook recognises. On Windows the first for
 and then fails to run, which looks like the guardrail misbehaving and is not.
 
 Advisory, same registration, no denial: `auto_update.py`, `branch_session_notice.py`,
-`session_context.py` (SessionStart), `ultracite.py` (PostToolUse), `notify.py` (Notification).
+`session_context.py` (SessionStart), `subagent_context.py` (SubagentStart — the solution ladder,
+`025-solution-ladder.md`, into every subagent), `ultracite.py` (PostToolUse), `notify.py`
+(Notification).
 
 `ultracite.py` formats edits; `stop_verify.py` runs the declared global lint and trusts its exit
 code. An unavailable command is skipped, never reported as covered.
 
 The Windows handler benchmark is report-only evidence, not telemetry. No dispatcher, Git-native
-hooks, staged-snapshot execution or new lifecycle registration is active.
+hooks or staged-snapshot execution is active; `SubagentStart` is the one lifecycle registration
+added since, and it is advisory.
 
 ### Convention — rules the project writes, and nobody enforces but you
 

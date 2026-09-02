@@ -4,8 +4,8 @@
 name = "debugger"
 description = "Use proactively whenever something is broken: an error, a crash, a stack trace, a failing test or CI run, a 500, a hydration mismatch, or a regression that appeared after a deploy. Writes the fix as well as finding it. Delegate here on the first defect report, not after several failed attempts — that is the recovery protocol."
 # Codex policy: profile=executor; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "high"
 
 developer_instructions = '''
 

@@ -52,9 +52,10 @@ Every parallel-batch member returns a findings table with these exact columns:
 | **4** | Multiple sources agree (e.g., docs + grep) | Use with confidence |
 | **3** | Community consensus / single authoritative source | Note uncertainty in plan |
 | **2** | Single source, indirect evidence | Flag as `[ASSUMED]` in plan |
-| **1** | Speculation | Don't rely; spawn follow-up agent |
+| **1** | Speculation | Don't rely; group blocking disputed claims into one Evaluator follow-up when the workflow cap has room |
 
 **Hard rule:** parent must NOT proceed to implementation on findings ≤ 2 unless explicitly flagged `[ASSUMED]` and accepted by user.
+Never spawn one follow-up or refuter per row; one consolidated acceptance boundary is enough.
 
 ---
 

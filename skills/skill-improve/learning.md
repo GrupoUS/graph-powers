@@ -14,6 +14,12 @@ A round that changed nothing still gets an entry saying so. A quiet round is evi
 **Verdict:** kept, refuted, or partial — and what the evidence killed.
 ```
 
+Follow-ups are append-only and use stable IDs. Create one as
+`**Follow-up `R<round>-F<ordinal>` — OPEN:** <measurable question>`, name its literal path or
+allowed lifecycle-event slug, and close only with a dated structured disposition backed by the
+promised command or trace. `CLOSED` never reopens; `DEFERRED` may become `OPEN` when its objective
+condition becomes true.
+
 ---
 
 ## Inherited failure patterns
@@ -607,3 +613,53 @@ read the caller's allowlist (rubric W2, "dangling when the citing agent lacks th
 Replaced by a path read of `${CLAUDE_PLUGIN_ROOT}/skills/animate/SKILL.md`, which also sidesteps
 the personal-scope `animate` that shadows the plugin's on this machine; Codex mirrors regenerated.
 The gate that would have caught it is the one Mode B runs by hand, not any script here.
+
+## Round 9 — 2026-09-01 · bounded workflow fan-out and canonical model routing
+
+**Hypothesis:** parallelism could retain independent specialist work and adversarial review while a
+cumulative workflow cap, role clustering and one Evaluator per acceptance boundary removed the
+100-agent cascade. The same role could select an economical, balanced or judging model on Claude
+Code and Codex without a second hand-maintained spawn list.
+
+**Change:** added `maxSpawnsPerWorkflow`; routed every shipped workflow call through one counter;
+grouped custom lenses, Phase C tasks and corrections by existing Graph Powers role; removed nested
+review commands and per-finding refuters. Native Claude spawns keep agent frontmatter models,
+workflow calls require the canonical model map, and Codex maps scout/executor-verify/judge roles to
+Luna/Terra/Sol through its existing semantic policy. Skill eval baselines now sample changed and
+boundary cases instead of doubling every case.
+
+**Measurement:** both workflow dry runs stop at 8 spawns, including overflow and caller-poisoned
+model fixtures; 47 planning tests prove the plan-scoped counter survives resume, refuses dispatch 9,
+holds at 8 under 10 concurrent reservations and resets only under a new lease. Codex policy and
+native/clone parity pass for 12 roles. Context
+floor is 269,953/270,000 B and listing is 10,109/10,752 chars; wiring checks 459 references and
+12 agents with no unresolved route, and portability reports zero findings.
+
+**Verdict: PASS.** Width remains useful but is no longer mistaken for a cumulative brake. The
+remaining unmeasured boundary is a provider-internal retry below one `agent()` call; the plugin does
+not claim to count it.
+
+## Round 10 — 2026-09-01 · bounded proactive lifecycle measurement
+
+**Hypothesis:** a concise session pointer, one lifecycle routing matrix, and unprimed provider traces
+would make the two-mode skill proactive at reusable-skill and harness boundaries without becoming a
+general observer.
+
+**Change:** added the lifecycle router, focused SessionStart pointer, tagged clean-session capture
+boundary, and the bounded two-case sample for one pre-create and one agent-prompt exclusion.
+
+**Measurement:** pending the mandatory candidate trace pair; the baseline records the same two
+prompts with their candidate digest and selected owner.
+
+**Verdict:** partial — activation is static until the GREEN trace pair completes.
+
+**Follow-up `R10-F1` — OPEN:** Does the bounded clean-session candidate sample select the expected
+owner for both traces at threshold `1.0`?
+**Applies when:** event `proactive-routing`
+**Close with:** `.claude/audit/skill-improve-proactivity/green` trace pair and tagged grader result.
+
+**Disposition `R10-F1` — CLOSED:** 2026-09-02 — `run-7/green` is the body-only control
+(`847fb4c720b0cd0a224e83d9a64bf0546d16398eaa64acc1c8a1941e6ffb2a98`); the final candidate is
+`run-9/green` (`0b55ec3bcf19cf499a2831a68bb165af382d5571d580644c52a1430542b91a8a`) at
+`.claude/audit/skill-improve-proactivity/run-9/green`. The tagged `proactive-live` grader passed
+5/5 assertions, and final-first-line plus trace-polarity checks passed.

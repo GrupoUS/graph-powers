@@ -8,9 +8,9 @@ the rules a host project keeps under its own `.claude/rules/`.
 
 ## Entry points
 
-- `hooks.json` — event → matcher → script, fifteen entries across `PreToolUse`,
-  `PermissionRequest`, `SessionStart`, `PostToolUse`, `Stop` and `Notification`. Claude Code and Grok
-  discover it natively; `../codex/install.mjs` merges it into `~/.codex/hooks.json`;
+- `hooks.json` — event → matcher → script, sixteen entries across `PreToolUse`,
+  `PermissionRequest`, `SessionStart`, `SubagentStart`, `PostToolUse`, `Stop` and `Notification`.
+  Claude Code and Grok discover it natively; `../codex/install.mjs` merges it into `~/.codex/hooks.json`;
   `hooks-cursor.json` is generated from it by `../cursor/install.mjs` and never edited by hand.
 - `_config.py` — the only file in the plugin that knows projects differ. It reads the project's
   `.graph-powers/config.json` over the operator's `~/.graph-powers/config.json`, and resolves the
@@ -59,7 +59,8 @@ the rules a host project keeps under its own `.claude/rules/`.
 - Cursor gets only the generated `--graph-powers-client cursor` marker and loop limit `5`; Claude
   blocks Stop. Codex has a Stop schema contract but Desktop/`exec`/UX/loop parity is
   `NOT CONFIRMED`; Grok remains passive/unsupported. The Windows benchmark is report-only, not
-  telemetry; no dispatcher, Git-native hooks, staged snapshot or new lifecycle events are active.
+  telemetry; no dispatcher, Git-native hooks or staged snapshot is active, and the one lifecycle
+  event added since is the advisory `SubagentStart`.
 
 ## The usual change
 
@@ -98,6 +99,10 @@ Adding a guardrail:
   not since session start — a lifetime quota made a long session refuse to fan out.
 - `ultracite.py` only formats after edits. `stop_verify.py` owns final lint: exit code decides,
   unavailable tooling is an explicit fail-open skip, and a skipped gate is never reported covered.
+- `subagent_context.py` never waits on stdin: a PowerShell wrapper can swallow the piped payload so
+  EOF never fires, and a hook that blocks on every spawn is worse than none. Its paragraph is a
+  mirror of `../references/shared/025-solution-ladder.md`, bounded by `test_hooks.py`; change the
+  file first, then the mirror.
 - `auto_update.py` records the throttle before it checks, so a failed check backs off instead of
   retrying every session. It owns only Claude and the stable Codex clone route; native Codex, Cursor
   and Grok caches are foreground-only because an open process may retain the replaced hook path.

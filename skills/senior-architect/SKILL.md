@@ -155,12 +155,14 @@ Ousterhout's "Design It Twice": your first idea is unlikely to be the best. Full
    categories (see `references/tech_decision_guide.md`), a rough illustrative code sketch to ground
    the constraints. Show to user, then proceed immediately.
 
-2. **Spawn 3+ sub-agents in parallel** — each produces a radically different interface. Give each a
+2. **Spawn 2-3 `graph-powers:project-planner` agents in parallel** — only when each constraint can
+   produce a materially different interface. Give each a
    different design constraint:
    - Agent 1: Minimize the interface — 1 to 3 entry points max. Maximise leverage per entry point.
    - Agent 2: Maximise flexibility — support many use cases and extension.
    - Agent 3: Optimise for the most common caller — make the default case trivial.
-   - Agent 4 (if applicable): Design around ports and adapters for cross-seam dependencies.
+   Fold ports/adapters into the most relevant of those briefs when cross-seam dependencies exist;
+   do not create a fourth lane for it.
 
    Each sub-agent outputs: interface (types, methods, params, invariants, error modes) · usage
    example · what the implementation hides behind the seam · dependency strategy and adapters ·

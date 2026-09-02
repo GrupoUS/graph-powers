@@ -14,7 +14,7 @@ review feedback. Full ordering is `120-skill-invocation-order.md`.
   task loop.
 - Apply `skills/planning/references/execution/tdd-policy.md` to behaviour changes; do not restate
   its RED/GREEN/exception contract here.
-- KISS/YAGNI: implement only what the plan and failing test require.
+- `025-solution-ladder.md`: only what the plan and failing test require.
 - Completion requires fresh command output and exit code per `015-verification-gate.md`; an agent
   report or visual inspection is not evidence.
 

@@ -4,8 +4,8 @@
 name = "mobile-developer"
 description = "Use proactively for React Native and Flutter work: navigation, native modules, offline-first sync, platform-specific behaviour on iOS and Android, build and app-store delivery. Writes code. Web React is frontend-specialist."
 # Codex policy: profile=executor; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "high"
 
 developer_instructions = '''
 

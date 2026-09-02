@@ -37,13 +37,13 @@
       "escalationProfile": "judge"
     },
     "executor": {
-      "model": "gpt-5.6-luna",
-      "reasoningEffort": "max",
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high",
       "escalationProfile": "judge"
     },
     "verifier": {
-      "model": "gpt-5.6-luna",
-      "reasoningEffort": "max",
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high",
       "escalationProfile": "judge"
     },
     "scout": {

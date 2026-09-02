@@ -64,18 +64,26 @@ likely and least expected.
 
 `agent()` resolves `opts.model` and never opens the agent file, so a call that omits it runs on the
 **session's** model — which is how an `opus`-pinned `graph-powers:frontend-specialist` implemented
-on whatever the user was driving. Every call states one, from the tier in §2:
+on whatever the user was driving. Every call states one, derived from canonical agent frontmatter
+by the workflow's configuration bootstrap:
 
 ```javascript
-const LIGHT_AGENTS = new Set(['explorer', 'librarian'])
-const M = (name) => (LIGHT_AGENTS.has(name) ? 'haiku' : 'opus')
+const DECLARED_AGENT_MODELS = cfg.agentModels
+const M = (name) => {
+  const declared = DECLARED_AGENT_MODELS[name]
+  if (!declared) throw new Error(`No canonical model declared for graph-powers:${name}`)
+  return declared
+}
 
 await agent(prompt, { agentType: AG(t.agent), schema: TASK_RESULT, model: M(t.agent) })
 ```
 
-Going cheaper is legal and written literally — a mechanical pass that only runs the gates asks for
-`'haiku'`. Upgrading a light agent is not. `.github/check_workflows.mjs` reads the resolved `opts`
-of every stubbed spawn, so the dynamic call sites are checked too.
+Going cheaper is legal only for a deliberately mechanical call whose role contract permits it and
+is written literally. Upgrading a scout is not. Use names from the plugin's canonical agent set;
+never construct a dynamic name from task prose or pass through a configured arbitrary agent.
+`.github/check_workflows.mjs` reads the resolved `opts` of every stubbed spawn, so dynamic call
+sites, model families and the cumulative workflow cap are checked too. Codex does not execute these
+Claude workflows; its generated agents resolve the same role through `codex/model-policy.json`.
 
 ### Before you reach for one at all
 

@@ -13,6 +13,8 @@ same semantic model policy as the clone TOML route.
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -26,11 +28,11 @@ EXPECTED_POLICY = {
     "skill-improver": ("judge", "gpt-5.6-sol", "max"),
     "ui-ux-designer": ("judge", "gpt-5.6-sol", "max"),
     "project-planner": ("architect", "gpt-5.6-sol", "max"),
-    "debugger": ("executor", "gpt-5.6-luna", "max"),
-    "frontend-specialist": ("executor", "gpt-5.6-luna", "max"),
-    "mobile-developer": ("executor", "gpt-5.6-luna", "max"),
-    "performance-optimizer": ("executor", "gpt-5.6-luna", "max"),
-    "verification": ("verifier", "gpt-5.6-luna", "max"),
+    "debugger": ("executor", "gpt-5.6-terra", "high"),
+    "frontend-specialist": ("executor", "gpt-5.6-terra", "high"),
+    "mobile-developer": ("executor", "gpt-5.6-terra", "high"),
+    "performance-optimizer": ("executor", "gpt-5.6-terra", "high"),
+    "verification": ("verifier", "gpt-5.6-terra", "high"),
     "explorer": ("scout", "gpt-5.6-luna", "medium"),
     "librarian": ("scout", "gpt-5.6-luna", "medium"),
 }
@@ -49,6 +51,272 @@ def load(path: Path) -> dict:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
+
+
+def standalone_command_refs(text: str, command_names: list[str]) -> list[str]:
+    """Find slash-command tokens without confusing paths, URLs or Markdown destinations."""
+    alternatives = "|".join(map(re.escape, command_names))
+    pattern = re.compile(
+        rf"(^|[\s`'\"(\[>|])/(?P<name>{alternatives})(?=$|[\s`'\"),\]:;!?—–])",
+        re.MULTILINE,
+    )
+    refs: list[str] = []
+    for match in pattern.finditer(text):
+        prefix = match.group(1)
+        slash_offset = match.start() + len(prefix)
+        left_context = text[max(0, slash_offset - 256):slash_offset]
+        if re.search(r"\]\s*(?:\(|:)\s*$", left_context):
+            continue
+        if prefix in {'"', "'"} and re.search(
+            r"(?:=|:|\{|\[|,)\s*[\"']$", left_context
+        ):
+            continue
+        refs.append(match.group("name"))
+    return refs
+
+
+def check_command_ref_rewrite(command_names: list[str]) -> None:
+    cases = {
+        "plain": "/verify quick",
+        "backtick": "run `/verify` now",
+        "parenthesized": "run (/verify) now",
+        "extension": "/verify.md",
+        "child_path": "/verify/path",
+        "url": "https://example.test/verify",
+        "query": "https://example.test/?next=/verify",
+        "markdown_link": "[verification](/verify)",
+        "markdown_link_spaced": "[verification]( /verify )",
+        "markdown_reference": "[verification]: /verify",
+        "html_attribute": 'href="/verify"',
+        "html_attribute_spaced": 'href = "/verify"',
+        "jsx_attribute": 'href={"/verify"}',
+        "json_value": '{"path":"/verify"}',
+        "json_array_value": '{"paths":["/verify"]}',
+        "windows_forward": "C:/verify",
+        "windows_back": r"C:\verify",
+    }
+    expected = {
+        **cases,
+        "plain": "$graph-powers-verify quick",
+        "backtick": "run `$graph-powers-verify` now",
+        "parenthesized": "run ($graph-powers-verify) now",
+    }
+    rendered = subprocess.run(
+        [
+            "bun",
+            "-e",
+            """
+import { rewriteCodexCommandRefs } from "./codex/install.mjs";
+const cases = JSON.parse(process.env.GRAPH_POWERS_REWRITE_CASES);
+const names = JSON.parse(process.env.GRAPH_POWERS_COMMAND_NAMES);
+process.stdout.write(JSON.stringify(Object.fromEntries(
+  Object.entries(cases).map(([key, value]) => [key, rewriteCodexCommandRefs(value, names)]),
+)));
+""",
+        ],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "GRAPH_POWERS_REWRITE_CASES": json.dumps(cases),
+            "GRAPH_POWERS_COMMAND_NAMES": json.dumps(command_names),
+        },
+        check=False,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    if rendered.returncode != 0:
+        raise AssertionError(f"Codex command rewrite probe failed: {rendered.stderr.strip()}")
+    actual = json.loads(rendered.stdout)
+    if actual != expected:
+        raise AssertionError(f"Codex command rewrite changed a path/URL or missed a token: {actual}")
+
+
+def check_codex_command_skills() -> None:
+    """Prove both native-plugin and clone routes expose usable command skills."""
+    command_names = sorted(path.stem for path in (ROOT / "commands").glob("*.md"))
+    check_command_ref_rewrite(command_names)
+
+    native_root = ROOT / "codex/native-command-skills"
+    native_paths = sorted(path.relative_to(native_root).as_posix() for path in native_root.rglob("SKILL.md"))
+    expected_native_paths = [f"{name}/SKILL.md" for name in command_names]
+    if native_paths != expected_native_paths:
+        raise AssertionError(
+            f"native command skills are stale: expected {expected_native_paths}, got {native_paths}"
+        )
+    for name in command_names:
+        path = native_root / name / "SKILL.md"
+        body = path.read_text(encoding="utf-8")
+        if f"name: {name}\n" not in body or f"$graph-powers:{name}" not in body:
+            raise AssertionError(f"{path.relative_to(ROOT)} lacks its native Codex invocation")
+        if f"${{CLAUDE_PLUGIN_ROOT}}/commands/{name}.md" not in body:
+            raise AssertionError(f"{path.relative_to(ROOT)} does not route to its source command")
+        if "$ARGUMENTS" in body:
+            raise AssertionError(f"{path.relative_to(ROOT)} reintroduced rejected command templates")
+
+    with TemporaryDirectory(prefix="graph-powers-command-skills-") as raw:
+        fixture = Path(raw)
+        generated = subprocess.run(
+            [
+                "bun",
+                "-e",
+                """
+import { install } from "./codex/install.mjs";
+install({
+  projectDir: process.env.GRAPH_POWERS_COMMAND_FIXTURE,
+  pluginRoot: process.cwd(),
+  scope: "project",
+  log: () => {},
+});
+""",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "GRAPH_POWERS_COMMAND_FIXTURE": str(fixture)},
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        if generated.returncode != 0:
+            raise AssertionError(
+                f"Codex command-skill fixture failed: {generated.stderr.strip()}"
+            )
+
+        for name in command_names:
+            path = fixture / ".agents/skills" / f"graph-powers-{name}" / "SKILL.md"
+            if not path.is_file():
+                raise AssertionError(f"missing generated Codex command skill: {path}")
+            body = path.read_text(encoding="utf-8")
+            stale = standalone_command_refs(body, command_names)
+            if stale:
+                raise AssertionError(
+                    f"{path.relative_to(fixture)} retains Claude slash command references: {stale[:3]}"
+                )
+            expected = f"$graph-powers-{name}"
+            if expected not in body:
+                raise AssertionError(
+                    f"{path.relative_to(fixture)} does not advertise the Codex invocation {expected}"
+                )
+            if "/skills" not in body:
+                raise AssertionError(
+                    f"{path.relative_to(fixture)} does not advertise the Codex /skills picker"
+                )
+        debug_body = (
+            fixture / ".agents/skills/graph-powers-debug/SKILL.md"
+        ).read_text(encoding="utf-8")
+        if "/commands/pr-review.md" not in debug_body or "$graph-powers-pr-review.md" in debug_body:
+            raise AssertionError("Codex command rewrite corrupted a command-document path")
+
+
+def check_sdd_clone_runtime() -> None:
+    """Prove installer-produced manifests resolve SDD agents and schema in both clone scopes."""
+    plan_body = """# Plan
+
+**Tier:** L4
+
+## Phase 1 — Work [SEQUENTIAL]
+
+- [ ] **T1.1** — Exercise the installed clone
+  Owns: `src/main.py`
+  Needs: none
+  Acceptance: the installed helper accepts the canonical debugger lane
+  Agent: graph-powers:debugger · Skill: none · Effort: mechanical
+  CHECK: `python -X utf8 -c "print('ok')"`
+  EXPECT: `ok`
+  EVIDENCE: pending
+  TDD: not-applicable (installer fixture)
+  Steps:
+    1. Resolve the canonical runtime files
+
+- [ ] **G1.1** — Close phase 1
+  CHECK: `python -X utf8 -c "print('gate ok')"`
+  EXPECT: `gate ok`
+  EVIDENCE: pending
+"""
+
+    with TemporaryDirectory(prefix="graph-powers-sdd-clone-") as raw:
+        container = Path(raw)
+        for scope in ("user", "project"):
+            project = container / f"project-{scope}"
+            project.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=project, check=True)
+            home = container / f"home-{scope}"
+            codex_home = home / ".codex"
+            env = {
+                **os.environ,
+                "HOME": str(home),
+                "CODEX_HOME": str(codex_home),
+                "GRAPH_POWERS_SDD_PROJECT": str(project),
+            }
+            installer = (
+                """
+import { installGlobal } from "./codex/install.mjs";
+installGlobal({ pluginRoot: process.cwd(), force: true, log: () => {} });
+"""
+                if scope == "user"
+                else """
+import { install } from "./codex/install.mjs";
+install({
+  projectDir: process.env.GRAPH_POWERS_SDD_PROJECT,
+  pluginRoot: process.cwd(),
+  scope: "project",
+  log: () => {},
+});
+"""
+            )
+            generated = subprocess.run(
+                ["bun", "-e", installer],
+                cwd=ROOT,
+                env=env,
+                check=False,
+                capture_output=True,
+                encoding="utf-8",
+            )
+            if generated.returncode != 0:
+                raise AssertionError(
+                    f"Codex {scope} SDD clone fixture failed: {generated.stderr.strip()}"
+                )
+
+            script = (
+                home / ".agents/skills/planning/scripts/sdd.py"
+                if scope == "user"
+                else project / ".agents/skills/planning/scripts/sdd.py"
+            )
+            plan = project / "PLAN.md"
+            plan.write_text(plan_body, encoding="utf-8")
+            commands = (
+                ("validate", str(plan), "--max-tasks", "10"),
+                ("acquire", str(plan), "--max-tasks", "10"),
+                (
+                    "dispatch",
+                    "reserve",
+                    str(plan),
+                    "--key",
+                    f"{scope}:writer-1",
+                    "--kind",
+                    "writer",
+                    "--role",
+                    "graph-powers:debugger",
+                    "--max-spawns",
+                    "8",
+                ),
+            )
+            results = []
+            for command in commands:
+                result = subprocess.run(
+                    [sys.executable, "-X", "utf8", str(script), *command],
+                    cwd=project,
+                    env=env,
+                    check=False,
+                    capture_output=True,
+                    encoding="utf-8",
+                )
+                if result.returncode != 0:
+                    raise AssertionError(
+                        f"Codex {scope} SDD {' '.join(command[:2])} failed: "
+                        f"{result.stderr.strip()}"
+                    )
+                results.append(result)
+            if json.loads(results[-1].stdout).get("status") != "RESERVED":
+                raise AssertionError(f"Codex {scope} SDD dispatch was not reserved")
 
 
 def assert_native_policy(name: str, data: dict, path: Path) -> None:
@@ -103,6 +371,12 @@ def main() -> int:
 
     if native_plugin.get("hooks") != "./hooks/hooks.json":
         print("::error::.codex-plugin/plugin.json must point at hooks/hooks.json, not a second list")
+        return 1
+    if native_plugin.get("skills") != ["./skills/", "./codex/native-command-skills/"]:
+        print("::error::.codex-plugin/plugin.json must expose canonical and command skill roots")
+        return 1
+    if "commands" in native_plugin:
+        print("::error::.codex-plugin/plugin.json must not trigger Codex's lossy command migration")
         return 1
 
     generated = subprocess.run(
@@ -239,7 +513,12 @@ def main() -> int:
             """
 import { readFileSync } from "node:fs";
 import { agentToToml } from "./codex/install.mjs";
-import { buildMarketplace, buildNativeAgents, buildPluginManifest } from "./codex/native-plugin.mjs";
+import {
+  buildMarketplace,
+  buildNativeAgents,
+  buildNativeCommandSkills,
+  buildPluginManifest,
+} from "./codex/native-plugin.mjs";
 import { resolveCodexAgentPolicy, resolveCodexTopLevelProfile } from "./codex/model-policy.mjs";
 const claude = JSON.parse(readFileSync(".claude-plugin/plugin.json", "utf8"));
 const market = JSON.parse(readFileSync(".claude-plugin/marketplace.json", "utf8"));
@@ -278,6 +557,7 @@ process.stdout.write(JSON.stringify({
   manifest: buildPluginManifest(claude),
   marketplace: buildMarketplace(market),
   agents,
+  commandSkills: buildNativeCommandSkills("."),
   cloneAgents,
   topLevelProfiles,
   warningCategories: [...new Set(warningResult.warnings)].sort(),
@@ -298,12 +578,27 @@ process.stdout.write(JSON.stringify({
         print("::error::codex/native-plugin.mjs failed to emit")
         return 1
 
+    try:
+        check_codex_command_skills()
+        check_sdd_clone_runtime()
+    except (AssertionError, OSError) as exc:
+        print(f"::error::{exc}")
+        return 1
+
     data = json.loads(built.stdout)
     if data["manifest"] != native_plugin:
         print("::error::.codex-plugin/plugin.json is stale — run: bun codex/native-plugin.mjs")
         return 1
     if data["marketplace"] != native_market:
         print("::error::.codex-plugin/marketplace.json is stale — run: bun codex/native-plugin.mjs")
+        return 1
+    native_command_root = ROOT / "codex/native-command-skills"
+    native_command_skills = {
+        path.relative_to(native_command_root).as_posix(): path.read_text(encoding="utf-8")
+        for path in native_command_root.rglob("SKILL.md")
+    }
+    if data.get("commandSkills") != native_command_skills:
+        print("::error::codex/native-command-skills is stale — run: bun codex/native-plugin.mjs")
         return 1
 
     if data.get("topLevelProfiles") != EXPECTED_TOP_LEVEL_PROFILES:

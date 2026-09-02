@@ -1,7 +1,7 @@
 # Final reviewer prompt
 
-Use one fresh, read-only reviewer after all tasks and phase gates. This review is separate from
-per-task reviews and checks the complete change against the approved plan.
+Use one fresh, read-only `graph-powers:evaluator` after all tasks and phase gates. This review is
+separate from wave reviews and checks the complete change against the approved plan.
 
 ```text
 ## TASK
@@ -15,7 +15,7 @@ Strengths, severity-ranked issues with file:line evidence, ledger triage and a r
 **Decisions already made:** [DECISIONS]
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C final review after all phase gates, range [MERGE BASE]..[HEAD].
-**Do NOT redo:** [PER-TASK REVIEWS AND IMPLEMENTER TEST RUNS]
+**Do NOT redo:** [WAVE REVIEWS AND IMPLEMENTER TEST RUNS]
 
 Plan and requirements: [PLAN]
 Task-review outcomes and parked/deferred findings: [LEDGER]

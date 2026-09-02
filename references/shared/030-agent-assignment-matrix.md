@@ -6,7 +6,9 @@
 | React/components/UI/styling | `graph-powers:frontend-specialist` | No (write-capable) |
 | Schema/migrations/indexes | `graph-powers:debugger` | No |
 | Tests/QA | `graph-powers:debugger` | No |
-| Performance/security/SEO | `graph-powers:performance-optimizer` | No |
+| Performance/SEO implementation | `graph-powers:performance-optimizer` | No |
+| Security/tenancy/secrets adversarial review | `graph-powers:security-reviewer` | Yes |
+| Visual direction and UX review | `graph-powers:ui-ux-designer` | Yes |
 | Codebase patterns/files lookup | `graph-powers:explorer` | **YES — mandatory** |
 | External docs/packages | `graph-powers:librarian` | **YES — mandatory** |
 | Architecture consultation | `graph-powers:evaluator` (Mode 3) | Caller decides |
@@ -32,3 +34,14 @@ the CLI's own built-in, which is not this plugin's agent at all.
 
 If a spawn fails to resolve, load `${CLAUDE_PLUGIN_ROOT}/references/shared/035-agent-resolution-recovery.md`
 and follow that route; do not load the failure-path reference during normal assignment.
+
+### The role also carries the model
+
+Never invent a dynamic name or use a generic when this matrix has the role; harder judgment changes
+role (for example explorer → evaluator), not that role's model.
+
+- Claude native `Agent`: canonical `agents/<role>.md` owns `model:`; pass no override.
+- Claude `Workflow`: load the complete canonical `agents/*.md` model map, pass `model: M(role)` on
+  every call, and stop on a missing entry.
+- Codex: both generators map that same role through `codex/model-policy.json`; its semantic profile
+  owns model and effort, and Claude family names never enter Codex output.

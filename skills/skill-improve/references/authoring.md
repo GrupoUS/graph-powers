@@ -182,6 +182,41 @@ an orphan.
 
 Test before deploying. Always, including reference skills.
 
+### Lifecycle-triggered evidence
+
+When the `skill-authoring`, `repeated-skill-miss`, `trigger-collision`, or `proactive-routing`
+lifecycle event applies, establish lifecycle RED before changing behaviour, then retain the focused
+GREEN evidence. Two materially similar misses of the same rule are the threshold for a regression;
+one isolated application/product failure belongs to its domain owner.
+
+Unprimed trials preserve the user prompt byte-for-byte, run in a fresh temporary project with no
+prior transcript or local rule, and record the selected owner plus load/skip trace. Reject prompts
+that name this skill, Mode A, Mode B, a skill-load instruction, evals, or probes. A missing CLI,
+authentication failure, timeout, non-zero child exit, malformed/incomplete stream, missing response,
+or wrong required owner is failed evidence, never a skipped success.
+
+Structured follow-ups are append-only: create `**Follow-up `R<round>-F<ordinal>` — OPEN:**`, name
+the literal applicable path or one of `skill-authoring`, `skill-wiring`, `agent-wiring`,
+`harness-upgrade`, `repeated-skill-miss`, `trigger-collision`, or `proactive-routing`, and later
+append a dated `CLOSED`, `DEFERRED`, or reactivated `OPEN` disposition. Close only with the named
+command or trace; legacy “Next round should measure” prose is not a follow-up.
+
+### Validator and runner edge cases
+
+The validator rejects an unquoted `name`; it requires a quoted, single-line `description`, and its
+bracket check rejects `<`, `>`, `[` and `]` anywhere in that description. These look stylistic but
+are parser and length-contract failures.
+
+Use the two runner commands in `SKILL.md`: the per-case response-directory command is the gate,
+and the response-file command iterates one case. Replace every placeholder before pasting. The five
+measured runner traps are:
+
+1. Never grade a multi-case file in default mode: it flattens positive and negative assertions.
+2. Use `--threshold 1.0`; a failed `critical` assertion exits `1` at any threshold, and an all-manual case fails.
+3. A missing response under `--response-dir` fails its case; it is never skipped.
+4. An unknown assertion id is a named error with exit `1`.
+5. A missing `check`, or one without a colon, is an `INVALID` failed row rather than a traceback.
+
 ### 5a. Write the cases
 
 Three different purposes need three different sample sizes. Collapsing them into one number loses
@@ -219,12 +254,17 @@ Share the cases with the user for review before running them.
 
 ### 5b. Run with-skill against baseline
 
-For each case, spawn two subagents in the same turn — one with the skill loaded, one without, or
-with the previous version when iterating. Save to `iteration-N/eval-<id>/with_skill/outputs/` and
-`without_skill/outputs/`.
+Run the with-skill case once. Baseline only the smallest discriminating sample: at least one
+representative positive and one nearest-boundary negative, plus any case whose assertion or trigger
+changed in this iteration. Reuse a valid prior baseline for unchanged cases and record its source;
+do not spawn a second agent for every case merely to recreate the same control.
 
-Launch both together. Spawning the with-skill runs first and the baselines later wastes the
-wall-clock the parallel spawn exists to save.
+Launch the selected with-skill and baseline cases in bounded waves, consolidating cases that share
+one skill/listing into the same evaluation package when isolation is not the variable under test.
+Count every run against `graphGuardrails.maxSpawnsPerWorkflow`, reserve the final
+`graph-powers:skill-improver` verdict, and checkpoint remaining cases instead of opening another
+workflow. Parallelism improves wall-clock only inside that total; it is not permission to double the
+entire suite.
 
 ### 5c. Draft assertions while the runs complete
 

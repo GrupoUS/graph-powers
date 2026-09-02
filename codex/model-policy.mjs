@@ -3,8 +3,8 @@
  *
  * Canonical agent Markdown remains Claude-oriented. Both Codex generators call this resolver,
  * and workflows read the adjacent JSON contract through their existing configuration bootstrap.
- * Model selection is semantic: judges and architects spend Sol; iterative workers and scouts use
- * Luna. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
+ * Model selection is semantic: judges and architects use Sol, iterative workers and verifiers use
+ * Terra, and scouts use Luna. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
  * proactive orchestration policy, not a larger single-agent reasoning budget.
  */
 

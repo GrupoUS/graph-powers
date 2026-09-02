@@ -14,8 +14,8 @@ into its own harness directory, named in the delimited block of the project's `A
 reads the plugin copy through `.cursor-plugin/`. Grok reads the same plugin copy through
 `.grok-plugin/`, which points at `hooks/hooks.json`. Same bytes.
 
-**Subagents do not inherit it.** A subagent starts with its own prompt and nothing else, exactly as
-`safety-floor.md` describes. What an agent needs from here is §4's return contract, mirrored into its
+**Subagents do not inherit it.** A subagent starts with its own prompt plus the `SubagentStart`
+ladder line, nothing else, exactly as `safety-floor.md` describes. What an agent needs from here is §4's return contract, mirrored into its
 own body with the same provenance comment the safety floor uses:
 
 ```markdown
@@ -27,7 +27,7 @@ this plugin have no `Agent` tool, so mirroring those into them would be weight w
 
 ---
 
-## §1 — Delegating is not optional
+## §1 — Delegate only independently useful work
 
 The ladder is `references/shared/020-complexity-routing.md`, and it is the only one. What this
 section adds is that the ladder binds:
@@ -35,12 +35,14 @@ section adds is that the ladder binds:
 | Level | What is required |
 |---|---|
 | L1-L2 | **Do not delegate.** One file, a known pattern: re-establishing a subagent's context costs more than the parallelism returns |
-| L3 | One background agent, at least |
-| L4-L5 | Two to three, on disjoint files |
-| L6+ | A coordinator and its specialists |
+| L3 | At most one existing specialist, only when it owns an independently useful scope |
+| L4-L5 | Two to three existing specialists maximum, on disjoint scopes; fewer when fewer scopes exist |
+| L6+ | A coordinator and only the specialists the acceptance boundary requires |
 
-Unsure between two levels, take the higher one. `020`'s other floor — below roughly half an hour of
-real work, do not orchestrate at all — is about size, not about permission, and still holds.
+Unsure between two levels, take the lower one and say so; a risk surface, a second domain or a
+failing gate raises it, doubt does not (`020`). `020`'s other floor — below roughly half an hour of
+real work, or without a useful split, do not orchestrate at all — still holds. A slot in a wave is
+capacity, never an instruction to fill it.
 
 Which agent is `references/shared/030-agent-assignment-matrix.md`. Which skill is
 `references/shared/060-skill-domain-matrix.md`. Neither is repeated here.
@@ -54,8 +56,8 @@ same answer.
 
 `references/shared/070-parallel-agent-spawn.md` is the rulebook: everything in one message,
 `run_in_background: true` for anything read-only, foreground for anything that writes, one return
-contract per batch, and the wave width and the session ceiling as configuration keys rather than as
-numbers copied into prose.
+contract per batch, and width, per-workflow total and direct-session ceilings as configuration keys
+rather than numbers copied into prose.
 
 Spawning agents one per message is not a smaller version of parallel work. It is serial work carrying
 the overhead of parallel work.

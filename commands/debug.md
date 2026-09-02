@@ -14,7 +14,7 @@ workflow_type: routing
 > First positional arg = mode. Examples:
 > ```
 > /debug                    # default — triage + investigate + fix
-> /debug audit              # full-stack audit (9 dimensions, 4 parallel agents)
+> /debug audit              # surface-gated audit (one Evaluator, up to two specialists)
 > /debug frontend           # static + agent-browser E2E
 > /debug backend            # API/service/handler/middleware
 > /debug auth-db            # auth, permissions, tenant isolation, RLS
@@ -45,8 +45,8 @@ Parse first positional token from `$ARGUMENTS`:
 | Token | Section | Sub-agents |
 |---|---|---|
 | (none) / `debug` / `auto` | § 1 default flow | by complexity (§ 1.3) |
-| `audit` / `full` | § 2 audit | 4 parallel |
-| `frontend` / `ui` / `react` | § 3 frontend | frontend-specialist + explorer ×3 |
+| `audit` / `full` | § 2 audit | Evaluator + conditional security/UX (max 3) |
+| `frontend` / `ui` / `react` | § 3 frontend | frontend-specialist + explorer (max 2) |
 | `backend` / `api` | § 4 backend | templates B + C (+ D on a mutation) |
 | `auth-db` / `auth` / `db` / `permissions` | § 5 auth-db | templates B + C + D |
 | `recover` | § 6 recovery | evaluator Mode 3 · Mode 5 on a hypothesis the thread cannot leave |
@@ -219,11 +219,11 @@ After close: optionally `/evolve` to persist learnings.
 ## 2. Audit mode — `/debug audit` (full-stack 9 dimensions)
 
 > Comprehensive audit. For targeted bug fixing use default mode.
-> **PR/diff variant:** `/debug audit pr` — runs `codex adversarial-review --scope branch` first, then covers code-quality + dependencies + tech-debt + security on changed files only.
+> **PR/diff variant:** `/debug audit pr` — covers code-quality + dependencies + tech-debt + security on changed files only, without nesting another adversarial command before § 2.4.
 
 ### 2.1 Setup
 
-Run § 0.1, then — **only in `audit` mode** — load `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` for the 4 agent prompts and consolidation report template. No other mode opens it.
+Run § 0.1, then — **only in `audit` mode** — load `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` for the bounded audit batch and consolidation report template. No other mode opens it.
 
 ### 2.2 Quality gates baseline
 
@@ -243,16 +243,19 @@ git log --oneline -20
 
 Per `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md` § Severity classification (P0-P3 + auto-flag thresholds: coverage < 80% on critical paths; cyclomatic > 10; CVE ≥ 7.0).
 
-### 2.4 Spawn 4 parallel agents
+### 2.4 Dispatch the bounded audit batch
 
-Use prompts verbatim from `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md`:
+Use the prompts verbatim from `${CLAUDE_PLUGIN_ROOT}/references/audit-agent-prompts.md`. Dispatch
+one base Evaluator and add only the specialists justified by the audited surfaces:
 
-- **Agent 1** — `graph-powers:evaluator` (Mode 3) — Architecture & Structure (D1-D2)
-- **Agent 2** — `graph-powers:debugger` — Code Quality (D3 + D8 dependencies + D9 tech-debt)
-- **Agent 3** — `graph-powers:debugger` — Documentation + Missing Flows (D4-D5)
-- **Agent 4** — `graph-powers:frontend-specialist` — UX + Tests/CI (D6-D7)
+- **Base** — `graph-powers:evaluator` — D1-D5 and D7-D9, always.
+- **Security** — `graph-powers:security-reviewer` — only when auth, API, personal data, payment,
+  secrets or schema surfaces exist.
+- **UX** — `graph-powers:ui-ux-designer` — D6, only when a frontend surface exists.
 
-All `run_in_background: true`, same message. Resolve `${paths.*}` placeholders from config before spawning.
+At most three agents, all `run_in_background: true` in the same message. Resolve `${paths.*}`
+placeholders from config before spawning. Project lenses are folded into the compatible role, not
+dispatched one by one.
 
 ### 2.5 While agents run
 
@@ -268,7 +271,9 @@ When report surfaces P0/P1 → optionally run `codex:codex-rescue` with adversar
 
 ### 2.8 PR variant — `/debug audit pr`
 
-Before § 2.4, run `codex adversarial-review --scope branch` for an independent baseline diff review. Then narrow the 4 agents to D3 + D8 + D9 + security on changed files only. Output: per-file inline feedback (no exec summary).
+Do not nest another adversarial command before § 2.4. Narrow the same bounded batch to changed files:
+the Evaluator covers D3/D8/D9, the security specialist fires only on a sensitive surface, and UX only
+on a changed frontend surface. Output per-file inline feedback with no executive summary.
 
 ---
 
@@ -301,24 +306,16 @@ Agent 2 (graph-powers:explorer, background):
   - Frontend ↔ backend integration paths used by the failing flow
   - Silent failures, latency issues, suspense interactions
   - Mutation error handling and post-mutation cache invalidation
-  - Return: handler/procedure with potential issues + hypothesis. DO NOT FIX.
+  - Map routes involved in the scope and their existing E2E coverage
+  - Return: handler/procedure + root-cause hypothesis + route/coverage gaps. DO NOT FIX.
 ```
 
-### 3.4 Route + coverage discovery (parallel)
+### 3.4 Route + coverage consolidation
 
-```
-Agent 1 (graph-powers:explorer, background):
-  - Map all routes recursively under ${paths.frontendRoot}
-  - List: path, component, functionality
-  - Identify critical user flows (auth, CRUD, integrations, settings)
-  - Return: route table + prioritized journeys
-
-Agent 2 (graph-powers:explorer, background):
-  - Map existing E2E coverage (e2e/, tests/e2e/, playwright/, agent-browser/ — accept any layout)
-  - For each test: routes covered, assertions, interactions tested
-  - Cross-reference; identify routes WITHOUT coverage
-  - Return: coverage table (route | tested? | file | quality) + gaps list
-```
+Reuse the single Explorer report from § 3.3; do not open a second discovery batch. The parent fills
+mechanical omissions with Glob/Read under `${paths.frontendRoot}` and the existing E2E directories,
+then produces `route | component | critical journey | tested? | test file | gap`. Missing evidence
+is reported as unknown, never paid for with three near-identical scouts.
 
 ### 3.5 Browser journeys
 

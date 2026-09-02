@@ -19,6 +19,7 @@
  *
  *   .codex-plugin/plugin.json           <- .claude-plugin/plugin.json
  *   .codex-plugin/marketplace.json      <- .claude-plugin/marketplace.json
+ *   codex/native-command-skills/*       <- commands/*.md (thin native skill entrypoints)
  *   codex/native-agents/<name>.toml     <- agents/<name>.md (tracked companion role source)
  *   <codex-home>/agents/<name>.toml     <- same, via --out <codex-home>/agents
  */
@@ -27,12 +28,20 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { agentToToml } from "./install.mjs";
-import { readJson, rewriteForCodex, tomlString, writeFile } from "./lib.mjs";
+import { agentToToml, rewriteCodexCommandRefs } from "./install.mjs";
+import {
+  listMarkdown,
+  parseFrontmatter,
+  readJson,
+  rewriteForCodex,
+  tomlString,
+  writeFile,
+} from "./lib.mjs";
 import { resolveCodexTopLevelProfile } from "./model-policy.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const NATIVE_AGENTS_DIR = "codex/native-agents";
+export const NATIVE_COMMAND_SKILLS_DIR = "codex/native-command-skills";
 
 function pluginRootFromArgv(argv) {
   const i = argv.indexOf("--plugin");
@@ -51,8 +60,7 @@ export function buildPluginManifest(claudeManifest) {
     repository: claudeManifest.repository,
     license: claudeManifest.license,
     keywords: [...new Set([...(claudeManifest.keywords ?? []), "codex"])],
-    skills: "./skills/",
-    commands: "./commands/",
+    skills: ["./skills/", `./${NATIVE_COMMAND_SKILLS_DIR}/`],
     hooks: "./hooks/hooks.json",
   };
 }
@@ -72,6 +80,37 @@ export function listAgentFiles(pluginRoot) {
   const dir = join(pluginRoot, "agents");
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+}
+
+/** Native Codex rejects command migration when a source template contains `$ARGUMENTS`. Keep the
+ * command body canonical in `commands/`; these thin generated skills only route Codex to it. */
+export function buildNativeCommandSkills(pluginRoot) {
+  const files = {};
+  const commandFiles = listMarkdown(join(pluginRoot, "commands"));
+  const commandNames = commandFiles.map((file) => basename(file, ".md"));
+  for (const file of commandFiles) {
+    const name = basename(file, ".md");
+    const { data } = parseFrontmatter(readFileSync(join(pluginRoot, "commands", file), "utf8"));
+    if (!data.description) continue;
+    const description = rewriteCodexCommandRefs(String(data.description), commandNames, ":");
+    files[`${name}/SKILL.md`] = [
+      "---",
+      `name: ${name}`,
+      `description: ${JSON.stringify(description)}`,
+      "---",
+      "",
+      `# $graph-powers:${name}`,
+      "",
+      `This is the native Codex entrypoint for the Graph Powers command named \`${name}\`.`,
+      "",
+      `1. Read \`\${CLAUDE_PLUGIN_ROOT}/commands/${file}\` completely before acting.`,
+      `2. Treat the text after \`$graph-powers:${name}\` as that command's arguments.`,
+      "3. When the command names another Graph Powers slash command, invoke the matching",
+      "   `$graph-powers:<name>` skill; do not send that slash token to Codex's built-in parser.",
+      "",
+    ].join("\n");
+  }
+  return files;
 }
 
 export function buildNativeAgents(pluginRoot, settings = {}, log = () => {}, rewritePaths = null) {
@@ -157,6 +196,7 @@ export function install({
       }
     : null;
   const agents = buildNativeAgents(pluginRoot, settings, log, rewritePaths);
+  const commandSkills = buildNativeCommandSkills(pluginRoot);
   // Where the companion roles land. Tracked defaults are generated from the repository policy; an
   // operator makes them discoverable by emitting into a Codex config layer's `agents/` directory.
   const agentsRoot = outDir ? resolve(outDir) : join(pluginRoot, NATIVE_AGENTS_DIR);
@@ -176,6 +216,10 @@ export function install({
               join(pluginRoot, ".codex-plugin/marketplace.json"),
               `${JSON.stringify(marketplace, null, 2)}\n`,
             ],
+            ...Object.entries(commandSkills).map(([file, body]) => [
+              join(pluginRoot, NATIVE_COMMAND_SKILLS_DIR, file),
+              body.endsWith("\n") ? body : `${body}\n`,
+            ]),
           ]),
       ...Object.entries(agents).map(([file, body]) => [
         join(agentsRoot, file),
@@ -193,7 +237,7 @@ export function install({
     }
   }
 
-  return { written, pluginManifest, marketplace, agents };
+  return { written, pluginManifest, marketplace, agents, commandSkills };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {

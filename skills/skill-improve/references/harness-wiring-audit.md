@@ -107,9 +107,12 @@ when both proofs are on the table.
 
 ## Phase 4 — Trigger collision
 
-For each skill with overlapping territory, generate **at least 3 prompts that should fire and 3
-that should not** — prioritise negatives on the border with the real competitor, not in distant
-territory — and measure the hit rate in isolated, parallel subagents, one skill per subagent.
+For each skill cluster with overlapping territory, generate **at least 3 prompts that should fire
+and 3 that should not** — prioritise negatives on the border with the real competitor, not in
+distant territory. Give one bounded evaluation package to one existing
+`graph-powers:skill-improver` per genuinely distinct cluster; do not spawn one agent per prompt.
+Prioritise changed and boundary cases within `graphGuardrails.maxSpawnsPerWorkflow`, reserving the
+final independent verdict; report deferred cases explicitly.
 
 Say where each response came from, because the two sources measure different things: a clean
 session (`claude -p` with the skill in the listing and the prompt as typed) measures the live
@@ -218,8 +221,8 @@ malformed raises `JSONDecodeError` and exits 1.
 - The auditor disagreeing with the user across two or more rounds → the agent's prompt is the
   defect; fix it before another scan.
 - A P0 finding with confidence at or below 2 after two passes → `BLOCKED`, not `NEEDS_WORK`.
-- More than roughly 15 subagents in one round → stop and report. An audit does not justify unbounded
-  fan-out; a full baseline round was measured at roughly 1.0M tokens with 8 agents (2026-08-17),
+- A round would exceed `graphGuardrails.maxSpawnsPerWorkflow` → stop and report completed and
+  deferred cases. An audit does not justify unbounded fan-out; a full baseline round was measured at roughly 1.0M tokens with 8 agents (2026-08-17),
   and a five-lens review with eight refuters at 1.06M tokens with 13 (2026-08-26).
 - Never propose a fix in application or package source — out of scope, report it.
 

@@ -13,11 +13,12 @@ measured against a worktree of the pre-split tree with the same script.
 | § | under `${CLAUDE_PLUGIN_ROOT}/references/shared/` | Carries |
 |---|---|---|
 | 0 | `000-config-loader.md` | how a command resolves `${…}` placeholders from the project's config |
-| 0.5 | `005-method-bootstrap.md` | the method floor: skill before action, plan/TDD execution minimum, KISS/YAGNI |
+| 0.5 | `005-method-bootstrap.md` | the method floor: skill before action, plan/TDD execution minimum, the solution ladder |
 | 0.7 | `007-path-conventions.md` | where plans, maps and runtime state are written |
 | 1 | `010-quality-gates.md` | which gate runs after a task, after a phase, and at the end |
 | 1.5 | `015-verification-gate.md` | no completion claim without an exit code from this session |
 | 2 | `020-complexity-routing.md` | L1-L6, and the execution mode each one implies |
+| 2.5 | `025-solution-ladder.md` | the solution ladder — YAGNI, reuse, stdlib, native, installed dependency, one line, the minimum — and the lower tier when in doubt |
 | 3 | `030-agent-assignment-matrix.md` | task to agent, and which ones run in the background |
 | 3.5 | `035-agent-resolution-recovery.md` | recovery after a plugin agent name fails to resolve |
 | 4 | `040-wisc-context-load.md` | how much context `/prime` loads at each tier |

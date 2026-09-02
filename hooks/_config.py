@@ -87,7 +87,8 @@ DEFAULTS: dict[str, Any] = {
         "protectedBranches": ["main", "master"],
         "optInPrefix": "GRAPHPOWERS",
     },
-    # Execution graph ceilings, read by graph_guardrails.py.
+    # Execution graph ceilings. Direct Agent calls are enforced by graph_guardrails.py; workflow
+    # scripts consume the per-workflow total because their inner spawns bypass that hook.
     "graphGuardrails": {
         "maxSpawnsPerSession": 25,
         "maxRoundsPerAgent": 4,
@@ -95,6 +96,7 @@ DEFAULTS: dict[str, Any] = {
         # session that lives all day is normal work; the configured burst limit is not.
         "spawnWindowMinutes": 60,
         "maxParallelWave": 3,
+        "maxSpawnsPerWorkflow": 8,
     },
     # How much runs without stopping to ask. `guarded` is the default because a stranger's first
     # session should not be the one that discovers what this harness will do unattended.
