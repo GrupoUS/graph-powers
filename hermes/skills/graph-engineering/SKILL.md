@@ -35,7 +35,8 @@ Registered names are discovered at startup from every `skills/*/SKILL.md`, `comm
 ## Step 0 — Classify, then spend proportionally
 
 The ladder is `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`, and it binds.
-Unsure between two levels, take the higher one.
+Unsure between two levels, take the lower one and say so; a risk surface or a second domain raises
+it. `${CLAUDE_PLUGIN_ROOT}/references/shared/025-solution-ladder.md` sizes the solution itself.
 
 | Level | Shape | What runs |
 |---|---|---|

@@ -86,5 +86,5 @@ internal failures never become green cache entries. Use separate `<PREFIX>_ALLOW
 Cursor receives the generated `--graph-powers-client cursor` marker and loop limit `5`; Claude blocks
 Stop. Codex has a Stop schema contract, but Desktop/`exec`/UX/loop parity remains `NOT CONFIRMED`;
 Grok remains passive/unsupported. The Windows benchmark is report-only evidence, not telemetry. A
-dispatcher, Git-native hooks, staged-snapshot execution and new lifecycle events remain deliberately
-inactive.
+dispatcher, Git-native hooks and staged-snapshot execution remain deliberately inactive; the one
+lifecycle event added since is `SubagentStart`, advisory only.

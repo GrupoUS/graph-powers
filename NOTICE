@@ -178,6 +178,17 @@ were corrected against official 2026 sources — FAQ rich-result deprecation and
 `text-wrap: pretty` support — and one
 rule was inverted: invented "organic" numbers are fabricated proof, so numbers are real or absent.
 
+  references/shared/025-solution-ladder.md
+  hooks/subagent_context.py
+
+Adapted from https://github.com/DietrichGebert/ponytail (MIT, Copyright (c) 2026 DietrichGebert),
+read 2026-09-02: the seven-rung ladder, the never-simplified-away list and the output rule of its
+`ponytail` skill were folded into one shared reference that binds at every tier, and its
+`SubagentStart` injection (the answer to its issue #252 — SessionStart context never reaches a
+subagent) became one Python hook that mirrors the ladder in a bounded paragraph. Its intensity
+levels, mode tracker, statusline, review/audit/debt skills and host adapters were not copied; the
+escalation this harness already has (`/gauntlet`, `/verify loop`) is the "ultra" here.
+
 ================================================================================
 MIT — source-informed synthesis, not verbatim redistribution
 ================================================================================

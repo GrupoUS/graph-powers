@@ -206,6 +206,119 @@ install({
             raise AssertionError("Codex command rewrite corrupted a command-document path")
 
 
+def check_sdd_clone_runtime() -> None:
+    """Prove installer-produced manifests resolve SDD agents and schema in both clone scopes."""
+    plan_body = """# Plan
+
+**Tier:** L4
+
+## Phase 1 — Work [SEQUENTIAL]
+
+- [ ] **T1.1** — Exercise the installed clone
+  Owns: `src/main.py`
+  Needs: none
+  Acceptance: the installed helper accepts the canonical debugger lane
+  Agent: graph-powers:debugger · Skill: none · Effort: mechanical
+  CHECK: `python -X utf8 -c "print('ok')"`
+  EXPECT: `ok`
+  EVIDENCE: pending
+  TDD: not-applicable (installer fixture)
+  Steps:
+    1. Resolve the canonical runtime files
+
+- [ ] **G1.1** — Close phase 1
+  CHECK: `python -X utf8 -c "print('gate ok')"`
+  EXPECT: `gate ok`
+  EVIDENCE: pending
+"""
+
+    with TemporaryDirectory(prefix="graph-powers-sdd-clone-") as raw:
+        container = Path(raw)
+        for scope in ("user", "project"):
+            project = container / f"project-{scope}"
+            project.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=project, check=True)
+            home = container / f"home-{scope}"
+            codex_home = home / ".codex"
+            env = {
+                **os.environ,
+                "HOME": str(home),
+                "CODEX_HOME": str(codex_home),
+                "GRAPH_POWERS_SDD_PROJECT": str(project),
+            }
+            installer = (
+                """
+import { installGlobal } from "./codex/install.mjs";
+installGlobal({ pluginRoot: process.cwd(), force: true, log: () => {} });
+"""
+                if scope == "user"
+                else """
+import { install } from "./codex/install.mjs";
+install({
+  projectDir: process.env.GRAPH_POWERS_SDD_PROJECT,
+  pluginRoot: process.cwd(),
+  scope: "project",
+  log: () => {},
+});
+"""
+            )
+            generated = subprocess.run(
+                ["bun", "-e", installer],
+                cwd=ROOT,
+                env=env,
+                check=False,
+                capture_output=True,
+                encoding="utf-8",
+            )
+            if generated.returncode != 0:
+                raise AssertionError(
+                    f"Codex {scope} SDD clone fixture failed: {generated.stderr.strip()}"
+                )
+
+            script = (
+                home / ".agents/skills/planning/scripts/sdd.py"
+                if scope == "user"
+                else project / ".agents/skills/planning/scripts/sdd.py"
+            )
+            plan = project / "PLAN.md"
+            plan.write_text(plan_body, encoding="utf-8")
+            commands = (
+                ("validate", str(plan), "--max-tasks", "10"),
+                ("acquire", str(plan), "--max-tasks", "10"),
+                (
+                    "dispatch",
+                    "reserve",
+                    str(plan),
+                    "--key",
+                    f"{scope}:writer-1",
+                    "--kind",
+                    "writer",
+                    "--role",
+                    "graph-powers:debugger",
+                    "--max-spawns",
+                    "8",
+                ),
+            )
+            results = []
+            for command in commands:
+                result = subprocess.run(
+                    [sys.executable, "-X", "utf8", str(script), *command],
+                    cwd=project,
+                    env=env,
+                    check=False,
+                    capture_output=True,
+                    encoding="utf-8",
+                )
+                if result.returncode != 0:
+                    raise AssertionError(
+                        f"Codex {scope} SDD {' '.join(command[:2])} failed: "
+                        f"{result.stderr.strip()}"
+                    )
+                results.append(result)
+            if json.loads(results[-1].stdout).get("status") != "RESERVED":
+                raise AssertionError(f"Codex {scope} SDD dispatch was not reserved")
+
+
 def assert_native_policy(name: str, data: dict, path: Path) -> None:
     _profile, expected_model, expected_effort = EXPECTED_POLICY[name]
     model = data.get("model")
@@ -467,6 +580,7 @@ process.stdout.write(JSON.stringify({
 
     try:
         check_codex_command_skills()
+        check_sdd_clone_runtime()
     except (AssertionError, OSError) as exc:
         print(f"::error::{exc}")
         return 1

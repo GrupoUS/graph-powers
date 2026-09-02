@@ -51,13 +51,35 @@ except Exception:
 
 
 FORMATTABLE_EXTENSIONS = {
-    ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
-    ".json", ".jsonc", ".css", ".scss", ".sass", ".less",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".json",
+    ".jsonc",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
 }
 FORMAT_TIMEOUT_S = 15
 NETWORK_LAUNCHERS = {
-    "bunx", "bunx.exe", "bunx.cmd", "npx", "npx.exe", "npx.cmd", "pnpx", "pnpx.exe",
-    "pnpx.cmd", "dlx", "dlx.exe", "dlx.cmd",
+    "bunx",
+    "bunx.exe",
+    "bunx.cmd",
+    "npx",
+    "npx.exe",
+    "npx.cmd",
+    "pnpx",
+    "pnpx.exe",
+    "pnpx.cmd",
+    "dlx",
+    "dlx.exe",
+    "dlx.cmd",
 }
 
 
@@ -113,7 +135,7 @@ def run_format(data: dict[str, object]) -> None:
         return
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             [*parts, str(target)],
             capture_output=True,
             timeout=FORMAT_TIMEOUT_S,

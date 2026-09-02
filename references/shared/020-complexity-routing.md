@@ -11,9 +11,10 @@ prescribing more agents than the width cap allows.
 | L6+ | Architecture, migration, multi-service, or any surface in `chain.riskSurfaces` | coordinator + only the necessary specialists; Agent Teams only when the runtime exposes them | + pre-mortem, ADR, architecture pass |
 
 L6+ is the ceiling — the plan workflow classifies into `L1..L6`, and nothing downstream can
-represent an L7. **Unsure between two levels → take the higher assurance level, not a wider
-fan-out.** Tier decides which gates apply; each dispatch still needs an independently useful scope.
-Available slots are capacity, never a quota to fill.
+represent an L7. **Unsure between two levels → the lower one, said in one line; a surface in
+`chain.riskSurfaces`, a second domain or a failing gate raises it, doubt does not.** Tier decides
+which gates apply; each dispatch still needs an independently useful scope. Available slots are
+capacity, never a quota to fill. `025-solution-ladder.md` sizes the solution at every tier.
 
 ### Model and effort per unit of work
 

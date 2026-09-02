@@ -95,6 +95,17 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent_context.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",

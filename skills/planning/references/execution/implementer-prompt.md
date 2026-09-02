@@ -23,6 +23,7 @@ Task blocks, verbatim: [TASK BLOCKS]
 ## REQUIRED SKILLS & TOOLS
 Use the project's declared tools and read
 `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/execution/tdd-policy.md` when `TDD: required`.
+Climb `${CLAUDE_PLUGIN_ROOT}/references/shared/025-solution-ladder.md` before the first edit.
 Do not dispatch another agent.
 
 ## MUST DO

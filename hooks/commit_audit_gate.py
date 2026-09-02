@@ -14,8 +14,8 @@ import json
 import os
 import re
 import shlex
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -101,8 +101,9 @@ def _core_plan(cfg: dict[str, Any]) -> tuple[str, list[tuple[str, str]], int, in
     if raw is not None and not isinstance(raw, dict):
         return None
     block = raw if isinstance(raw, dict) else {}
-    if any(key not in {"enabled", "commands", "scope", "timeoutTotal", "cacheSeconds"}
-           for key in block):
+    if any(
+        key not in {"enabled", "commands", "scope", "timeoutTotal", "cacheSeconds"} for key in block
+    ):
         return None
     enabled = block.get("enabled", True)
     if not isinstance(enabled, bool):
@@ -110,7 +111,8 @@ def _core_plan(cfg: dict[str, Any]) -> tuple[str, list[tuple[str, str]], int, in
     timeout = _integer(block.get("timeoutTotal"), DEFAULT_TIMEOUT, MAX_TIMEOUT)
     cache = _cache_seconds(block.get("cacheSeconds"))
     if ("timeoutTotal" in block and block["timeoutTotal"] is None) or (
-            "cacheSeconds" in block and block["cacheSeconds"] is None):
+        "cacheSeconds" in block and block["cacheSeconds"] is None
+    ):
         return None
     if timeout is None or cache is None:
         return None
@@ -150,8 +152,12 @@ def _core_plan(cfg: dict[str, Any]) -> tuple[str, list[tuple[str, str]], int, in
         ):
             return None
         names = [name for name in CORE_GATES if name in selected and name in declared]
-    return ("enabled" if enabled else "disabled", [(name, declared[name]) for name in names],
-            timeout, cache)
+    return (
+        "enabled" if enabled else "disabled",
+        [(name, declared[name]) for name in names],
+        timeout,
+        cache,
+    )
 
 
 def _audit_plan(cfg: dict[str, Any]) -> tuple[str, int, bool] | None:
@@ -276,11 +282,16 @@ def _run_configured(
             _skip("TIMEOUT", gate)
             return "skipped"
         fingerprint = change_set.fingerprint_worktree(
-            project, gate, command,
+            project,
+            gate,
+            command,
             deadline=min(deadline, time.monotonic() + change_set.FINGERPRINT_BUDGET_S),
         )
-        if fingerprint and cache_enabled and cache_seconds > 0 and change_set.cache_lookup(
-            project, gate, fingerprint, cache_seconds
+        if (
+            fingerprint
+            and cache_enabled
+            and cache_seconds > 0
+            and change_set.cache_lookup(project, gate, fingerprint, cache_seconds)
         ):
             return "cached"
         remaining = deadline - time.monotonic()
@@ -341,9 +352,14 @@ def main() -> int:
             elif core_plan[0] == "enabled":
                 for gate, gate_command in core_plan[1]:
                     outcome = _run_configured(
-                        gate=gate, command=gate_command, project=project, cfg=cfg,
+                        gate=gate,
+                        command=gate_command,
+                        project=project,
+                        cfg=cfg,
                         request_command=command,
-                        deadline=commit_deadline, cache_seconds=core_plan[3], cache_enabled=True,
+                        deadline=commit_deadline,
+                        cache_seconds=core_plan[3],
+                        cache_enabled=True,
                     )
                     if outcome == "deny":
                         blocked = True
@@ -363,7 +379,10 @@ def main() -> int:
         else:
             audit_deadline = min(audit_deadline, time.monotonic() + audit_timeout)
         outcome = _run_configured(
-            gate="audit", command=audit_command, project=project, cfg=cfg,
+            gate="audit",
+            command=audit_command,
+            project=project,
+            cfg=cfg,
             request_command=command,
             deadline=audit_deadline,
             cache_seconds=(core_plan[3] if core_plan is not None else DEFAULT_CACHE_SECONDS),

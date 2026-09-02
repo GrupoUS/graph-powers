@@ -45,7 +45,7 @@ be made in two files of this repository, the repository is reproducing the probl
 7. **Four harnesses, one source.** Anything Codex, Cursor or Grok needs is *generated* from the
    artefacts that already exist for Claude Code (`codex/install.mjs`, `cursor/install.mjs`,
    `grok/install.mjs`). A second hand-maintained list is the divergence this repository exists
-   to end. Cursor has no PermissionRequest or Notification; those events are skipped, not
+   to end. Cursor has no PermissionRequest, Notification or SubagentStart; those are skipped, not
    rewritten. Grok reads `hooks/hooks.json` unchanged — do not invent `hooks-grok.json`. Payload
    shape differences (camelCase, `run_terminal_command`) are adapted in `_config.py`.
 

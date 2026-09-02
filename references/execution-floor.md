@@ -14,8 +14,8 @@ into its own harness directory, named in the delimited block of the project's `A
 reads the plugin copy through `.cursor-plugin/`. Grok reads the same plugin copy through
 `.grok-plugin/`, which points at `hooks/hooks.json`. Same bytes.
 
-**Subagents do not inherit it.** A subagent starts with its own prompt and nothing else, exactly as
-`safety-floor.md` describes. What an agent needs from here is §4's return contract, mirrored into its
+**Subagents do not inherit it.** A subagent starts with its own prompt plus the `SubagentStart`
+ladder line, nothing else, exactly as `safety-floor.md` describes. What an agent needs from here is §4's return contract, mirrored into its
 own body with the same provenance comment the safety floor uses:
 
 ```markdown
@@ -39,9 +39,10 @@ section adds is that the ladder binds:
 | L4-L5 | Two to three existing specialists maximum, on disjoint scopes; fewer when fewer scopes exist |
 | L6+ | A coordinator and only the specialists the acceptance boundary requires |
 
-Unsure between two levels, take the higher assurance level. That does not manufacture another
-scope: `020`'s other floor — below roughly half an hour of real work, or without a useful split, do
-not orchestrate at all — still holds. A slot in a wave is capacity, never an instruction to fill it.
+Unsure between two levels, take the lower one and say so; a risk surface, a second domain or a
+failing gate raises it, doubt does not (`020`). `020`'s other floor — below roughly half an hour of
+real work, or without a useful split, do not orchestrate at all — still holds. A slot in a wave is
+capacity, never an instruction to fill it.
 
 Which agent is `references/shared/030-agent-assignment-matrix.md`. Which skill is
 `references/shared/060-skill-domain-matrix.md`. Neither is repeated here.

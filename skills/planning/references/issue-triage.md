@@ -169,8 +169,8 @@ auth / payment / PII / schema; (b) triage drops the level to L1-L2, i.e. plannin
 
 This triage **owns** the tier number. It is the only classifier that read the issue. `ultra-plan`'s
 Frame agent runs on `haiku` and sees only the handoff string; `planning § Step 0` sees
-whatever is in context. Frame may **raise** the level (accept the higher — `SKILL.md:45`, "unsure
-→ default UP one level"), never lower it.
+whatever is in context. Frame may **raise** the level on a named risk surface or a second domain
+(`020`: doubt alone takes the lower tier), never lower it.
 
 `RISK SURFACES` must be named with `ultra-plan`'s exact enum vocabulary
 (`auth|payment|PII|schema|env|ci|none`). Non-obvious and load-bearing: `workflows/ultra-plan.js` computes

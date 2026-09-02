@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.18.0 — the solution ladder, and the lower tier by default
+
+Adapted from Ponytail (MIT, `NOTICE`): a seven-rung solution ladder — does this need to exist,
+already here, stdlib, native, installed dependency, one line, then the minimum that works — now
+binds every writer at every tier (`references/shared/025-solution-ladder.md`). It reaches the main
+thread through the session tag and every subagent through a new `SubagentStart` hook,
+`hooks/subagent_context.py`, which never waits on stdin and stays under a byte cap the test suite
+holds. Planning cites it in place of its KISS/YAGNI bullets, the implementer prompt climbs it before
+the first edit, and the stopping table gains one row: a task, file or abstraction with no named
+consumer is cut, not planned.
+
+Tier ties now resolve downward. `020-complexity-routing.md`, the execution floor, the planning
+skill, issue triage and the Hermes skill all said the opposite — take the higher tier when unsure —
+and "too simple to need a design is itself the red flag" was the sentence that turned a direct edit
+into a chain. Evidence still raises the tier: a surface in `chain.riskSurfaces`, a second domain, a
+failing gate. Doubt alone does not. The spawn and round ceilings now name the direct path when they
+fire, not only the override.
+
+Measured while deciding what not to change (2026-09-02, Linux, a `git status` payload, best of three
+runs per hook): the plugin's six PreToolUse processes cost 149 ms per Bash call, 21-28 ms each, so
+no dispatcher was added — the time this release recovers is in what the rules asked the model to
+do, not in the hooks.
+
+## 1.17.1 — proactive lifecycle and Codex clone SDD routing
+
+Skill Improve now announces eligible lifecycle work before the first draft or edit, captures the
+changed-edge evidence that decides Mode A or Mode B, and records the CC BY 4.0 source used for the
+adaptation.
+
+The Codex clone SDD helper now resolves canonical agent definitions and the dispatch schema through
+the complete installer manifest in both user and project scopes. Invalid, incomplete, unregistered
+or symlinked manifests fail closed. The native Codex gate installs both clone variants and exercises
+`validate`, `acquire` and `dispatch reserve` end to end.
+
 ## 1.17.0 — bounded fan-out and semantic agent tiers
 
 Workflow executions now have a hard cumulative ceiling in addition to parallel width: every config

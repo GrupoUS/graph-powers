@@ -44,7 +44,7 @@ grok plugin install graph-powers --trust
 node <clone>/bin/graph-powers.mjs --target grok
 ```
 
-The installer verifies the exact Grok-reported package path and its fifteen fail-open hooks before
+The installer verifies the exact Grok-reported package path and its sixteen fail-open hooks before
 writing `always-approve`. Restart the Grok session. Git commit and push still ask. `rm -rf /` still
 denies.
 
@@ -187,7 +187,7 @@ nothing is maintained twice.
 
 | Surface | Claude Code | Codex CLI | Cursor | Grok CLI | Hermes Agent |
 |---|---|---|---|---|---|
-| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest and Notification skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface |
+| Guardrails | `hooks/hooks.json` | The same declaration, merged into `~/.codex/hooks.json` | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface |
 | Skills | `skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` | The same files, via `.cursor-plugin/` | The same files, via `.grok-plugin/` | `plugin.yaml` + `__init__.py`; `graph-powers:<name>` |
 | Subagents | `agents/*.md` | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files | The same markdown files | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
 | Commands | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>` | The same markdown files | The same markdown files | namespaced skills, e.g. `graph-powers:plan` |
@@ -288,7 +288,7 @@ codex plugin marketplace add GrupoUS/graph-powers
 codex plugin add graph-powers@graph-powers
 ```
 
-Restart Codex, open `/hooks`, and approve the fifteen Graph Powers registrations (fourteen scripts;
+Restart Codex, open `/hooks`, and approve the sixteen Graph Powers registrations (fifteen scripts;
 the Bash approver is registered for two events). Installation makes the hooks discoverable;
 approval makes them executable. Then run the setup playbook in the project so
 its config, rules and authorities are established.
@@ -394,7 +394,7 @@ Grok marketplace installs the same repository through `.grok-plugin/plugin.json`
 `GROK_HOME`, falling back to `~/.grok`, with `[ui] permission_mode = "always-approve"`. A project
 `.grok/config.toml` cannot set that key. After installing the plugin, run the clone installer once
 (or the setup playbook Step 9h): it reads `grok plugin list --json`, verifies the exact reported path,
-manifest, fifteen guarded runners and their targets, and only then changes posture. Restart the
+manifest, sixteen guarded runners and their targets, and only then changes posture. Restart the
 session. Do not add user `hooks/*.json` beside plugin hooks. Under guarded posture the installer
 still wires discovery without writing always-approve. Git commit/push still ask; `rm -rf /` still
 denies.
@@ -698,10 +698,10 @@ manager family is still denied.
 
 ## The guardrails
 
-Fourteen hook scripts, wired through fifteen registrations in
+Fifteen hook scripts, wired through sixteen registrations in
 [`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code, Codex and Grok when the
 plugin is installed. Cursor loads the generated [`hooks/hooks-cursor.json`](hooks/hooks-cursor.json)
-(twelve registrations: PermissionRequest and Notification do not exist there). Grok uses the
+(twelve registrations: PermissionRequest, Notification and SubagentStart do not exist there). Grok uses the
 Claude file; `_config.py` adapts camelCase payloads and Grok tool names so the same gates run. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
 `PermissionRequest` to approve an escalation that the same classifier already allowed;
 `tool_approver` answers the same event for everything that is **not** a shell command. A
@@ -718,7 +718,7 @@ They existed on disk and never ran once.
 | `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
 | `tool_approver` | The approval prompt for every tool that is not Bash — subagent spawns, MCP calls, fetches, workflows. Answers it under `autonomous`, stays out of the way under `guarded`, and never overrides a `PreToolUse` denial | `autonomy.toolDefault` |
 | `auto_update` | Updates Claude Code and the Codex clone fallback in a detached process; native Codex, Cursor and Grok stay foreground-only | `autoUpdate.enabled: false` |
-| `branch_session_notice` · `session_context` · `notify` | Inform; never block | — |
+| `branch_session_notice` · `session_context` · `subagent_context` · `notify` | Inform; never block — `subagent_context` carries the solution ladder into every subagent | — |
 
 All of them are **fail-open**: missing, unreadable or mistyped configuration falls back to the
 defaults instead of taking the session down. A guardrail that breaks your work when *it* has the

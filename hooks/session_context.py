@@ -83,6 +83,27 @@ def execution_floor() -> str:
     )
 
 
+def solution_ladder() -> str:
+    """One line that puts the solution ladder in force for the main thread.
+
+    Same shape as `execution_floor()`: the posture, mirrored, and a pointer to the file — never the
+    file. Subagents get theirs from `subagent_context.py`, because SessionStart context stops here.
+    """
+    where = "references/shared/025-solution-ladder.md"
+    try:
+        ladder = Path(__file__).resolve().parent.parent / "references" / "shared" / "025-solution-ladder.md"
+        if ladder.is_file():
+            where = ladder.as_posix()
+    except Exception:
+        pass
+    return (
+        # mirror of 025-solution-ladder.md — the rungs and the tie-break, not the file
+        "Solution ladder in force: does it need to exist → already here → stdlib → native → installed "
+        "dependency → one line → the minimum that works; unsure of the tier, take the lower one and "
+        f"say so. {where}"
+    )
+
+
 def lifecycle_pointer() -> str:
     """Return one fail-open, bounded pointer to the lifecycle routing authority."""
     relative = "skills/skill-improve/SKILL.md#proactive-lifecycle"
@@ -93,10 +114,15 @@ def lifecycle_pointer() -> str:
             where = candidate.as_posix() + "#proactive-lifecycle"
     except Exception:
         pass
-    pointer = f"Proactive skill lifecycle: read {where} when a reusable skill or harness boundary appears."
+    prefix = (
+        "Proactive skill lifecycle: when skill-improve's description selects the task, Mode A/B rows emit the "
+        "matching lifecycle entry first before blocker/refusal/permission/tool observation/clarification/plan/"
+        "draft/edit, even without tools/Write; read "
+    )
+    pointer = f"{prefix}{where} before work."
     if len(pointer.encode("utf-8")) <= 512:
         return pointer
-    return f"Proactive skill lifecycle: read {relative} when a reusable skill or harness boundary appears."
+    return f"{prefix}{relative} before work."
 
 
 def get_git_branch(project_dir: str) -> str:
@@ -179,7 +205,9 @@ def main() -> None:
         "resume": f"{base_tag} resumed | branch:{branch}",
     }
     additional_context = prefixes.get(source, f"{base_tag} | branch:{branch}")
-    additional_context = f"{additional_context}\n{execution_floor()}\n{lifecycle_pointer()}"
+    additional_context = (
+        f"{additional_context}\n{execution_floor()}\n{solution_ladder()}\n{lifecycle_pointer()}"
+    )
 
     output = {
         "hookSpecificOutput": {

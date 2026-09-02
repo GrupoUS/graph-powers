@@ -224,7 +224,7 @@ subagents needed a real translation, into TOML.
 Cursor is the third client. Its native hook file is a flattened, renamed copy of `hooks/hooks.json`
 (`cursor/install.mjs`): `Bash` becomes `Shell`, `Edit` becomes `StrReplace`, nested matcher groups
 become an array of commands, and `${CLAUDE_PLUGIN_ROOT}` becomes a path relative to the plugin
-root. PermissionRequest and Notification do not exist there, so they are skipped — inventing a
+root. PermissionRequest, Notification and SubagentStart do not exist there, so they are skipped — inventing a
 Cursor event for them would be a second owner for a decision that already has one. `preToolUse`
 still classifies the shell. The IDE confirmation flood is not a hook: it is
 `~/.cursor/permissions.json`, which the same installer writes.
@@ -280,6 +280,14 @@ Recorded so they do not come back as proposals:
 - **A turn limit per subagent.** The field exists in frontmatter, was tested both possible ways, and
   **does not brake** in the measured version. Where the brake mattered — an evaluator that could
   respawn the debugger — the fix was removing the tool, which is deterministic.
+- **A hook dispatcher, to cut process launches.** Measured 2026-09-02 (Linux, a `git status`
+  payload, best of three): the six PreToolUse processes on a Bash call cost 149 ms together, 21-28 ms
+  each. A single process would save about 100 ms per call and cost a change in three generators; the
+  time a slow session loses is in what the rules tell the model to do, which is where 1.18.0 spent
+  its effort instead.
+- **A tier-aware spawn block.** A hook cannot see the tier a session decided; it sees a spawn. The
+  spawn and round ceilings are the block, and since 1.18.0 their message names the direct path
+  rather than only the override. The lower-tier default lives in the rules, where the tier is.
 
 ---
 

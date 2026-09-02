@@ -201,6 +201,22 @@ the literal applicable path or one of `skill-authoring`, `skill-wiring`, `agent-
 append a dated `CLOSED`, `DEFERRED`, or reactivated `OPEN` disposition. Close only with the named
 command or trace; legacy “Next round should measure” prose is not a follow-up.
 
+### Validator and runner edge cases
+
+The validator rejects an unquoted `name`; it requires a quoted, single-line `description`, and its
+bracket check rejects `<`, `>`, `[` and `]` anywhere in that description. These look stylistic but
+are parser and length-contract failures.
+
+Use the two runner commands in `SKILL.md`: the per-case response-directory command is the gate,
+and the response-file command iterates one case. Replace every placeholder before pasting. The five
+measured runner traps are:
+
+1. Never grade a multi-case file in default mode: it flattens positive and negative assertions.
+2. Use `--threshold 1.0`; a failed `critical` assertion exits `1` at any threshold, and an all-manual case fails.
+3. A missing response under `--response-dir` fails its case; it is never skipped.
+4. An unknown assertion id is a named error with exit `1`.
+5. A missing `check`, or one without a colon, is an `INVALID` failed row rather than a traceback.
+
 ### 5a. Write the cases
 
 Three different purposes need three different sample sizes. Collapsing them into one number loses

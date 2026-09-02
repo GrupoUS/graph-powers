@@ -38,6 +38,7 @@ import _change_set as change_set
 import _config as config_module
 import command_trust as trust_module
 import stop_verify as stop_module
+import subagent_context as ladder_module
 
 HOOKS = Path(__file__).resolve().parent
 FAILS: list[str] = []
@@ -334,6 +335,15 @@ def session_context_lifecycle() -> None:
             lines[0],
             "[DEMO] | branch:unknown | gates: lint+test",
         )
+        ladder = [line for line in lines if line.startswith("Solution ladder in force:")]
+        check(f"{harness} emits one solution-ladder line", len(ladder), 1)
+        if ladder:
+            check(
+                f"{harness} ladder line names the canonical file",
+                "025-solution-ladder.md" in ladder[0],
+                True,
+            )
+            check(f"{harness} ladder line carries all seven rungs", ladder[0].count("→"), 6)
         check(f"{harness} emits one lifecycle pointer", len(pointer), 1)
         if pointer:
             check(
@@ -345,6 +355,26 @@ def session_context_lifecycle() -> None:
             check(
                 f"{harness} lifecycle pointer names the canonical skill",
                 "skills/skill-improve/SKILL.md" in pointer[0],
+                True,
+            )
+            check(
+                f"{harness} lifecycle pointer defers to description selection",
+                "when skill-improve's description selects the task" in pointer[0],
+                True,
+            )
+            check(
+                f"{harness} lifecycle pointer excludes the deprecated boundary trigger",
+                "reusable skill or harness boundary" in pointer[0],
+                False,
+            )
+            check(
+                f"{harness} lifecycle pointer gives the entry protocol precedence",
+                "emit the matching lifecycle entry first" in pointer[0],
+                True,
+            )
+            check(
+                f"{harness} lifecycle pointer ends before work",
+                pointer[0].endswith("before work."),
                 True,
             )
 
@@ -404,6 +434,76 @@ def main() -> int:
             (result.returncode, result.stdout, result.stderr),
             (0, "", ""),
         )
+
+    print(
+        "### subagent_context — the solution ladder reaches every subagent, bounded, never blocking"
+    )
+    ladder_proj = mkproj({})
+    subagent_start = {"hook_event_name": "SubagentStart", "agent_type": "graph-powers:debugger"}
+    for harness in ("claude", "codex"):
+        out, code = call_raw("subagent_context", subagent_start, ladder_proj, harness=harness)
+        try:
+            specific = json.loads(out)["hookSpecificOutput"]
+        except Exception:
+            specific = {}
+        text = str(specific.get("additionalContext") or "")
+        check(
+            f"{harness} emits SubagentStart context", specific.get("hookEventName"), "SubagentStart"
+        )
+        check(f"{harness} names the canonical ladder file", "025-solution-ladder.md" in text, True)
+        check(
+            f"{harness} carries the rungs, not the file",
+            "YAGNI" in text and "minimum" in text,
+            True,
+        )
+        check(
+            f"{harness} keeps the paragraph bounded",
+            len(text.encode("utf-8")) <= ladder_module.LIMIT,
+            True,
+        )
+        check(f"{harness} exits 0", code, 0)
+    garbage, code = call_raw_input("subagent_context", "not json at all", ladder_proj)
+    check(
+        "garbage stdin still delivers the ladder (advisory, fail-open)",
+        "025-solution-ladder.md" in garbage,
+        True,
+    )
+    check("...and exits 0", code, 0)
+    undecodable = subprocess.run(
+        [sys.executable, str(HOOKS / "subagent_context.py")],
+        input=b"\xff\xfe not utf-8",
+        capture_output=True,
+        env={**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME)},
+        cwd=str(ladder_proj),
+        timeout=30,
+        check=False,
+    )
+    check("undecodable bytes on stdin exit 0", undecodable.returncode, 0)
+    check("...print no traceback", undecodable.stderr, b"")
+    check("...and still deliver the ladder", b"025-solution-ladder.md" in undecodable.stdout, True)
+    hung = subprocess.Popen(
+        [sys.executable, str(HOOKS / "subagent_context.py")],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME)},
+        cwd=str(ladder_proj),
+    )
+    try:
+        hung.wait(timeout=5)
+        finished = True
+    except subprocess.TimeoutExpired:
+        hung.kill()
+        hung.wait()
+        finished = False
+    check("a stdin that never closes does not block the spawn", finished, True)
+    hung_out = hung.stdout.read() if finished and hung.stdout else ""
+    check("...and the ladder is still emitted", "025-solution-ladder.md" in hung_out, True)
+    if hung.stdin:
+        hung.stdin.close()
+    shutil.rmtree(ladder_proj, ignore_errors=True)
 
     # Two projects deliberately different in everything the plugin parameterises.
     a = mkproj(

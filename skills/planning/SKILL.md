@@ -38,18 +38,16 @@ caps live. The loop stays *within* phases: the user approves every phase boundar
 
 ## Working rules
 
-- **KISS:** choose the smallest approach that reaches the stated destination and fits existing
-  repository patterns.
-- **YAGNI:** no task, abstraction, option, compatibility shim or extension point without a current
-  requirement or named consumer.
-- Ask one question at a time, with a recommendation. Ask only what changes the design; if the
-  repository or current primary docs can answer it, research instead.
+- **Solution ladder:** `${CLAUDE_PLUGIN_ROOT}/references/shared/025-solution-ladder.md` binds every
+  design and task — YAGNI, reuse, stdlib, native, installed dependency, one line, then the minimum.
+- Ask one question at a time, with a recommendation, and only what changes the design. If the
+  repository or current primary docs can answer it, research instead; if a sensible default exists,
+  take it as `[ASSUMED]` and question it in the same reply — never stall.
 - Reuse before extend, extend before new. A `NEW` decision must say why the closest existing unit
   cannot be extended.
 
 Do not write code until the phase gate passes and the user approves. State assumptions explicitly
-(`[ASSUMED]`); never guess silently. At L4+ the gate begins at **Phase A**, not at implementation —
-*"too simple to need a design"* is itself the red flag.
+(`[ASSUMED]`); never guess silently. At L4+ the gate begins at **Phase A**, not at implementation.
 
 **[HARD] Git approval:** specs, plans, code and progress artifacts stay as reviewable working-tree
 changes. Never stage, commit or push unless the user authorizes that exact action in the current
@@ -80,7 +78,8 @@ What each tier *runs* — the ladder itself is in `020`, not here:
 | **L6+** | + pre-mortem + ADR + risk column | + sprint contracts | + GATE 3 (evaluator Mode 3) |
 
 **Early exit:** `L1-L2 → direct edit` · `L3 → Phase A light only` · `L4+ → A → approval → B →
-approval → (L5+) C`. **Unsure of the tier → go up one.**
+approval → (L5+) C`. **Unsure of the tier → the lower one, said in one line; a named risk surface
+or a second domain raises it (`020`).**
 
 **Fog gate — decided before the tier gate, even though it reads after it.** A tier is a claim about
 how much work something is, and that claim cannot be made while the way there is still fog. If what
@@ -150,6 +149,7 @@ project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
 | BLOCKED from a subagent / correction cap exhausted | Surface it and route to `/debug recover`; do not retry blind |
 | User typed "stop" / "wait" / "pause" | Halt immediately |
 | Scope keeps expanding mid-Phase A | Decompose into sub-projects; brainstorm only the first |
+| A task, file, abstraction or option with no named consumer | Cut it and say so — `025` rung 1; it does not enter the plan |
 | Parallel batch returns mixed PASS/FAIL | Keep the PASS diffs, re-dispatch only the FAIL |
 | Coding before the gate · a plan with `TBD` · an unlabeled assumption | Stop — run the gate, research the unknown, label `[ASSUMED]` |
 | A checked task box whose `EVIDENCE` reads `pending` | Unmet. Run the check, or abandon it in the open with a reason |

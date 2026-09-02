@@ -248,17 +248,19 @@ def main() -> int:
             refusal = (
                 f"SPAWN CEILING: {len(events)} agent spawns in the last {window_minutes} minutes, "
                 f"at the limit of {lim['maxSpawnsPerSession']}. A fan-out this wide in one window "
-                "usually means the work is being re-delegated instead of finished — check in with "
-                f"the user, or narrow the task. To proceed deliberately, set {OPT_IN_SPAWN}=1 in "
-                "the environment."
+                "usually means the work is being re-delegated instead of finished. The direct path: "
+                "finish the remaining work in this session and spawn again only for an independently "
+                "useful scope, or check in with the user. To proceed "
+                f"deliberately, set {OPT_IN_SPAWN}=1 in the environment."
             )
         elif key and rounds > lim["maxRoundsPerAgent"] and not override:
             refusal = (
                 f"ROUND CEILING: `{key}` has been spawned {rounds - 1} times in the last "
                 f"{window_minutes} minutes, at the limit of {lim['maxRoundsPerAgent']}. Re-spawning "
                 "the same specialist this often is the signature of a loop that is not converging — "
-                "the fix is a different hypothesis, not another round. To proceed deliberately, set "
-                f"{OPT_IN_SPAWN}=1."
+                "the fix is a different hypothesis, not another round. The direct path: finish the "
+                "remaining work in this session at the lowest rung that works, or surface what was "
+                f"tried to the user. To proceed deliberately, set {OPT_IN_SPAWN}=1."
             )
 
         # A refused spawn never ran, so it is not recorded. Charging for it made the number in the

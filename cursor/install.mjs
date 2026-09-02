@@ -13,9 +13,9 @@
  *   ~/.cursor/permissions.json   <- autonomy.level               (IDE Run Mode / Auto-review)
  *   ~/.cursor/cli-config.json    <- the same posture for `cursor-agent`
  *
- * Cursor does not support PermissionRequest or Notification. Those registrations are skipped,
- * not rewritten: inventing a Cursor event for them would be a second owner for a decision
- * that already has one. preToolUse still runs the git gates and smart_bash_approver, which is
+ * Cursor does not support PermissionRequest, Notification or SubagentStart. Those registrations
+ * are skipped, not rewritten: inventing a Cursor event for them would be a second owner for a
+ * decision that already has one. preToolUse still runs the git gates and smart_bash_approver, which is
  * the half that stops a confirmation flood.
  *
  * User files are merged, never replaced. A permission list is somebody's decision. A standalone
@@ -44,7 +44,7 @@ const EVENT_MAP = {
   UserPromptSubmit: "beforeSubmitPrompt",
 };
 
-const SKIP_EVENTS = new Set(["PermissionRequest", "Notification"]);
+const SKIP_EVENTS = new Set(["PermissionRequest", "Notification", "SubagentStart"]);
 const CURSOR_CLIENT_MARKER = "--graph-powers-client cursor";
 const CURSOR_CLIENT_MARKER_PREFIX = "--graph-powers-client";
 const STOP_VERIFIER_SCRIPT = "hooks/stop_verify.py";

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -31,8 +32,18 @@ def tagged_eval_doc() -> dict:
     return {
         "skill": "fixture",
         "assertions": [
-            {"id": "A01", "description": "contains alpha", "check": "contains: alpha", "critical": True},
-            {"id": "A02", "description": "contains beta", "check": "contains: beta", "critical": True},
+            {
+                "id": "A01",
+                "description": "contains alpha",
+                "check": "contains: alpha",
+                "critical": True,
+            },
+            {
+                "id": "A02",
+                "description": "contains beta",
+                "check": "contains: beta",
+                "critical": True,
+            },
         ],
         "test_cases": [
             {"id": "tagged", "tags": ["live"], "expected_assertions": ["A01"]},
@@ -42,6 +53,24 @@ def tagged_eval_doc() -> dict:
 
 
 class RunEvalsTests(unittest.TestCase):
+    def test_mode_a_entry_precedes_the_preserved_blocker(self) -> None:
+        entry = "skill-improve Mode A — skill-authoring: RED established by evidence"
+        preserved = Path(
+            ".claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt"
+        ).read_text(encoding="utf-8")
+        synthetic = f"{entry}\n\n{preserved}"
+
+        def first(response: str) -> str:
+            return next(line.strip() for line in response.splitlines() if line.strip())
+
+        pattern = r"skill-improve Mode A — skill-authoring: RED (pending|established by evidence)"
+        self.assertIsNone(re.fullmatch(pattern, first(preserved)))
+        self.assertIsNotNone(re.fullmatch(pattern, first(synthetic)))
+
+        skill = SCRIPT.parents[1] / "SKILL.md"
+        content = skill.read_text(encoding="utf-8")
+        self.assertLess(content.index("[HARD] Entry protocol"), content.index("| Stage observed"))
+
     def test_case_tag_requires_per_case_response_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -53,9 +82,21 @@ class RunEvalsTests(unittest.TestCase):
             response.write_text("alpha\n", encoding="utf-8")
 
             result = subprocess.run(
-                [sys.executable, str(SCRIPT), "--skill-path", str(skill), "--evals-path", str(evals),
-                 "--response-file", str(response), "--case-tag", "live"],
-                capture_output=True, encoding="utf-8", check=False,
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--skill-path",
+                    str(skill),
+                    "--evals-path",
+                    str(evals),
+                    "--response-file",
+                    str(response),
+                    "--case-tag",
+                    "live",
+                ],
+                capture_output=True,
+                encoding="utf-8",
+                check=False,
             )
 
             self.assertEqual(result.returncode, 2)
@@ -155,9 +196,7 @@ class RunEvalsTests(unittest.TestCase):
             responses = Path(directory)
             (responses / "resp-T01.txt").write_bytes(b"\xff\xfe\x00")
 
-            rows, ok = RUN_EVALS.run_response_dir(
-                eval_doc("T01"), responses, threshold=1.0
-            )
+            rows, ok = RUN_EVALS.run_response_dir(eval_doc("T01"), responses, threshold=1.0)
 
             self.assertFalse(ok)
             self.assertIn("could not read response file", rows[0]["error"])

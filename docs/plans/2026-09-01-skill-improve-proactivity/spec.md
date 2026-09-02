@@ -32,9 +32,36 @@ the execution floor.
 The second recovery run exposed one producer defect before completion: a successful Codex JSONL
 stream was rejected because the raw output contained the ordinary word `authentication`. The child
 exit was `0`, but the substring check ran before structured parsing and discarded the output before
-writing a trace. This recovery therefore treats authentication as a structured provider error only,
-preserves bounded content-free diagnostics for every failed trial, and recreates RED from an
-immutable `HEAD` plugin snapshot so the already-built lifecycle candidate never has to be reverted.
+writing a trace. A later concurrent commit moved local `HEAD` after the next lease was acquired and
+made a moving-ref baseline invalid before any provider session launched. This recovery therefore
+treats authentication as a structured provider error only, preserves bounded content-free
+diagnostics for every failed trial, and recreates RED from the immutable pre-lifecycle commit
+`08a312ed3424376c7568c6d51b3dc263f7a31847` so the lifecycle candidate never has to be reverted.
+The next bounded run proved the layered activation itself: Codex loaded `skill-improve` and Claude
+selected `senior-prompt-engineer`. It also exposed a lifecycle gap before completion: the Mode A
+response stopped at a useful intent clarification without making the selected mode or required RED
+visible, so its three critical response assertions failed. The recovery adds one terse entry
+contract before clarification while retaining the separate task-close evidence line.
+
+The amended Gate 2 found two deterministic pre-provider failures. The new lifecycle prose made the
+command context floor `272,680 / 270,000` bytes, while the pre-change baseline had only 47 bytes of
+headroom; raising the ceiling would hide an always-paid regression. One producer test also used
+locale decoding through `text=True` without `encoding="utf-8"`. Both were GREEN before run 5.
+
+Run 5 then passed both textual response graders but failed the mandatory trace oracle in opposite
+directions: Codex returned the required Mode A entry while the producer reported no load; Claude
+loaded `skill-improve` before correctly explaining that agent-prompt design belonged to
+`senior-prompt-engineer`. Independent diagnosis found two separate pre-load defects. The Codex
+fixture invented an `item.arguments.path` shape and the parser searched every nested JSON value for
+only the installed `.agents` path, allowing response/output text to manufacture a load while
+missing the source path emitted by the hook. Separately, the skill description and hook pointer
+both described agent work broadly enough to trigger before the lifecycle matrix could apply its
+agent-prompt exclusion. Run 5 remains immutable failed evidence. Run 6 is preserved as the bounded
+parser/routing measurement: discovery is GREEN, but its Codex response missed the mandatory
+first-line protocol. Run 7 is immutable body-only correction evidence: the entry rule was made
+salient in `SKILL.md`, but the loaded Codex response still put the blocker first. Run 8 therefore
+reopens only the existing `SessionStart` pointer seam and launches one fresh Codex/Claude bridge
+pair against the run-7 control.
 
 This is an **L5** change: it crosses skill routing, SessionStart hook output, behaviour evals and
 distribution attribution. Explicit `/gauntlet` therefore becomes eligible after the structured plan
@@ -65,6 +92,7 @@ is approved.
 | W6 | Existing bounded-fanout work remains intact | Exact hashes of the already-dirty skill blocks plus changelog prefix, source versions and generated Codex manifest shape | Every phase |
 | W7 | Skill listing stays below both per-entry and shared ceilings | `quick_validate.py` and `check_listing_budget.py` | Behaviour and final phases |
 | W8 | The new always-on posture is exactly one bounded line and does not duplicate the lifecycle matrix | Hook assertion: one occurrence, no newline, rendered UTF-8 length at most 512 bytes; context-budget gate separately stays green | Hook and final phases |
+| W9 | A loaded Mode A response emits its lifecycle line before any blocker or permission report | First non-empty response line probe: run-6 RED, run-7 body-only control RED, run-8 bridge candidate GREEN; A01-A03 remain unchanged | Behaviour and final phases |
 
 ### Executable acceptance probes
 
@@ -83,24 +111,42 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
    positive load, negative abstention, structured auth failure, malformed streams, missing
    executables, and a successful response containing `authentication` without a false failure.
 
-2. Mandatory unprimed live sample, run once before the lifecycle edit and once after it:
+2. Mandatory unprimed live sample, recreated once as a bridge A/B against the immutable run-7
+   body-only control:
 
    ```text
-   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase baseline --timeout-seconds 300 --plugin-root . --plugin-ref HEAD --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
-   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/red --case-tag proactive-live --threshold 1.0
-   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/green --baseline-dir .claude/audit/skill-improve-proactivity/run-3/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
-   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/green --case-tag proactive-live --threshold 1.0
+   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --baseline-dir .claude/audit/skill-improve-proactivity/run-7/green --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
+   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-8/bridge-candidate --case-tag proactive-live --threshold 1.0
    ```
 
-   **EXPECT:** capture never appends probe language and emits one trace plus one response per trial.
-   BASELINE exits `0` only when both provider runs were captured and parsed; it reports polarity
-   mismatches without converting them to infrastructure failure, and its assertion gate may be the
-   expected RED exit `1`. GREEN prints `PASS codex:pro-precreate-skill expected=load observed=load` and
+    **EXPECT:** capture never appends probe language and emits one trace plus one response per trial.
+    The run-7 GREEN pair is the immutable body-only control; this run launches exactly two fresh
+    provider sessions after changing only the SessionStart bridge.
+   Codex load evidence is an official successful `item.completed` `command_execution` whose
+   `command` names the canonical source or installed skill path; response text, aggregated output,
+   failed commands and implicit selection are all `skip`.
+    The candidate capture exits `0` only when both provider runs were captured and parsed; it reports
+    polarity mismatches without converting them to infrastructure failure. GREEN prints
+    `PASS codex:pro-precreate-skill expected=load observed=load` and
    `PASS claude:bound-agent-prompt-draft expected=skip observed=skip` and
-   `PASS candidate-digest changed`; the tagged assertion gate exits `0`. RED is evidence, not
-   required to fail organically; at least the new hook assertion is
+   `PASS candidate-digest changed`; the tagged assertion gate exits `0`. The first non-empty line of
+    the run-8 Codex response full-matches `skill-improve Mode A — skill-authoring: RED (pending|established by evidence)`;
+    the run-6 response and run-7 body-only control are preserved RED fixtures for this probe. RED is evidence, not required to
+   fail organically; at least the new hook assertion is
    RED before production edits. Missing CLI, auth failure, malformed/incomplete JSONL, missing trace
    or an activation mismatch is `BLOCKED`/exit `1` in GREEN, never `NOT MEASURED` or `SKIP`.
+
+    The first-line probe is executable and independent of the tagged A01-A03 selector. Run the
+    same assertion against both preserved RED fixtures and the candidate (all commands exit `0`):
+
+   ```text
+    python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert not re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-6 first-line RED preserved')"
+    python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-7/green/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert not re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-7 body-only control RED preserved')"
+    python3 -X utf8 -c "from pathlib import Path; import re; p=Path('.claude/audit/skill-improve-proactivity/run-8/bridge-candidate/resp-pro-precreate-skill.txt'); first=next(line.strip() for line in p.read_text(encoding='utf-8').splitlines() if line.strip()); assert re.fullmatch(r'skill-improve Mode A — skill-authoring: RED (pending|established by evidence)',first),first; print('run-8 bridge first-line probe passed')"
+   ```
+
+    **EXPECT:** the run-6 and run-7 commands prove their first lines are not the required entry; the
+    run-8 command exits `0` and prints `run-8 bridge first-line probe passed`.
 
 3. Hook, routing and budgets:
 
@@ -139,7 +185,7 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
 
 ## Background research
 
-At external HEAD
+At pinned external commit
 [`510caad`](https://github.com/rebelytics/one-skill-to-rule-them-all/tree/510caad26c907793e48306262af216ff9f71c9f7),
 `task-observer` uses a description, persistent instruction and session hook as complementary
 activation layers; it explicitly says description matching alone is not enforceable. It adds a
@@ -166,6 +212,26 @@ Baseline on the pre-change worktree: `quick_validate.py` PASS; six eval-runner t
 `10,109 / 10,752` characters; wiring `459` references and `12` agents with zero unresolved; command
 context floor `269,953 / 270,000` bytes. The hook posture is therefore a pointer and compact
 conditional, never a copy of the lifecycle matrix.
+
+### Context-budget and portability contract
+
+The lifecycle matrix and entry protocol stay canonical in `SKILL.md`, but they cannot be paid for by
+raising `FLOOR_CEILING`. Recover headroom by moving the existing validator edge-case explanations
+and five eval-runner trap explanations from the always-loaded `SKILL.md` into the Mode A
+`references/authoring.md`. Also compact the duplicated rationale in `Before either mode`, the Mode B
+tool-enforcement rule and the excluded-owner paragraph into terse normative sentences that point to
+their already-canonical learning, harness-wiring, execution-floor and safety-floor sources. Do not
+move or weaken the lifecycle matrix, Mode B report-only rule, approval boundary, secret rule, git
+rule or orphan disposition. Keep the measured constraint table, gate commands and one Mode A
+detail pointer in the skill; preserve every moved validator/runner semantic exactly once in the
+reference, outside the hashed `5b` block. The final skill plus entry protocol must make
+`python3 .github/check_context_budget.py` pass at the unchanged 270,000-byte floor and this separate
+pre-provider probe must assert `totals(measure())[0] <= 269000`, mechanically preserving at least
+1,000 bytes of headroom. Listing and quick-validation ceilings stay unchanged.
+
+Every `subprocess.run(..., text=True)` in the changed producer tests carries explicit
+`encoding="utf-8"`. The current portability failure at `test_capture_trigger_evals.py` is RED;
+`python3 .github/check_portability.py` must be GREEN before any live backend is launched.
 
 ## Approach (chosen)
 
@@ -204,6 +270,16 @@ explain it but may not restate a competing version.
 | Competing descriptions, shadowing, orphan/dangling edge, or a second claimant discovered during Mode A | **Escalate A → B once the second edge is evidenced.** | The competing claimant/edge; no speculative escalation | A weak description with no second claimant stays Mode A |
 | Task boundary | **No new mode.** Report `<mode>: <deciding evidence>` only if a row above fired; otherwise say nothing about this lifecycle. | Trace/eval/wiring command that actually ran | Never invoke a skill merely to manufacture a close-out line |
 
+Entry is observable and distinct from task close. After the skill is loaded, when a Mode A or Mode B
+row fires, the first non-empty user-visible line before any blocker, refusal, permission/tool
+observation, clarification, plan, draft or edit is respectively
+`skill-improve Mode A — <slug>: RED <pending|established by evidence>` or
+`skill-improve Mode B — <slug>: changed-edge baseline <pending|established by evidence>`.
+Sandbox restrictions, unavailable tools and missing Write permission do not suppress this line; the
+blocker follows it. The line states the routing decision and current evidence state; it does not claim
+the task is complete. Rows owned by another skill do not emit a `skill-improve` entry line. The
+task-boundary row still reports deciding evidence at close.
+
 ### Follow-up identity and state contract
 
 `learning.md` remains append-only. A follow-up is created once in the round that discovers it:
@@ -240,11 +316,12 @@ explain it but may not restate a competing version.
 
 - Each `--trial <backend>:<case-id>` gets a new `tempfile.TemporaryDirectory`; no prior transcript,
   project rule, working-tree `AGENTS.md` or response is reused.
-- Baseline-only `--plugin-ref HEAD` resolves `HEAD` once to its full commit OID, archives that OID
-  rather than a moving name, validates every member before extraction, and rejects absolute paths,
-  parent traversal, symlinks and hard links. The extracted candidate records the resolved OID with
-  `git_dirty=false`; it never asks the archive for Git metadata or substitutes the dirty source
-  worktree. Candidate capture rejects `--plugin-ref` and uses the current `--plugin-root`.
+- Baseline-only `--plugin-ref` accepts exactly one lowercase 40-hex commit OID, verifies that commit,
+  archives the OID rather than a moving name, validates every member before extraction, and rejects
+  absolute paths, parent traversal, symlinks and hard links. Branches, tags, `HEAD` and abbreviated
+  hashes are invalid. The extracted candidate records the accepted OID with `git_dirty=false`; it
+  never asks the archive for Git metadata or substitutes the dirty source worktree. Candidate
+  capture rejects `--plugin-ref` and uses the current `--plugin-root`.
 - Claude Code runs non-persistently with the candidate plugin supplied by `--plugin-dir`, project-only
   setting sources, plan permission mode, verbose stream JSON, and an exact `--tools Skill` surface
   with Write/Edit also denied. The trial measures the routing decision and its final explanation; it
@@ -256,13 +333,18 @@ explain it but may not restate a competing version.
   applies only to the vetted candidate hook inside the disposable project; it does not bypass the
   read-only filesystem sandbox.
 - A Claude positive requires a `Skill` tool-use whose input resolves
-  `graph-powers:skill-improve`; a Codex positive requires a tool event that reads the generated
-  `.agents/skills/skill-improve/SKILL.md`. Both must occur before task work. The bounded Claude
+  `graph-powers:skill-improve`. A Codex positive requires `type=item.completed` with
+  `item.type=command_execution`, `item.status=completed`, `item.exit_code=0`, and `item.command`
+  containing exactly either the normalized source `<plugin-root>/skills/skill-improve/SKILL.md` or
+  installed `<project>/.agents/skills/skill-improve/SKILL.md` path supplied by the caller. The
+  parser never inspects `aggregated_output`, response, reasoning, MCP payloads or unrelated nodes
+  for activation. Both positive signals must occur before task work. The bounded Claude
   negative requires `skill-improve` to remain absent **and** an observable `Skill` tool-use resolving
   `graph-powers:senior-prompt-engineer`; absence alone is not a routing decision. The response text
   is then graded separately.
 - The producer rejects a live prompt containing `skill-improve`, `Mode A`, `Mode B`, an instruction to
-  load `SKILL.md`, or eval/probe wording. It recursively parses JSONL rather than matching raw output.
+  load `SKILL.md`, or eval/probe wording. It parses the provider's declared JSONL event shape rather
+  than treating arbitrary nested strings as tool evidence.
 - CLI absence, timeout, non-zero child exit, a top-level structured provider error,
   malformed/incomplete JSONL or missing response exits `1` in both phases. Authentication is named
   only when a top-level error record carries an authentication/authorization code or message; raw
@@ -294,20 +376,22 @@ explain it but may not restate a competing version.
   values are never printed or persisted; normal response/trace files are absent for a failed trial.
 - Fake-stream unit tests inject executable paths and never contact a provider. They assert the exact
   Claude isolation flags, prompt preservation, and that the bounded negative fails on either no
-  `Skill` call or a wrong-skill call. They also prove that a top-level structured authentication
-  error fails, while a valid successful stream whose response or tool payload mentions
-  `authentication` passes and produces normal response/trace artefacts. The real command is a
-  completion gate. RED
-  and GREEN together consume four clean sessions; the Phase B plan counts them against the configured
-  workflow cap and still reserves its independent wave and final Evaluators.
-  To remain within that cap, the behaviour writer uses one parent-controlled RED checkpoint before
-  changing production activation and one GREEN checkpoint afterward; it never launches those child
-  sessions itself.
-- Snapshot tests create a committed candidate plus a conflicting dirty edit, resolve literal `HEAD`,
-  and prove the archive contains only committed bytes, the full OID and `git_dirty=false`. Any ref
-  value other than literal `HEAD` and any candidate-phase `--plugin-ref` must be rejected; crafted
-  absolute, traversal, symlink and hard-link members must fail before extraction. Failure tests
-  place unique sentinels in stdout, stderr and an environment
+  `Skill` call or a wrong-skill call. The Codex fake uses the official command-execution wire shape
+  and covers successful reads of both canonical paths, response-only and aggregated-output-only
+  mentions, failed reads and Mode A text without a command. The tests also prove that a top-level
+  structured authentication error fails, while a valid successful stream whose response mentions
+   `authentication` passes and produces normal response/trace artefacts. The real command is a
+   completion gate. **Historical run 6/7 evidence** consumed four clean sessions; those artefacts
+   remain immutable and are not re-run in run 8. The active Phase B plan instead counts exactly two
+   fresh bridge sessions against the configured workflow cap and still reserves its independent wave
+   and final Evaluators. To remain within that cap, the behaviour writer uses one parent-controlled
+   static RED checkpoint before changing production activation and one GREEN checkpoint afterward; it
+   never launches provider sessions itself.
+- Snapshot tests create a committed candidate plus a conflicting dirty edit, supply its full commit
+  OID, and prove the archive contains only committed bytes, that exact OID and `git_dirty=false`.
+  `HEAD`, branch names, tags, abbreviated hashes and any candidate-phase `--plugin-ref` must be
+  rejected; crafted absolute, traversal, symlink and hard-link members must fail before extraction.
+  Failure tests place unique sentinels in stdout, stderr and an environment
   value, capture console plus every audit file, and assert the sentinels occur nowhere; they also
   assert the exact diagnostic keys, counts/digests, closed kind, and absence of response/trace files.
 
@@ -325,18 +409,18 @@ explain it but may not restate a competing version.
 
 | Layer | Owner | Change |
 |---|---|---|
-| Session activation | `hooks/session_context.py` | Resolve the canonical skill path and append a concise conditional lifecycle pointer after the execution-floor line; if the resolved path makes the line exceed 512 bytes, fall back to the relative canonical path; always fail open. |
-| Hook contract | `hooks/test_hooks.py` | Prove the pointer reaches Claude Code and Codex exactly once, has no embedded newline, stays at most 512 UTF-8 bytes, names the canonical file, and leaves the first-line gate tag unchanged. |
-| Lifecycle router | `skills/skill-improve/SKILL.md` | Tighten the description and add the only stage → owner → timing → minimum evidence → exclusion matrix, including sequential Mode A then Mode B for a new skill. |
-| Authoring behaviour | `skills/skill-improve/references/authoring.md` | Add lifecycle RED, repeated-failure threshold, exact unprimed-trial rules and follow-up disposition rules outside the existing hashed `5b` block. |
-| Behaviour oracle | `skills/skill-improve/evals/evals.json` | Add positives for pre-create, pre-wire, relevant upgrade, repeated miss and applicable open follow-up; add negatives for agent-prompt design, unrelated upgrade, one-off app failure, closed learning and product “agent” work. Tag the bounded live pair separately. |
-| Assertion selector | `skills/skill-improve/scripts/run_evals.py`, `test_run_evals.py` | Add `--case-tag` only with `--response-dir`; zero matching cases or missing tagged responses fails. Existing all-case and `--test-case` semantics remain unchanged. |
-| Trace producer | `skills/skill-improve/scripts/capture_trigger_evals.py`, `test_capture_trigger_evals.py` | Implement the two backend adapters and exact failure contract above; invoke the existing Codex project installer; write only ignored response/trace artefacts. |
-| Round record | `skills/skill-improve/learning.md` | Extend the template with structured IDs/dispositions, then append Round 10 and `R10-F1`; never rewrite prior rounds or current Round 9. |
-| Local dogfood | `.claude/rules/artifacts.md` | Point its existing reminder at the canonical lifecycle section and require task-close evidence when a lifecycle event fired. |
-| Digest-owned licence source | `.claude-plugin/plugin.json`, `skills/skill-improve/LICENSE-CC-BY-4.0.txt` | The behaviour writer changes these only after RED because both sit inside the aggregate digest surface; retain the Apache licence and add `CC-BY-4.0` to the hand-owned Claude SPDX expression. |
-| Outside-digest attribution | `NOTICE`, `CHANGELOG.md`, `package.json` | A disjoint distribution writer records source, author, licence, source commit and what changed, and applies the already-locked `MIT AND Apache-2.0 AND CC-BY-4.0` expression to `package.json`. `[ASSUMED]` Join the already-unreleased `1.17.0` worktree rather than create a second bump. |
-| Generated distribution | `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`, `plugin.yaml` | The behaviour writer owns this regeneration before GREEN so one writer controls the digest source and all projections. Never hand-edit. Regenerate from `.claude-plugin/plugin.json` with `bun codex/native-plugin.mjs --emit-only`, `bun cursor/install.mjs --emit-only`, `bun grok/install.mjs --emit-only`, and `bun hermes/install.mjs --emit-only`; generators copy `license` at `codex/native-plugin.mjs:43-52`, `cursor/install.mjs:128-137`, `grok/install.mjs:49-58`, and `hermes/install.mjs:48-58`. |
+| Session activation | `hooks/session_context.py` | **Run 8 seam.** Keep the canonical path, relative fallback and fail-open contract; extend only `lifecycle_pointer()` with a conditional reminder that a matching Mode A/B lifecycle entry is the first output before blockers, refusals, permission/tool observations, clarification, plans, drafts or edits. |
+| Hook contract | `hooks/test_hooks.py` | **Run 8 regression.** Keep one bounded, one-line pointer for Claude Code and Codex, the unchanged first-line gate tag, canonical path and description-selection condition; assert the new entry-precedence wording without copying the matrix or templates. |
+| Lifecycle router | `skills/skill-improve/SKILL.md` | **Completed in run 7 and frozen.** Keep the only stage → owner → timing → evidence → exclusion matrix and the single `[HARD]` entry protocol; run 8 changes no body bytes. |
+| Authoring behaviour | `skills/skill-improve/references/authoring.md` | Keep lifecycle RED, repeated-failure threshold, unprimed-trial and disposition rules outside the hashed `5b` block; receive the moved validator/runner explanations as their one canonical home. |
+| Behaviour oracle | `skills/skill-improve/evals/evals.json` | Preserve the completed positive/negative lifecycle cases and the separately tagged live pair; prompts and assertions do not change after run-4. |
+| Assertion selector | `skills/skill-improve/scripts/run_evals.py`, `test_run_evals.py` | `run_evals.py` and its completed `--case-tag` contract are frozen from run 6. Run 7's deterministic first-non-empty-line regression remains; run 8 adds no provider assertion or parser change. Existing all-case and `--test-case` semantics remain unchanged. |
+| Trace producer | `skills/skill-improve/scripts/capture_trigger_evals.py`, `test_capture_trigger_evals.py` | **Completed and frozen from run 6.** Both backend adapters, the exact failure contract, successful official command-execution event boundary, caller-supplied canonical paths and ignored response/trace artefacts are not reopened in run 7. |
+| Round record | `skills/skill-improve/learning.md` | Preserve the completed template, Round 10 and OPEN `R10-F1`; run 8 appends only its CLOSED disposition after the bridge candidate GREEN. |
+| Local dogfood | `.claude/rules/artifacts.md` | Preserve its completed canonical lifecycle pointer and task-close evidence rule. |
+| Digest-owned licence source | `.claude-plugin/plugin.json`, `skills/skill-improve/LICENSE-CC-BY-4.0.txt` | Verify and freeze the completed CC BY file and hand-owned SPDX source before providers; do not rewrite either in run 7. |
+| Outside-digest attribution | `NOTICE`, `CHANGELOG.md`, `package.json` | Preserve the completed T1.3 attribution and locked `MIT AND Apache-2.0 AND CC-BY-4.0` expression; no run-8 writer owns these files. |
+| Generated distribution | `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`, `plugin.yaml` | Verify that the completed projections match `.claude-plugin/plugin.json`, then freeze them before providers. Never hand-edit or regenerate unchanged projections during run 8. |
 
 No generated Codex companion changes are needed unless an agent source changes; this design does not
 change `agents/skill-improver.md`.
@@ -388,11 +472,13 @@ Mode B remains report-only; the user or a later approved implementation owns pat
 ### RED first
 
 Add and unit-test the producer and tagged selector first, then capture the bounded live pair against
-the immutable pre-lifecycle `HEAD` snapshot. Record both results even if description matching already
-passes one organically. The deterministic RED remains the previously recorded hook failure; the new
-producer regression must fail before its fix when a valid successful JSONL stream contains the word
-`authentication`. A live prompt may state the user's task but must not name `skill-improve`, a mode,
-a load instruction or expected eval outcome.
+the immutable run-7 body-only control. The pre-lifecycle commit and four-session run-6/7 capture are
+historical fixtures only; they are not re-run in run 8. Record both bridge results even if description
+matching already passes one organically. The deterministic RED includes the previously recorded hook
+failure, the producer regression for a successful JSONL stream containing `authentication`, and the
+preserved run-4 candidate response that loaded Mode A but omitted its entry line before clarification. A live
+prompt may state the user's task but must not name `skill-improve`, a mode, a load instruction or
+expected eval outcome.
 
 ### Focused checks
 
@@ -402,7 +488,12 @@ a load instruction or expected eval outcome.
 - Per-case `run_evals.py --test-case ... --threshold 1.0` while iterating.
 - One tagged `--response-dir ... --case-tag proactive-live --threshold 1.0` gate over the mandatory
   fresh-session pair; zero selected cases and missing responses fail.
-- New hook assertions in `python3 hooks/test_hooks.py` for Claude Code and Codex.
+- One first-non-empty-line probe over `run-8/bridge-candidate/resp-pro-precreate-skill.txt`; it must
+  match `skill-improve Mode A — skill-authoring: RED (pending|established by evidence)` and must
+  reject both preserved `run-6/green/resp-pro-precreate-skill.txt` and run-7 body-only control
+  responses.
+- New hook assertions in `python3 hooks/test_hooks.py` for Claude Code and Codex prove the bridge
+  carries entry precedence without duplicating the lifecycle matrix.
 - `python3 .github/check_listing_budget.py`
 - `python3 .github/check_wiring.py`
 - `python3 .github/check_portability.py`
@@ -412,20 +503,20 @@ a load instruction or expected eval outcome.
 
 ### Gauntlet close
 
-The approved recovery plan assigns one stateful behaviour/eval writer; the outside-digest
-attribution task is already complete and frozen. The writer first fixes the producer against a
-failing fake-stream regression, reaches a producer-ready checkpoint, and waits while the controller
-records both RED traces from the immutable `HEAD` snapshot. It then validates the existing
-lifecycle candidate, waits for GREEN against the stable working tree, and appends only the evidence
-disposition. Thus the parent-controlled order is producer fix → snapshot RED → frozen candidate →
-GREEN without reverting user work or opening another writer lane. The plan counts all four live
-RED/GREEN sessions against the configured workflow cap, reserves one wave Evaluator plus the
-separate final Evaluator, preserves focused evidence in the plan, then runs the repository's
-complete gate list through `/verify loop <PLAN_FILE>`. The recovery run uses seven available
-workflow slots and leaves one unused boundary; because an independently reviewed correction needs
-both a writer and a fresh Evaluator, any such correction
-still stops as bounded `NEEDS_WORK` for a later user-requested run. A deliberately wrong response must exit `1`;
-a correct response graded against a nearest negative must also exit `1`.
+The approved recovery plan resumes one stateful hook/eval writer; the outside-digest attribution task
+is complete and frozen. Run 6 is immutable parser/routing evidence, and run 7 is immutable body-only
+entry evidence. The independent run-8 evaluator identified the existing `SessionStart` pointer as
+the smallest seam that can make the already-canonical body rule salient to a loaded provider. Before
+any provider in run 8, the writer adds a deterministic hook assertion RED, extends only
+`lifecycle_pointer()`, runs all static gates and signals `STATIC_READY`. The controller then runs
+exactly one fresh Codex/Claude candidate pair against the immutable run-7 GREEN control; no baseline
+rerun, retry or prompt priming is allowed. Thus the parent-controlled order is run-7 evidence →
+bridge assertion RED → pointer GREEN → static gates → run-8 bridge candidate → tagged grader and
+first-line probe → CLOSED disposition. The plan reserves one wave Evaluator plus the separate final
+Evaluator, preserves focused evidence in the plan, then runs the repository's complete gate list
+through `/verify loop <PLAN_FILE>`. Any provider or gate failure stops as bounded `NEEDS_WORK` for a
+later user-requested run. A deliberately wrong response must exit `1`; a correct response graded
+against a nearest negative must also exit `1`.
 
 ## Assumptions
 
@@ -454,10 +545,13 @@ a correct response graded against a nearest negative must also exit `1`.
 
 ## Not yet specified
 
-No design choice is deferred to Phase B. It must preserve completed attribution, keep one writer on
-the producer and lifecycle-owned paths, and preserve the parent-controlled order producer fix →
-snapshot RED → current candidate GREEN without letting the writer spawn clean sessions. The licence
-decision remains closed: keep the existing Apache text, ship CC BY 4.0 beside it, attribute the
+No design choice is deferred to Phase B. It must preserve completed attribution, keep one stateful
+writer on the lifecycle-owned paths, and preserve the parent-controlled order run-7 evidence →
+deterministic bridge RED → pointer GREEN → static gates → fresh run-8 bridge candidate without
+letting the writer spawn clean sessions. Runs 4, 5, 6 and 7 remain historical evidence; their
+prompts, assertions and artefacts stay unchanged, and run 8 creates exactly two fresh traces. The
+licence decision remains closed: keep the existing Apache
+text, ship CC BY 4.0 beside it, attribute the
 pinned source, retain the two hand-owned package expressions and keep generated client manifests in
 sync with the Claude manifest. Any unavailable live backend blocks completion under the capture
 contract above.
@@ -480,6 +574,8 @@ contract above.
 - [Layered activation and task-boundary backstop](https://github.com/rebelytics/one-skill-to-rule-them-all/blob/510caad26c907793e48306262af216ff9f71c9f7/references/environments.md#L6-L124)
 - [Unprimed organic-trial design](https://github.com/rebelytics/one-skill-to-rule-them-all/blob/510caad26c907793e48306262af216ff9f71c9f7/references/skill-authoring.md#L553-L568)
 - [CC BY 4.0 attribution terms](https://github.com/rebelytics/one-skill-to-rule-them-all/blob/510caad26c907793e48306262af216ff9f71c9f7/LICENSE.txt#L119-L145)
+- [Codex non-interactive JSONL contract](https://developers.openai.com/codex/noninteractive)
+- [Codex 0.152.1 execution-event schema](https://github.com/openai/codex/blob/rust-v0.152.1/codex-rs/exec/src/exec_events.rs)
 - Existing Graph Powers authorities: `skills/skill-improve/SKILL.md`,
   `references/execution-floor.md`, `references/shared/060-skill-domain-matrix.md`,
   `commands/evolve.md`.

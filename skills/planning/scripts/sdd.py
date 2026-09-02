@@ -96,8 +96,70 @@ NEED_REF = re.compile(
 
 AGENT_ID = re.compile(r"^graph-powers:(?P<slug>[a-z0-9][a-z0-9-]*)$")
 SKILL_ID = re.compile(r"^(?:graph-powers:)?(?P<slug>[a-z0-9][a-z0-9-]*)$")
-AGENTS_DIR = Path(__file__).resolve().parents[3] / "agents"
-SKILLS_DIR = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = Path(__file__).resolve()
+SOURCE_PLUGIN_ROOT = SCRIPT_PATH.parents[3]
+SKILLS_DIR = SCRIPT_PATH.parents[2]
+
+
+def _manifest_plugin_root(manifest: Path, scope: str) -> Path | None:
+    """Resolve one complete installer manifest without trusting a partial clone."""
+    if manifest.is_symlink():
+        return None
+    try:
+        value = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if (
+        not isinstance(value, dict)
+        or value.get("scope") != scope
+        or value.get("complete") is not True
+        or not isinstance(value.get("pluginRoot"), str)
+        or not isinstance(value.get("paths"), list)
+        or any(not isinstance(path, str) for path in value["paths"])
+    ):
+        return None
+    candidate = Path(value["pluginRoot"])
+    if not candidate.is_absolute() or any(not Path(path).is_absolute() for path in value["paths"]):
+        return None
+    try:
+        candidate = candidate.resolve()
+        installed_skill = SCRIPT_PATH.parents[1]
+        recorded_paths = {Path(path).resolve() for path in value["paths"]}
+    except (OSError, RuntimeError):
+        return None
+    if installed_skill not in recorded_paths:
+        return None
+    if not (candidate / "agents").is_dir():
+        return None
+    if not (candidate / "schema/config.schema.json").is_file():
+        return None
+    return candidate
+
+
+def _plugin_root() -> Path:
+    """Find canonical runtime files from source or either supported Codex clone scope."""
+    if (SOURCE_PLUGIN_ROOT / "agents").is_dir() and (
+        SOURCE_PLUGIN_ROOT / "schema/config.schema.json"
+    ).is_file():
+        return SOURCE_PLUGIN_ROOT
+
+    # Project-scoped clone: <project>/.agents/skills/planning/scripts/sdd.py.
+    project_root = SCRIPT_PATH.parents[4]
+    project = _manifest_plugin_root(
+        project_root / ".graph-powers/installed.json",
+        "project",
+    )
+    if project is not None:
+        return project
+
+    # User-scoped clone: ~/.agents/skills/... plus a manifest under CODEX_HOME.
+    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    user = _manifest_plugin_root(codex_home / "graph-powers-installed.json", "user")
+    return user if user is not None else SOURCE_PLUGIN_ROOT
+
+
+PLUGIN_ROOT = _plugin_root()
+AGENTS_DIR = PLUGIN_ROOT / "agents"
 
 
 def fail(message: str, code: int) -> NoReturn:
@@ -318,7 +380,7 @@ MAX_CONSULTATION_ITEM = 2048
 MAX_CONSULTATION_OPTIONS = 32
 BOUNDED_EXIT = 4
 DISPATCH_KINDS = {"bootstrap", "writer", "evaluator", "correction", "confirmation"}
-PLUGIN_SCHEMA = Path(__file__).resolve().parents[3] / "schema" / "config.schema.json"
+PLUGIN_SCHEMA = PLUGIN_ROOT / "schema" / "config.schema.json"
 
 
 def _consultation_error(message: str) -> NoReturn:
@@ -1181,9 +1243,7 @@ def _workflow_spawn_ceiling(value: int) -> int:
     """Validate against the shipped schema instead of copying its hard maximum here."""
     try:
         schema = json.loads(PLUGIN_SCHEMA.read_text(encoding="utf-8"))
-        contract = schema["properties"]["graphGuardrails"]["properties"][
-            "maxSpawnsPerWorkflow"
-        ]
+        contract = schema["properties"]["graphGuardrails"]["properties"]["maxSpawnsPerWorkflow"]
         minimum = int(contract["minimum"])
         maximum = int(contract["maximum"])
     except (OSError, KeyError, TypeError, ValueError) as error:
@@ -1521,9 +1581,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "release":
         release(plan)
     elif args.command == "dispatch":
-        output, code = reserve_dispatch(
-            plan, args.key, args.kind, args.role, args.max_spawns
-        )
+        output, code = reserve_dispatch(plan, args.key, args.kind, args.role, args.max_spawns)
         print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=False))
         return code
     elif args.command == "consult":
