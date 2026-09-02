@@ -104,8 +104,10 @@ Adding a guardrail:
   mirror of `../references/shared/025-solution-ladder.md`, bounded by `test_hooks.py`; change the
   file first, then the mirror.
 - `auto_update.py` records the throttle before it checks, so a failed check backs off instead of
-  retrying every session. It owns only Claude and the stable Codex clone route; native Codex, Cursor
-  and Grok caches are foreground-only because an open process may retain the replaced hook path.
+  retrying every session. It owns Claude and the installed native Codex route, including the shared
+  Desktop cache when Desktop uses the same Codex home; the stable clone route remains a fallback.
+  Native cache replacement never kills an open process, so a new session or full Desktop restart is
+  still the apply boundary.
 - The suite creates its own empty HOME. A case that reads the real `~/.graph-powers/config.json`
   fails as six unrelated guarded-default failures, not as one honest one.
 

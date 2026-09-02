@@ -36,6 +36,7 @@ from unittest.mock import patch
 
 import _change_set as change_set
 import _config as config_module
+import auto_update as auto_update_module
 import command_trust as trust_module
 import stop_verify as stop_module
 import subagent_context as ladder_module
@@ -3260,7 +3261,96 @@ def main() -> int:
     out2, _ = call_raw("auto_update", {"source": "startup"}, fresh, env={"HOME": str(upd_home)})
     check("...and not a second time", "9.9.9" in out2, False)
 
-    for d in (silent, failing, passing, broken, off, fresh):
+    print("### Auto-update — native Codex and Desktop share the refreshed cache")
+    native_home = Path(tempfile.mkdtemp(prefix="gp-native-home-"))
+    native_codex = native_home / ".codex"
+    (native_codex / "agents").mkdir(parents=True)
+    source = native_home / "graph-powers-source"
+    (source / ".codex-plugin").mkdir(parents=True)
+    (source / ".codex-plugin/plugin.json").write_text(
+        json.dumps({"version": "1.19.0"}), encoding="utf-8"
+    )
+    generator = source / "codex/native-plugin.mjs"
+    generator.parent.mkdir(parents=True)
+    generator.write_text("// fixture\n", encoding="utf-8")
+    (native_home / ".graph-powers").mkdir()
+    (native_home / ".graph-powers/update-state.json").write_text(
+        json.dumps({"codexSourceHead": "old-head"}), encoding="utf-8"
+    )
+    native_records = iter(({"version": "1.18.0"}, {"version": "1.19.0"}))
+    native_calls: list[list[str]] = []
+
+    def fake_native_plugin(_binary: str) -> dict:
+        return next(native_records)
+
+    def fake_run(cmd: list[str], timeout: int = 180) -> tuple[int, str]:
+        native_calls.append(cmd)
+        return 0, ""
+
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "HOME": str(native_home),
+                "USERPROFILE": str(native_home),
+                "CODEX_HOME": str(native_codex),
+            },
+            clear=False,
+        ),
+        patch.object(auto_update_module, "codex_native_plugin", side_effect=fake_native_plugin),
+        patch.object(
+            auto_update_module,
+            "codex_marketplace",
+            return_value={
+                "root": str(source),
+                "marketplaceSource": {"sourceType": "local"},
+            },
+        ),
+        patch.object(auto_update_module, "pull_clone", return_value=(True, "new-head")),
+        patch.object(auto_update_module, "runtime_command", return_value="/usr/bin/node"),
+        patch.object(auto_update_module, "run", side_effect=fake_run),
+    ):
+        native_notices, native_version = auto_update_module.update_codex_native("/usr/bin/codex")
+
+    add_seen = any(
+        command[1:3] == ["plugin", "add"] and "graph-powers@graph-powers" in command
+        for command in native_calls
+    )
+    generate_seen = any(
+        str(generator) in command and str(native_codex / "agents") in command
+        for command in native_calls
+    )
+    native_state = json.loads(
+        (native_home / ".graph-powers/update-state.json").read_text(encoding="utf-8")
+    )
+    check("native source change reinstalls the Codex plugin", add_seen, True)
+    check("native source change regenerates shared role companions", generate_seen, True)
+    check("native update reports the Desktop cache", "Desktop" in native_notices[0], True)
+    check("native update records its head and version", native_state["codexSourceHead"], "new-head")
+    check("native update returns the installed version", native_version, "1.19.0")
+
+    dirty_git_calls: list[tuple[str, ...]] = []
+
+    def fake_dirty_git(_root: Path, *args: str, timeout: int = 120) -> tuple[int, str]:
+        dirty_git_calls.append(args)
+        if args[:2] == ("rev-parse", "--git-dir"):
+            return 0, ".git"
+        if args[:2] == ("rev-parse", "HEAD"):
+            return 0, "head"
+        if args[:2] == ("status", "--porcelain"):
+            return 0, " M local-change.py"
+        return 0, ""
+
+    with patch.object(auto_update_module, "git", side_effect=fake_dirty_git):
+        dirty_moved, dirty_head = auto_update_module.pull_clone(source)
+    check("dirty source trees are never pulled", (dirty_moved, dirty_head), (False, "head"))
+    check(
+        "dirty source trees never reach git pull",
+        ("pull", "--ff-only") not in dirty_git_calls,
+        True,
+    )
+
+    for d in (silent, failing, passing, broken, off, fresh, native_home):
         shutil.rmtree(d, ignore_errors=True)
     shutil.rmtree(upd_home, ignore_errors=True)
 

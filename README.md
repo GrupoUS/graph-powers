@@ -458,20 +458,19 @@ A plugin is a copy, and a copy starts ageing the moment it is installed. Six mon
 machines run five versions of guardrails that were meant to be identical — which is the failure
 this harness exists to end, one level up. So it updates itself.
 
-At session start, at most once every twelve hours, a detached worker updates only the routes it
-actually implements:
+At session start, at most once every twelve hours, a detached worker updates the routes it can
+own. A user-level scheduler can invoke the same worker between sessions when an installation needs
+to follow GitHub without waiting for a new task:
 
 | Harness | What runs | Applies |
 |---|---|---|
 | Claude Code | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers` | Next session start |
-| Codex CLI clone fallback | `git pull --ff-only` on the clone, then regenerate — only if it moved | Next session start |
+| Codex native + Desktop shared route | `git pull --ff-only` on the configured source, `codex plugin add graph-powers@graph-powers`, then regenerate `~/.codex/agents` | Next Codex session or new Desktop conversation |
+| Codex CLI clone fallback | `git pull --ff-only` on the clone, then regenerate — only when no native plugin is installed | Next session start |
 
-Native Codex, Cursor and Grok are updated in the foreground through their own marketplace/client
-path, never by this worker: replacing a client-owned cache while a process retains its old absolute
-hook commands recreates the stale-session failure `1.11.1` fixes. After any native cache replacement,
-run `python3 -X utf8 <clone>/bin/verify-hook-clients.py --client <client>`, then restart every
-process/task that loaded the old definitions; a fresh process does not certify an already-open one.
-Nothing inside your project is touched.
+The native Codex route also covers ChatGPT Desktop when its app-server uses the same Codex home.
+Updating disk does not reload an already-running process: start a new conversation, and fully quit
+and reopen Desktop after a cache replacement. Nothing inside your project is touched.
 
 `--ff-only` is deliberate: a merge commit created by a background process is a state nobody chose,
 and a clone you have edited locally refuses to update and says so rather than rewriting itself.
@@ -717,7 +716,7 @@ They existed on disk and never ran once.
 | `protect_files` | `.env`, lockfiles, `.git/`, and whatever the project lists in `protectedFiles` | — |
 | `commit_audit_gate` · `smart_bash_approver` · `ultracite` | The audit this project declared, run before a commit; refusal of destructive commands; formatting after an edit | `gates.preCommitAudit`, `autonomy`, `tooling.commands` |
 | `tool_approver` | The approval prompt for every tool that is not Bash — subagent spawns, MCP calls, fetches, workflows. Answers it under `autonomous`, stays out of the way under `guarded`, and never overrides a `PreToolUse` denial | `autonomy.toolDefault` |
-| `auto_update` | Updates Claude Code and the Codex clone fallback in a detached process; native Codex, Cursor and Grok stay foreground-only | `autoUpdate.enabled: false` |
+| `auto_update` | Updates Claude Code and the configured Codex native/Desktop route in a detached process; keeps the clone fallback for legacy installs | `autoUpdate.enabled: false` |
 | `branch_session_notice` · `session_context` · `subagent_context` · `notify` | Inform; never block — `subagent_context` carries the solution ladder into every subagent | — |
 
 All of them are **fail-open**: missing, unreadable or mistyped configuration falls back to the

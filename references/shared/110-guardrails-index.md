@@ -44,7 +44,8 @@ The POSIX form is the one most of this documentation shows, and it is the only o
 shell syntax rather than just text the hook recognises. On Windows the first form releases the gate
 and then fails to run, which looks like the guardrail misbehaving and is not.
 
-Advisory, same registration, no denial: `auto_update.py`, `branch_session_notice.py`,
+Advisory, same registration, no denial: `auto_update.py` (Claude plus native Codex/Desktop
+refresh), `branch_session_notice.py`,
 `session_context.py` (SessionStart), `subagent_context.py` (SubagentStart — the solution ladder,
 `025-solution-ladder.md`, into every subagent), `ultracite.py` (PostToolUse), `notify.py`
 (Notification).

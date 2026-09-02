@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.19.0 — GitHub-driven native Codex and Desktop updates
+
+The detached updater now follows the configured Git source for an installed native Codex plugin,
+reinstalls `graph-powers@graph-powers`, and regenerates the companion agent TOML files in the shared
+Codex home. Codex Desktop receives the same refreshed cache when its app-server uses that home; a
+new conversation or full app restart remains required for an already-running process.
+
+The legacy Codex clone updater remains as a fallback when no native plugin is installed. Dirty source
+trees are left untouched, source heads and pending companion generation are recorded, and the hook
+suite proves the native cache and Desktop route together. This release also adds a direct `--scheduled`
+worker entrypoint for a user-level timer, without making any platform scheduler a plugin dependency.
+
 ## 1.18.0 — the solution ladder, and the lower tier by default
 
 Adapted from Ponytail (MIT, `NOTICE`): a seven-rung solution ladder — does this need to exist,
