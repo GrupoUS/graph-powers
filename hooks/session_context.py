@@ -83,6 +83,22 @@ def execution_floor() -> str:
     )
 
 
+def lifecycle_pointer() -> str:
+    """Return one fail-open, bounded pointer to the lifecycle routing authority."""
+    relative = "skills/skill-improve/SKILL.md#proactive-lifecycle"
+    where = relative
+    try:
+        candidate = Path(__file__).resolve().parent.parent / "skills" / "skill-improve" / "SKILL.md"
+        if candidate.is_file():
+            where = candidate.as_posix() + "#proactive-lifecycle"
+    except Exception:
+        pass
+    pointer = f"Proactive skill lifecycle: read {where} when a reusable skill or harness boundary appears."
+    if len(pointer.encode("utf-8")) <= 512:
+        return pointer
+    return f"Proactive skill lifecycle: read {relative} when a reusable skill or harness boundary appears."
+
+
 def get_git_branch(project_dir: str) -> str:
     try:
         result = subprocess.run(
@@ -163,7 +179,7 @@ def main() -> None:
         "resume": f"{base_tag} resumed | branch:{branch}",
     }
     additional_context = prefixes.get(source, f"{base_tag} | branch:{branch}")
-    additional_context = f"{additional_context}\n{execution_floor()}"
+    additional_context = f"{additional_context}\n{execution_floor()}\n{lifecycle_pointer()}"
 
     output = {
         "hookSpecificOutput": {

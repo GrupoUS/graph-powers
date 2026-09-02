@@ -65,6 +65,10 @@ an agent or a skill and after any model or plugin upgrade, to check that what yo
 resolves. The path glob above is the only automatic trigger in this repository that does not depend
 on a model reading a description and deciding.
 
+When an eligible skill or harness lifecycle event fires, read
+`skills/skill-improve/SKILL.md#proactive-lifecycle` and report its deciding evidence at task close;
+do not copy the routing matrix here.
+
 ## Workflow scripts
 
 `workflows/*.js` has no frontmatter and none of the rules above about it. Its own contract:

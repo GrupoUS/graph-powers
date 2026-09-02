@@ -182,6 +182,25 @@ an orphan.
 
 Test before deploying. Always, including reference skills.
 
+### Lifecycle-triggered evidence
+
+When the `skill-authoring`, `repeated-skill-miss`, `trigger-collision`, or `proactive-routing`
+lifecycle event applies, establish lifecycle RED before changing behaviour, then retain the focused
+GREEN evidence. Two materially similar misses of the same rule are the threshold for a regression;
+one isolated application/product failure belongs to its domain owner.
+
+Unprimed trials preserve the user prompt byte-for-byte, run in a fresh temporary project with no
+prior transcript or local rule, and record the selected owner plus load/skip trace. Reject prompts
+that name this skill, Mode A, Mode B, a skill-load instruction, evals, or probes. A missing CLI,
+authentication failure, timeout, non-zero child exit, malformed/incomplete stream, missing response,
+or wrong required owner is failed evidence, never a skipped success.
+
+Structured follow-ups are append-only: create `**Follow-up `R<round>-F<ordinal>` — OPEN:**`, name
+the literal applicable path or one of `skill-authoring`, `skill-wiring`, `agent-wiring`,
+`harness-upgrade`, `repeated-skill-miss`, `trigger-collision`, or `proactive-routing`, and later
+append a dated `CLOSED`, `DEFERRED`, or reactivated `OPEN` disposition. Close only with the named
+command or trace; legacy “Next round should measure” prose is not a follow-up.
+
 ### 5a. Write the cases
 
 Three different purposes need three different sample sizes. Collapsing them into one number loses

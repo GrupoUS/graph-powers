@@ -417,6 +417,7 @@
       "polarity": "negative",
       "tags": ["proactivity-contract", "proactive-live"],
       "expected": "skip",
+      "expected_owner": "graph-powers:senior-prompt-engineer",
       "prompt": "Draft the prompt for a new reviewer agent.",
       "expected_output": "Does not load skill-improve and routes prompt design to senior-prompt-engineer.",
       "assertions": [

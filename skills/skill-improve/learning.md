@@ -14,6 +14,12 @@ A round that changed nothing still gets an entry saying so. A quiet round is evi
 **Verdict:** kept, refuted, or partial — and what the evidence killed.
 ```
 
+Follow-ups are append-only and use stable IDs. Create one as
+`**Follow-up `R<round>-F<ordinal>` — OPEN:** <measurable question>`, name its literal path or
+allowed lifecycle-event slug, and close only with a dated structured disposition backed by the
+promised command or trace. `CLOSED` never reopens; `DEFERRED` may become `OPEN` when its objective
+condition becomes true.
+
 ---
 
 ## Inherited failure patterns
@@ -632,3 +638,22 @@ floor is 269,953/270,000 B and listing is 10,109/10,752 chars; wiring checks 459
 **Verdict: PASS.** Width remains useful but is no longer mistaken for a cumulative brake. The
 remaining unmeasured boundary is a provider-internal retry below one `agent()` call; the plugin does
 not claim to count it.
+
+## Round 10 — 2026-09-01 · bounded proactive lifecycle measurement
+
+**Hypothesis:** a concise session pointer, one lifecycle routing matrix, and unprimed provider traces
+would make the two-mode skill proactive at reusable-skill and harness boundaries without becoming a
+general observer.
+
+**Change:** added the lifecycle router, focused SessionStart pointer, tagged clean-session capture
+boundary, and the bounded two-case sample for one pre-create and one agent-prompt exclusion.
+
+**Measurement:** pending the mandatory candidate trace pair; the baseline records the same two
+prompts with their candidate digest and selected owner.
+
+**Verdict:** partial — activation is static until the GREEN trace pair completes.
+
+**Follow-up `R10-F1` — OPEN:** Does the bounded clean-session candidate sample select the expected
+owner for both traces at threshold `1.0`?
+**Applies when:** event `proactive-routing`
+**Close with:** `.claude/audit/skill-improve-proactivity/green` trace pair and tagged grader result.

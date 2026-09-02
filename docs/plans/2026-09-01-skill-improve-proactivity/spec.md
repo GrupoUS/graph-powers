@@ -29,6 +29,13 @@ subsystems are not transferred: Graph Powers already owns durable session learni
 `/evolve`, planning state through SDD, routing through the shared domain matrix, and fan-out through
 the execution floor.
 
+The second recovery run exposed one producer defect before completion: a successful Codex JSONL
+stream was rejected because the raw output contained the ordinary word `authentication`. The child
+exit was `0`, but the substring check ran before structured parsing and discarded the output before
+writing a trace. This recovery therefore treats authentication as a structured provider error only,
+preserves bounded content-free diagnostics for every failed trial, and recreates RED from an
+immutable `HEAD` plugin snapshot so the already-built lifecycle candidate never has to be reverted.
+
 This is an **L5** change: it crosses skill routing, SessionStart hook output, behaviour evals and
 distribution attribution. Explicit `/gauntlet` therefore becomes eligible after the structured plan
 is approved.
@@ -73,15 +80,16 @@ The Phase B plan must carry these commands verbatim and record exit codes plus t
 
    **EXPECT:** `Skill is valid`; all runner and capture-producer tests exit `0`. The producer tests
    use fake Claude/Codex JSONL streams and prove fresh directories, exact unmodified prompts,
-   positive load, negative abstention, malformed stream/auth failure, and missing executable.
+   positive load, negative abstention, structured auth failure, malformed streams, missing
+   executables, and a successful response containing `authentication` without a false failure.
 
 2. Mandatory unprimed live sample, run once before the lifecycle edit and once after it:
 
    ```text
-   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase baseline --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
-   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/red --case-tag proactive-live --threshold 1.0
-   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/green --baseline-dir .claude/audit/skill-improve-proactivity/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
-   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/green --case-tag proactive-live --threshold 1.0
+   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase baseline --timeout-seconds 300 --plugin-root . --plugin-ref HEAD --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
+   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/red --case-tag proactive-live --threshold 1.0
+   python3 skills/skill-improve/scripts/capture_trigger_evals.py --phase candidate --timeout-seconds 300 --plugin-root . --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/green --baseline-dir .claude/audit/skill-improve-proactivity/run-3/red --trial codex:pro-precreate-skill --trial claude:bound-agent-prompt-draft
+   python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/skill-improve --evals-path skills/skill-improve/evals/evals.json --response-dir .claude/audit/skill-improve-proactivity/run-3/green --case-tag proactive-live --threshold 1.0
    ```
 
    **EXPECT:** capture never appends probe language and emits one trace plus one response per trial.
@@ -232,6 +240,11 @@ explain it but may not restate a competing version.
 
 - Each `--trial <backend>:<case-id>` gets a new `tempfile.TemporaryDirectory`; no prior transcript,
   project rule, working-tree `AGENTS.md` or response is reused.
+- Baseline-only `--plugin-ref HEAD` resolves `HEAD` once to its full commit OID, archives that OID
+  rather than a moving name, validates every member before extraction, and rejects absolute paths,
+  parent traversal, symlinks and hard links. The extracted candidate records the resolved OID with
+  `git_dirty=false`; it never asks the archive for Git metadata or substitutes the dirty source
+  worktree. Candidate capture rejects `--plugin-ref` and uses the current `--plugin-root`.
 - Claude Code runs non-persistently with the candidate plugin supplied by `--plugin-dir`, project-only
   setting sources, plan permission mode, verbose stream JSON, and an exact `--tools Skill` surface
   with Write/Edit also denied. The trial measures the routing decision and its final explanation; it
@@ -250,9 +263,12 @@ explain it but may not restate a competing version.
   is then graded separately.
 - The producer rejects a live prompt containing `skill-improve`, `Mode A`, `Mode B`, an instruction to
   load `SKILL.md`, or eval/probe wording. It recursively parses JSONL rather than matching raw output.
-- CLI absence, authentication failure, timeout, non-zero child exit, malformed/incomplete JSONL or
-  missing response exits `1` in both phases. Wrong load/skip polarity is recorded but non-blocking in
-  `baseline`; it exits `1` in `candidate`. There is no success-with-skip path.
+- CLI absence, timeout, non-zero child exit, a top-level structured provider error,
+  malformed/incomplete JSONL or missing response exits `1` in both phases. Authentication is named
+  only when a top-level error record carries an authentication/authorization code or message; raw
+  response, tool or explanation text is never scanned for that word. Wrong load/skip polarity is
+  recorded but non-blocking in `baseline`; it exits `1` in `candidate`. There is no
+  success-with-skip path.
 - Before either backend runs, the producer computes `candidate_digest`: SHA-256 over every regular,
   non-symlink file under the sorted repo-relative roots `.claude-plugin/`, `agents/`, `codex/`,
   `commands/`, `hooks/`, `references/`, `schema/`, `skills/`, `templates/` and `workflows/`. For each
@@ -267,14 +283,33 @@ explain it but may not restate a competing version.
   and verifies prompt digests match by backend/case. Thus dirty RED and GREEN worktrees remain
   distinguishable and reproducible. No token, credential, environment dump or unrelated response is
   recorded.
+- Every failed trial writes `failure-<backend>-<case-id>.json` before returning. The closed
+  `failure_kind` vocabulary is `prompt-invalid`, `executable-unavailable`, `candidate-install`,
+  `timeout`, `child-exit`, `provider-authentication`, `provider-error`, `stream-malformed`,
+  `stream-incomplete`, `snapshot-invalid` and `filesystem`. The file has exactly `phase`, `backend`,
+  `case_id`, `failure_kind`, `candidate_digest`, `candidate_file_count`, `child_exit`,
+  `captured_at_utc`, `stdout_bytes`, `stdout_sha256`, `stderr_bytes` and `stderr_sha256`; unavailable
+  values are `null` or the digest/count of empty bytes. Console output is only
+  `ERROR: <backend>:<case-id>: <failure_kind>`. Raw streams, exception text, stderr and environment
+  values are never printed or persisted; normal response/trace files are absent for a failed trial.
 - Fake-stream unit tests inject executable paths and never contact a provider. They assert the exact
   Claude isolation flags, prompt preservation, and that the bounded negative fails on either no
-  `Skill` call or a wrong-skill call. The real command is a completion gate. RED
+  `Skill` call or a wrong-skill call. They also prove that a top-level structured authentication
+  error fails, while a valid successful stream whose response or tool payload mentions
+  `authentication` passes and produces normal response/trace artefacts. The real command is a
+  completion gate. RED
   and GREEN together consume four clean sessions; the Phase B plan counts them against the configured
   workflow cap and still reserves its independent wave and final Evaluators.
   To remain within that cap, the behaviour writer uses one parent-controlled RED checkpoint before
   changing production activation and one GREEN checkpoint afterward; it never launches those child
   sessions itself.
+- Snapshot tests create a committed candidate plus a conflicting dirty edit, resolve literal `HEAD`,
+  and prove the archive contains only committed bytes, the full OID and `git_dirty=false`. Any ref
+  value other than literal `HEAD` and any candidate-phase `--plugin-ref` must be rejected; crafted
+  absolute, traversal, symlink and hard-link members must fail before extraction. Failure tests
+  place unique sentinels in stdout, stderr and an environment
+  value, capture console plus every audit file, and assert the sentinels occur nowhere; they also
+  assert the exact diagnostic keys, counts/digests, closed kind, and absence of response/trace files.
 
 ### Rejected alternatives
 
@@ -339,6 +374,8 @@ Mode B remains report-only; the user or a later approved implementation owns pat
   does not trigger Mode B.
 - If an organic trial is primed with the skill, mode, load instruction or eval wording, the producer
   exits `1`; it does not count the run positive or negative.
+- If provider output fails, the producer records only the bounded diagnostic schema. It never prints
+  or persists raw stderr, tokens, credentials or complete provider streams.
 - If either declared clean-session capture cannot run or yields no parseable load/skip evidence,
   completion is `BLOCKED`. Synthetic fixtures prove adapters and assertions, never live routing.
 - If an `OPEN` follow-up is applicable, missing disposition is a failing completion gate. A valid
@@ -351,10 +388,11 @@ Mode B remains report-only; the user or a later approved implementation owns pat
 ### RED first
 
 Add and unit-test the producer and tagged selector first, then capture the bounded live pair against
-the unchanged lifecycle body/hook. Record both results even if description matching already passes
-one organically. The deterministic RED is the new hook assertion, which must fail before production
-edits. A live prompt may state the user's task but must not name `skill-improve`, a mode, a load
-instruction or expected eval outcome.
+the immutable pre-lifecycle `HEAD` snapshot. Record both results even if description matching already
+passes one organically. The deterministic RED remains the previously recorded hook failure; the new
+producer regression must fail before its fix when a valid successful JSONL stream contains the word
+`authentication`. A live prompt may state the user's task but must not name `skill-improve`, a mode,
+a load instruction or expected eval outcome.
 
 ### Focused checks
 
@@ -374,20 +412,18 @@ instruction or expected eval outcome.
 
 ### Gauntlet close
 
-The approved plan will assign two disjoint ownership scopes in one wave. The behaviour/eval writer
-owns every changed file inside the aggregate runtime digest surface plus the four generated client
-projections. It first reaches a producer-ready checkpoint, makes no production activation or
-licence-source edit, and waits while the controller records both RED traces; after release it owns
-all digest-surface changes and regeneration through the candidate-ready checkpoint. The independent
-attribution writer owns only outside-digest `NOTICE`, `CHANGELOG.md` and `package.json`, using the
-already-locked licence expression rather than reading an unfinished sibling patch. The controller
-waits for both scopes, then records GREEN against the stable candidate. Thus the parent-controlled
-order is producer → RED → production/licence/projections plus attribution → GREEN without a second
-dispatch wave. The plan counts all four live RED/GREEN sessions against the configured workflow
-cap, reserves one wave Evaluator plus the separate final Evaluator, preserves focused evidence in
-the plan, then runs the repository's complete gate list through `/verify loop <PLAN_FILE>`. The
-recovery run uses seven available workflow slots and leaves one unused boundary; because an
-independently reviewed correction needs both a writer and a fresh Evaluator, any such correction
+The approved recovery plan assigns one stateful behaviour/eval writer; the outside-digest
+attribution task is already complete and frozen. The writer first fixes the producer against a
+failing fake-stream regression, reaches a producer-ready checkpoint, and waits while the controller
+records both RED traces from the immutable `HEAD` snapshot. It then validates the existing
+lifecycle candidate, waits for GREEN against the stable working tree, and appends only the evidence
+disposition. Thus the parent-controlled order is producer fix → snapshot RED → frozen candidate →
+GREEN without reverting user work or opening another writer lane. The plan counts all four live
+RED/GREEN sessions against the configured workflow cap, reserves one wave Evaluator plus the
+separate final Evaluator, preserves focused evidence in the plan, then runs the repository's
+complete gate list through `/verify loop <PLAN_FILE>`. The recovery run uses seven available
+workflow slots and leaves one unused boundary; because an independently reviewed correction needs
+both a writer and a fresh Evaluator, any such correction
 still stops as bounded `NEEDS_WORK` for a later user-requested run. A deliberately wrong response must exit `1`;
 a correct response graded against a nearest negative must also exit `1`.
 
@@ -418,13 +454,13 @@ a correct response graded against a nearest negative must also exit `1`.
 
 ## Not yet specified
 
-No design choice is deferred to Phase B. It must assign the entire digest surface and generated
-client projections to the behaviour writer, assign only `NOTICE`, `CHANGELOG.md` and `package.json`
-to the outside-digest attribution writer, and preserve the parent-controlled order producer/RED →
-production lifecycle → GREEN without letting either writer spawn the clean sessions. The licence
-decision is closed here: keep the existing Apache text, ship CC BY 4.0 beside it, attribute the pinned
-source, update the two hand-owned package expressions, then regenerate four client manifests from
-the Claude manifest. Any unavailable live backend blocks completion under the capture contract above.
+No design choice is deferred to Phase B. It must preserve completed attribution, keep one writer on
+the producer and lifecycle-owned paths, and preserve the parent-controlled order producer fix →
+snapshot RED → current candidate GREEN without letting the writer spawn clean sessions. The licence
+decision remains closed: keep the existing Apache text, ship CC BY 4.0 beside it, attribute the
+pinned source, retain the two hand-owned package expressions and keep generated client manifests in
+sync with the Claude manifest. Any unavailable live backend blocks completion under the capture
+contract above.
 
 ## Rollback
 

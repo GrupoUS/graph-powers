@@ -16,7 +16,7 @@ from typing import Any
 
 ROOTS = (".claude-plugin", "agents", "codex", "commands", "hooks", "references", "schema", "skills", "templates", "workflows")
 FORBIDDEN_PROMPT_TERMS = ("skill-improve", "mode a", "mode b", "load skill.md", "load the skill", "eval", "probe")
-TRACE_KEYS = {"phase", "backend", "case_id", "expected", "observed", "candidate_digest", "candidate_file_count", "prompt_digest", "cli_version", "reported_model", "captured_at_utc", "git_revision", "git_dirty", "child_exit"}
+TRACE_KEYS = {"phase", "backend", "case_id", "expected", "observed", "selected_owner", "candidate_digest", "candidate_file_count", "prompt_digest", "cli_version", "reported_model", "captured_at_utc", "git_revision", "git_dirty", "child_exit"}
 
 
 def compute_candidate_digest(plugin_root: Path) -> tuple[str, int]:
@@ -59,8 +59,8 @@ def _walk(value: Any) -> list[dict[str, Any]]:
     return found
 
 
-def _parse_stream(stream: str, backend: str) -> tuple[str, str, str | None]:
-    """Return observed polarity, response text and an optional reported model."""
+def _parse_stream(stream: str, backend: str) -> tuple[str, str, str | None, str | None]:
+    """Return polarity, response, model and the Skill owner actually selected."""
     records: list[dict[str, Any]] = []
     for line in stream.splitlines():
         if not line.strip():
@@ -81,11 +81,20 @@ def _parse_stream(stream: str, backend: str) -> tuple[str, str, str | None]:
         raise ValueError("incomplete JSONL: no response text")
     model = next((str(node["model"]) for node in nodes if isinstance(node.get("model"), str)), None)
     if backend == "claude":
-        loaded = any(node.get("name") == "Skill" and "graph-powers:skill-improve" in json.dumps(node.get("input", {}))
-                     for node in nodes)
+        owners = [
+            str(input_value[key])
+            for node in nodes if node.get("name") == "Skill"
+            for input_value in [node.get("input")]
+            if isinstance(input_value, dict)
+            for key in ("skill", "name")
+            if isinstance(input_value.get(key), str)
+        ]
+        selected_owner = owners[-1] if owners else None
+        loaded = "graph-powers:skill-improve" in owners
     else:
         loaded = any(".agents/skills/skill-improve/SKILL.md" in json.dumps(node) for node in nodes)
-    return ("load" if loaded else "skip"), response, model
+        selected_owner = "graph-powers:skill-improve" if loaded else None
+    return ("load" if loaded else "skip"), response, model, selected_owner
 
 
 def _git_metadata(plugin_root: Path) -> tuple[str, bool]:
@@ -110,8 +119,9 @@ def _version(executable: Path, timeout_seconds: float) -> str:
 
 def _command(backend: str, executable: Path, plugin_root: Path, prompt: str) -> list[str]:
     if backend == "claude":
-        return [str(executable), "-p", prompt, "--output-format", "stream-json", "--verbose",
-                "--plugin-dir", str(plugin_root), "--permission-mode", "plan"]
+        return [str(executable), "-p", prompt, "--no-session-persistence", "--setting-sources", "project",
+                "--permission-mode", "plan", "--output-format", "stream-json", "--verbose", "--tools",
+                "Skill", "--disallowedTools", "Write,Edit", "--plugin-dir", str(plugin_root)]
     return [str(executable), "--ask-for-approval", "never", "exec", "--json", "--ephemeral",
             "--ignore-user-config", "--ignore-rules", "--sandbox", "read-only",
             "--dangerously-bypass-hook-trust", "--skip-git-repo-check", prompt]
@@ -168,12 +178,14 @@ def capture_trials(*, phase: str, plugin_root: Path, evals_path: Path, response_
                 raise ValueError(f"{backend} child exited {completed.returncode}: {completed.stderr.strip()}")
             if "authentication" in (completed.stdout + completed.stderr).lower():
                 raise ValueError(f"{backend} authentication failed")
-            observed, response, model = _parse_stream(completed.stdout, backend)
+            observed, response, model, selected_owner = _parse_stream(completed.stdout, backend)
             expected = str(case.get("expected", ""))
+            expected_owner = case.get("expected_owner")
             revision, dirty = _git_metadata(plugin_root)
             trace = {
                 "phase": phase, "backend": backend, "case_id": case_id, "expected": expected,
-                "observed": observed, "candidate_digest": digest, "candidate_file_count": file_count,
+                "observed": observed, "selected_owner": selected_owner, "candidate_digest": digest,
+                "candidate_file_count": file_count,
                 "prompt_digest": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
                 "cli_version": _version(executable, timeout_seconds), "reported_model": model,
                 "captured_at_utc": datetime.now(UTC).isoformat(), "git_revision": revision,
@@ -183,7 +195,9 @@ def capture_trials(*, phase: str, plugin_root: Path, evals_path: Path, response_
             (response_dir / f"trace-{backend}-{case_id}.json").write_text(
                 json.dumps(trace, indent=2, sort_keys=True) + "\n", encoding="utf-8"
             )
-            if phase == "candidate" and observed != expected:
+            if (phase == "candidate" and observed != expected) or (
+                isinstance(expected_owner, str) and selected_owner != expected_owner
+            ):
                 all_ok = False
         except (OSError, ValueError, subprocess.TimeoutExpired) as error:
             print(f"ERROR: {trial}: {error}", file=sys.stderr)

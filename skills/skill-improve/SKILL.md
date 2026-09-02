@@ -45,6 +45,25 @@ when two descriptions overlap. Start in A, and escalate to B the moment a second
 claim the same territory. That border used to be two competing skills; merging them is what removed
 the need to guess right on the first turn.
 
+## Proactive lifecycle
+
+This matrix is the one routing authority when an eligible event is observed. It selects a stage, not
+an always-on observer; Mode B remains report-only.
+
+| Stage observed before task close | Owner and timing | Minimum evidence | Explicit exclusion |
+|---|---|---|---|
+| Create a skill, or materially change one skill's body, description, reference or eval behaviour | **Mode A before the first draft/edit.** For a new skill, Mode A completes before any Mode B integration pass. | Intent plus RED for changed behaviour; focused case at `1.0`; `quick_validate.py` | Typo/prose-only repair with no rule, trigger or behaviour change |
+| Register a newly authored skill or connect its command/agent/call sites | **Mode B after the Mode A candidate exists and before integration is accepted.** | Changed-edge baseline; caller → resolver → target evidence; report-only verdict | It does not rewrite the skill body that Mode A owns |
+| Design or revise one agent prompt/body | **`senior-prompt-engineer` before drafting.** `skill-improve` does not fire. | Prompt-engineering acceptance evidence | Naming the artefact “agent” does not make prompt design Mode B |
+| Register, remove or rename an agent, or change its harness call sites/model registration | **Mode B after a prompt candidate exists and before integration is accepted.** | Registration, call-site and generated-client edges; report-only verdict | No agent prompt/body edits |
+| Plugin/model upgrade with observed or declared impact on discovery, tool contract, hook payload or model routing | **Mode B before accepting the upgraded wiring.** | Exact changed surface plus native/generated parity | Database, framework, application or package upgrade with no harness impact |
+| Two materially similar misses of the same skill rule in current evidence | **Mode A regression before another prose tweak.** | Two named misses, one reproducing RED, then focused GREEN | One isolated application/product failure routes to its domain owner |
+| Competing descriptions, shadowing, orphan/dangling edge, or a second claimant discovered during Mode A | **Escalate A → B once the second edge is evidenced.** | The competing claimant/edge; no speculative escalation | A weak description with no second claimant stays Mode A |
+| Task boundary | **No new mode.** Report `<mode>: <deciding evidence>` only if a row above fired; otherwise say nothing about this lifecycle. | Trace/eval/wiring command that actually ran | Never invoke a skill merely to manufacture a close-out line |
+
+Allowed lifecycle-event slugs are `skill-authoring`, `skill-wiring`, `agent-wiring`,
+`harness-upgrade`, `repeated-skill-miss`, `trigger-collision`, and `proactive-routing`.
+
 Not this skill: designing an agent's prompt — when the audit lands on an `agents/*.md` file rather
 than a skill, hand it to `Skill("senior-prompt-engineer")`, which owns the file contract and the
 handoff schema. Nor deciding which agents to run for a task (that is the always-in-force

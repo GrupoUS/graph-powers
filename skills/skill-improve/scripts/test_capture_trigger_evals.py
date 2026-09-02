@@ -33,6 +33,7 @@ def eval_document() -> dict:
                 "tags": ["proactive-live"],
                 "prompt": "Draft the prompt for a new reviewer agent.",
                 "expected": "skip",
+                "expected_owner": "graph-powers:senior-prompt-engineer",
                 "assertions": [],
             },
         ],
@@ -64,6 +65,9 @@ load = 'Create a reusable skill' in prompt
 if 'claude' in os.path.basename(sys.argv[0]):
     if load:
         print(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'graph-powers:skill-improve'}}]}}))
+    elif mode != 'no-owner':
+        owner = 'graph-powers:wrong-owner' if mode == 'wrong-owner' else 'graph-powers:senior-prompt-engineer'
+        print(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': owner}}]}}))
 else:
     if load:
         print(json.dumps({'type': 'item.completed', 'item': {'arguments': json.dumps({'path': '.agents/skills/skill-improve/SKILL.md'})}}))
@@ -75,6 +79,31 @@ print(json.dumps({'type': 'result', 'result': 'skill-improve Mode A' if load els
 
 
 class CaptureTriggerEvalsTests(unittest.TestCase):
+    def test_claude_command_is_nonpersistent_project_only_and_preserves_prompt(self) -> None:
+        prompt = "Draft the prompt for a new reviewer agent."
+        command = CAPTURE._command("claude", Path("/fixture/claude"), Path("/candidate"), prompt)
+
+        self.assertEqual(command[command.index("-p") + 1], prompt)
+        for flag in ("--no-session-persistence", "--setting-sources", "project", "--permission-mode",
+                     "plan", "--output-format", "stream-json", "--verbose", "--tools", "Skill",
+                     "--disallowedTools", "Write,Edit", "--plugin-dir", "/candidate"):
+            self.assertIn(flag, command)
+
+    def test_claude_negative_requires_the_exact_alternate_skill_owner(self) -> None:
+        no_owner = json.dumps({"type": "result", "result": "senior-prompt-engineer"})
+        wrong_owner = "\n".join([
+            json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "graph-powers:wrong-owner"}}]}}),
+            json.dumps({"type": "result", "result": "senior-prompt-engineer"}),
+        ])
+        exact_owner = "\n".join([
+            json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "graph-powers:senior-prompt-engineer"}}]}}),
+            json.dumps({"type": "result", "result": "senior-prompt-engineer"}),
+        ])
+
+        self.assertEqual(CAPTURE._parse_stream(no_owner, "claude"), ("skip", "senior-prompt-engineer", None, None))
+        self.assertEqual(CAPTURE._parse_stream(wrong_owner, "claude"), ("skip", "senior-prompt-engineer", None, "graph-powers:wrong-owner"))
+        self.assertEqual(CAPTURE._parse_stream(exact_owner, "claude"), ("skip", "senior-prompt-engineer", None, "graph-powers:senior-prompt-engineer"))
+
     def test_digest_is_stable_and_rejects_symlinks_in_candidate_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -121,6 +150,7 @@ class CaptureTriggerEvalsTests(unittest.TestCase):
             traces = [json.loads((responses / f"trace-{backend}-{case}.json").read_text(encoding="utf-8"))
                       for backend, case in [("codex", "pro-precreate-skill"), ("claude", "bound-agent-prompt-draft")]]
             self.assertEqual([(trace["expected"], trace["observed"]) for trace in traces], [("load", "load"), ("skip", "skip")])
+            self.assertEqual([trace["selected_owner"] for trace in traces], ["graph-powers:skill-improve", "graph-powers:senior-prompt-engineer"])
             self.assertEqual(len({trace["candidate_digest"] for trace in traces}), 1)
             self.assertEqual((responses / "resp-pro-precreate-skill.txt").read_text(encoding="utf-8"), "skill-improve Mode A")
             self.assertEqual((responses / "resp-bound-agent-prompt-draft.txt").read_text(encoding="utf-8"), "senior-prompt-engineer")
@@ -128,6 +158,31 @@ class CaptureTriggerEvalsTests(unittest.TestCase):
             self.assertEqual(len(cwd_values), 2)
             self.assertEqual(len(set(cwd_values)), 2)
             self.assertTrue(all(not Path(value, "AGENTS.md").exists() for value in cwd_values))
+
+    def test_candidate_negative_rejects_no_owner_and_wrong_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / "plugin"
+            (plugin / "skills").mkdir(parents=True)
+            (plugin / "skills" / "entry.txt").write_text("candidate\n", encoding="utf-8")
+            evals = root / "evals.json"
+            evals.write_text(json.dumps(eval_document()), encoding="utf-8")
+            fake = executable(root, "claude")
+            for mode in ("no-owner", "wrong-owner"):
+                before = os.environ.get("CAPTURE_MODE")
+                os.environ["CAPTURE_MODE"] = mode
+                try:
+                    result = CAPTURE.capture_trials(
+                        phase="candidate", plugin_root=plugin, evals_path=evals, response_dir=root / mode,
+                        trials=["claude:bound-agent-prompt-draft"], timeout_seconds=5,
+                        executable_paths={"claude": fake}, install_codex=False,
+                    )
+                finally:
+                    if before is None:
+                        os.environ.pop("CAPTURE_MODE", None)
+                    else:
+                        os.environ["CAPTURE_MODE"] = before
+                self.assertEqual(result, 1, mode)
 
     def test_declared_infrastructure_failures_are_failures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
