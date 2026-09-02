@@ -211,7 +211,7 @@ const boundedParallel = async (thunks, reserve = 0, label = 'batch') => {
   const results = []
   for (let index = 0; index < allowed; index += FIX_CAP) {
     // eslint-disable-next-line no-await-in-loop
-    const batch = await parallel(thunks.slice(index, index + FIX_CAP))
+    const batch = await parallel(thunks.slice(index, Math.min(index + FIX_CAP, allowed)))
     results.push(...batch)
   }
   return results
@@ -246,6 +246,24 @@ if (!cfg.pluginRoot) {
 const DBG_GUIDE = `${cfg.pluginRoot}/skills/debugger/references/anti-patterns.md`
 const PERF_GUIDE = `${cfg.pluginRoot}/commands/perf.md`
 const GATE_GUIDE = `${cfg.pluginRoot}/references/shared/130-typescript7-oxc-gates.md`
+
+// Bootstrap is mandatory. Seven slots are the irreducible non-web route: opening gates/scope,
+// one correctness review, one grouped correction, its final evaluator, and final gates. Surface
+// routing below may require the eighth slot for security; that case is reported after scope.
+const MINIMUM_VERIFY_SPAWNS = 7
+if (WORKFLOW_CAP < MINIMUM_VERIFY_SPAWNS) {
+  return {
+    verdict: 'NEEDS-WORK',
+    capped: true,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches,
+    gates: 'not-run',
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [],
+    reason: `ultra-verify needs at least ${MINIMUM_VERIFY_SPAWNS} total workflow slots, including mandatory config bootstrap, to preserve correction, final evaluator, and final gates`,
+    next: 'Use a narrower verification path or raise this invocation\'s budget within the schema cap; do not silently omit a final boundary.',
+  }
+}
 
 // The executable lane set for ultra-verify. Kept as an enum on every `agent` field below: this
 // is the one thing the upstream copies of this workflow got wrong — `agent` was a free string, so
@@ -297,30 +315,33 @@ const FIX = { type: 'object', required: ['status'], properties: {
   status: { type: 'string', enum: ['done', 'partial', 'blocked'] }, applied: { type: 'array', items: { type: 'string' } },
   changedPaths: { type: 'array', items: { type: 'string' } }, gateEvidence: { type: 'string' },
 } }
-const REQS = { type: 'object', required: ['requirements'], properties: {
-  requirements: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, text: { type: 'string' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
-  verificationSteps: { type: 'array', items: { type: 'string' } },
-} }
 // SKEPTIC is declared with the lens list in § "Adversarial verify", not here: its `lens` field is an
 // enum over the lenses this run actually dispatches, and that set is not known until the scope agent
 // has reported which surfaces the diff touched.
 const COMPLETENESS = { type: 'object', required: ['items'], properties: {
-  items: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
+  items: { type: 'array', minItems: 1, items: { type: 'object', required: ['id', 'status', 'evidence', 'agent'], properties: { id: { type: 'string', minLength: 1 }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string', minLength: 1 }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
   drift: { type: 'array', items: { type: 'string' } },
 } }
+const hasRequirementEvidence = (items) => Array.isArray(items) && items.length > 0
+  && items.every((item) => typeof item?.id === 'string' && item.id && typeof item?.evidence === 'string' && item.evidence)
 
-// Surfaces: the built-in path surfaces this plugin can derive, plus whatever the project declared.
-// A project that names its own surface (a payment provider, a public inventory file) gets it gated
-// exactly like the built-ins, which is what keeps its existing review coverage after adoption.
+// Built-ins remain usable with an empty config: configured roots sharpen classification but never
+// decide whether a generic web/API/schema or user-input boundary exists at all.
 const BUILTIN_SURFACES = [
-  paths.frontendRoot && { name: 'web', match: `any path under ${paths.frontendRoot}/` },
-  paths.backendRoot && { name: 'api', match: `any path under ${paths.backendRoot}/` },
-  paths.schemaRoot && { name: 'schema', match: `any path under ${paths.schemaRoot}/` },
+  { name: 'web', match: `${paths.frontendRoot ? `any path under ${paths.frontendRoot}/, or ` : ''}any browser-facing UI, route, component, template, HTML, JSX or TSX file` },
+  { name: 'api', match: `${paths.backendRoot ? `any path under ${paths.backendRoot}/, or ` : ''}any HTTP, RPC, webhook, request handler or public service endpoint` },
+  { name: 'schema', match: `${paths.schemaRoot ? `any path under ${paths.schemaRoot}/, or ` : ''}any migration, database schema, policy or data-model definition` },
+  { name: 'userInput', match: 'any changed code that accepts, parses, renders, executes or persists user/client-controlled input' },
   { name: 'auth', match: 'any path matching /auth|session|webhook|rls|policy/' },
-].filter(Boolean)
-const SURFACES = [...BUILTIN_SURFACES, ...(cfg.surfaces ?? [])]
-const SCOPE = { type: 'object', required: ['changedFiles', 'baseRef'], properties: {
-  touched: { type: 'object', additionalProperties: { type: 'boolean' } },
+]
+const BUILTIN_SURFACE_NAMES = new Set(BUILTIN_SURFACES.map((surface) => surface.name))
+const SURFACES = [...BUILTIN_SURFACES, ...(cfg.surfaces ?? []).filter((surface) => !BUILTIN_SURFACE_NAMES.has(surface.name))]
+const SCOPE = { type: 'object', required: ['changedFiles', 'baseRef', 'touched', 'confidence'], properties: {
+  touched: {
+    type: 'object', required: SURFACES.map((surface) => surface.name),
+    properties: Object.fromEntries(SURFACES.map((surface) => [surface.name, { type: 'boolean', enum: [false, true] }])),
+    additionalProperties: { type: 'boolean' },
+  },
   changedFiles: { type: 'array', items: { type: 'string' } },
   baseRef: { type: 'string' }, deadCodeVersion: { type: 'string' }, confidence: { type: 'string', enum: ['high', 'low'] },
 } }
@@ -355,6 +376,47 @@ let g = g0
 const sc = scope ?? { changedFiles: [], baseRef: 'HEAD', touched: {}, confidence: 'low' }
 const touched = sc.touched ?? {}
 const scopeOut = () => ({ confidence: sc.confidence ?? 'low', deep: DEEP, touched })
+const unresolvedSignals = []
+
+const completeScopeEvidence = !!scope
+  && sc.confidence === 'high'
+  && sc.touched && typeof sc.touched === 'object'
+  && SURFACES.every((surface) => typeof touched[surface.name] === 'boolean')
+if (!completeScopeEvidence) {
+  return {
+    verdict: 'NEEDS-WORK', capped: false, workflowSpawns, workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches, gates: g?.allGreen ? 'green' : 'RED', gateDetail: g?.gates ?? [],
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
+    reason: 'Scope classification was missing, low-confidence, or omitted a required surface; security routing cannot fail open.',
+    next: 'Repair or rerun the read-only scope classification before accepting this change.',
+  }
+}
+
+const normalizeChangedPath = (value) => String(value ?? '').replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, '').toLowerCase()
+const changedPaths = sc.changedFiles.map(normalizeChangedPath)
+const underConfiguredRoot = (root) => {
+  const normalizedRoot = normalizeChangedPath(root)
+  return !!normalizedRoot && changedPaths.some((file) => file === normalizedRoot || file.startsWith(`${normalizedRoot}/`))
+}
+const pathMatches = (pattern) => changedPaths.some((file) => pattern.test(file))
+const inferredBuiltins = {
+  web: underConfiguredRoot(paths.frontendRoot) || pathMatches(/(^|\/)(web|frontend|client|components?|pages?|templates?)(\/|$)|\.(html?|jsx|tsx|vue|svelte)$/),
+  api: underConfiguredRoot(paths.backendRoot) || pathMatches(/(^|\/)(api|backend|server|controllers?|handlers?)(\/|$)|(^|\/)(route|webhook)\.[^/]+$/),
+  schema: underConfiguredRoot(paths.schemaRoot) || pathMatches(/(^|\/)(migrations?|schema|database|prisma)(\/|$)|\.(sql|prisma)$/),
+  auth: pathMatches(/auth|session|webhook|rls|policy/),
+}
+const contradictedSurfaces = Object.entries(inferredBuiltins)
+  .filter(([name, inferred]) => inferred && touched[name] !== true)
+  .map(([name]) => name)
+if (contradictedSurfaces.length) {
+  return {
+    verdict: 'NEEDS-WORK', capped: false, workflowSpawns, workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches, gates: g?.allGreen ? 'green' : 'RED', gateDetail: g?.gates ?? [],
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
+    reason: `Scope classification contradicts changed paths for: ${contradictedSurfaces.join(', ')}; security routing cannot trust this result.`,
+    next: 'Rerun scope classification and reconcile every inferred built-in surface before accepting this change.',
+  }
+}
 
 // A plan with an empty change set means the build implemented none of it. Walking every
 // requirement to conclude "all missing" costs an evaluator and a full skeptic panel to reach an
@@ -377,6 +439,24 @@ if (scope && (sc.changedFiles?.length ?? 0) === 0) {
 
 const sourceSurface = !!(touched.web || touched.api)
 const perfApiSurface = !!(touched.api || touched.schema)
+const securitySurface = !!(touched.auth || touched.api || touched.schema || touched.web || touched.userInput)
+// A web or user-input-facing diff has the same security boundary as API/auth/schema work. Do not
+// spend its reserved slot on a partial panel: return explicit NEEDS-WORK when security, correction,
+// final evaluator, and final gates cannot all coexist.
+if (securitySurface && WORKFLOW_CAP < 8) {
+  return {
+    verdict: 'NEEDS-WORK',
+    capped: true,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches,
+    gates: g?.allGreen ? 'green' : 'RED',
+    gateDetail: g?.gates ?? [],
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
+    reason: 'The touched web/auth/api/schema/user-input surface requires security review, but this cap cannot preserve it together with correction, final evaluator, and final gates.',
+    next: 'Raise this invocation\'s budget within the schema cap or use a narrower verification path; do not approve this partial run.',
+  }
+}
 
 // Conditional contract gates: commands a project runs only when a given surface changed. This is
 // how a repository keeps the checks it already had — a link-inventory check, a smoke test, a build
@@ -396,6 +476,24 @@ ${firedGates.map((cg) => `- ${cg.name}: ${cg.command}${cg.needsServer ? ` (needs
       allGreen: !!(g?.allGreen) && !!extra.allGreen,
       gates: [...(g?.gates ?? []), ...(extra.gates ?? [])],
     }
+  } else {
+    unresolvedSignals.push('declared contract gates returned no evidence')
+  }
+}
+
+const mandatoryAfterScope = securitySurface ? 5 : 4 // initial review(s) + correction + final evaluator + final gates
+if (remainingWorkflowSpawns() < mandatoryAfterScope) {
+  return {
+    verdict: 'NEEDS-WORK',
+    capped: true,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches,
+    gates: g?.allGreen ? 'green' : 'RED',
+    gateDetail: g?.gates ?? [],
+    missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
+    reason: `Mandatory ${securitySurface ? 'correctness/security' : 'correctness'} review, correction, final evaluator, and final gates need ${mandatoryAfterScope} remaining slots; only ${remainingWorkflowSpawns()} remain after declared gates.`,
+    next: 'Use a narrower verification path or raise this invocation\'s budget within the schema cap; do not silently omit a mandatory boundary.',
   }
 }
 
@@ -425,10 +523,6 @@ Return applied changes + gate evidence.`,
 // 3. Adversarial verify (fan-out skeptics) — combat self-preferential bias. Every call in this
 // panel is a review, not a consultation: it does not reserve or consume the parent SDD ledger.
 phase('Adversarial verify')
-const reqs = await dispatch(
-  `Read the plan at ${PLAN_PATH}. Extract the flat requirement list (R1..Rn) from the acceptance criteria + the ## Verification steps. Read-only.`,
-  { agentType: AG('explorer'), phase: 'Adversarial verify', schema: REQS, label: 'review:extract-reqs', model: M('explorer') }
-)
 // Lenses are distinct QUESTIONS, never the same question asked N times — identical skeptics agree
 // with each other and miss the same things. Spec compliance is deliberately absent: the
 // Completeness phase already walks every requirement against the diff.
@@ -436,7 +530,7 @@ const reqs = await dispatch(
 // report nothing, which is exactly the fan-out the stop rule forbids.
 const BUILTIN_LENSES = [
   { name: 'correctness', agent: 'evaluator', when: [] },
-  { name: 'security-tenant-PII', agent: 'security-reviewer', when: ['auth', 'api', 'schema'] },
+  { name: 'security-tenant-PII', agent: 'security-reviewer', when: ['auth', 'api', 'schema', 'web', 'userInput'] },
   paths.frontendRoot && { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
 ].filter(Boolean)
 // Dynamic lenses select an existing Graph Powers review role; they never manufacture a subagent
@@ -472,12 +566,13 @@ const lenses = [...trackByAgent.values()]
 // an enum over exactly the lenses this run dispatches — the model cannot name one nothing knows.
 const LENS_ENUM = lenses.map((l) => l.name)
 const KNOWN_LENS = new Set(LENS_ENUM)
-const SKEPTIC = { type: 'object', required: ['lens', 'satisfied'], properties: {
+const SKEPTIC = { type: 'object', required: ['lens', 'satisfied', 'findings'], properties: {
   lens: { type: 'string', enum: LENS_ENUM }, satisfied: { type: 'boolean' },
-  findings: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
+  findings: { type: 'array', items: { type: 'object', required: ['title', 'file', 'severity', 'inScope', 'agent'], properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
   items: COMPLETENESS.properties.items,
   drift: COMPLETENESS.properties.drift,
 } }
+const CORRECTNESS_SKEPTIC = { ...SKEPTIC, required: [...SKEPTIC.required, 'items'] }
 
 // Performance is a conditional checklist inside the consolidated correctness Evaluator, not a
 // second general reviewer. The write-capable performance specialist remains the remediation lane.
@@ -512,18 +607,31 @@ touch, a refactor you would prefer, a hardening idea, anything matching a row un
 Do not propose new features, new files, new abstractions, or a redesign. Do not widen the plan. The
 question is "does what was built hold?", never "what else could be built".`
 
-// P0/P1 AND in scope. `inScope` absent counts as in scope: an older lens that never learned the
-// field must not go silent. Out-of-scope findings are kept for the report and logged, never
-// truncated in silence — they are the panel's most useful output and its least actionable.
+// Every in-scope severity survives into the verdict; only P0/P1 enters an automatic fix package.
+// `inScope` absent counts as in scope so an older lens cannot go silent.
 const actionable = (f) => (f.severity === 'P0' || f.severity === 'P1') && f.inScope !== false
-const outOfScopeFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter((f) => f.inScope === false))
+const findingIsComplete = (finding) => finding && typeof finding === 'object'
+  && typeof finding.title === 'string' && typeof finding.file === 'string'
+  && ['P0', 'P1', 'P2', 'P3'].includes(finding.severity)
+  && typeof finding.inScope === 'boolean' && WRITER_AGENT_ENUM.includes(finding.agent)
+const findingArray = (result) => Array.isArray(result?.findings) ? result.findings : []
+const malformedFindingSignalsFrom = (arr, pass) => (arr ?? []).flatMap((result) => {
+  if (!Array.isArray(result?.findings)) return [`${pass} ${result?.lens ?? 'unknown'} review returned no findings array`]
+  const malformed = result.findings.filter((finding) => !findingIsComplete(finding)).length
+  return malformed ? [`${pass} ${result?.lens ?? 'unknown'} review returned ${malformed} malformed finding(s)`] : []
+})
+const outOfScopeFrom = (arr) => (arr ?? []).flatMap((s) => findingArray(s).filter((f) => findingIsComplete(f) && f.inScope === false))
 // Findings are lifted out of the panel member that raised them, so each one has to carry that lens
 // with it: the confirm pass can only clear a finding through the lens able to see it. `lensResolved`
 // is the same question asked defensively — a lens name that resolves to nothing is a finding nothing
 // can re-check, and one nothing can re-check stays OPEN. Unparseable never means clean.
-const refutedFrom = (arr) => (arr ?? []).flatMap((s) => (s?.findings ?? []).filter(actionable).map((f) => Object.assign({}, f, {
+const findingsFrom = (arr) => (arr ?? []).flatMap((s) => findingArray(s).filter((f) => findingIsComplete(f) && f.inScope !== false).map((f) => Object.assign({}, f, {
   lens: s?.lens, lensResolved: KNOWN_LENS.has(s?.lens),
 })))
+const actionableFrom = (arr) => findingsFrom(arr).filter(actionable)
+const unsatisfiedFrom = (arr) => (arr ?? []).filter((result) => result?.satisfied !== true).map((result) => ({
+  lens: result?.lens ?? 'unknown', reason: 'review did not return satisfied:true',
+}))
 // A finding has no id, and the confirm pass has to recognise the SAME finding coming back from a
 // freshly spawned agent. Lens + file + title is that identity.
 const findingKey = (f) => JSON.stringify([f?.lens ?? '', f?.file ?? '', f?.title ?? ''])
@@ -531,22 +639,33 @@ const findingKey = (f) => JSON.stringify([f?.lens ?? '', f?.file ?? '', f?.title
 const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => dispatch(
   `Adversarially verify the working tree against the plan through the consolidated "${l.name}" track (${l.lensNames.join(', ')}). DEFAULT to "not satisfied" when uncertain — your job is to REFUTE, not to confirm. Apply the checklist in ${DBG_GUIDE} (read it); do NOT invoke a skill — this workflow is the orchestration, report only.${clauseFor(l)}
 PLAN: ${PLAN_PATH}
-REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}
+REQUIREMENTS: Read every acceptance criterion and ## Verification step directly from PLAN; include their ids in your response.
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it.${pass === 'final' && l.name === 'correctness' ? ' This is the one post-correction Evaluator boundary: also walk every requirement against the current diff and return items plus drift.' : ''} Read-only.${SCOPE_LOCK}`,
-  { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
+  { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: l.name === 'correctness' ? CORRECTNESS_SKEPTIC : SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
 ))
-let sk = (await boundedParallel(skMaker('init'), 1, 'initial adversarial review')).filter(Boolean)
+// Reserve one grouped correction plus the final evaluator and final gates. The optional design
+// lens yields first; correctness and the required security lens remain ahead of it.
+let sk = (await boundedParallel(skMaker('init'), 3, 'initial adversarial review')).filter(Boolean)
+unresolvedSignals.push(...malformedFindingSignalsFrom(sk, 'initial'))
+const returnedInitialLenses = new Set(sk.map((result) => result?.lens))
+for (const lens of lenses) {
+  if (!returnedInitialLenses.has(lens.name)) unresolvedSignals.push(`initial ${lens.name} review returned no evidence`)
+}
 const outOfScope = outOfScopeFrom(sk)
 if (outOfScope.length) log(`${outOfScope.length} finding(s) outside this plan's scope — reported, not fixed: ${outOfScope.slice(0, 4).map((f) => f.title).join(' · ')}${outOfScope.length > 4 ? ` (+${outOfScope.length - 4})` : ''}`)
 
-// 4. Completeness — every requirement vs the diff, plus drift
+// 4. Completeness — the mandatory correctness evaluator owns this walk. Folding it into the
+// adversarial boundary removes a duplicate explorer pass while keeping the production seam real.
 phase('Completeness')
-const completeMaker = (round) => dispatch(
-  `Walk EVERY requirement from the plan at ${PLAN_PATH} against the ACTUAL git diff. Mark each done (file:line) / missing / partial, and record which agent should implement any gap. Detect scope drift (changed files not cited in the plan). This is the guard against agentic laziness and goal drift. Read-only.
-REQUIREMENTS: ${JSON.stringify(reqs?.requirements ?? [])}`,
-  { agentType: AG('explorer'), phase: round ? 'Fix loop' : 'Completeness', schema: COMPLETENESS, label: `review:completeness:${round || 0}`, model: M('explorer') }
-)
-let c = await completeMaker(0)
+const initialCorrectness = sk.find((result) => result.lens === 'correctness')
+let c = hasRequirementEvidence(initialCorrectness?.items)
+  ? { items: initialCorrectness.items, drift: initialCorrectness.drift ?? [] }
+  : null
+if (!hasRequirementEvidence(initialCorrectness?.items)) {
+  unresolvedSignals.push('initial correctness/completeness evidence missing')
+  log('Mandatory correctness/completeness boundary returned no requirement evidence; preserving NEEDS-WORK rather than treating an empty field as a clean diff')
+}
+const expectedRequirementIds = new Set((c?.items ?? []).map((item) => item.id))
 
 // 5. Loop-until-done — fix → re-verify until clean or capped.
 // Intermediate rounds drive on the cheap objective pair (gates + completeness); the expensive
@@ -582,16 +701,20 @@ PACKAGE: ${JSON.stringify(entries)}`,
 const keyOf = (it) => it?.id ?? it?.title ?? JSON.stringify(it)
 const attempts = new Map()
 const blocked = []
+const rememberBlocked = (item, reason, fixResult = null) => {
+  const key = keyOf(item)
+  if (!blocked.some((entry) => keyOf(entry) === key)) blocked.push({ ...item, blocked: reason, fixResult })
+}
 const dropExhausted = (it) => {
   const k = keyOf(it)
   if ((attempts.get(k) || 0) >= REPATCH_CAP) {
-    if (!blocked.some((b) => keyOf(b) === k)) blocked.push({ ...it, blocked: 're-patch limit' })
+    rememberBlocked(it, 're-patch limit')
     return false
   }
   return true
 }
 let round = 0
-let state = openItems(c, refutedFrom(sk), g)
+let state = openItems(c, actionableFrom(sk), g)
 while (state.total > 0 && round < MAX_ROUNDS) {
   round++
   state.missing = state.missing.filter(dropExhausted)
@@ -615,7 +738,12 @@ while (state.total > 0 && round < MAX_ROUNDS) {
   }
   // Each round reads the tree the previous round wrote, so the loop is serial by construction.
   // oxlint-disable-next-line no-await-in-loop
-  await boundedParallel(selected.map((group) => group.run), 2, 'grouped fix round')
+  const fixResults = await boundedParallel(selected.map((group) => group.run), 2, 'grouped fix round')
+  for (const [index, group] of selected.entries()) {
+    const result = fixResults[index]
+    if (result?.status === 'done') continue
+    for (const entry of group.entries) rememberBlocked(entry.item, `fixer ${result?.status ?? 'unavailable'}`, result)
+  }
   // The one fresh post-correction Evaluator below owns completeness re-check. Do not spend an
   // intermediate reviewer on the same acceptance boundary.
   state = openItems(c, [], g)
@@ -623,45 +751,61 @@ while (state.total > 0 && round < MAX_ROUNDS) {
 
 // 6. Final adversarial pass — catch regressions the fixes introduced (skeptics bracket the loop).
 let openFindings = []
-let unconfirmed = [] // open findings no lens re-checked — carried to the caller, never quietly dropped
+let unconfirmed = [] // findings not re-checked: P0/P1 block; P2/P3 remain explicit notes
+let unsatisfiedReviews = []
 if (round > 0) {
   const finalSk = (await boundedParallel(skMaker('final'), 1, 'final adversarial confirmation')).filter(Boolean)
+  unresolvedSignals.push(...malformedFindingSignalsFrom(finalSk, 'final'))
   const finalCorrectness = finalSk.find((result) => result.lens === 'correctness')
-  if (finalCorrectness?.items) {
+  const finalRequirementIds = new Set((finalCorrectness?.items ?? []).map((item) => item?.id))
+  const finalEvidenceComplete = hasRequirementEvidence(finalCorrectness?.items)
+    && expectedRequirementIds.size > 0
+    && [...expectedRequirementIds].every((id) => finalRequirementIds.has(id))
+  if (finalEvidenceComplete) {
     c = { items: finalCorrectness.items, drift: finalCorrectness.drift ?? [] }
+  } else {
+    unresolvedSignals.push('final correctness/completeness evidence missing, empty, or incomplete')
+    log('Final correctness evaluator returned missing, empty, or incomplete requirement evidence; preserving NEEDS-WORK')
   }
-  const initialOpen = refutedFrom(sk)
+  const initialOpen = findingsFrom(sk)
   const reran = new Set(finalSk.map((result) => result.lens).filter((name) => KNOWN_LENS.has(name)))
-  const confirmed = refutedFrom(finalSk)
+  const confirmed = findingsFrom(finalSk)
   const carried = initialOpen.filter((finding) => !reran.has(finding.lens))
   const carriedKeys = new Set(carried.map(findingKey))
   openFindings = [...carried, ...confirmed.filter((finding) => !carriedKeys.has(findingKey(finding)))]
   unconfirmed = carried
+  unsatisfiedReviews = unsatisfiedFrom([...sk.filter((result) => !reran.has(result?.lens)), ...finalSk])
   if (unconfirmed.length) {
     log(`${unconfirmed.length} initial finding(s) could not be re-checked inside the workflow total and remain OPEN`)
   }
 } else {
-  openFindings = refutedFrom(sk) // no fix rounds ran → the init panel already reflects the final tree
+  openFindings = findingsFrom(sk) // no fix rounds ran → the init panel already reflects the final tree
+  unsatisfiedReviews = unsatisfiedFrom(sk)
 }
 
 // Intermediate rounds use changed-only Bun tests when possible. Once every write is finished, the
 // full declared gate set runs exactly once against the final tree; otherwise a quick green loop could
 // be mistaken for a final verdict, or a passing opening build could survive fixes that broke it.
-if (round > 0 && openingGateList.length) {
+if (round > 0) {
   g = await dispatch(
-    `Read ${GATE_GUIDE} first. Run the FINAL gate set once from the repository root, each as a separate command:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`,
+    openingGateList.length
+      ? `Read ${GATE_GUIDE} first. Run the FINAL gate set once from the repository root, each as a separate command:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`
+      : 'This project declares no final gate commands. Return allGreen:true with an empty gates list and record that the final boundary had no declared command. Read-only.',
     { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: 'gates:final', model: 'haiku' }
   )
 }
 
 const missing = (c?.items ?? []).filter((i) => i.status !== 'done')
-const totalOpen = missing.length + openFindings.length + (g?.allGreen ? 0 : 1) + (workflowCapped ? 1 : 0)
+const drift = c?.drift ?? []
+const totalOpen = missing.length + openFindings.length + unsatisfiedReviews.length + unresolvedSignals.length
+  + blocked.length + drift.length + (g?.allGreen ? 0 : 1) + (workflowCapped ? 1 : 0)
 // `VERIFIED` requires `totalOpen === 0`, so a non-empty `openFindings` can never reach it — that is
 // the invariant, and it is why the confirm above may not overwrite that list.
-// The second half is the softer leak: `VERIFIED-WITH-NOTES` is for a green tree carrying residual
-// P1 observations, and a still-open P0 is not a note. Neither is a finding nothing re-checked. The
-// caller reads this one field to decide whether to commit, so both route to NEEDS-WORK.
-const hardOpen = workflowCapped || openFindings.some((f) => f.severity === 'P0') || unconfirmed.length > 0
+// `VERIFIED-WITH-NOTES` is only for residual P2/P3. Missing requirements/evidence, an unsatisfied
+// review, drift, a blocked item, or any P0/P1 all route to NEEDS-WORK.
+const hardOpen = workflowCapped || missing.length > 0 || blocked.length > 0 || drift.length > 0
+  || unresolvedSignals.length > 0 || unsatisfiedReviews.length > 0
+  || openFindings.some((finding) => finding.severity !== 'P2' && finding.severity !== 'P3')
 const verdict = totalOpen === 0 ? 'VERIFIED' : (g?.allGreen && !hardOpen ? 'VERIFIED-WITH-NOTES' : 'NEEDS-WORK')
 return {
   verdict,
@@ -674,10 +818,12 @@ return {
   gateDetail: g?.gates ?? [],
   missing,
   openFindings,
-  unconfirmed, // a subset of openFindings: raised, never re-checked. Not a pass — an unanswered question
+  unconfirmed, // subset of openFindings: P0/P1 block, while P2/P3 remain explicit notes
+  unsatisfiedReviews,
+  unresolvedSignals,
   blocked, // items dropped after hitting the re-patch cap — these need a human, not another round
   outOfScope, // real findings the panel raised past this plan's edge: reported, never fixed here
-  drift: c?.drift ?? [],
+  drift,
   scope: scopeOut(),
   next: workflowCapped
     ? 'Workflow dispatch cap reached. Review the completed and deferred evidence; narrow any follow-up instead of starting another automatic fan-out.'

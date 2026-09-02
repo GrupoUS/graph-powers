@@ -539,6 +539,49 @@ class SddCliTests(unittest.TestCase):
             self.assertEqual(fresh.returncode, 0, fresh.stderr)
             self.assertEqual(json.loads(fresh.stdout)["sequence"], 1)
 
+    def test_duplicate_dispatch_key_returns_no_second_launch_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            first = self.run_dispatch(plan, "wave-1:writer-1")
+            resumed = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            duplicate = self.run_dispatch(plan, "wave-1:writer-1")
+            retry = self.run_dispatch(plan, "wave-1:writer-1-retry")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            self.assertEqual(duplicate.returncode, 0, duplicate.stderr)
+            self.assertEqual(retry.returncode, 0, retry.stderr)
+            self.assertEqual(json.loads(first.stdout)["status"], "RESERVED")
+            self.assertEqual(json.loads(duplicate.stdout)["status"], "ALREADY_RESERVED")
+            self.assertEqual(json.loads(retry.stdout)["sequence"], 2)
+
+    def test_concurrent_duplicate_dispatch_keys_authorize_exactly_one_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+                results = list(pool.map(
+                    lambda _number: self.run_dispatch(plan, "parallel:writer-1"),
+                    range(10),
+                ))
+
+            outputs = [json.loads(result.stdout) for result in results]
+            self.assertTrue(all(result.returncode == 0 for result in results))
+            self.assertEqual([output["status"] for output in outputs].count("RESERVED"), 1)
+            self.assertEqual(
+                [output["status"] for output in outputs].count("ALREADY_RESERVED"), 9,
+            )
+            ledger_path = root / ".graph-powers/logs/sdd" / root.name / "dispatches.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(ledger["reservations"]), 1)
+
     def test_dispatch_requires_lease_canonical_role_and_schema_ceiling(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

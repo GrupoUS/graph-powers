@@ -398,6 +398,95 @@
           "critical": true
         }
       ]
+    },
+    {
+      "id": "pro-precreate-skill",
+      "polarity": "positive",
+      "tags": ["proactivity-contract", "proactive-live"],
+      "expected": "load",
+      "prompt": "Create a reusable skill for safely redacting support exports.",
+      "expected_output": "Loads skill-improve in Mode A before drafting and establishes RED evidence.",
+      "assertions": [
+        {"id": "A01", "description": "Selects the skill authoring owner.", "check": "regex: (?i)skill-improve", "critical": true},
+        {"id": "A02", "description": "Starts Mode A before drafting.", "check": "regex: (?i)Mode A", "critical": true},
+        {"id": "A03", "description": "Requires a RED before changed behaviour.", "check": "regex: (?i)\\bRED\\b", "critical": true}
+      ]
+    },
+    {
+      "id": "bound-agent-prompt-draft",
+      "polarity": "negative",
+      "tags": ["proactivity-contract", "proactive-live"],
+      "expected": "skip",
+      "prompt": "Draft the prompt for a new reviewer agent.",
+      "expected_output": "Does not load skill-improve and routes prompt design to senior-prompt-engineer.",
+      "assertions": [
+        {"id": "A01", "description": "Routes to the prompt owner.", "check": "contains: senior-prompt-engineer", "critical": true},
+        {"id": "A02", "description": "Does not start the wiring audit.", "check": "not_contains: graph.json", "critical": true}
+      ]
+    },
+    {
+      "id": "pro-prewire-skill",
+      "polarity": "positive",
+      "tags": ["proactivity-contract"],
+      "prompt": "Connect the new export-redaction skill to its command and agent call sites.",
+      "expected_output": "Runs Mode B only after the Mode A candidate exists and returns a report-only wiring verdict.",
+      "assertions": [
+        {"id": "A01", "description": "Selects Mode B after the candidate.", "check": "regex: (?i)Mode B", "critical": true},
+        {"id": "A02", "description": "Keeps the audit report-only.", "check": "regex: (?i)(report-only|without applying)", "critical": true}
+      ]
+    },
+    {
+      "id": "pro-harness-upgrade",
+      "polarity": "positive",
+      "tags": ["proactivity-contract"],
+      "prompt": "The plugin upgrade changed the hook payload and model routing; verify the harness integration.",
+      "expected_output": "Runs Mode B before acceptance and requires changed-surface plus generated parity evidence.",
+      "assertions": [
+        {"id": "A01", "description": "Selects Mode B for harness impact.", "check": "regex: (?i)Mode B", "critical": true},
+        {"id": "A02", "description": "Requires parity evidence.", "check": "regex: (?i)parity", "critical": true}
+      ]
+    },
+    {
+      "id": "pro-repeated-skill-miss",
+      "polarity": "positive",
+      "tags": ["proactivity-contract"],
+      "prompt": "The same routing rule missed twice in this evidence set. What happens before another prose tweak?",
+      "expected_output": "Creates a Mode A regression with named misses, RED, and focused GREEN.",
+      "assertions": [
+        {"id": "A01", "description": "Requires the two-miss threshold.", "check": "regex: (?i)(two|2).{0,50}(miss|failure)", "critical": true},
+        {"id": "A02", "description": "Requires RED before the tweak.", "check": "regex: (?i)\\bRED\\b", "critical": true}
+      ]
+    },
+    {
+      "id": "neg-unrelated-package-upgrade",
+      "polarity": "negative",
+      "tags": ["proactivity-contract"],
+      "prompt": "Upgrade the application chart package; it does not affect skill discovery, tools, hooks or model routing.",
+      "expected_output": "Does not invoke skill-improve because this has no harness impact.",
+      "assertions": [
+        {"id": "A01", "description": "Excludes an upgrade without harness impact.", "check": "regex: (?i)(does not|do not|outside).{0,80}(harness|skill-improve)", "critical": true}
+      ]
+    },
+    {
+      "id": "neg-one-off-product-failure",
+      "polarity": "negative",
+      "tags": ["proactivity-contract"],
+      "prompt": "A checkout request failed once in the product. Diagnose it.",
+      "expected_output": "Routes the isolated application failure to its domain owner rather than making a skill regression.",
+      "assertions": [
+        {"id": "A01", "description": "Keeps an isolated application failure out of this lifecycle.", "check": "regex: (?i)(one|single|isolated).{0,80}(application|product).{0,80}(domain|owner|debug)", "critical": true}
+      ]
+    },
+    {
+      "id": "pro-open-follow-up",
+      "polarity": "positive",
+      "tags": ["proactivity-contract"],
+      "prompt": "Close the applicable proactive-routing follow-up with the recorded candidate trace.",
+      "expected_output": "Matches the exact lifecycle slug and appends a structured disposition backed by trace evidence.",
+      "assertions": [
+        {"id": "A01", "description": "Uses the exact allowed slug.", "check": "contains: proactive-routing", "critical": true},
+        {"id": "A02", "description": "Requires a structured disposition.", "check": "regex: (?i)Disposition", "critical": true}
+      ]
     }
   ]
 }

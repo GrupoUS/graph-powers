@@ -233,7 +233,9 @@ explain it but may not restate a competing version.
 - Each `--trial <backend>:<case-id>` gets a new `tempfile.TemporaryDirectory`; no prior transcript,
   project rule, working-tree `AGENTS.md` or response is reused.
 - Claude Code runs non-persistently with the candidate plugin supplied by `--plugin-dir`, project-only
-  setting sources, plan permission mode, Write/Edit disallowed and verbose stream JSON.
+  setting sources, plan permission mode, verbose stream JSON, and an exact `--tools Skill` surface
+  with Write/Edit also denied. The trial measures the routing decision and its final explanation; it
+  must not execute the routed task through Agent, shell, filesystem, browser or network tools.
 - Codex first invokes the existing `codex/install.mjs --scope project` into the temporary project,
   then runs `codex --ask-for-approval never exec --json --ephemeral --ignore-user-config
   --ignore-rules --sandbox read-only --dangerously-bypass-hook-trust --skip-git-repo-check`. The
@@ -242,8 +244,10 @@ explain it but may not restate a competing version.
   read-only filesystem sandbox.
 - A Claude positive requires a `Skill` tool-use whose input resolves
   `graph-powers:skill-improve`; a Codex positive requires a tool event that reads the generated
-  `.agents/skills/skill-improve/SKILL.md`. Both must occur before task work. A negative requires that
-  evidence to be absent. The response text is then graded separately.
+  `.agents/skills/skill-improve/SKILL.md`. Both must occur before task work. The bounded Claude
+  negative requires `skill-improve` to remain absent **and** an observable `Skill` tool-use resolving
+  `graph-powers:senior-prompt-engineer`; absence alone is not a routing decision. The response text
+  is then graded separately.
 - The producer rejects a live prompt containing `skill-improve`, `Mode A`, `Mode B`, an instruction to
   load `SKILL.md`, or eval/probe wording. It recursively parses JSONL rather than matching raw output.
 - CLI absence, authentication failure, timeout, non-zero child exit, malformed/incomplete JSONL or
@@ -256,15 +260,21 @@ explain it but may not restate a competing version.
   unreadable file or symlink fails capture. This surface contains every source used to assemble the
   disposable Claude/Codex candidates while excluding audit output, plans and `.git` churn.
 - Every trace records that aggregate digest and file count, backend and CLI version, reported model
-  when present, UTC time, candidate git revision/dirty flag, case ID, prompt digest, child exit and
-  parsed load/skip event. Candidate phase additionally requires `--baseline-dir`, verifies every RED
+  when present, UTC time, candidate git revision/dirty flag, case ID, prompt digest, child exit,
+  parsed load/skip event and `selected_owner` (`null` only where no alternate-owner contract exists).
+  Candidate phase additionally requires `--baseline-dir`, verifies every RED
   trace agrees on one baseline digest and every GREEN trace agrees on a different candidate digest,
   and verifies prompt digests match by backend/case. Thus dirty RED and GREEN worktrees remain
   distinguishable and reproducible. No token, credential, environment dump or unrelated response is
   recorded.
-- Fake-stream unit tests inject executable paths and never contact a provider. The real command is a
-  completion gate. RED and GREEN together consume four clean sessions; the Phase B plan counts them
-  against the configured workflow cap and still reserves its independent evaluator.
+- Fake-stream unit tests inject executable paths and never contact a provider. They assert the exact
+  Claude isolation flags, prompt preservation, and that the bounded negative fails on either no
+  `Skill` call or a wrong-skill call. The real command is a completion gate. RED
+  and GREEN together consume four clean sessions; the Phase B plan counts them against the configured
+  workflow cap and still reserves its independent wave and final Evaluators.
+  To remain within that cap, the behaviour writer uses one parent-controlled RED checkpoint before
+  changing production activation and one GREEN checkpoint afterward; it never launches those child
+  sessions itself.
 
 ### Rejected alternatives
 
@@ -289,8 +299,9 @@ explain it but may not restate a competing version.
 | Trace producer | `skills/skill-improve/scripts/capture_trigger_evals.py`, `test_capture_trigger_evals.py` | Implement the two backend adapters and exact failure contract above; invoke the existing Codex project installer; write only ignored response/trace artefacts. |
 | Round record | `skills/skill-improve/learning.md` | Extend the template with structured IDs/dispositions, then append Round 10 and `R10-F1`; never rewrite prior rounds or current Round 9. |
 | Local dogfood | `.claude/rules/artifacts.md` | Point its existing reminder at the canonical lifecycle section and require task-close evidence when a lifecycle event fired. |
-| Distribution source | `NOTICE`, `CHANGELOG.md`, `.claude-plugin/plugin.json`, `package.json`, `skills/skill-improve/LICENSE-CC-BY-4.0.txt` | Record source, author, licence, source commit and what changed; retain the Apache licence; add `CC-BY-4.0` to both hand-owned SPDX expressions. `[ASSUMED]` Join the already-unreleased `1.17.0` worktree rather than create a second bump. |
-| Generated distribution | `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`, `plugin.yaml` | Never hand-edit. Regenerate from `.claude-plugin/plugin.json` with `bun codex/native-plugin.mjs --emit-only`, `bun cursor/install.mjs --emit-only`, `bun grok/install.mjs --emit-only`, and `bun hermes/install.mjs --emit-only`; generators copy `license` at `codex/native-plugin.mjs:43-52`, `cursor/install.mjs:128-137`, `grok/install.mjs:49-58`, and `hermes/install.mjs:48-58`. |
+| Digest-owned licence source | `.claude-plugin/plugin.json`, `skills/skill-improve/LICENSE-CC-BY-4.0.txt` | The behaviour writer changes these only after RED because both sit inside the aggregate digest surface; retain the Apache licence and add `CC-BY-4.0` to the hand-owned Claude SPDX expression. |
+| Outside-digest attribution | `NOTICE`, `CHANGELOG.md`, `package.json` | A disjoint distribution writer records source, author, licence, source commit and what changed, and applies the already-locked `MIT AND Apache-2.0 AND CC-BY-4.0` expression to `package.json`. `[ASSUMED]` Join the already-unreleased `1.17.0` worktree rather than create a second bump. |
+| Generated distribution | `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.grok-plugin/plugin.json`, `plugin.yaml` | The behaviour writer owns this regeneration before GREEN so one writer controls the digest source and all projections. Never hand-edit. Regenerate from `.claude-plugin/plugin.json` with `bun codex/native-plugin.mjs --emit-only`, `bun cursor/install.mjs --emit-only`, `bun grok/install.mjs --emit-only`, and `bun hermes/install.mjs --emit-only`; generators copy `license` at `codex/native-plugin.mjs:43-52`, `cursor/install.mjs:128-137`, `grok/install.mjs:49-58`, and `hermes/install.mjs:48-58`. |
 
 No generated Codex companion changes are needed unless an agent source changes; this design does not
 change `agents/skill-improver.md`.
@@ -363,12 +374,22 @@ instruction or expected eval outcome.
 
 ### Gauntlet close
 
-The approved plan will assign disjoint hook and skill paths, keep the response producer and
-production activation in ordered tasks so RED is captured first, count all four live RED/GREEN
-sessions against the configured workflow cap, reserve one Evaluator per wave, preserve focused
-evidence in the plan, then run the repository's complete gate list through `/verify loop
-<PLAN_FILE>`. A deliberately wrong response must exit `1`; a correct response graded against a
-nearest negative must also exit `1`.
+The approved plan will assign two disjoint ownership scopes in one wave. The behaviour/eval writer
+owns every changed file inside the aggregate runtime digest surface plus the four generated client
+projections. It first reaches a producer-ready checkpoint, makes no production activation or
+licence-source edit, and waits while the controller records both RED traces; after release it owns
+all digest-surface changes and regeneration through the candidate-ready checkpoint. The independent
+attribution writer owns only outside-digest `NOTICE`, `CHANGELOG.md` and `package.json`, using the
+already-locked licence expression rather than reading an unfinished sibling patch. The controller
+waits for both scopes, then records GREEN against the stable candidate. Thus the parent-controlled
+order is producer → RED → production/licence/projections plus attribution → GREEN without a second
+dispatch wave. The plan counts all four live RED/GREEN sessions against the configured workflow
+cap, reserves one wave Evaluator plus the separate final Evaluator, preserves focused evidence in
+the plan, then runs the repository's complete gate list through `/verify loop <PLAN_FILE>`. The
+recovery run uses seven available workflow slots and leaves one unused boundary; because an
+independently reviewed correction needs both a writer and a fresh Evaluator, any such correction
+still stops as bounded `NEEDS_WORK` for a later user-requested run. A deliberately wrong response must exit `1`;
+a correct response graded against a nearest negative must also exit `1`.
 
 ## Assumptions
 
@@ -397,11 +418,13 @@ nearest negative must also exit `1`.
 
 ## Not yet specified
 
-No design choice is deferred to Phase B. It must assign exact task ownership and preserve the order
-producer/RED → production lifecycle → GREEN. The licence decision is closed here: keep the existing
-Apache text, ship CC BY 4.0 beside it, attribute the pinned source, update the two hand-owned package
-expressions, then regenerate four client manifests from the Claude manifest. Any unavailable live
-backend blocks completion under the capture contract above.
+No design choice is deferred to Phase B. It must assign the entire digest surface and generated
+client projections to the behaviour writer, assign only `NOTICE`, `CHANGELOG.md` and `package.json`
+to the outside-digest attribution writer, and preserve the parent-controlled order producer/RED →
+production lifecycle → GREEN without letting either writer spawn the clean sessions. The licence
+decision is closed here: keep the existing Apache text, ship CC BY 4.0 beside it, attribute the pinned
+source, update the two hand-owned package expressions, then regenerate four client manifests from
+the Claude manifest. Any unavailable live backend blocks completion under the capture contract above.
 
 ## Rollback
 

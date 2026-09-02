@@ -1252,7 +1252,7 @@ def _read_dispatch_ledger(path: Path, run_id: str) -> dict[str, Any]:
 def reserve_dispatch(
     plan: Path, key: str, kind: str, role: str, max_spawns: int
 ) -> tuple[dict[str, Any], int]:
-    """Atomically reserve one actual child dispatch, idempotently across controller resumes."""
+    """Atomically authorize one actual child dispatch; resumed keys never reauthorize it."""
     if not DECISION_KEY.fullmatch(key):
         _dispatch_error("key must be a bounded lowercase stable identifier, never prompt text")
     role = _dispatch_role(kind, role)
@@ -1276,6 +1276,7 @@ def reserve_dispatch(
             used = len(reservations)
             return {
                 **existing,
+                "status": "ALREADY_RESERVED",
                 "used": used,
                 "remaining": max_spawns - used,
                 "maxSpawns": max_spawns,

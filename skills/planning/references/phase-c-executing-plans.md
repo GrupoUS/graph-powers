@@ -68,10 +68,15 @@ Reserve `graph-powers:evaluator` for final review before the first wave. Before 
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" dispatch reserve <PLAN_FILE> --key <stable-key> --kind <kind> --role graph-powers:<agent> --max-spawns <graphGuardrails.maxSpawnsPerWorkflow>
 ```
 
-Kinds are bootstrap, writer, evaluator, correction and confirmation. Only `status: RESERVED`
-authorizes the matching call. Stable keys are idempotent; `dispatches.json` survives resume under
-the lease run ID. Reservation 9 is `BLOCKED`: persist completed/deferred IDs and return. Only a
-later user-requested run may release and reacquire; never reset automatically.
+Kinds are bootstrap, writer, evaluator, correction and confirmation. Only the fresh `status:
+RESERVED` response from an atomic reservation authorizes exactly one matching child call.
+`status: ALREADY_RESERVED` is a successful resume fact, never an authorization, even though it
+returns exit 0. The persisted reservation is the irrevocable attempt and cap consumption: if the
+controller crashes after receiving `RESERVED` but before spawning, resume must not launch with that
+key. Reconcile the missing/unknown child evidence, then reserve a new stable retry key for any real
+retry; that new attempt consumes another dispatch slot. `dispatches.json` survives resume under the
+lease run ID. Reservation 9 is `BLOCKED`: persist completed/deferred IDs and return. Only a later
+user-requested run may release and reacquire; never reset automatically.
 
 Cluster each package under a write-capable role from
 `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` and

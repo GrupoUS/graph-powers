@@ -27,7 +27,86 @@ def eval_doc(case_id: str) -> dict:
     }
 
 
+def tagged_eval_doc() -> dict:
+    return {
+        "skill": "fixture",
+        "assertions": [
+            {"id": "A01", "description": "contains alpha", "check": "contains: alpha", "critical": True},
+            {"id": "A02", "description": "contains beta", "check": "contains: beta", "critical": True},
+        ],
+        "test_cases": [
+            {"id": "tagged", "tags": ["live"], "expected_assertions": ["A01"]},
+            {"id": "untagged", "expected_assertions": ["A02"]},
+        ],
+    }
+
+
 class RunEvalsTests(unittest.TestCase):
+    def test_case_tag_requires_per_case_response_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill = root / "skill"
+            skill.mkdir()
+            evals = root / "evals.json"
+            evals.write_text(json.dumps(tagged_eval_doc()), encoding="utf-8")
+            response = root / "response.txt"
+            response.write_text("alpha\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--skill-path", str(skill), "--evals-path", str(evals),
+                 "--response-file", str(response), "--case-tag", "live"],
+                capture_output=True, encoding="utf-8", check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--case-tag requires --response-dir", result.stderr)
+
+    def test_case_tag_selects_only_tagged_cases_and_missing_response_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            responses = root / "responses"
+            responses.mkdir()
+            (responses / "resp-tagged.txt").write_text("alpha\n", encoding="utf-8")
+
+            rows, ok = RUN_EVALS.run_response_dir(
+                tagged_eval_doc(), responses, threshold=1.0, case_tag="live"
+            )
+
+            self.assertTrue(ok)
+            self.assertEqual([row["test_case"] for row in rows], ["tagged"])
+            (responses / "resp-tagged.txt").unlink()
+            rows, ok = RUN_EVALS.run_response_dir(
+                tagged_eval_doc(), responses, threshold=1.0, case_tag="live"
+            )
+            self.assertFalse(ok)
+            self.assertIn("response file not found", rows[0]["error"])
+
+    def test_case_tag_with_zero_matches_fails_without_falling_back_to_all_cases(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            responses = root / "responses"
+            responses.mkdir()
+
+            rows, ok = RUN_EVALS.run_response_dir(
+                tagged_eval_doc(), responses, threshold=1.0, case_tag="missing"
+            )
+
+            self.assertFalse(ok)
+            self.assertIn("no test cases carry tag", rows[0]["error"])
+
+    def test_existing_all_case_and_single_case_semantics_stay_unchanged(self) -> None:
+        document = tagged_eval_doc()
+        with tempfile.TemporaryDirectory() as directory:
+            responses = Path(directory)
+            (responses / "resp-tagged.txt").write_text("alpha\n", encoding="utf-8")
+            (responses / "resp-untagged.txt").write_text("beta\n", encoding="utf-8")
+
+            rows, ok = RUN_EVALS.run_response_dir(document, responses, threshold=1.0)
+            self.assertTrue(ok)
+            self.assertEqual([row["test_case"] for row in rows], ["tagged", "untagged"])
+            single = RUN_EVALS.run_eval_suite(document, "beta\n", "untagged")
+            self.assertEqual(single["pass_rate"], 1.0)
+
     def test_response_dir_reports_a_missing_case_id_without_aborting(self) -> None:
         document = eval_doc("T01")
         del document["test_cases"][0]["id"]

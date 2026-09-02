@@ -306,7 +306,9 @@ def print_results(summary: dict) -> None:
     print(f"{'─' * 60}\n")
 
 
-def run_response_dir(evals: dict, response_dir: Path, threshold: float) -> tuple[list[dict], bool]:
+def run_response_dir(
+    evals: dict, response_dir: Path, threshold: float, case_tag: str | None = None,
+) -> tuple[list[dict], bool]:
     """
     Run every case against its own captured response, `resp-<case-id>.txt` under response_dir.
 
@@ -317,6 +319,12 @@ def run_response_dir(evals: dict, response_dir: Path, threshold: float) -> tuple
     rows: list[dict] = []
     all_ok = True
     cases = evals.get("test_cases", [])
+    if case_tag is not None:
+        cases = [case for case in cases if case_tag in case.get("tags", [])]
+        if not cases:
+            return [_failed_row(
+                "(none)", f"no test cases carry tag {case_tag!r}; nothing was measured"
+            )], False
     if not cases:
         # Zero cases would exit 0 having measured nothing — the exact green-over-nothing this
         # mode exists to prevent.
@@ -445,6 +453,11 @@ def main():
         help="Specific test case ID to run (e.g. T01). Runs all assertions if omitted.",
     )
     parser.add_argument(
+        "--case-tag",
+        default=None,
+        help="Run only cases carrying this tag; requires --response-dir",
+    )
+    parser.add_argument(
         "--threshold",
         type=float,
         default=0.95,
@@ -453,6 +466,8 @@ def main():
     args = parser.parse_args()
     if args.response_dir and args.test_case:
         parser.error("--test-case selects one case; --response-dir already runs every case")
+    if args.case_tag and not args.response_dir:
+        parser.error("--case-tag requires --response-dir")
 
     # Validate paths
     for label, path in [
@@ -468,7 +483,7 @@ def main():
     evals = load_json(args.evals_path)
 
     if args.response_dir:
-        rows, ok = run_response_dir(evals, Path(args.response_dir), args.threshold)
+        rows, ok = run_response_dir(evals, Path(args.response_dir), args.threshold, args.case_tag)
         print_case_table(rows, args.threshold)
         if ok:
             print("  PASSED: every case reached the threshold")

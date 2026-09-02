@@ -587,8 +587,16 @@ export function rewriteCodexCommandRefs(text, commandNames, separator = "-") {
       "gm",
     );
     return result.replace(pattern, (match, prefix, offset, source) => {
-      // `](/verify)` is a Markdown link destination, not a command in parentheses.
-      if (prefix === "(" && offset > 0 && source[offset - 1] === "]") return match;
+      const slashOffset = offset + prefix.length;
+      const leftContext = source.slice(Math.max(0, slashOffset - 256), slashOffset);
+      // Markdown destinations include `[x](/verify)`, `[x]( /verify )` and `[x]: /verify`.
+      if (/\]\s*(?:\(|:)\s*$/.test(leftContext)) return match;
+      // Quoted root-relative values in HTML, JSX and JSON are paths, not invocations.
+      if (
+        (prefix === '"' || prefix === "'") &&
+        /(?:=|:|\{|\[|,)\s*["']$/.test(leftContext)
+      )
+        return match;
       return `${prefix}$graph-powers${separator}${name}`;
     });
   }, text);

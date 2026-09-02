@@ -23,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/GrupoUS/graph-powers/issues"
   },
-  "license": "MIT AND Apache-2.0",
+  "license": "MIT AND Apache-2.0 AND CC-BY-4.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GrupoUS/graph-powers.git"

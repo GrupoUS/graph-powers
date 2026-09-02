@@ -402,6 +402,7 @@ function sampleFor(schema) {
         else if (key === "evaluatorCapability") out[key] = "SUPPORTED";
         else if (key === "maxSpawnsPerWorkflow")
           out[key] = DEFAULT_MAX_SPAWNS_PER_WORKFLOW;
+        else if (key === "changedFiles") out[key] = ["src/core.js"];
         else out[key] = sampleFor(sub);
       }
       return out;
@@ -429,7 +430,7 @@ function sampleFor(schema) {
 //   script, before it is ever run" — a body nobody has vouched for yet, frequently one a model just
 //   wrote — and executing it to prove it is safe to execute is the question begging its own answer.
 //   Parse-only is the default there; `--run` is the operator saying they read the file.
-async function dryRun(body, args) {
+async function dryRun(body, args, fixture = {}) {
   const spawned = [];
   const scope = {
     args,
@@ -443,8 +444,14 @@ async function dryRun(body, args) {
       // of `agents/<name>.md`, so a call that omits it runs on whatever model the session happens
       // to be driving. Checking the resolved `opts` rather than the source text is what makes the
       // dynamic call sites — `AG(t.agent)`, `AG(f.agent || 'debugger')` — checkable at all.
-      spawned.push({ agentType: opts.agentType ?? "(inherited)", model: opts.model });
-      return opts.schema ? sampleFor(opts.schema) : "ok";
+      const spawn = {
+        agentType: opts.agentType ?? "(inherited)",
+        label: opts.label ?? "",
+        model: opts.model,
+      };
+      spawned.push(spawn);
+      const response = fixture.respond?.({ prompt, opts, spawn, spawned });
+      return response === undefined ? (opts.schema ? sampleFor(opts.schema) : "ok") : response;
     },
     parallel: async (thunks) => Promise.all(thunks.map((t) => t())),
     pipeline: async (items, ...stages) => {
@@ -554,6 +561,14 @@ const agentModels = readAgentModels();
 const agentsOnDisk = new Set(agentModels.keys());
 const writableAgents = readWritableAgents();
 
+if (!CHECKING_ONE_OFF && WILL_EXECUTE) {
+  const schedulingProblems = await runSchedulingFixtures();
+  if (schedulingProblems.length) {
+    for (const problem of schedulingProblems) console.error(problem);
+    process.exit(1);
+  }
+}
+
 function capabilityFixtureArgs(workflowName, capabilityStatus) {
   const declared = Object.fromEntries(agentModels);
   // This is a test fixture, not a second authority: it supplies the optional Fable route while
@@ -597,6 +612,155 @@ function poisonedModelFixtureArgs(workflowName) {
     [...agentModels.keys()].map((name) => [name, "opus"]),
   );
   return fixture;
+}
+
+function workflowBody(name) {
+  return readFileSync(join(DIR, `${name}.js`), "utf8").replace(
+    /^export\s+const\s+meta\s*=/m,
+    "const meta =",
+  );
+}
+
+function surfaceNamesIn(prompt) {
+  return [...prompt.matchAll(/^\s{3}([^=\n]+?) = /gm)].map((match) => match[1]);
+}
+
+function fixtureResponse({ prompt, opts }) {
+  if (opts.label === "frame")
+    return {
+      intentLevel: "L4",
+      restatedGoal: "fixture plan",
+      researchAngles: ["one", "two", "three"],
+      externalResearchNeeded: false,
+      riskSurfaces: ["none"],
+    };
+  if (opts.label.startsWith("explore:")) return { angle: opts.label, findings: ["evidence"] };
+  if (opts.label.startsWith("approach:")) return { name: opts.label, summary: "safe", tradeoffs: "known" };
+  if (opts.label === "synthesize")
+    return { planPath: "docs/plans/fixture/PLAN.md", recommendedApproach: "Approach A", taskCount: 1 };
+  if (["review:1", "review:2"].includes(opts.label))
+    return {
+      verdict: "APPROVED",
+      scores: { completeness: 8, atomicity: 7, riskCoverage: 7, dependencyOrder: 8 },
+    };
+  if (opts.label === "gates") return { allGreen: false, gates: [{ name: "test", exitCode: 1, pass: false }] };
+  if (opts.label === "gates:final") return { allGreen: true, gates: [{ name: "test", exitCode: 0, pass: true }] };
+  if (opts.label === "scope") {
+    return {
+      changedFiles: ["web/page.tsx"],
+      baseRef: "HEAD",
+      touched: Object.fromEntries(surfaceNamesIn(prompt).map((name) => [name, name === "web"])),
+      confidence: "high",
+    };
+  }
+  if (opts.label === "review:skeptic:init:correctness")
+    return {
+      lens: "correctness",
+      satisfied: false,
+      findings: [],
+      items: [{ id: "R1", status: "missing", evidence: "fixture", agent: "debugger" }],
+      drift: [],
+    };
+  if (opts.label === "review:skeptic:final:correctness")
+    return {
+      lens: "correctness",
+      satisfied: true,
+      findings: [],
+      items: [{ id: "R1", status: "done", evidence: "fixed", agent: "debugger" }],
+      drift: [],
+    };
+  if (opts.label.startsWith("review:skeptic:")) return { lens: opts.label.split(":").at(-1), satisfied: true, findings: [] };
+  if (opts.label.startsWith("fix-group:")) return { status: "done", applied: ["fixture"] };
+  return undefined;
+}
+
+function cleanVerifyResponse(context) {
+  const { opts } = context;
+  if (["gates", "gates:final"].includes(opts.label)) return { allGreen: true, gates: [] };
+  if (["review:skeptic:init:correctness", "review:skeptic:final:correctness"].includes(opts.label))
+    return { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] };
+  return fixtureResponse(context);
+}
+
+function coreVerifyResponse(context) {
+  if (context.opts.label === "scope") return { changedFiles: ["src/core.js"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(context.prompt).map((name) => [name, false])), confidence: "high" };
+  return cleanVerifyResponse(context);
+}
+
+async function runSchedulingFixtures() {
+  const problems = [];
+  const planArgs = capabilityFixtureArgs("ultra-plan", "SUPPORTED");
+  planArgs.task = "three-angle L4 fixture";
+  planArgs.config.maxParallelWave = 3;
+  planArgs.config.maxSpawnsPerWorkflow = 8;
+  try {
+    const run = await dryRun(workflowBody("ultra-plan"), planArgs, { respond: fixtureResponse });
+    const reviews = run.spawned.filter((spawn) => spawn.label === "review:1");
+    const research = run.spawned.filter((spawn) => spawn.label.startsWith("explore:"));
+    if (research.length !== 2)
+      problems.push("SCHED ultra-plan: allowed research below wave width must dispatch exactly allowed, never the third thunk");
+    if (run.spawned.length > 8 || reviews.length !== 1 || run.result?.deferredDispatches !== 1 || run.result?.capped !== true)
+      problems.push("SCHED ultra-plan: cap-8 three-angle L4 fixture must keep the final evaluator review");
+  } catch (error) {
+    problems.push(`SCHED ultra-plan: cap-8 three-angle L4 fixture threw ${error.message}`);
+  }
+
+  const verifyArgs = capabilityFixtureArgs("ultra-verify", "SUPPORTED");
+  verifyArgs.config.maxParallelWave = 3;
+  verifyArgs.config.maxSpawnsPerWorkflow = 8;
+  verifyArgs.config.commands = { test: "bun test" };
+  try {
+    const run = await dryRun(workflowBody("ultra-verify"), verifyArgs, { respond: fixtureResponse });
+    const labels = run.spawned.map((spawn) => spawn.label);
+    if (!labels.some((label) => label.startsWith("fix-group:")))
+      problems.push("SCHED ultra-verify: cap-8 non-clean fixture dispatched no grouped correction");
+    if (!labels.includes("review:skeptic:final:correctness") || !labels.includes("gates:final"))
+      problems.push(`SCHED ultra-verify: cap-8 non-clean fixture lost the final evaluator or final gates (${labels.join(", ")})`);
+    if (!run.spawned.some((spawn) => spawn.agentType.endsWith(":security-reviewer")))
+      problems.push("SECURITY ultra-verify: web-only fixture did not dispatch security-reviewer");
+  } catch (error) {
+    problems.push(`SCHED ultra-verify: cap-8 non-clean fixture threw ${error.message}`);
+  }
+
+  const semanticCases = [
+    ["low-confidence scope", "NEEDS-WORK", ({ opts }) => opts.label === "scope" ? { changedFiles: ["src/core.js"], baseRef: "HEAD", touched: {}, confidence: "low" } : undefined],
+    ["contradictory web scope", "NEEDS-WORK", ({ prompt, opts }) => opts.label === "scope" ? { changedFiles: ["web/page.tsx"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(prompt).map((name) => [name, false])), confidence: "high" } : undefined],
+    ["unsatisfied security review", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: false, findings: [] } : undefined],
+    ["missing security response", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? null : undefined],
+    ["unparseable security finding", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{}] } : undefined],
+    ["out-of-scope malformed security finding", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{ inScope: false }] } : undefined],
+    ["P2 security note", "VERIFIED-WITH-NOTES", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{ title: "advisory", file: "web/page.tsx", severity: "P2", inScope: true, agent: "debugger" }] } : undefined],
+    ["confirmed P1", "NEEDS-WORK", ({ opts }) => opts.label.includes(":correctness") ? { lens: "correctness", satisfied: true, findings: [{ title: "still broken", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : undefined, true],
+    ["blocked correction", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label.startsWith("fix-group:") ? { status: "blocked" } : undefined, true],
+    ["empty final completeness", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [] } : undefined, true],
+    ["mismatched final requirement IDs", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R2", status: "done", evidence: "wrong requirement", agent: "debugger" }], drift: [] } : undefined, true],
+    ["missing contract-gate response", "NEEDS-WORK", ({ opts }) => opts.label === "contract-gates" ? null : undefined, true, (args) => { args.config.contractGates = [{ name: "fixture", command: "bun test", when: [] }]; }],
+  ];
+  for (const [name, expected, override, coreScope = false, configure] of semanticCases) {
+    const args = capabilityFixtureArgs("ultra-verify", "SUPPORTED");
+    args.config.commands = { test: "bun test" };
+    configure?.(args);
+    // Keep the semantic fixture matrix ordered so failure messages remain deterministic.
+    // oxlint-disable-next-line no-await-in-loop
+    const run = await dryRun(workflowBody("ultra-verify"), args, { respond: (context) => { const response = override(context); return response === undefined ? (coreScope ? coreVerifyResponse(context) : cleanVerifyResponse(context)) : response; } });
+    if (run.result?.verdict !== expected)
+      problems.push(`VERDICT ultra-verify: ${name} returned ${run.result?.verdict}, expected ${expected}`);
+  }
+
+  for (const [name, cap] of [["ultra-plan", 1], ["ultra-verify", 1]]) {
+    const lowCapArgs = capabilityFixtureArgs(name, "SUPPORTED");
+    lowCapArgs.config.maxSpawnsPerWorkflow = cap;
+    try {
+      // Keep the cap fixtures ordered so failure messages remain deterministic.
+      // oxlint-disable-next-line no-await-in-loop
+      const run = await dryRun(workflowBody(name), lowCapArgs, { respond: fixtureResponse });
+      if (!["BLOCKED", "NEEDS-WORK"].includes(run.result?.status ?? run.result?.verdict))
+        problems.push(`SCHED ${name}: cap-${cap} fixture did not return a safe partial result`);
+    } catch (error) {
+      problems.push(`SCHED ${name}: cap-${cap} fixture threw ${error.message}`);
+    }
+  }
+  return problems;
 }
 
 if (CHECKING_ONE_OFF && RUN_REQUESTED)

@@ -219,7 +219,7 @@ After close: optionally `/evolve` to persist learnings.
 ## 2. Audit mode — `/debug audit` (full-stack 9 dimensions)
 
 > Comprehensive audit. For targeted bug fixing use default mode.
-> **PR/diff variant:** `/debug audit pr` — runs `codex adversarial-review --scope branch` first, then covers code-quality + dependencies + tech-debt + security on changed files only.
+> **PR/diff variant:** `/debug audit pr` — covers code-quality + dependencies + tech-debt + security on changed files only, without nesting another adversarial command before § 2.4.
 
 ### 2.1 Setup
 

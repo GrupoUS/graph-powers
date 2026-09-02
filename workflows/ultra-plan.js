@@ -184,13 +184,14 @@ const WAVE_CAP = Math.min(positiveNumber(cfg.maxParallelWave, 3), 3, WORKFLOW_CA
 const boundedParallel = async (thunks, reserve = 0, label = 'batch') => {
   const allowed = Math.max(0, Math.min(thunks.length, remainingWorkflowSpawns() - reserve))
   if (allowed < thunks.length) {
+    workflowCapped = true
     deferredDispatches += thunks.length - allowed
     log(`${label}: keeping ${allowed}/${thunks.length} dispatches inside the workflow total; ${thunks.length - allowed} deferred`)
   }
   const results = []
   for (let index = 0; index < allowed; index += WAVE_CAP) {
     // oxlint-disable-next-line no-await-in-loop
-    const batch = await parallel(thunks.slice(index, index + WAVE_CAP).map((run) => async () => run()))
+    const batch = await parallel(thunks.slice(index, Math.min(index + WAVE_CAP, allowed)).map((run) => async () => run()))
     results.push(...batch)
   }
   return results
@@ -216,6 +217,22 @@ if (!cfg.pluginRoot) {
   throw new Error('ultra-plan: could not locate the graph-powers plugin root, so no agent can read the planning guides. Pass it as args.config.pluginRoot.')
 }
 const SKILL = `${cfg.pluginRoot}/skills/planning/references`
+
+// The bootstrap is non-skippable. Below seven slots there is no way to retain the frame, one
+// evidence scout, both competing approaches, synthesis, and the mandatory evaluator boundary.
+// Return that fact to the caller instead of consuming a reserved boundary and then throwing.
+const MINIMUM_PLANNING_SPAWNS = 7
+if (WORKFLOW_CAP < MINIMUM_PLANNING_SPAWNS) {
+  return {
+    status: 'BLOCKED',
+    capped: true,
+    workflowSpawns,
+    workflowSpawnCap: WORKFLOW_CAP,
+    deferredDispatches,
+    reason: `ultra-plan needs at least ${MINIMUM_PLANNING_SPAWNS} total workflow slots, including mandatory config bootstrap, to preserve research, competing approaches, synthesis, and evaluator review`,
+    next: 'Raise only this invocation\'s configured workflow budget within the schema cap, or use the direct planning path for a narrower task.',
+  }
+}
 
 // Shared guards — appended to every prompt instead of repeating per agent.
 const NO_SKILL = 'Do NOT invoke Skill("planning") — this workflow owns the orchestration; READ the named guide only for format and conventions.'

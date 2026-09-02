@@ -20,6 +20,11 @@ Codex rejects plugin-defined `/verify` before plugin routing and skips command m
 both routes derive from `commands/`, and regression coverage protects paths and URLs from command-
 reference rewriting.
 
+Skill Improve now records a CC BY 4.0 adaptation from Rebelytics's
+`one-skill-to-rule-them-all` at commit `510caad26c907793e48306262af216ff9f71c9f7`, by Eoghan
+Henn: layered lifecycle activation, unprimed trigger trials and explicit follow-up dispositions
+were rewritten for the existing bounded two-mode harness.
+
 ## 1.16.0 — Hermes native package parity
 
 Hermes now has a generated `plugin.yaml`, a native `__init__.py` entrypoint, and a single derived

@@ -62,7 +62,14 @@ def standalone_command_refs(text: str, command_names: list[str]) -> list[str]:
     )
     refs: list[str] = []
     for match in pattern.finditer(text):
-        if match.group(1) == "(" and match.start() > 0 and text[match.start() - 1] == "]":
+        prefix = match.group(1)
+        slash_offset = match.start() + len(prefix)
+        left_context = text[max(0, slash_offset - 256):slash_offset]
+        if re.search(r"\]\s*(?:\(|:)\s*$", left_context):
+            continue
+        if prefix in {'"', "'"} and re.search(
+            r"(?:=|:|\{|\[|,)\s*[\"']$", left_context
+        ):
             continue
         refs.append(match.group("name"))
     return refs
@@ -78,6 +85,13 @@ def check_command_ref_rewrite(command_names: list[str]) -> None:
         "url": "https://example.test/verify",
         "query": "https://example.test/?next=/verify",
         "markdown_link": "[verification](/verify)",
+        "markdown_link_spaced": "[verification]( /verify )",
+        "markdown_reference": "[verification]: /verify",
+        "html_attribute": 'href="/verify"',
+        "html_attribute_spaced": 'href = "/verify"',
+        "jsx_attribute": 'href={"/verify"}',
+        "json_value": '{"path":"/verify"}',
+        "json_array_value": '{"paths":["/verify"]}',
         "windows_forward": "C:/verify",
         "windows_back": r"C:\verify",
     }

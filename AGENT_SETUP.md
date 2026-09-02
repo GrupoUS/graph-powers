@@ -1357,7 +1357,7 @@ bun "$PLUGIN/.github/check_codex_policy.mjs"
 python3 -X utf8 "$PLUGIN/.github/check_codex_native.py"
 ```
 
-The default split is Sol Max for judges/architects, Luna Max for executors/verifier and Luna Medium
+The default split is Sol Max for judges/architects, Terra High for executors/verifier and Luna Medium
 for scouts. A Claude family in either output, session inheritance for a canonical agent, or a
 native-companion/clone mismatch is a failure. `codex.profiles.*`, `codex.agents.*` and the legacy
 `codex.model`, `codex.models.*`, `codex.reasoningEffort` fields are clone-generation overrides;
