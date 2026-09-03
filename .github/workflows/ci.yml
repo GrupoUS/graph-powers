@@ -169,16 +169,16 @@ jobs:
           assert "hooks" not in plugin, "plugin.json duplicates the canonical hooks/hooks.json"
           commands = [h["command"] for arr in d.get("hooks", {}).values()
                       for m in arr for h in m["hooks"]]
-          assert len(commands) == 15, f"expected 15 native hook registrations, found {len(commands)}"
-          assert len(set(commands)) == 14, \
-              f"expected 14 scripts, with smart_bash_approver registered for two events, found {len(set(commands))}"
+          assert len(commands) == 16, f"expected 16 native hook registrations, found {len(commands)}"
+          assert len(set(commands)) == 15, \
+              f"expected 15 scripts, with smart_bash_approver registered for two events, found {len(set(commands))}"
           missing = [
               h["command"].split("/hooks/")[1].rstrip('"')
               for arr in d.get("hooks", {}).values() for m in arr for h in m["hooks"]
               if not os.path.exists("hooks/" + h["command"].split("/hooks/")[1].rstrip('"'))
           ]
           print("\n".join(f"MISSING: {m}" for m in missing)
-                or "15 native registrations cover 14 hook scripts; smart_bash_approver covers two events")
+                or "16 native registrations cover 15 hook scripts; smart_bash_approver covers two events")
           sys.exit(1 if missing else 0)
           PY
 
@@ -411,6 +411,8 @@ jobs:
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
           for relative in (
+              "hooks/_config.py",
+              "hooks/git_commit_gate.py",
               "skills/planning/SKILL.md",
               "skills/planning/references/phase-c-executing-plans.md",
               "skills/planning/references/execution/tdd-policy.md",
@@ -581,6 +583,8 @@ jobs:
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
           for relative in (
+              "hooks/_config.py",
+              "hooks/git_commit_gate.py",
               "skills/planning/SKILL.md",
               "skills/planning/references/phase-c-executing-plans.md",
               "skills/planning/references/execution/tdd-policy.md",

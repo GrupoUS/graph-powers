@@ -296,16 +296,19 @@ const GIT_RAILS =
   'the working tree.' + projectRules +
   ' After editing, run only a focused regression check for the files you changed. Never run the whole-project gate list; the workflow owns it once per round and once at the final boundary.'
 const ROOT_CAUSE = 'Name the exact root cause BEFORE patching (read ' + DBG_GUIDE + '; do NOT invoke a Skill). Fix the source, not the symptom; no "while I am here" scope creep.'
+const POSIX_PATH_SEPARATOR = '/'
+const packageRootFor = (file) => {
+  const [scope, name] = String(file).replaceAll('\\', POSIX_PATH_SEPARATOR).split(POSIX_PATH_SEPARATOR)
+  return (scope === 'apps' || scope === 'packages') && name ? [scope + '/' + name] : []
+}
 const turboGuidance = (changedFiles = []) => {
-  const roots = [...new Set((Array.isArray(changedFiles) ? changedFiles : []).flatMap((file) => {
-    const match = String(file).replaceAll('\\', '/').match(/^(apps|packages)\/([^/]+)(?:\/|$)/)
-    return match ? [`${match[1]}/${match[2]}`] : []
-  }))]
+  const roots = [...new Set((Array.isArray(changedFiles) ? changedFiles : []).flatMap(packageRootFor))]
   const concurrency = Math.max(1, Math.min(2, FIX_CAP))
   if (!roots.length) {
     return 'If a declared gate invokes Turborepo, inspect the returned changed paths first; use an evidence-backed --filter for actual package roots and --concurrency=1 or 2. Do not invent a filter or swap package managers.'
   }
-  return `If a declared gate invokes Turborepo, scope it to the changed package roots ${JSON.stringify(roots)} with ${roots.map((root) => `--filter=./${root}`).join(' ')} and --concurrency=${concurrency}. Do not run an unscoped monorepo gate or swap package managers.`
+  const filters = roots.map((root) => '--filter=./' + root).join(' ')
+  return `If a declared gate invokes Turborepo, scope it to the changed package roots ${JSON.stringify(roots)} with ${filters} and --concurrency=${concurrency}. Do not run an unscoped monorepo gate or swap package managers.`
 }
 const GATES = { type: 'object', required: ['allGreen', 'gates'], properties: {
   allGreen: { type: 'boolean' },
@@ -327,10 +330,12 @@ const hasRequirementEvidence = (items) => Array.isArray(items) && items.length >
 
 // Built-ins remain usable with an empty config: configured roots sharpen classification but never
 // decide whether a generic web/API/schema or user-input boundary exists at all.
+const surfaceMatch = (root, description) =>
+  (root ? 'any path under ' + root + '/, or ' : '') + description
 const BUILTIN_SURFACES = [
-  { name: 'web', match: `${paths.frontendRoot ? `any path under ${paths.frontendRoot}/, or ` : ''}any browser-facing UI, route, component, template, HTML, JSX or TSX file` },
-  { name: 'api', match: `${paths.backendRoot ? `any path under ${paths.backendRoot}/, or ` : ''}any HTTP, RPC, webhook, request handler or public service endpoint` },
-  { name: 'schema', match: `${paths.schemaRoot ? `any path under ${paths.schemaRoot}/, or ` : ''}any migration, database schema, policy or data-model definition` },
+  { name: 'web', match: surfaceMatch(paths.frontendRoot, 'any browser-facing UI, route, component, template, HTML, JSX or TSX file') },
+  { name: 'api', match: surfaceMatch(paths.backendRoot, 'any HTTP, RPC, webhook, request handler or public service endpoint') },
+  { name: 'schema', match: surfaceMatch(paths.schemaRoot, 'any migration, database schema, policy or data-model definition') },
   { name: 'userInput', match: 'any changed code that accepts, parses, renders, executes or persists user/client-controlled input' },
   { name: 'auth', match: 'any path matching /auth|session|webhook|rls|policy/' },
 ]
@@ -392,18 +397,39 @@ if (!completeScopeEvidence) {
   }
 }
 
-const normalizeChangedPath = (value) => String(value ?? '').replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, '').toLowerCase()
+const normalizeChangedPath = (value) => {
+  let path = String(value ?? '').replaceAll('\\', '/')
+  if (path.startsWith('./')) {
+    let start = 2
+    while (path[start] === '/') start++
+    path = path.slice(start)
+  }
+  while (path.endsWith('/')) path = path.slice(0, -1)
+  return path.toLowerCase()
+}
 const changedPaths = sc.changedFiles.map(normalizeChangedPath)
 const underConfiguredRoot = (root) => {
   const normalizedRoot = normalizeChangedPath(root)
   return !!normalizedRoot && changedPaths.some((file) => file === normalizedRoot || file.startsWith(`${normalizedRoot}/`))
 }
-const pathMatches = (pattern) => changedPaths.some((file) => pattern.test(file))
+const pathHasSegment = (file, names) => file.split(POSIX_PATH_SEPARATOR).some((segment) => names.includes(segment))
+const pathHasExtension = (file, extensions) => extensions.some((extension) => file.endsWith('.' + extension))
+const pathHasRouteFile = (file) => {
+  const basename = file.slice(file.lastIndexOf('/') + 1)
+  return ['route.', 'webhook.'].some((prefix) => basename.startsWith(prefix) && basename.length > prefix.length)
+}
+const pathMatches = (predicate) => changedPaths.some(predicate)
 const inferredBuiltins = {
-  web: underConfiguredRoot(paths.frontendRoot) || pathMatches(/(^|\/)(web|frontend|client|components?|pages?|templates?)(\/|$)|\.(html?|jsx|tsx|vue|svelte)$/),
-  api: underConfiguredRoot(paths.backendRoot) || pathMatches(/(^|\/)(api|backend|server|controllers?|handlers?)(\/|$)|(^|\/)(route|webhook)\.[^/]+$/),
-  schema: underConfiguredRoot(paths.schemaRoot) || pathMatches(/(^|\/)(migrations?|schema|database|prisma)(\/|$)|\.(sql|prisma)$/),
-  auth: pathMatches(/auth|session|webhook|rls|policy/),
+  web: underConfiguredRoot(paths.frontendRoot) || pathMatches((file) =>
+    pathHasSegment(file, ['web', 'frontend', 'client', 'component', 'components', 'page', 'pages', 'template', 'templates'])
+    || pathHasExtension(file, ['htm', 'html', 'jsx', 'tsx', 'vue', 'svelte'])),
+  api: underConfiguredRoot(paths.backendRoot) || pathMatches((file) =>
+    pathHasSegment(file, ['api', 'backend', 'server', 'controller', 'controllers', 'handler', 'handlers'])
+    || pathHasRouteFile(file)),
+  schema: underConfiguredRoot(paths.schemaRoot) || pathMatches((file) =>
+    pathHasSegment(file, ['migration', 'migrations', 'schema', 'database', 'prisma'])
+    || pathHasExtension(file, ['sql', 'prisma'])),
+  auth: pathMatches((file) => ['auth', 'session', 'webhook', 'rls', 'policy'].some((marker) => file.includes(marker))),
 }
 const contradictedSurfaces = Object.entries(inferredBuiltins)
   .filter(([name, inferred]) => inferred && touched[name] !== true)
@@ -542,7 +568,10 @@ const ALL_LENSES = [...BUILTIN_LENSES, ...(cfg.lenses ?? [])]
   .filter((l) => !l.when?.length || l.when.some((w) => touched[w]))
 const invalidLensAgents = ALL_LENSES.filter((l) => l.agent && !REVIEW_AGENTS.has(l.agent))
 if (invalidLensAgents.length) {
-  log(`unsupported lens agents folded into graph-powers:evaluator: ${invalidLensAgents.map((l) => `${l.name}->${l.agent}`).join(', ')}`)
+  const invalidLensSummary = invalidLensAgents
+    .map((lens) => String(lens.name) + '->' + String(lens.agent))
+    .join(', ')
+  log(`unsupported lens agents folded into graph-powers:evaluator: ${invalidLensSummary}`)
 }
 const trackByAgent = new Map()
 for (const lens of ALL_LENSES) {
@@ -586,8 +615,9 @@ const perfClause = perfParts.length
 const designClause = `
 DESIGN CONTRACT: semantic tokens only — flag every hardcoded color literal (\`#rgb\`/\`#rrggbb\`/\`rgb()\`/\`hsl()\`) introduced by this diff in ${JSON.stringify(sc.changedFiles)}. Check WCAG AA contrast on changed surfaces, keyboard focus visibility, reduced-motion support, and that loading/empty/error states still exist where the diff touched them. SEVERITY RULE: a color literal or a lost focus ring is P1; contrast below AA on text is P1; taste and spacing preferences are P3 and never justify a fix round.`
 const clauseFor = (l) => {
+  const checkLines = l.checks?.map((check) => '- ' + check).join('\n') ?? ''
   const projectChecks = l.checks?.length
-    ? `\nPROJECT CHECKS consolidated into this role — these are binding:\n${l.checks.map((c) => `- ${c}`).join('\n')}`
+    ? '\nPROJECT CHECKS consolidated into this role — these are binding:\n' + checkLines
     : ''
   if (l.agent === 'evaluator') return `${perfClause}${projectChecks}`
   if (l.agent === 'ui-ux-designer') return `${designClause}${projectChecks}`
@@ -643,9 +673,11 @@ REQUIREMENTS: Read every acceptance criterion and ## Verification step directly 
 Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it.${pass === 'final' && l.name === 'correctness' ? ' This is the one post-correction Evaluator boundary: also walk every requirement against the current diff and return items plus drift.' : ''} Read-only.${SCOPE_LOCK}`,
   { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: l.name === 'correctness' ? CORRECTNESS_SKEPTIC : SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
 ))
-// Reserve one grouped correction plus the final evaluator and final gates. The optional design
-// lens yields first; correctness and the required security lens remain ahead of it.
-let sk = (await boundedParallel(skMaker('init'), 3, 'initial adversarial review')).filter(Boolean)
+// Keep the post-correction Evaluator and final gates available if the initial panel finds work.
+// A clean panel needs neither boundary, so the optional design lens can use the remaining slot
+// within the cap-8 budget. If findings remain without correction capacity, the workflow reports
+// NEEDS-WORK instead of silently omitting a required correction.
+let sk = (await boundedParallel(skMaker('init'), 2, 'initial adversarial review')).filter(Boolean)
 unresolvedSignals.push(...malformedFindingSignalsFrom(sk, 'initial'))
 const returnedInitialLenses = new Set(sk.map((result) => result?.lens))
 for (const lens of lenses) {
@@ -756,6 +788,10 @@ let unsatisfiedReviews = []
 if (round > 0) {
   const finalSk = (await boundedParallel(skMaker('final'), 1, 'final adversarial confirmation')).filter(Boolean)
   unresolvedSignals.push(...malformedFindingSignalsFrom(finalSk, 'final'))
+  const returnedFinalLenses = new Set(finalSk.map((result) => result?.lens))
+  for (const lens of lenses) {
+    if (!returnedFinalLenses.has(lens.name)) unresolvedSignals.push(`final ${lens.name} review returned no evidence`)
+  }
   const finalCorrectness = finalSk.find((result) => result.lens === 'correctness')
   const finalRequirementIds = new Set((finalCorrectness?.items ?? []).map((item) => item?.id))
   const finalEvidenceComplete = hasRequirementEvidence(finalCorrectness?.items)
@@ -807,6 +843,16 @@ const hardOpen = workflowCapped || missing.length > 0 || blocked.length > 0 || d
   || unresolvedSignals.length > 0 || unsatisfiedReviews.length > 0
   || openFindings.some((finding) => finding.severity !== 'P2' && finding.severity !== 'P3')
 const verdict = totalOpen === 0 ? 'VERIFIED' : (g?.allGreen && !hardOpen ? 'VERIFIED-WITH-NOTES' : 'NEEDS-WORK')
+let next
+if (workflowCapped) {
+  next = 'Workflow dispatch cap reached. Review the completed and deferred evidence; narrow any follow-up instead of starting another automatic fan-out.'
+} else if (verdict === 'VERIFIED') {
+  next = 'Review the working tree. The workflow never commits; the caller decides.'
+} else {
+  let blockedSuffix = ''
+  if (blocked.length) blockedSuffix = ' (including the re-patch-capped items, which need manual root-cause work)'
+  next = 'Address the listed gaps and findings' + blockedSuffix + ', then re-run ultra-verify.'
+}
 return {
   verdict,
   rounds: round,
@@ -825,9 +871,5 @@ return {
   outOfScope, // real findings the panel raised past this plan's edge: reported, never fixed here
   drift,
   scope: scopeOut(),
-  next: workflowCapped
-    ? 'Workflow dispatch cap reached. Review the completed and deferred evidence; narrow any follow-up instead of starting another automatic fan-out.'
-    : verdict === 'VERIFIED'
-    ? 'Review the working tree. The workflow never commits; the caller decides.'
-    : `Address the listed gaps and findings${blocked.length ? ' (including the re-patch-capped items, which need manual root-cause work)' : ''}, then re-run ultra-verify.`,
+  next,
 }

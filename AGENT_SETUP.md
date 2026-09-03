@@ -915,11 +915,13 @@ Three things to get right, because they are the ones that go wrong quietly:
   the local packages first and never use a network fallback.
 
 **Leave `autoUpdate` alone unless the project asks otherwise.** At session start, at most once every
-twelve hours, a detached worker updates only the routes whose cache lifecycle it owns: Claude Code
-and the Codex **clone** fallback. Native Codex, Cursor and Grok are never replaced by this worker;
-update them in the foreground through their marketplace/client path, run the package verifier, and
-restart every process that loaded the old cache. Nothing waits on the network and nothing inside the
-project is touched. Do **not** add a second updater for a route already covered.
+twelve hours, a detached worker updates Claude Code and the Codex **native** route when it is
+installed. It fast-forwards the configured Git source, reinstalls the native plugin and regenerates
+the shared Codex companion roles; that is also the Desktop route when Desktop's app-server uses the
+same Codex home. The old Codex clone fallback remains available when no native plugin is present.
+Nothing waits on the network and nothing inside the project is touched. Do **not** add a second
+updater for a route already covered. A running Desktop process still needs a full quit/reopen after
+the cache changes.
 
 Write the group only to turn something off, and say why in the same breath:
 

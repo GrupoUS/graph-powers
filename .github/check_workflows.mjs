@@ -716,10 +716,24 @@ async function runSchedulingFixtures() {
       problems.push("SCHED ultra-verify: cap-8 non-clean fixture dispatched no grouped correction");
     if (!labels.includes("review:skeptic:final:correctness") || !labels.includes("gates:final"))
       problems.push(`SCHED ultra-verify: cap-8 non-clean fixture lost the final evaluator or final gates (${labels.join(", ")})`);
+    if (!run.result?.unresolvedSignals?.includes("final security-tenant-PII review returned no evidence") || run.result?.verdict !== "NEEDS-WORK")
+      problems.push("SCHED ultra-verify: omitted final security evidence must remain an explicit NEEDS-WORK result");
     if (!run.spawned.some((spawn) => spawn.agentType.endsWith(":security-reviewer")))
       problems.push("SECURITY ultra-verify: web-only fixture did not dispatch security-reviewer");
   } catch (error) {
     problems.push(`SCHED ultra-verify: cap-8 non-clean fixture threw ${error.message}`);
+  }
+
+  const cleanWebArgs = capabilityFixtureArgs("ultra-verify", "SUPPORTED");
+  cleanWebArgs.config.paths = { frontendRoot: "src" };
+  cleanWebArgs.config.commands = { test: "bun test" };
+  try {
+    const run = await dryRun(workflowBody("ultra-verify"), cleanWebArgs, { respond: cleanVerifyResponse });
+    const labels = run.spawned.map((spawn) => spawn.label);
+    if (run.result?.verdict !== "VERIFIED" || !labels.includes("review:skeptic:init:design-tokens-a11y"))
+      problems.push(`SCHED ultra-verify: clean web fixture skipped design or returned ${run.result?.verdict} (${labels.join(", ")})`);
+  } catch (error) {
+    problems.push(`SCHED ultra-verify: clean web fixture threw ${error.message}`);
   }
 
   const semanticCases = [
