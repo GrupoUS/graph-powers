@@ -27,8 +27,13 @@ EXPECTED_POLICY = {
     "librarian": ("scout", "gpt-5.6-luna", "medium"),
 }
 READ_ONLY_AGENTS = {
-    "evaluator", "security-reviewer", "skill-improver", "ui-ux-designer", "explorer",
-    "librarian", "verification",
+    "evaluator",
+    "security-reviewer",
+    "skill-improver",
+    "ui-ux-designer",
+    "explorer",
+    "librarian",
+    "verification",
 }
 
 root, project, scope = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -48,14 +53,27 @@ dupes = [entry for entry, n in collections.Counter(entries).items() if n > 1]
 assert not dupes, f"duplicate hook entries after a second install: {dupes}"
 assert any("/other/tool.mjs" in c for c in commands), "third-party hook was clobbered"
 hook_names = {
-    "auto_update", "branch_session_notice", "commit_audit_gate", "git_branch_gate",
-    "git_commit_gate", "git_push_gate", "graph_guardrails", "notify", "protect_files",
-    "session_context", "smart_bash_approver", "stop_verify", "tool_approver", "ultracite",
+    "auto_update",
+    "branch_session_notice",
+    "commit_audit_gate",
+    "git_branch_gate",
+    "git_commit_gate",
+    "git_push_gate",
+    "graph_guardrails",
+    "notify",
+    "protect_files",
+    "session_context",
+    "smart_bash_approver",
+    "stop_verify",
+    "subagent_context",
+    "tool_approver",
+    "ultracite",
 }
 ours = [c for c in commands if any(f"/hooks/{name}.py" in c for name in hook_names)]
-assert len(ours) == 15, f"expected 15 Graph Powers registrations, found {len(ours)}"
-assert {name for name in hook_names if any(f"/hooks/{name}.py" in c for c in ours)} == hook_names, \
+assert len(ours) == 16, f"expected 16 Graph Powers registrations, found {len(ours)}"
+assert {name for name in hook_names if any(f"/hooks/{name}.py" in c for c in ours)} == hook_names, (
     f"one of the {len(hook_names)} Graph Powers hook scripts is not registered"
+)
 
 agents = sorted(glob.glob(os.path.join(codex_home, "agents/*.toml")))
 assert agents, f"no Codex subagents generated under {codex_home}"
@@ -102,8 +120,12 @@ for path in agents:
             f"{path}: evaluator lost its explicit advisory leaf contract"
         )
     efforts.add(d.get("model_reasoning_effort"))
-assert found == set(EXPECTED_POLICY), f"expected exactly the 12 canonical agents, found {sorted(found)}"
-assert len(efforts) > 1, f"every subagent got the same reasoning effort ({efforts}) — frontmatter ignored"
+assert found == set(EXPECTED_POLICY), (
+    f"expected exactly the 12 canonical agents, found {sorted(found)}"
+)
+assert len(efforts) > 1, (
+    f"every subagent got the same reasoning effort ({efforts}) — frontmatter ignored"
+)
 
 # `${CLAUDE_PLUGIN_ROOT}` is a Claude Code variable. Codex never sets it, so a copy that still
 # carries it points at nothing: the reference reads as present and loads as empty.
@@ -117,18 +139,24 @@ for base in (skills_dir, codex_home):
                 leaked.append(path)
 assert not leaked, f"unresolved plugin-root placeholder in {len(leaked)} file(s): {leaked[:3]}"
 
-manifest_path = (os.path.join(codex_home, "graph-powers-installed.json") if scope == "user"
-                 else os.path.join(project, ".graph-powers/installed.json"))
+manifest_path = (
+    os.path.join(codex_home, "graph-powers-installed.json")
+    if scope == "user"
+    else os.path.join(project, ".graph-powers/installed.json")
+)
 with open(manifest_path, encoding="utf-8") as fh:
     manifest = json.load(fh)
 assert manifest.get("complete") is True, "the manifest does not record a finished install"
 assert manifest.get("paths"), "the manifest records no paths — removal would be a guess"
-assert not any(p.rstrip("/").endswith((".agents/skills", "skills")) for p in manifest["paths"]), \
+assert not any(p.rstrip("/").endswith((".agents/skills", "skills")) for p in manifest["paths"]), (
     "the manifest records a shared parent directory; removal would delete other tools' skills"
+)
 
 with open(os.path.join(project, "AGENTS.md"), encoding="utf-8") as fh:
     text = fh.read()
 assert text.count("graph-powers:start") == 1, "AGENTS.md block duplicated"
 
-print(f"{scope}: {len(agents)} subagents, {len(commands)} hook entries, "
-      f"{len(efforts)} distinct efforts, no placeholders, block idempotent")
+print(
+    f"{scope}: {len(agents)} subagents, {len(commands)} hook entries, "
+    f"{len(efforts)} distinct efforts, no placeholders, block idempotent"
+)

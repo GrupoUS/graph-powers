@@ -20,7 +20,7 @@ guardrail that delays every session start by a DNS lookup is a guardrail people 
 The worker asks the routes whose source and cache lifecycle it can safely own to update:
 
   Claude Code   claude plugin marketplace update <mp> && claude plugin update <plugin>@<mp>
-  Codex native  git -C <source> pull --ff-only, then reinstall and regenerate native companions
+  Codex native  codex plugin marketplace upgrade <mp>, then reinstall and regenerate companions
   Codex CLI     the stable clone fallback, only when no native plugin is installed
 
 The native Codex route updates the shared Codex home. Codex Desktop uses that same route when its
@@ -137,6 +137,47 @@ def settings(cfg: dict[str, typing.Any]) -> dict[str, typing.Any]:
     }
 
 
+def check_due(state: dict[str, typing.Any], interval_hours: int) -> bool:
+    last = state.get("lastCheck")
+    age = time.time() - last if isinstance(last, (int, float)) else None
+    return age is None or age > interval_hours * 3600
+
+
+def claim_check(interval_hours: int) -> bool:
+    """Atomically claim an update check so session and timer workers cannot race each other."""
+    path = state_path()
+    if path is None:
+        return True
+    lock = path.with_name("update-check.lock")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lock.touch(exist_ok=False)
+    except FileExistsError:
+        try:
+            stale_after = max(interval_hours * 3600, 60)
+            if time.time() - lock.stat().st_mtime <= stale_after:
+                return False
+            lock.unlink()
+            lock.touch(exist_ok=False)
+        except FileExistsError:
+            return False
+        except Exception:
+            return False
+    except Exception:
+        return check_due(read_state(), interval_hours)
+
+    try:
+        if not check_due(read_state(), interval_hours):
+            return False
+        write_state({"lastCheck": time.time()})
+        return True
+    finally:
+        try:
+            lock.unlink()
+        except Exception:
+            pass
+
+
 # ── the hook half: fast, and never on the network ────────────────────────────
 
 
@@ -179,16 +220,11 @@ def main() -> int:
     state = read_state()
     notice = announce(state)
 
-    if opts["enabled"]:
-        last = state.get("lastCheck")
-        age = time.time() - last if isinstance(last, (int, float)) else None
-        due = age is None or age > opts["intervalHours"] * 3600
-        if due:
-            # Recorded before the worker starts, not after. If the worker dies — no network, a
-            # laptop closing — the throttle still holds, and the next session does not retry
-            # immediately. A check that retries every session is a check that never backs off.
-            write_state({"lastCheck": time.time()})
-            spawn_worker(opts)
+    if opts["enabled"] and claim_check(opts["intervalHours"]):
+        # Recorded before the worker starts, not after. If the worker dies — no network, a
+        # laptop closing — the throttle still holds, and the next session does not retry
+        # immediately. A check that retries every session is a check that never backs off.
+        spawn_worker(opts)
 
     if notice:
         print(
@@ -251,8 +287,8 @@ def run(cmd: list[str], timeout: int = 180) -> tuple[int, str]:
         return 1, str(exc)
 
 
-def run_json(cmd: list[str], timeout: int = 180) -> tuple[int, dict[str, typing.Any]]:
-    """Run a JSON-producing command without mixing stderr warnings into the JSON stream."""
+def run_json(cmd: list[str], timeout: int = 180) -> tuple[int, dict[str, typing.Any] | None]:
+    """Run a JSON-producing command and preserve command or parse failures."""
     try:
         proc = subprocess.run(
             cmd,
@@ -265,10 +301,10 @@ def run_json(cmd: list[str], timeout: int = 180) -> tuple[int, dict[str, typing.
         try:
             payload = json.loads(proc.stdout.strip())
         except Exception:
-            payload = {}
-        return proc.returncode, payload if isinstance(payload, dict) else {}
+            return proc.returncode, None
+        return proc.returncode, payload if isinstance(payload, dict) else None
     except Exception:
-        return 1, {}
+        return 1, None
 
 
 def which(binary: str) -> bool:
@@ -353,23 +389,29 @@ def pull_clone(root: Path) -> tuple[bool, str]:
     return (before != after and bool(after)), after
 
 
-def codex_marketplace(binary: str) -> dict[str, typing.Any]:
+def codex_marketplace(binary: str) -> dict[str, typing.Any] | None:
     code, payload = run_json([binary, "plugin", "marketplace", "list", "--json"], timeout=60)
-    if code != 0:
-        return {}
-    for marketplace in payload.get("marketplaces", []):
+    if code != 0 or payload is None:
+        return None
+    marketplaces = payload.get("marketplaces")
+    if not isinstance(marketplaces, list):
+        return None
+    for marketplace in marketplaces:
         if isinstance(marketplace, dict) and marketplace.get("name") == MARKETPLACE:
             return marketplace
     return {}
 
 
-def codex_native_plugin(binary: str) -> dict[str, typing.Any]:
+def codex_native_plugin(binary: str) -> dict[str, typing.Any] | None:
     code, payload = run_json(
         [binary, "plugin", "list", "--marketplace", MARKETPLACE, "--json"], timeout=60
     )
-    if code != 0:
-        return {}
-    for plugin in payload.get("installed", []):
+    if code != 0 or payload is None:
+        return None
+    installed = payload.get("installed")
+    if not isinstance(installed, list):
+        return None
+    for plugin in installed:
         if isinstance(plugin, dict) and plugin.get("pluginId") == f"{PLUGIN}@{MARKETPLACE}":
             return plugin
     return {}
@@ -395,40 +437,60 @@ def git_head(root: Path | None) -> str:
     return output.strip() if code == 0 else ""
 
 
-def codex_source(binary: str) -> tuple[Path | None, str]:
+def codex_source(
+    binary: str, native_plugin: dict[str, typing.Any] | None = None
+) -> tuple[Path | None, str, str | None]:
     """Find the configured marketplace root, falling back to the clone install manifest."""
     marketplace = codex_marketplace(binary)
+    if marketplace is None:
+        return None, "", "Codex native marketplace query failed"
     source_meta = marketplace.get("marketplaceSource")
     source_type = source_meta.get("sourceType") if isinstance(source_meta, dict) else "local"
     root_value = marketplace.get("root")
-    if not root_value:
-        native = codex_native_plugin(binary)
-        source = native.get("source")
+    if not root_value and native_plugin is not None:
+        source = native_plugin.get("source")
         root_value = source.get("path") if isinstance(source, dict) else None
     if not root_value:
         root_value = codex_manifest().get("pluginRoot")
-    root = Path(str(root_value)) if root_value else None
-    return (root if root and root.is_dir() else None), str(source_type or "local")
+    normalized_source_type = str(source_type or "local")
+    if not root_value:
+        return None, normalized_source_type, "Codex native source is unavailable"
+    root = Path(str(root_value))
+    if not root.is_dir():
+        return None, normalized_source_type, "Codex native source is unavailable"
+    return root, normalized_source_type, None
 
 
 def refresh_codex_source(
     binary: str, root: Path | None, source_type: str
-) -> tuple[bool, str, Path | None]:
+) -> tuple[bool, str, Path | None, str | None]:
     """Refresh a local source or a Git marketplace, preserving dirty trees and branch choices."""
     before = git_head(root)
+    if root is not None and (source_type == "git" or before):
+        status_code, status = git(root, "status", "--porcelain")
+        if status_code != 0:
+            return False, before, root, "Codex native source is unavailable"
+        if status.strip():
+            return False, before, root, "Codex native source is dirty"
     if source_type == "git":
+        if root is None:
+            return False, before, None, "Codex native source is unavailable"
         code, _ = run(
             [binary, "plugin", "marketplace", "upgrade", MARKETPLACE, "--json"], timeout=300
         )
         if code != 0:
-            return False, before, root
-        refreshed_root, _ = codex_source(binary)
-        after = git_head(refreshed_root)
-        return bool(after and after != before), after or before, refreshed_root
+            return False, before, root, "Codex native source refresh failed"
+        after = git_head(root)
+        if not after:
+            return False, before, root, "Codex native source refresh failed"
+        status_code, status = git(root, "status", "--porcelain")
+        if status_code != 0 or status.strip():
+            return False, after, root, "Codex native source is dirty"
+        return after != before, after, root, None
     if root is not None and which("git"):
         moved, head = pull_clone(root)
-        return moved, head, root
-    return False, before, root
+        return moved, head, root, None
+    return False, before, root, None
 
 
 def generate_codex_companions(root: Path) -> bool:
@@ -442,7 +504,6 @@ def generate_codex_companions(root: Path) -> bool:
 
 
 def complete_codex_native_update(
-    binary: str,
     *,
     head: str,
     version_source: str,
@@ -451,24 +512,31 @@ def complete_codex_native_update(
     cache_ok: bool,
     agents_pending: bool,
     generation_ok: bool,
-) -> tuple[list[str], str]:
+) -> tuple[list[str], str, str | None]:
     notices: list[str] = []
+    failure: str | None = None
     if cache_needed and cache_ok:
-        after = codex_native_plugin(binary)
-        version_after = str(after.get("version") or version_source or version_before)
+        version_after = str(version_source or version_before)
         if generation_ok:
             notices.append(
                 f"Codex native/Desktop plugin {version_before or '?'} -> {version_after}"
             )
         else:
+            failure = "Codex native companion generation failed"
             notices.append(
                 f"Codex native/Desktop cache refreshed to {version_after}; companion agents pending"
             )
+            write_state({"lastResult": failure})
         version_before = version_after
-    elif agents_pending and generation_ok:
-        notices.append("Codex native/Desktop companion agents regenerated")
+    elif agents_pending:
+        if generation_ok:
+            notices.append("Codex native/Desktop companion agents regenerated")
+        else:
+            failure = "Codex native companion generation failed"
+            write_state({"lastResult": failure})
     elif cache_needed and not cache_ok:
-        write_state({"lastResult": "Codex native update failed"})
+        failure = "Codex native update failed"
+        write_state({"lastResult": failure})
 
     if not cache_needed or cache_ok:
         write_state(
@@ -478,21 +546,35 @@ def complete_codex_native_update(
                 "codexAgentsPending": not generation_ok,
             }
         )
-    return notices, version_before
+    return notices, version_before, failure
 
 
-def update_codex_native(binary: str) -> tuple[list[str], str]:
+def update_codex_native(
+    binary: str, native_before: dict[str, typing.Any] | None = None
+) -> tuple[list[str], str, str | None]:
     """Update the native Codex cache and its companion roles from the configured Git source."""
-    state = read_state()
-    native_before = codex_native_plugin(binary)
-    root, source_type = codex_source(binary)
-    version_before = str(native_before.get("version") or "")
-    if root is None:
-        return [], version_before
+    if native_before is None:
+        native_before = codex_native_plugin(binary)
+        if native_before is None:
+            failure = "Codex native inventory query failed"
+            write_state({"lastResult": failure})
+            return [], "", failure
 
-    moved, head, root = refresh_codex_source(binary, root, source_type)
+    state = read_state()
+    root, source_type, source_failure = codex_source(binary, native_before)
+    version_before = str(native_before.get("version") or "")
+    if source_failure:
+        write_state({"lastResult": source_failure})
+        return [], version_before, source_failure
     if root is None:
-        return [], version_before
+        return [], version_before, None
+
+    moved, head, root, refresh_failure = refresh_codex_source(binary, root, source_type)
+    if refresh_failure:
+        write_state({"lastResult": refresh_failure})
+        return [], version_before, refresh_failure
+    if root is None:
+        return [], version_before, None
     version_source = source_version(root)
     previous_head = str(state.get("codexSourceHead") or "")
     agents_pending = state.get("codexAgentsPending") is True
@@ -513,7 +595,6 @@ def update_codex_native(binary: str) -> tuple[list[str], str]:
         generation_ok = generate_codex_companions(root)
 
     return complete_codex_native_update(
-        binary,
         head=head,
         version_source=version_source,
         version_before=version_before,
@@ -529,6 +610,7 @@ def worker(*, claude_enabled: bool | None = None, codex_enabled: bool | None = N
     notices: list[str] = []
     codex_version = ""
     codex_changed = False
+    codex_failure: str | None = None
     should_update_claude = (
         os.environ.get("GRAPH_POWERS_UPDATE_CLAUDE") == "1"
         if claude_enabled is None
@@ -553,8 +635,10 @@ def worker(*, claude_enabled: bool | None = None, codex_enabled: bool | None = N
         binary = codex_command()
         if binary:
             native = codex_native_plugin(binary)
-            if native:
-                native_notices, codex_version = update_codex_native(binary)
+            if native is None:
+                codex_failure = "Codex native inventory query failed"
+            elif native:
+                native_notices, codex_version, codex_failure = update_codex_native(binary, native)
                 notices.extend(native_notices)
                 codex_changed = bool(native_notices)
             elif which("git"):
@@ -584,19 +668,20 @@ def worker(*, claude_enabled: bool | None = None, codex_enabled: bool | None = N
     after = registered_version()
     if notices or (before and after and before != after):
         version = codex_version if codex_changed else after or codex_version or "a newer version"
-        write_state(
-            {
-                "pendingNotice": (
-                    f"[graph-powers] updated to {version} "
-                    f"({'; '.join(notices) or 'plugin files replaced'}). "
-                    "Start a new session; fully quit and reopen ChatGPT Desktop if it was already open."
-                ),
-                "lastUpdate": time.time(),
-                "lastVersion": version,
-            }
-        )
+        update_state: dict[str, typing.Any] = {
+            "pendingNotice": (
+                f"[graph-powers] updated to {version} "
+                f"({'; '.join(notices) or 'plugin files replaced'}). "
+                "Start a new session; fully quit and reopen ChatGPT Desktop if it was already open."
+            ),
+            "lastUpdate": time.time(),
+            "lastVersion": version,
+        }
+        if codex_failure:
+            update_state["lastResult"] = codex_failure
+        write_state(update_state)
     else:
-        write_state({"lastResult": "no change"})
+        write_state({"lastResult": codex_failure or "no change"})
     return 0
 
 
@@ -604,6 +689,8 @@ def scheduled_worker() -> int:
     """Run the out-of-session worker only when the user-level switch permits it."""
     opts = settings(gp.load(payload={}))
     if not opts["enabled"]:
+        return 0
+    if not claim_check(opts["intervalHours"]):
         return 0
     return worker(claude_enabled=opts["claude"], codex_enabled=opts["codex"])
 

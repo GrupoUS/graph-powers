@@ -716,6 +716,8 @@ async function runSchedulingFixtures() {
       problems.push("SCHED ultra-verify: cap-8 non-clean fixture dispatched no grouped correction");
     if (!labels.includes("review:skeptic:final:correctness") || !labels.includes("gates:final"))
       problems.push(`SCHED ultra-verify: cap-8 non-clean fixture lost the final evaluator or final gates (${labels.join(", ")})`);
+    if (!run.result?.unresolvedSignals?.includes("final security-tenant-PII review returned no evidence") || run.result?.verdict !== "NEEDS-WORK")
+      problems.push("SCHED ultra-verify: omitted final security evidence must remain an explicit NEEDS-WORK result");
     if (!run.spawned.some((spawn) => spawn.agentType.endsWith(":security-reviewer")))
       problems.push("SECURITY ultra-verify: web-only fixture did not dispatch security-reviewer");
   } catch (error) {

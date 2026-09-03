@@ -461,11 +461,11 @@ At session start, at most once every twelve hours, a detached worker updates the
 own. A user-level scheduler can invoke the same worker between sessions when an installation needs
 to follow GitHub without waiting for a new task:
 
-| Harness                             | What runs                                                                                                                      | Applies                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| Claude Code                         | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers`                         | Next session start                             |
-| Codex native + Desktop shared route | `git pull --ff-only` on the configured source, `codex plugin add graph-powers@graph-powers`, then regenerate `~/.codex/agents` | Next Codex session or new Desktop conversation |
-| Codex CLI clone fallback            | `git pull --ff-only` on the clone, then regenerate — only when no native plugin is installed                                   | Next session start                             |
+| Harness                             | What runs                                                                                                                        | Applies                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Claude Code                         | `claude plugin marketplace update graph-powers`, then `claude plugin update graph-powers@graph-powers`                           | Next session start                                                       |
+| Codex native + Desktop shared route | `codex plugin marketplace upgrade graph-powers`, `codex plugin add graph-powers@graph-powers`, then regenerate `~/.codex/agents` | Next Codex session; fully quit and reopen Desktop if it was already open |
+| Codex CLI clone fallback            | `git pull --ff-only` on the clone, then regenerate — only when no native plugin is installed                                     | Next session start                                                       |
 
 The native Codex route also covers ChatGPT Desktop when its app-server uses the same Codex home.
 Updating disk does not reload an already-running process: start a new conversation, and fully quit

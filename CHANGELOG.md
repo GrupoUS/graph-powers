@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.19.1 — Safe native update retries
+
+Native Codex inventory and source failures now remain distinguishable from an absent plugin. Dirty sources are not mutated, companion-generation failures remain visible across retries, scheduled checks are throttled atomically, and the hook-count gates cover all declared registrations.
+
 ## 1.19.0 — GitHub-driven native Codex and Desktop updates
 
 The detached updater now follows the configured Git source for an installed native Codex plugin,

@@ -655,8 +655,7 @@ const outOfScopeFrom = (arr) => (arr ?? []).flatMap((s) => findingArray(s).filte
 // with it: the confirm pass can only clear a finding through the lens able to see it. `lensResolved`
 // is the same question asked defensively — a lens name that resolves to nothing is a finding nothing
 // can re-check, and one nothing can re-check stays OPEN. Unparseable never means clean.
-const findingsFrom = (arr) => (arr ?? []).flatMap((s) => findingArray(s).filter((f) => findingIsComplete(f) && f.inScope !== false).map((f) => ({
-  ...f,
+const findingsFrom = (arr) => (arr ?? []).flatMap((s) => findingArray(s).filter((f) => findingIsComplete(f) && f.inScope !== false).map((f) => Object.assign({}, f, {
   lens: s?.lens, lensResolved: KNOWN_LENS.has(s?.lens),
 })))
 const actionableFrom = (arr) => findingsFrom(arr).filter(actionable)
@@ -789,6 +788,10 @@ let unsatisfiedReviews = []
 if (round > 0) {
   const finalSk = (await boundedParallel(skMaker('final'), 1, 'final adversarial confirmation')).filter(Boolean)
   unresolvedSignals.push(...malformedFindingSignalsFrom(finalSk, 'final'))
+  const returnedFinalLenses = new Set(finalSk.map((result) => result?.lens))
+  for (const lens of lenses) {
+    if (!returnedFinalLenses.has(lens.name)) unresolvedSignals.push(`final ${lens.name} review returned no evidence`)
+  }
   const finalCorrectness = finalSk.find((result) => result.lens === 'correctness')
   const finalRequirementIds = new Set((finalCorrectness?.items ?? []).map((item) => item?.id))
   const finalEvidenceComplete = hasRequirementEvidence(finalCorrectness?.items)
