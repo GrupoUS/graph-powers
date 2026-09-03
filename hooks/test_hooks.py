@@ -3261,6 +3261,29 @@ def main() -> int:
     out2, _ = call_raw("auto_update", {"source": "startup"}, fresh, env={"HOME": str(upd_home)})
     check("...and not a second time", "9.9.9" in out2, False)
 
+    print("### Auto-update — scheduled workers pass the enabled routes")
+    scheduled_calls: list[dict] = []
+
+    def fake_scheduled_worker(**kwargs):
+        scheduled_calls.append(kwargs)
+        return 0
+
+    with (
+        patch.object(
+            auto_update_module,
+            "settings",
+            return_value={"enabled": True, "claude": True, "codex": True, "intervalHours": 12},
+        ),
+        patch.object(auto_update_module, "worker", side_effect=fake_scheduled_worker),
+    ):
+        scheduled_code = auto_update_module.scheduled_worker()
+    check("scheduled worker exits 0", scheduled_code, 0)
+    check(
+        "scheduled worker enables both update routes",
+        scheduled_calls,
+        [{"claude_enabled": True, "codex_enabled": True}],
+    )
+
     print("### Auto-update — native Codex and Desktop share the refreshed cache")
     native_home = Path(tempfile.mkdtemp(prefix="gp-native-home-"))
     native_codex = native_home / ".codex"

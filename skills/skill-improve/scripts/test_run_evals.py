@@ -55,9 +55,7 @@ def tagged_eval_doc() -> dict:
 class RunEvalsTests(unittest.TestCase):
     def test_mode_a_entry_precedes_the_preserved_blocker(self) -> None:
         entry = "skill-improve Mode A — skill-authoring: RED established by evidence"
-        preserved = Path(
-            ".claude/audit/skill-improve-proactivity/run-6/green/resp-pro-precreate-skill.txt"
-        ).read_text(encoding="utf-8")
+        preserved = "I’m blocked by a pre-existing permission constraint."
         synthetic = f"{entry}\n\n{preserved}"
 
         def first(response: str) -> str:

@@ -411,6 +411,8 @@ jobs:
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
           for relative in (
+              "hooks/_config.py",
+              "hooks/git_commit_gate.py",
               "skills/planning/SKILL.md",
               "skills/planning/references/phase-c-executing-plans.md",
               "skills/planning/references/execution/tdd-policy.md",
@@ -581,6 +583,8 @@ jobs:
           shutil.copy2(os.path.join(plugin, "hooks/hooks-cursor.json"),
                        os.path.join(root, "hooks/hooks-cursor.json"))
           for relative in (
+              "hooks/_config.py",
+              "hooks/git_commit_gate.py",
               "skills/planning/SKILL.md",
               "skills/planning/references/phase-c-executing-plans.md",
               "skills/planning/references/execution/tdd-policy.md",

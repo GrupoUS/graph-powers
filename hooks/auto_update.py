@@ -431,47 +431,28 @@ def refresh_codex_source(
     return False, before, root
 
 
-def update_codex_native(binary: str) -> tuple[list[str], str]:
-    """Update the native Codex cache and its companion roles from the configured Git source."""
-    state = read_state()
-    native_before = codex_native_plugin(binary)
-    root, source_type = codex_source(binary)
-    version_before = str(native_before.get("version") or "")
-    if root is None:
-        return [], version_before
+def generate_codex_companions(root: Path) -> bool:
+    runtime = runtime_command()
+    home = codex_home()
+    generator = root / "codex/native-plugin.mjs"
+    if not runtime or home is None or not generator.is_file():
+        return False
+    generation_code, _ = run([runtime, str(generator), "--out", str(home / "agents")], timeout=300)
+    return generation_code == 0
 
-    moved, head, root = refresh_codex_source(binary, root, source_type)
-    if root is None:
-        return [], version_before
-    version_source = source_version(root)
-    previous_head = str(state.get("codexSourceHead") or "")
-    agents_pending = state.get("codexAgentsPending") is True
-    source_changed = moved or bool(previous_head and head and previous_head != head)
-    cache_needed = (
-        not native_before
-        or source_changed
-        or (bool(version_source) and version_source != version_before)
-    )
+
+def complete_codex_native_update(
+    binary: str,
+    *,
+    head: str,
+    version_source: str,
+    version_before: str,
+    cache_needed: bool,
+    cache_ok: bool,
+    agents_pending: bool,
+    generation_ok: bool,
+) -> tuple[list[str], str]:
     notices: list[str] = []
-    cache_ok = True
-
-    if cache_needed:
-        code, _ = run([binary, "plugin", "add", f"{PLUGIN}@{MARKETPLACE}", "--json"], timeout=300)
-        cache_ok = code == 0
-
-    generation_ok = not agents_pending and not cache_needed
-    if cache_ok and (cache_needed or agents_pending):
-        runtime = runtime_command()
-        home = codex_home()
-        generator = root / "codex/native-plugin.mjs"
-        if runtime and home is not None and generator.is_file():
-            generation_code, _ = run(
-                [runtime, str(generator), "--out", str(home / "agents")], timeout=300
-            )
-            generation_ok = generation_code == 0
-        else:
-            generation_ok = False
-
     if cache_needed and cache_ok:
         after = codex_native_plugin(binary)
         version_after = str(after.get("version") or version_source or version_before)
@@ -500,13 +481,66 @@ def update_codex_native(binary: str) -> tuple[list[str], str]:
     return notices, version_before
 
 
-def worker() -> int:
+def update_codex_native(binary: str) -> tuple[list[str], str]:
+    """Update the native Codex cache and its companion roles from the configured Git source."""
+    state = read_state()
+    native_before = codex_native_plugin(binary)
+    root, source_type = codex_source(binary)
+    version_before = str(native_before.get("version") or "")
+    if root is None:
+        return [], version_before
+
+    moved, head, root = refresh_codex_source(binary, root, source_type)
+    if root is None:
+        return [], version_before
+    version_source = source_version(root)
+    previous_head = str(state.get("codexSourceHead") or "")
+    agents_pending = state.get("codexAgentsPending") is True
+    source_changed = moved or bool(previous_head and head and previous_head != head)
+    cache_needed = (
+        not native_before
+        or source_changed
+        or (bool(version_source) and version_source != version_before)
+    )
+    cache_ok = True
+
+    if cache_needed:
+        code, _ = run([binary, "plugin", "add", f"{PLUGIN}@{MARKETPLACE}", "--json"], timeout=300)
+        cache_ok = code == 0
+
+    generation_ok = not agents_pending and not cache_needed
+    if cache_ok and (cache_needed or agents_pending):
+        generation_ok = generate_codex_companions(root)
+
+    return complete_codex_native_update(
+        binary,
+        head=head,
+        version_source=version_source,
+        version_before=version_before,
+        cache_needed=cache_needed,
+        cache_ok=cache_ok,
+        agents_pending=agents_pending,
+        generation_ok=generation_ok,
+    )
+
+
+def worker(*, claude_enabled: bool | None = None, codex_enabled: bool | None = None) -> int:
     before = registered_version()
     notices: list[str] = []
     codex_version = ""
     codex_changed = False
+    should_update_claude = (
+        os.environ.get("GRAPH_POWERS_UPDATE_CLAUDE") == "1"
+        if claude_enabled is None
+        else claude_enabled
+    )
+    should_update_codex = (
+        os.environ.get("GRAPH_POWERS_UPDATE_CODEX") == "1"
+        if codex_enabled is None
+        else codex_enabled
+    )
 
-    if os.environ.get("GRAPH_POWERS_UPDATE_CLAUDE") == "1" and which("claude"):
+    if should_update_claude and which("claude"):
         run(["claude", "plugin", "marketplace", "update", MARKETPLACE])
         # The qualified `<plugin>@<marketplace>` form, because the bare name is not found — and
         # the command exits 0 when it fails, so nothing downstream may trust its exit code.
@@ -515,7 +549,7 @@ def worker() -> int:
         if before and after_claude and after_claude != before:
             notices.append(f"Claude Code plugin {before} -> {after_claude}")
 
-    if os.environ.get("GRAPH_POWERS_UPDATE_CODEX") == "1":
+    if should_update_codex:
         binary = codex_command()
         if binary:
             native = codex_native_plugin(binary)
@@ -568,9 +602,10 @@ def worker() -> int:
 
 def scheduled_worker() -> int:
     """Run the out-of-session worker only when the user-level switch permits it."""
-    if not settings(gp.load(payload={}))["enabled"]:
+    opts = settings(gp.load(payload={}))
+    if not opts["enabled"]:
         return 0
-    return worker()
+    return worker(claude_enabled=opts["claude"], codex_enabled=opts["codex"])
 
 
 if __name__ == "__main__":
