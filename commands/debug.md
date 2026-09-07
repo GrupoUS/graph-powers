@@ -8,8 +8,7 @@ workflow_type: routing
 **ARGUMENTS**: $ARGUMENTS
 
 > **Read before step 0 — never reconstruct these from memory:** `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`
-> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/040-wisc-context-load.md` · `${CLAUDE_PLUGIN_ROOT}/references/shared/120-skill-invocation-order.md`
 
 > First positional arg = mode. Examples:
 > ```
@@ -113,13 +112,12 @@ Per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
 
 **L1-L2 — Direct fix.** Read file → identify root cause → apply minimal fix → run gates.
 
-**L3 — Single agent.** Spawn 1 `graph-powers:explorer` (foreground): investigate root cause, return a findings
+**L3 — Single agent.** Only for L3, read `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`; spawn 1 `graph-powers:explorer` (background): investigate root cause, return a findings
 table with file:line. Read-only **by frontmatter, not by instruction** — a prompt saying "do not
 fix" is a request, not a permission, and the bug catalogue records the review agent that reverted
 80 lines of the diff it was reviewing. Fixing is a separate dispatch, after the root cause is named.
 
-**L4-L5 — Parallel agents.** Follow
-`${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, then dispatch templates
+**L4-L5 — Parallel agents.** Only for L4-L5, read `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`, then dispatch templates
 **B (Code Archaeologist)** and **C (Regression Hunter)** in one message from
 `${CLAUDE_PLUGIN_ROOT}/skills/debugger/references/pack-guides.md`. Use them verbatim — they carry
 the shared return contract and the read-only-by-frontmatter rule that a prose "do not fix" does not.
@@ -430,4 +428,4 @@ The triggers that send you back to Step 1, and the ≥3-attempt architecture rul
 
 ## 8. Auto mode
 
-If `auto` token in `$ARGUMENTS`: complete default flow (§ 1), then run AutoResearch Loop per `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` on skills used in this session.
+If `auto` token in `$ARGUMENTS`: complete default flow (§ 1), then read `${CLAUDE_PLUGIN_ROOT}/references/shared/100-autoresearch-loop.md` and run its AutoResearch Loop on skills used in this session.

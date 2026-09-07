@@ -42,9 +42,10 @@ be made in two files of this repository, the repository is reproducing the probl
    `opus`-pinned `frontend-specialist` implemented on `sonnet`; `.github/check_workflows.mjs`
    fails the omission and any upgrade of a light agent. An `Agent` spawn does read it, so a
    `model:` passed at the spawn site only overrides what was already right — do not pass one.
-7. **Four harnesses, one source.** Anything Codex, Cursor or Grok needs is *generated* from the
-   artefacts that already exist for Claude Code (`codex/install.mjs`, `cursor/install.mjs`,
-   `grok/install.mjs`). A second hand-maintained list is the divergence this repository exists
+7. **Five clients, one canonical source with client projections.** Codex, Cursor and Grok use generated
+   projections from Claude artefacts (`codex/install.mjs`, `cursor/install.mjs`, `grok/install.mjs`);
+   Hermes derives native registrations and its manifest through `hermes/install.mjs`. A second
+   hand-maintained list is the divergence this repository exists
    to end. Cursor has no PermissionRequest, Notification or SubagentStart; those are skipped, not
    rewritten. Grok reads `hooks/hooks.json` unchanged — do not invent `hooks-grok.json`. Payload
    shape differences (camelCase, `run_terminal_command`) are adapted in `_config.py`.

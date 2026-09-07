@@ -41,8 +41,13 @@ EXPECTED_TOP_LEVEL_PROFILES = {
     "native-ultra": ["gpt-5.6-sol", "ultra"],
 }
 READ_ONLY_AGENTS = {
-    "evaluator", "security-reviewer", "skill-improver", "ui-ux-designer", "explorer",
-    "librarian", "verification",
+    "evaluator",
+    "security-reviewer",
+    "skill-improver",
+    "ui-ux-designer",
+    "explorer",
+    "librarian",
+    "verification",
 }
 
 
@@ -51,6 +56,14 @@ def load(path: Path) -> dict:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
+
+
+def snapshot_tree(path: Path) -> dict[str, bytes]:
+    return {
+        child.relative_to(path).as_posix(): child.read_bytes()
+        for child in path.rglob("*")
+        if child.is_file()
+    }
 
 
 def standalone_command_refs(text: str, command_names: list[str]) -> list[str]:
@@ -64,12 +77,10 @@ def standalone_command_refs(text: str, command_names: list[str]) -> list[str]:
     for match in pattern.finditer(text):
         prefix = match.group(1)
         slash_offset = match.start() + len(prefix)
-        left_context = text[max(0, slash_offset - 256):slash_offset]
+        left_context = text[max(0, slash_offset - 256) : slash_offset]
         if re.search(r"\]\s*(?:\(|:)\s*$", left_context):
             continue
-        if prefix in {'"', "'"} and re.search(
-            r"(?:=|:|\{|\[|,)\s*[\"']$", left_context
-        ):
+        if prefix in {'"', "'"} and re.search(r"(?:=|:|\{|\[|,)\s*[\"']$", left_context):
             continue
         refs.append(match.group("name"))
     return refs
@@ -128,7 +139,9 @@ process.stdout.write(JSON.stringify(Object.fromEntries(
         raise AssertionError(f"Codex command rewrite probe failed: {rendered.stderr.strip()}")
     actual = json.loads(rendered.stdout)
     if actual != expected:
-        raise AssertionError(f"Codex command rewrite changed a path/URL or missed a token: {actual}")
+        raise AssertionError(
+            f"Codex command rewrite changed a path/URL or missed a token: {actual}"
+        )
 
 
 def check_codex_command_skills() -> None:
@@ -137,7 +150,9 @@ def check_codex_command_skills() -> None:
     check_command_ref_rewrite(command_names)
 
     native_root = ROOT / "codex/native-command-skills"
-    native_paths = sorted(path.relative_to(native_root).as_posix() for path in native_root.rglob("SKILL.md"))
+    native_paths = sorted(
+        path.relative_to(native_root).as_posix() for path in native_root.rglob("SKILL.md")
+    )
     expected_native_paths = [f"{name}/SKILL.md" for name in command_names]
     if native_paths != expected_native_paths:
         raise AssertionError(
@@ -151,7 +166,9 @@ def check_codex_command_skills() -> None:
         if f"${{CLAUDE_PLUGIN_ROOT}}/commands/{name}.md" not in body:
             raise AssertionError(f"{path.relative_to(ROOT)} does not route to its source command")
         if "$ARGUMENTS" in body:
-            raise AssertionError(f"{path.relative_to(ROOT)} reintroduced rejected command templates")
+            raise AssertionError(
+                f"{path.relative_to(ROOT)} reintroduced rejected command templates"
+            )
 
     with TemporaryDirectory(prefix="graph-powers-command-skills-") as raw:
         fixture = Path(raw)
@@ -176,9 +193,7 @@ install({
             encoding="utf-8",
         )
         if generated.returncode != 0:
-            raise AssertionError(
-                f"Codex command-skill fixture failed: {generated.stderr.strip()}"
-            )
+            raise AssertionError(f"Codex command-skill fixture failed: {generated.stderr.strip()}")
 
         for name in command_names:
             path = fixture / ".agents/skills" / f"graph-powers-{name}" / "SKILL.md"
@@ -199,9 +214,9 @@ install({
                 raise AssertionError(
                     f"{path.relative_to(fixture)} does not advertise the Codex /skills picker"
                 )
-        debug_body = (
-            fixture / ".agents/skills/graph-powers-debug/SKILL.md"
-        ).read_text(encoding="utf-8")
+        debug_body = (fixture / ".agents/skills/graph-powers-debug/SKILL.md").read_text(
+            encoding="utf-8"
+        )
         if "/commands/pr-review.md" not in debug_body or "$graph-powers-pr-review.md" in debug_body:
             raise AssertionError("Codex command rewrite corrupted a command-document path")
 
@@ -311,8 +326,7 @@ install({
                 )
                 if result.returncode != 0:
                     raise AssertionError(
-                        f"Codex {scope} SDD {' '.join(command[:2])} failed: "
-                        f"{result.stderr.strip()}"
+                        f"Codex {scope} SDD {' '.join(command[:2])} failed: {result.stderr.strip()}"
                     )
                 results.append(result)
             if json.loads(results[-1].stdout).get("status") != "RESERVED":
@@ -370,7 +384,9 @@ def main() -> int:
         return 1
 
     if native_plugin.get("hooks") != "./hooks/hooks.json":
-        print("::error::.codex-plugin/plugin.json must point at hooks/hooks.json, not a second list")
+        print(
+            "::error::.codex-plugin/plugin.json must point at hooks/hooks.json, not a second list"
+        )
         return 1
     if native_plugin.get("skills") != ["./skills/", "./codex/native-command-skills/"]:
         print("::error::.codex-plugin/plugin.json must expose canonical and command skill roots")
@@ -402,8 +418,7 @@ def main() -> int:
             encoding="utf-8",
         )
         companion_files = {
-            path.name: path.read_text(encoding="utf-8")
-            for path in companion_dir.glob("*.toml")
+            path.name: path.read_text(encoding="utf-8") for path in companion_dir.glob("*.toml")
         }
         if first_companion.returncode != 0 or set(companion_files) != {
             f"{name}.toml" for name in EXPECTED_POLICY
@@ -416,11 +431,12 @@ def main() -> int:
             print(f"::error::native companion roles retain Claude-only paths: {leaked}")
             return 1
         missing_root = [
-            name for name, body in companion_files.items()
-            if str(ROOT / "references") not in body
+            name for name, body in companion_files.items() if str(ROOT / "references") not in body
         ]
         if missing_root:
-            print(f"::error::native companion roles did not resolve plugin references: {missing_root}")
+            print(
+                f"::error::native companion roles did not resolve plugin references: {missing_root}"
+            )
             return 1
         second_companion = subprocess.run(
             companion_command,
@@ -430,13 +446,186 @@ def main() -> int:
             encoding="utf-8",
         )
         regenerated_companion = {
-            path.name: path.read_text(encoding="utf-8")
-            for path in companion_dir.glob("*.toml")
+            path.name: path.read_text(encoding="utf-8") for path in companion_dir.glob("*.toml")
         }
         if second_companion.returncode != 0 or companion_files != regenerated_companion:
             print(second_companion.stderr)
             print("::error::native companion role regeneration is not idempotent")
             return 1
+
+        custom_dir = Path(tmp) / "custom-agents"
+        custom_command = [
+            "bun",
+            "codex/native-plugin.mjs",
+            "--models",
+            "standard=gpt-5.5",
+            "--out",
+            str(custom_dir),
+        ]
+        custom = subprocess.run(
+            custom_command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        evaluator_path = custom_dir / "evaluator.toml"
+        if (
+            custom.returncode != 0
+            or tomllib.loads(evaluator_path.read_text(encoding="utf-8")).get("model") != "gpt-5.5"
+        ):
+            print(custom.stderr)
+            print("::error::native companion explicit model override was not emitted")
+            return 1
+        evaluator_path.write_text(
+            'name = "evaluator"\ndescription = ""\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n'
+            "developer_instructions = '''\nstale instructions\n'''\n",
+            encoding="utf-8",
+        )
+        ordinary = subprocess.run(
+            ["bun", "codex/native-plugin.mjs", "--out", str(custom_dir)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        refreshed = evaluator_path.read_text(encoding="utf-8")
+        refreshed_values = tomllib.loads(refreshed)
+        if (
+            ordinary.returncode != 0
+            or (
+                refreshed_values.get("model"),
+                refreshed_values.get("model_reasoning_effort"),
+            )
+            != ("gpt-5.5", "high")
+            or "stale instructions" in refreshed
+        ):
+            print(ordinary.stderr)
+            print("::error::native companion refresh did not preserve model or update instructions")
+            return 1
+
+        explicit = subprocess.run(
+            [
+                "bun",
+                "codex/native-plugin.mjs",
+                "--models",
+                "standard=gpt-5.6-luna",
+                "--out",
+                str(custom_dir),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        if (
+            explicit.returncode != 0
+            or tomllib.loads(evaluator_path.read_text(encoding="utf-8")).get("model")
+            != "gpt-5.6-luna"
+        ):
+            print(explicit.stderr)
+            print("::error::native companion explicit override did not beat saved model")
+            return 1
+
+        config_path = Path(tmp) / "explicit-model.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "evaluator": {
+                            "model": "gpt-5.6-terra",
+                            "reasoningEffort": "high",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        configured = subprocess.run(
+            [
+                "bun",
+                "codex/native-plugin.mjs",
+                "--config",
+                str(config_path),
+                "--out",
+                str(custom_dir),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+        )
+        config_values = tomllib.loads(evaluator_path.read_text(encoding="utf-8"))
+        if configured.returncode != 0 or (
+            config_values.get("model"),
+            config_values.get("model_reasoning_effort"),
+        ) != ("gpt-5.6-terra", "high"):
+            print(configured.stderr)
+            print("::error::native companion config override did not beat saved model")
+            return 1
+
+        invalid_header = 'name = "evaluator"\ndescription = ""\n'
+        invalid_instructions = "developer_instructions = '''\nignored\n'''\n"
+        for name, invalid in (
+            (
+                "unsupported-model",
+                'model = "claude-opus"\nmodel_reasoning_effort = "max"\n',
+            ),
+            (
+                "unsupported-effort",
+                'model = "gpt-5.5"\nmodel_reasoning_effort = "ultra"\n',
+            ),
+            (
+                "escaped-model",
+                'model = "gpt-\\q"\nmodel_reasoning_effort = "max"\n',
+            ),
+            (
+                "json-only-slash-escape",
+                'model = "gpt-\\/provider"\nmodel_reasoning_effort = "max"\n',
+            ),
+            (
+                "duplicate-model",
+                'model = "gpt-5.5"\n model = "gpt-5.6-terra"\nmodel_reasoning_effort = "max"\n',
+            ),
+            (
+                "quoted-duplicate",
+                '"model" = "gpt-5.5"\nmodel = "gpt-5.6-terra"\nmodel_reasoning_effort = "max"\n',
+            ),
+            (
+                "multiline-fake-model",
+                'description = """\nmodel = "gpt-5.5"\n"""\nmodel_reasoning_effort = "max"\n',
+            ),
+            ("malformed", 'model = "gpt-5.5"\n'),
+        ):
+            failure_dir = Path(tmp) / f"{name}-agents"
+            seeded = subprocess.run(
+                [*companion_command[:-1], str(failure_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                encoding="utf-8",
+            )
+            if seeded.returncode != 0:
+                print(seeded.stderr)
+                print("::error::native companion failure fixture was not seeded")
+                return 1
+            header = 'name = "evaluator"\n' if name == "multiline-fake-model" else invalid_header
+            (failure_dir / "evaluator.toml").write_text(
+                header + invalid + invalid_instructions, encoding="utf-8"
+            )
+            before_failure = snapshot_tree(failure_dir)
+            failed = subprocess.run(
+                ["bun", "codex/native-plugin.mjs", "--out", str(failure_dir)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                encoding="utf-8",
+            )
+            if failed.returncode == 0 or snapshot_tree(failure_dir) != before_failure:
+                print(failed.stderr)
+                print(f"::error::native companion {name} input changed output")
+                return 1
 
         ultra_command = [
             "bun",
@@ -627,11 +816,12 @@ process.stdout.write(JSON.stringify({
     errors = 0
     expected = set(data["agents"])
     tracked = {
-        p.name for p in native_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in {".md", ".toml"}
+        p.name for p in native_dir.iterdir() if p.is_file() and p.suffix.lower() in {".md", ".toml"}
     }
     if expected != tracked:
-        print(f"::error::codex/native-agents file set mismatch: expected {sorted(expected)}, got {sorted(tracked)}")
+        print(
+            f"::error::codex/native-agents file set mismatch: expected {sorted(expected)}, got {sorted(tracked)}"
+        )
         errors += 1
 
     for name, body in data["agents"].items():
@@ -652,14 +842,21 @@ process.stdout.write(JSON.stringify({
             assert_native_policy(agent_name, native, path)
             clone = tomllib.loads(data["cloneAgents"][name])
             native_profile, native_model, native_effort = EXPECTED_POLICY[agent_name]
-            if clone.get("model") != native_model or clone.get("model_reasoning_effort") != native_effort:
+            if (
+                clone.get("model") != native_model
+                or clone.get("model_reasoning_effort") != native_effort
+            ):
                 raise AssertionError(
                     f"{path.relative_to(ROOT)}: native-companion/clone mismatch for {agent_name} "
                     f"({native_profile}): native={native_model}/{native_effort}, "
                     f"clone={clone.get('model')}/{clone.get('model_reasoning_effort')}"
                 )
-            native_read_only = "Graph Powers read-only intent:" in (native.get("developer_instructions") or "")
-            clone_read_only = "Graph Powers read-only intent:" in (clone.get("developer_instructions") or "")
+            native_read_only = "Graph Powers read-only intent:" in (
+                native.get("developer_instructions") or ""
+            )
+            clone_read_only = "Graph Powers read-only intent:" in (
+                clone.get("developer_instructions") or ""
+            )
             if clone_read_only != native_read_only:
                 raise AssertionError(
                     f"{path.relative_to(ROOT)}: native-companion/clone read-only intent mismatch for {agent_name}"
@@ -673,7 +870,9 @@ process.stdout.write(JSON.stringify({
         print("::error::no agents/*.md to generate from")
         return 1
     if len(source_agents) != len(data["agents"]):
-        print(f"::error::native companion count {len(data['agents'])} != source {len(source_agents)}")
+        print(
+            f"::error::native companion count {len(data['agents'])} != source {len(source_agents)}"
+        )
         errors += 1
 
     if generated.returncode != 0:

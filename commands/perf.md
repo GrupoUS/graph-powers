@@ -61,7 +61,7 @@ First positional token of `$ARGUMENTS`. Everything after it is `key=value` (`url
 | `db` / `database` | § 4 | pool, N+1, `select *`, index gaps, prepared statements |
 | `seo` | § 5 | `seo-geo-baseline` pack |
 | `sec` / `security` | § 5 | `security-baseline` pack |
-| `resources` / `hooks` / `tests` | § 6 | hook, test-runner and verification resource audit |
+| `resources` / `hooks` / `tests` | § 2.0 | hook, test-runner and verification resource audit |
 
 ---
 

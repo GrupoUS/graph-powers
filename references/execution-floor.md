@@ -8,11 +8,12 @@ It is a floor, not a menu. What is below holds whatever the task is and whicheve
 running. Where a rule already has a single owner under `references/shared/`, this file names the
 owner instead of restating it: a second copy of a number is how two files stop agreeing.
 
-**Four harnesses, one source.** Claude Code reads it at
+**Five clients, one canonical source with client projections.** Claude Code reads it at
 `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md`; Codex reads the copy the installer writes
 into its own harness directory, named in the delimited block of the project's `AGENTS.md`. Cursor
 reads the plugin copy through `.cursor-plugin/`. Grok reads the same plugin copy through
-`.grok-plugin/`, which points at `hooks/hooks.json`. Same bytes.
+`.grok-plugin/`, which points at `hooks/hooks.json`. Hermes exposes the translated method through
+its native skill adapter and registrations derived from the clone; projections need not be byte-identical.
 
 **Subagents do not inherit it.** A subagent starts with its own prompt plus the `SubagentStart`
 ladder line, nothing else, exactly as `safety-floor.md` describes. What an agent needs from here is §4's return contract, mirrored into its

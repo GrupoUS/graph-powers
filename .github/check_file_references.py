@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 
 REFERENCE_RE = re.compile(
     r"(?<![\w${./-])"
+    r"(?:(?:\./|\.\./)+)?"
     r"(?:references?|scripts|hooks|schema|templates|agents|commands|skills|codex|cursor|grok|hermes|workflows)"
     r"/[A-Za-z0-9._/-]+\.(?:md|py|json|mjs|js|txt)"
 )
@@ -39,8 +40,11 @@ def is_historical(relative: PurePosixPath) -> bool:
 
 
 def is_runtime_record(relative: PurePosixPath) -> bool:
-    """Runtime logs describe local sessions and are not part of the repository contract."""
-    return relative.parts[:2] == (".graph-powers", "logs")
+    """Known generated Graph Powers output is not part of the repository contract."""
+    return relative.parts[:2] in {
+        (".graph-powers", "logs"),
+        (".graph-powers", "codex-native"),
+    }
 
 
 def tracked_files(root: Path) -> set[PurePosixPath] | None:
@@ -67,6 +71,13 @@ def candidates(root: Path, source: Path, reference: str) -> tuple[Path, ...]:
     """The established root-, owner-, parent- and grandparent-relative resolution order."""
     portable = Path(*PurePosixPath(reference).parts)
     owner = source.parent
+    if reference.startswith(("./", "../")):
+        candidate = (owner / portable).resolve()
+        try:
+            candidate.relative_to(root.resolve())
+        except ValueError:
+            return ()
+        return (candidate,)
     return (root / portable, owner / portable, owner.parent / portable, owner.parent.parent / portable)
 
 

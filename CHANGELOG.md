@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.2 — Installer, routing and validation corrections
+
+Installer validation now rejects invalid operations before side effects, preserves adopted rules,
+repairs incomplete companions, and keeps active Codex-home references correct. Native refreshes
+preserve canonical manual model and effort scalars without rewriting malformed output.
+
+Validation now covers dot-relative live references and trigger-eval capture in CI. Debug routing
+loads assignment, spawn and autoresearch material only on the branches that use it, reducing its
+context floor by 7,129 B.
+
 ## 1.19.1 — Safe native update retries
 
 Native Codex inventory and source failures now remain distinguishable from an absent plugin. Dirty sources are not mutated, companion-generation failures remain visible across retries, scheduled checks are throttled atomically, and the hook-count gates cover all declared registrations.

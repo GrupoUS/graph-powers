@@ -81,12 +81,10 @@ Keep the whole return **under 2000 tokens** (`rules/execution.md § Agent Qualit
 
 Return the canonical Context Handoff from `../skills/senior-prompt-engineer/references/agent-handoff-contracts.md`.
 
-**You will not receive the injected handoff template.** `~/.claude/settings.json` gates the
-`SubagentStart` hook on an explicit name matcher (`debugger|evaluator|explorer|…`) that does
-not list `skill-improver`, so `subagent_start.py` never fires for you. That file is the
-user's global config — outside this repo, not fixable by a commit here. Consequence: read the
-contract above from disk yourself instead of waiting for it to appear in your prompt. Pending
-user action to close the gap: add `|skill-improver` to that matcher.
+**Inspect the active host before relying on injected context.** A host may gate its
+`SubagentStart` hook or override the default matcher. If the handoff template is absent, read the
+contract above from disk and report the observed host override to the caller; do not prescribe a
+global configuration change.
 
 ## Stopping Conditions
 

@@ -71,9 +71,9 @@ Adding a skill:
 
 - `skill-improve/scripts/run_evals.py` is honest only per case (`--test-case` or
   `--response-dir`); its flat default cancels a positive's `contains` against a negative's
-  `not_contains`, and `--threshold 1.0` is required because `critical` is a label in the report,
-  not part of the exit code.
-- `bun-verify/scripts/turbo_dry_json.py` and `intent-layer/scripts/intent_layer.py` are allowed by
+  `not_contains`, and `--threshold 1.0` is required because non-critical assertions use the threshold;
+  a failed critical assertion exits nonzero at every threshold.
+- `debugger/scripts/turbo_dry_json.py` and `intent-layer/scripts/intent_layer.py` are allowed by
   name in `../hooks/smart_bash_approver.py`. A new script under a skill asks under `guarded` until
   it is added there, with both test cases.
 - Eval responses captured by isolated subagents handed the listing measure routing among the

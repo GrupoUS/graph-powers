@@ -83,10 +83,10 @@ the repository's authority is **P0**.
 Check `enabledPlugins` at all three levels — a plugin that is installed but disabled makes every
 `Skill("plugin:skill")` dangle at runtime.
 
-**Every layer that serves a listing, not only the personal one.** Four harnesses read one source
-(this plugin's cardinal 7), and each has its own skills directory: `~/.claude/skills/` for Claude
-Code, `~/.agents/skills/` for Codex and for any tool that follows the agents-skills convention, plus
-whatever an installer or marketplace clones (`~/.claude/plugins/cache/<plugin>/<version>/`,
+**Every layer that serves a listing, not only the personal one.** Five clients consume projections
+from one canonical source (this plugin's cardinal 7). Claude uses `~/.claude/skills/`; Codex and
+agents-skills consumers use `~/.agents/skills/`. Marketplace and installer projections use their own paths, while Hermes derives native
+registrations from the clone (`~/.claude/plugins/cache/<plugin>/<version>/`,
 `~/.codex/.tmp/marketplaces/<plugin>/`). Cross the repository's names against all of them, then
 cross the copies against each other: a symlink from one layer into another is one file served under
 two precedences, and a clone pinned to an older plugin version serves what the repository has already

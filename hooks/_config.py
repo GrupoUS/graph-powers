@@ -274,23 +274,22 @@ def emit_pretool_deny(reason: str) -> None:
     """Block a tool call on Claude Code, Codex, Cursor and Grok from one payload.
 
     Claude/Codex/Cursor read `hookSpecificOutput.permissionDecision`. Grok reads a
-    top-level `decision` (and honours it regardless of exit code). Extra keys are
-    ignored on both sides; inventing a second deny helper is how one harness
-    stops being guarded.
+    top-level `decision` (and honours it regardless of exit code). Codex also
+    parses a top-level `decision` as its legacy schema, where only `block` is
+    valid; emitting Grok's `deny` beside the current shape therefore makes the
+    whole response invalid and releases the tool call. Keep the Grok envelope
+    exclusive to its declared runtime.
     """
-    print(
-        json.dumps(
-            {
-                "decision": "deny",
-                "reason": reason,
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                },
-            }
-        )
-    )
+    body: dict[str, Any] = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+    if os.environ.get("GROK_WORKSPACE_ROOT"):
+        body = {"decision": "deny", "reason": reason, **body}
+    print(json.dumps(body))
 
 
 def _deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

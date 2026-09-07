@@ -854,7 +854,7 @@
         "codex": {
           "type": "boolean",
           "default": true,
-          "description": "Regenerate the Codex clone artefacts when its tracked source moved. Native Codex, Cursor and Grok caches are client-owned and are never replaced by the SessionStart worker. Skipped when the clone did not move: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
+          "description": "Update the installed native Codex cache and regenerate its companions; the clone fallback regenerates when its tracked source moved. Skipped when the clone did not move: rewriting .codex/hooks.json costs a /hooks re-approval, and the guardrails stay inert until it is given."
         }
       },
       "additionalProperties": false

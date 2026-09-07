@@ -431,6 +431,33 @@ def orchestration_policy() -> list[str]:
     ]
 
 
+def debug_perf_routing(debug: str | None = None, perf: str | None = None) -> list[str]:
+    """Keep conditional debug context and resource aliases with their existing owners."""
+    debug = read("commands/debug.md") if debug is None else debug
+    perf = read("commands/perf.md") if perf is None else perf
+    problems: list[str] = []
+    eager = "\n".join(debug.splitlines()[:13])
+    for reference in (
+        "030-agent-assignment-matrix.md",
+        "070-parallel-agent-spawn.md",
+        "100-autoresearch-loop.md",
+    ):
+        if reference in eager:
+            problems.append(f"commands/debug.md: eagerly loads {reference}")
+    required = (
+        "Only for L3, read",
+        "Only for L4-L5, read",
+        "If auto token in $ARGUMENTS: complete default flow (§ 1), then read",
+        "graph-powers:explorer (background):",
+    )
+    for contract in required:
+        if contract not in debug.replace("`", ""):
+            problems.append(f"commands/debug.md: missing routing contract: {contract}")
+    if "| resources / hooks / tests | § 2.0 |" not in perf.replace("`", ""):
+        problems.append("commands/perf.md: resource aliases must route to § 2.0")
+    return problems
+
+
 def main() -> int:
     agents, skills, workflows, rules = have_agents(), have_skills(), have_workflows(), have_rule_templates()
     hermes = have_hermes_registrations()
@@ -553,6 +580,7 @@ def main() -> int:
 
     problems += external_routes()
     problems += orchestration_policy()
+    problems += debug_perf_routing()
     frontmatter = agent_frontmatter() + namespaced_spawns()
     for p in frontmatter:
         print(f"AGENT:   {p}")

@@ -37,7 +37,11 @@ import {
   tomlString,
   writeFile,
 } from "./lib.mjs";
-import { resolveCodexTopLevelProfile } from "./model-policy.mjs";
+import {
+  CODEX_REASONING_EFFORTS,
+  isCodexModelSlug,
+  resolveCodexTopLevelProfile,
+} from "./model-policy.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const NATIVE_AGENTS_DIR = "codex/native-agents";
@@ -124,6 +128,63 @@ export function buildNativeAgents(pluginRoot, settings = {}, log = () => {}, rew
   return files;
 }
 
+function existingAgentSettings(pluginRoot, outDir) {
+  const agents = {};
+  const headerKeys = ["name", "description", "model", "model_reasoning_effort"];
+  for (const file of listAgentFiles(pluginRoot)) {
+    const name = basename(file, ".md");
+    const path = join(resolve(outDir), name + ".toml");
+    if (!existsSync(path)) continue;
+    const contents = readFileSync(path, "utf8");
+    const instructions = contents.search(/^developer_instructions = (?:'''|""")$/m);
+    if (instructions === -1) {
+      throw new Error("cannot preserve " + name + ": expected generated scalar header");
+    }
+    const header = contents.slice(0, instructions);
+    const values = {};
+    let nextKey = 0;
+    for (const line of header.split(/\r?\n/)) {
+      if (!line || line.startsWith("#")) continue;
+      const key = headerKeys[nextKey];
+      if (!key || !line.startsWith(key + " = ")) {
+        throw new Error("cannot preserve " + name + ": expected generated scalar header");
+      }
+      const raw = line.slice(key.length + 3);
+      try {
+        values[key] = JSON.parse(raw);
+      } catch {
+        throw new Error("cannot preserve " + name + ": expected generated scalar header");
+      }
+      if (typeof values[key] !== "string" || tomlString(values[key]) !== raw) {
+        throw new Error("cannot preserve " + name + ": expected generated scalar header");
+      }
+      nextKey += 1;
+    }
+    if (nextKey !== headerKeys.length || values.name !== name) {
+      throw new Error("cannot preserve " + name + ": expected generated scalar header");
+    }
+    const { model, model_reasoning_effort: reasoningEffort } = values;
+    if (!isCodexModelSlug(model) || !CODEX_REASONING_EFFORTS.includes(reasoningEffort)) {
+      throw new Error("cannot preserve " + name + ": unsupported model or reasoning effort");
+    }
+    agents[name] = { model, reasoningEffort };
+  }
+  return Object.keys(agents).length ? { agents } : {};
+}
+
+function preserveAgentScalars(agents, preserved = {}) {
+  for (const [name, settings] of Object.entries(preserved)) {
+    const file = `${name}.toml`;
+    if (!agents[file]) continue;
+    agents[file] = agents[file]
+      .replace(/^model[ \t]*=[ \t]*"[^"]*"[ \t]*$/m, `model = ${tomlString(settings.model)}`)
+      .replace(
+        /^model_reasoning_effort[ \t]*=[ \t]*"[^"]*"[ \t]*$/m,
+        `model_reasoning_effort = ${tomlString(settings.reasoningEffort)}`,
+      );
+  }
+}
+
 /** Render a Codex v2 top-level profile file. This path is deliberately separate from agent TOML:
  *  `codex --profile <name>` layers `<name>.config.toml` onto the parent session, while subagent
  *  roles are loaded from `agents.<role>.config_file`. Mixing the two would make Ultra recursive. */
@@ -179,6 +240,7 @@ export function install({
   emitOnly = false,
   models = null,
   codexSettings = null,
+  preservedAgents = null,
   outDir = null,
   log = () => {},
 } = {}) {
@@ -196,6 +258,7 @@ export function install({
       }
     : null;
   const agents = buildNativeAgents(pluginRoot, settings, log, rewritePaths);
+  if (preservedAgents) preserveAgentScalars(agents, preservedAgents);
   const commandSkills = buildNativeCommandSkills(pluginRoot);
   // Where the companion roles land. Tracked defaults are generated from the repository policy; an
   // operator makes them discoverable by emitting into a Codex config layer's `agents/` directory.
@@ -269,6 +332,11 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
     }
   }
   if (models) codexSettings = { ...codexSettings, models: { ...codexSettings.models, ...models } };
+  const pluginRoot = pluginRootFromArgv(argv);
+  let preservedAgents = null;
+  if (outDir && !models && !configPath && !topLevelProfile) {
+    preservedAgents = existingAgentSettings(pluginRoot, outDir).agents ?? null;
+  }
   if (topLevelProfile) {
     const result = emitTopLevelProfile({
       profileName: topLevelProfile,
@@ -283,11 +351,12 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
     process.exit(0);
   }
   const result = install({
-    pluginRoot: pluginRootFromArgv(argv),
+    pluginRoot,
     dryRun: argv.includes("--dry-run"),
     emit: true,
     emitOnly: true,
     codexSettings,
+    preservedAgents,
     outDir,
     log: (m) => console.log(`  ${m}`),
   });

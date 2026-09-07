@@ -83,7 +83,7 @@ Adding a guardrail:
   stops at the space after the closing quote, and the entry asked on every real invocation while
   its test stayed green. Match the literal line the call site emits.
 - `turbo --dry=json` on the Bash pipe: turbo panics on EPIPE and Node and bun abort. The approver
-  denies it and names `../skills/bun-verify/scripts/turbo_dry_json.py` instead.
+  denies it and names `../skills/debugger/scripts/turbo_dry_json.py` instead.
 - `str.strip("./")` as a prefix remover: it is a character set, and it deleted the leading dot of
   every protected dotfile. `removeprefix` and `removesuffix`.
 - A frontmatter reader anchored on `\n`: a CRLF checkout installed zero agents and reported

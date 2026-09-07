@@ -88,6 +88,9 @@ jobs:
       - name: Skill eval runner contract
         run: python3 skills/skill-improve/scripts/test_run_evals.py
 
+      - name: Skill trigger-eval capture contract
+        run: python3 skills/skill-improve/scripts/test_capture_trigger_evals.py
+
       - name: Frontmatter parses, and name matches the file
         run: |
           python3 - <<'PY'

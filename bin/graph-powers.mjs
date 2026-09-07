@@ -73,6 +73,51 @@ const flagValue = (name, fallback) => {
   const i = argv.indexOf(name);
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[i + 1] : fallback;
 };
+const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
+const OPTIONS_WITH_VALUES = new Set([
+  "--target",
+  "--scope",
+  "--autonomy",
+  "--source",
+  "--package-manager",
+  "--prefix",
+]);
+const FLAGS = new Set([
+  "--force",
+  "--config",
+  "--setup-oxc",
+  "--dry-run",
+  "--skip-marketplace",
+  "--update",
+  "--uninstall",
+  "--agent-setup",
+  "-h",
+  "--help",
+]);
+
+function validateArguments(args) {
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (OPTIONS_WITH_VALUES.has(arg)) {
+      const value = args[i + 1];
+      if (!value || value.startsWith("-")) die(`missing value for ${arg}`);
+      i += 1;
+    } else if (!FLAGS.has(arg)) {
+      die(arg.startsWith("-") ? `unknown option: ${arg}` : `unexpected argument: ${arg}`);
+    }
+  }
+
+  if (has("--update") && has("--uninstall")) {
+    die("cannot combine --update and --uninstall");
+  }
+
+  const target = flagValue("--target", null);
+  if (target !== null && !VALID_TARGETS.has(target)) {
+    die(`invalid target: ${target}`, "use --target claude | codex | cursor | grok | both | all");
+  }
+}
+
+validateArguments(argv);
 
 const AGENT_PROMPT = `Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
 Stop for my approval before each write, as the playbook instructs.`;
@@ -169,6 +214,12 @@ if (!["autonomous", "guarded"].includes(autonomyLevel)) {
 }
 const cwd = process.cwd();
 
+if (has("--update") && dryRun) {
+  console.log(`\n${bold("Graph Powers")} ${dim("— updating this clone")}`);
+  info("dry-run: would fast-forward this clone and reinstall from it");
+  process.exit(0);
+}
+
 // JS/TS setup is useful on its own, including from this repository while developing the plugin.
 // Keep it separate from harness installation so a project with no Claude/Codex/Cursor/Grok CLI can
 // still repair the exact local TypeScript/Oxlint/Oxfmt paths used by the editor and gates.
@@ -246,7 +297,6 @@ const grokVersion = cliVersion("grok");
 const grokHomeDir = process.env.GROK_HOME || join(homedir(), ".grok");
 const grokHome = existsSync(grokHomeDir);
 
-const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
 const targetWasAsked = flagValue("--target", null) !== null;
 let target = flagValue("--target", null);
 let wantClaude;
@@ -254,9 +304,6 @@ let wantCodex;
 let wantCursor;
 let wantGrok;
 if (targetWasAsked) {
-  if (!VALID_TARGETS.has(target)) {
-    die(`invalid target: ${target}`, "use --target claude | codex | cursor | grok | both | all");
-  }
   wantClaude = target === "claude" || target === "both" || target === "all";
   wantCodex = target === "codex" || target === "both" || target === "all";
   wantCursor = target === "cursor" || target === "all";
@@ -318,6 +365,16 @@ function gitUpdate(root) {
     );
   }
   const before = (git("rev-parse", "HEAD").stdout ?? "").trim();
+  const status = git("status", "--porcelain");
+  if (status.status !== 0) {
+    die("could not inspect the clone status.");
+  }
+  if (status.stdout.trim()) {
+    die(
+      "clone has uncommitted changes; update refused.",
+      "Commit, stash, or discard the changes, then run --update again.",
+    );
+  }
   const pull = git("pull", "--ff-only");
   if (pull.status !== 0) {
     console.error(`${pull.stdout}${pull.stderr}`.trim());

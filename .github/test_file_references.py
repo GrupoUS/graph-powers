@@ -32,6 +32,45 @@ class FileReferenceTests(unittest.TestCase):
             self.write(root, "skills/demo/references/present.md", "# Present\n")
             self.assertEqual(check_file_references.scan(root), {})
 
+    def test_explicit_dot_relative_references_resolve_only_from_the_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(
+                root,
+                "skills/space demo/SKILL.md",
+                "Read ./references/present.md.\n",
+            )
+            self.write(root, "skills/space demo/references/present.md", "# Present\n")
+            self.write(root, "hooks/space demo.md", "Read ../skills/present.md.\n")
+            self.write(root, "skills/present.md", "# Present\n")
+            self.assertEqual(check_file_references.scan(root), {})
+
+    def test_missing_explicit_dot_relative_reference_is_rejected_despite_root_homonym(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(root, "skills/demo/SKILL.md", "Read ../skills/missing.md.\n")
+            self.write(root, "skills/missing.md", "# Wrong level\n")
+            missing = check_file_references.scan(root)
+            self.assertEqual(missing, {"../skills/missing.md": ["skills/demo/SKILL.md"]})
+
+    def test_missing_current_directory_reference_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(root, "skills/demo/SKILL.md", "Read ./references/missing.md.\n")
+            self.assertEqual(
+                check_file_references.scan(root),
+                {"./references/missing.md": ["skills/demo/SKILL.md"]},
+            )
+
+    def test_explicit_dot_relative_repository_escape_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(root, "skills/demo/SKILL.md", "Read ../../../skills/outside.md.\n")
+            self.assertEqual(
+                check_file_references.scan(root),
+                {"../../../skills/outside.md": ["skills/demo/SKILL.md"]},
+            )
+
     def test_hidden_project_rules_are_live_contracts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -58,6 +97,7 @@ class FileReferenceTests(unittest.TestCase):
             "docs/plans/2026-01-01-retired/PLAN.md",
             "docs/AUDIT-REPORT-2026-01-01.md",
             ".graph-powers/logs/learnings.md",
+            ".graph-powers/codex-native/generated.md",
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -85,6 +125,19 @@ class FileReferenceTests(unittest.TestCase):
             self.assertEqual(
                 missing,
                 {"references/missing.md": [".graph-powers/logs/tracked-rule.md"]},
+            )
+
+    def test_untracked_project_contract_is_live_outside_generated_subtrees(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(
+                root,
+                ".graph-powers/policy.md",
+                "Read references/missing.md before acting.\n",
+            )
+            self.assertEqual(
+                check_file_references.scan(root),
+                {"references/missing.md": [".graph-powers/policy.md"]},
             )
 
     def test_git_failure_in_a_worktree_scans_runtime_rules_conservatively(self) -> None:

@@ -22,7 +22,15 @@
  *   every hook entry added, so removal is exact rather than a guess with a glob.
  */
 
-import { copyFileSync, existsSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -395,15 +403,24 @@ export function codexPaths(scope, projectDir) {
   // into somebody else's repository. `homedir()` reads the right variable on every platform.
   const home = process.env.CODEX_HOME || join(homedir(), ".codex");
   const agentsHome = homedir();
+  const references = join(home, "graph-powers");
+  const referencesRelative = relative(agentsHome, references);
+  const referencesRef =
+    referencesRelative &&
+    referencesRelative !== ".." &&
+    !referencesRelative.startsWith(`..${sep}`) &&
+    !isAbsolute(referencesRelative)
+      ? `~/${referencesRelative.replace(/\\/g, "/")}`
+      : references;
   return scope === "user"
     ? {
         skills: join(agentsHome, ".agents/skills"),
         agents: join(home, "agents"),
         hooks: join(home, "hooks.json"),
-        references: join(home, "graph-powers"),
+        references,
         // `~/.codex/` is the same path on every machine, so an AGENTS.md that points there stays
         // portable when it is committed — unlike an absolute plugin path.
-        referencesRef: "~/.codex/graph-powers",
+        referencesRef,
         instructions: join(home, "AGENTS.md"),
         manifest: join(home, "graph-powers-installed.json"),
       }
@@ -416,6 +433,30 @@ export function codexPaths(scope, projectDir) {
         instructions: join(projectDir, "AGENTS.md"),
         manifest: join(projectDir, MANIFEST),
       };
+}
+
+/** Generated files that must exist before a same-version global install can skip. */
+function globalArtifacts(pluginRoot, paths) {
+  const skills = listDirs(join(pluginRoot, "skills")).map((name) => ({
+    record: join(paths.skills, name),
+    entry: join(paths.skills, name, "SKILL.md"),
+  }));
+  const commands = listMarkdown(join(pluginRoot, "commands")).map((file) => {
+    const name = "graph-powers-" + basename(file, ".md");
+    return { record: join(paths.skills, name), entry: join(paths.skills, name, "SKILL.md") };
+  });
+  const agents = listMarkdown(join(pluginRoot, "agents")).map((file) => {
+    const path = join(paths.agents, basename(file, ".md") + ".toml");
+    return { record: path, entry: path };
+  });
+  return [
+    { record: paths.hooks, entry: paths.hooks },
+    { record: paths.instructions, entry: paths.instructions },
+    { record: paths.references, entry: paths.references },
+    ...skills,
+    ...commands,
+    ...agents,
+  ];
 }
 
 /** Is the global Codex install complete, executable, and at this version? */
@@ -438,12 +479,17 @@ export function globallyInstalled(pluginRoot) {
   const hooksComplete =
     expected.length > 0 &&
     expected.every((command) => recorded.includes(command) && installedCommands.has(command));
-  const complete = manifest.complete === true && hooksComplete;
+  const recordedPaths = new Set(Array.isArray(manifest.paths) ? manifest.paths : []);
+  const artifactsComplete = globalArtifacts(pluginRoot, paths).every(
+    ({ record, entry }) => recordedPaths.has(record) && existsSync(entry),
+  );
+  const complete = manifest.complete === true && hooksComplete && artifactsComplete;
   return {
     installed: true,
     sameVersion: complete && manifest.version === pluginJson.version,
     complete,
     hooksComplete,
+    artifactsComplete,
     version: manifest.version,
     available: pluginJson.version,
     manifest: paths.manifest,
@@ -670,6 +716,32 @@ function writeInstructions({ path, referencesRef, global: isGlobal, emit }) {
   emit(path, upsertBlock(current, agentsBlock(referencesRef, { global: isGlobal })));
 }
 
+/** Seed rule templates once; projects own every existing rule and symlink. */
+function copyAdoptedRules({ rulesSrc, rulesDst, dryRun, log }) {
+  if (!existsSync(rulesSrc)) return false;
+  try {
+    if (!lstatSync(rulesDst).isDirectory()) {
+      log(rulesDst + "/ (existing rule path preserved)");
+      return true;
+    }
+  } catch {
+    // The destination is absent, so copyTree can seed it.
+  }
+
+  if (!dryRun) {
+    copyTree(rulesSrc, rulesDst, (src) => {
+      const destination = join(rulesDst, relative(rulesSrc, src));
+      try {
+        return !lstatSync(destination).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+  }
+  log(rulesDst + "/ (rule templates — adapt them, they are yours)");
+  return true;
+}
+
 /**
  * The global half: everything that is identical in every project.
  *
@@ -775,9 +847,7 @@ export function installProject({ projectDir, pluginRoot, dryRun = false, log = (
   if (!dryRun) writeFile(manifestPath, manifestBody([agentsPath], false));
 
   // Rule templates — the project adapts them; they are its own, and they diverge on purpose.
-  if (existsSync(rulesSrc)) {
-    if (!dryRun) copyTree(rulesSrc, rulesDst);
-    log(`${rulesDst}/ (rule templates — adapt them, they are yours)`);
+  if (copyAdoptedRules({ rulesSrc, rulesDst, dryRun, log })) {
     written.push(rulesDst);
   }
 
@@ -865,8 +935,7 @@ function installProjectOnlyLegacy({
   writeHarness({ pluginRoot, paths, rewrite, codex, dryRun, log, written, emit });
 
   const rulesSrc = join(pluginRoot, "templates/rules");
-  if (existsSync(rulesSrc)) {
-    if (!dryRun) copyTree(rulesSrc, rulesDst);
+  if (copyAdoptedRules({ rulesSrc, rulesDst, dryRun, log })) {
     written.push(rulesDst);
   }
 

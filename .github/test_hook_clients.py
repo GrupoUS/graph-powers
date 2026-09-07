@@ -56,6 +56,126 @@ def environment(home: Path, **extra: str) -> dict[str, str]:
     return env
 
 
+def recording_installer_bin(bin_dir: Path, record: Path) -> None:
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    script = bin_dir / "recording_cli.py"
+    script.write_text(
+        """import os
+import sys
+from pathlib import Path
+
+command = os.environ[\"GP_RECORDING_COMMAND\"]
+record = Path(os.environ[\"GP_INSTALLER_RECORD\"])
+with record.open(\"a\", encoding=\"utf-8\") as handle:
+    handle.write(command + \" \" + \" \".join(sys.argv[1:]) + \"\\n\")
+
+args = sys.argv[1:]
+if command == \"git\":
+    if args[-2:] == [\"rev-parse\", \"--git-dir\"]:
+        print(\".git\")
+    elif args[-2:] == [\"rev-parse\", \"HEAD\"]:
+        print(\"after-update\" if Path(os.environ[\"GP_GIT_UPDATED\"]).exists() else \"before-update\")
+    elif args[-2:] == [\"status\", \"--porcelain\"]:
+        print(os.environ.get(\"GP_GIT_STATUS\", \"\"))
+    elif args[-2:] == [\"pull\", \"--ff-only\"]:
+        Path(os.environ[\"GP_GIT_UPDATED\"]).touch()
+else:
+    if args == [\"--version\"]:
+        print(f\"{command} 1.0.0\")
+""",
+        encoding="utf-8",
+    )
+    for name in ("git", "claude", "codex", "cursor", "cursor-agent", "grok"):
+        launcher = bin_dir / name
+        launcher.write_text(
+            f"#!{sys.executable}\nimport os, runpy\nos.environ['GP_RECORDING_COMMAND'] = {name!r}\nrunpy.run_path({str(script)!r}, run_name='__main__')\n",
+            encoding="utf-8",
+        )
+        launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR)
+
+
+def installer_fixture(base: Path) -> tuple[Path, Path, Path, dict[str, str]]:
+    source = base / "source"
+    project = base / "project"
+    home = base / "home"
+    record = base / "calls.txt"
+    copy_package(source)
+    for name in (
+        "agents",
+        "bin",
+        "codex",
+        "commands",
+        "cursor",
+        "grok",
+        "references",
+        "skills",
+        "templates",
+    ):
+        shutil.copytree(ROOT / name, source / name, dirs_exist_ok=True)
+    project.mkdir()
+    bin_dir = base / "bin"
+    recording_installer_bin(bin_dir, record)
+    env = environment(home)
+    env.update(
+        {
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "GP_INSTALLER_RECORD": str(record),
+            "GP_GIT_UPDATED": str(base / "git-updated"),
+        }
+    )
+    return source, project, record, env
+
+
+def run_installer(
+    source: Path, project: Path, env: dict[str, str], *args: str
+) -> subprocess.CompletedProcess[str]:
+    bun = shutil.which("bun")
+    assert bun, "bun is required for the installer regression"
+    return subprocess.run(
+        [bun, str(source / "bin/graph-powers.mjs"), *args],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=120,
+    )
+
+
+def recorded_calls(record: Path) -> list[str]:
+    return record.read_text(encoding="utf-8").splitlines() if record.exists() else []
+
+
+def run_codex_install(
+    project: Path, home: Path, scope: str, codex_home: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    bun = shutil.which("bun")
+    assert bun, "bun is required for the Codex installer regression"
+    env = environment(home)
+    if codex_home:
+        env["CODEX_HOME"] = str(codex_home)
+    return subprocess.run(
+        [
+            bun,
+            str(ROOT / "codex/install.mjs"),
+            "--project",
+            str(project),
+            "--plugin",
+            str(ROOT),
+            "--scope",
+            scope,
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=120,
+    )
+
+
 def verify(
     home: Path,
     client: str,
@@ -293,6 +413,36 @@ def test_codex_home_distinguishes_blocked_from_inert_missing_paths() -> None:
         assert not any(str(missing_guarded) in message for message in body["blocks"]), body
 
 
+def test_codex_references_follow_the_active_home() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-codex-references-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        project = base / "project"
+        project.mkdir()
+
+        default = run_codex_install(project, home, "user")
+        assert default.returncode == 0, default.stderr
+        default_refs = home / ".codex/graph-powers"
+        default_instructions = (home / ".codex/AGENTS.md").read_text(encoding="utf-8")
+        assert default_refs.is_dir(), default_refs
+        assert "~/.codex/graph-powers" in default_instructions, default_instructions
+
+        custom_home = base / "Codex Home"
+        custom = run_codex_install(project, home, "user", custom_home)
+        assert custom.returncode == 0, custom.stderr
+        custom_refs = custom_home / "graph-powers"
+        custom_instructions = (custom_home / "AGENTS.md").read_text(encoding="utf-8")
+        assert custom_refs.is_dir(), custom_refs
+        assert str(custom_refs) in custom_instructions, custom_instructions
+
+        project_scope = run_codex_install(project, home, "project", custom_home)
+        assert project_scope.returncode == 0, project_scope.stderr
+        local_refs = project / ".codex/graph-powers"
+        local_instructions = (project / "AGENTS.md").read_text(encoding="utf-8")
+        assert local_refs.is_dir(), local_refs
+        assert ".codex/graph-powers" in local_instructions, local_instructions
+
+
 def test_incomplete_codex_clone_install_is_repaired() -> None:
     bun = shutil.which("bun")
     assert bun, "bun is required for the Codex installer regression"
@@ -322,6 +472,56 @@ def test_incomplete_codex_clone_install_is_repaired() -> None:
         )
         assert first.returncode == 0, first.stderr
         manifest_path = home / ".codex/graph-powers-installed.json"
+        hooks_path = home / ".codex/hooks.json"
+        hooks_before = hooks_path.read_bytes()
+        hooks_mtime = hooks_path.stat().st_mtime_ns
+        intact = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        assert intact.returncode == 0, intact.stderr
+        assert "skipped" in intact.stdout.lower(), intact.stdout
+        assert hooks_path.read_bytes() == hooks_before
+        assert hooks_path.stat().st_mtime_ns == hooks_mtime
+
+        role = home / ".codex/agents/debugger.toml"
+        role.unlink()
+        role_repair = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        assert role_repair.returncode == 0, role_repair.stderr
+        assert "skipped" not in role_repair.stdout.lower(), role_repair.stdout
+        assert role.is_file(), role
+
+        skill = home / ".agents/skills/debugger/SKILL.md"
+        skill.unlink()
+        skill_repair = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        assert skill_repair.returncode == 0, skill_repair.stderr
+        assert "skipped" not in skill_repair.stdout.lower(), skill_repair.stdout
+        assert skill.is_file(), skill
+
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["complete"] = False
         write_json(manifest_path, manifest)
@@ -344,6 +544,68 @@ def test_incomplete_codex_clone_install_is_repaired() -> None:
         result, body = verify(home, "codex", "--codex-route", "clone")
         assert result.returncode == 0, body
         assert body["route"] == "clone", body
+
+
+def test_codex_installer_preserves_adopted_rules() -> None:
+    template = (ROOT / "templates/rules/design.md").read_bytes()
+    sentinel = b"# Project-specific execution rule\n\nKeep this exact text.\n"
+    for scope in ("user", "project"):
+        with tempfile.TemporaryDirectory(prefix=f"gp-adopted-rules-{scope}-") as raw:
+            base = Path(raw)
+            home = base / "home"
+            project = base / "project"
+            rules = project / ".codex/rules"
+            rules.mkdir(parents=True)
+            execution = rules / "execution.md"
+            execution.write_bytes(sentinel)
+
+            first = run_codex_install(project, home, scope)
+            assert first.returncode == 0, first.stderr
+            assert execution.read_bytes() == sentinel
+            assert (rules / "design.md").read_bytes() == template
+            manifest = json.loads(
+                (project / ".graph-powers/installed.json").read_text(encoding="utf-8")
+            )
+            assert manifest["adopted"] == [str(rules)]
+
+            second = run_codex_install(project, home, scope)
+            assert second.returncode == 0, second.stderr
+            assert execution.read_bytes() == sentinel
+            assert (rules / "design.md").read_bytes() == template
+            manifest = json.loads(
+                (project / ".graph-powers/installed.json").read_text(encoding="utf-8")
+            )
+            assert manifest["adopted"] == [str(rules)]
+
+    with tempfile.TemporaryDirectory(prefix="gp-adopted-rule-links-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        project = base / "project"
+        rules = project / ".codex/rules"
+        dangling = base / "outside-rule.md"
+        rules.mkdir(parents=True)
+        execution = rules / "execution.md"
+        execution.symlink_to(dangling)
+
+        result = run_codex_install(project, home, "project")
+        assert result.returncode == 0, result.stderr
+        assert execution.is_symlink(), execution
+        assert not dangling.exists(), dangling
+
+    with tempfile.TemporaryDirectory(prefix="gp-adopted-rules-directory-link-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        project = base / "project"
+        external = base / "outside-rules"
+        external.mkdir()
+        rules = project / ".codex/rules"
+        rules.parent.mkdir(parents=True)
+        rules.symlink_to(external, target_is_directory=True)
+
+        result = run_codex_install(project, home, "project")
+        assert result.returncode == 0, result.stderr
+        assert rules.is_symlink(), rules
+        assert not (external / "design.md").exists(), external
 
 
 def test_installer_refuses_stale_cursor_before_unrestricted() -> None:
@@ -586,19 +848,67 @@ def test_installer_refuses_stale_claude_before_bypass() -> None:
         assert "fail-open" in f"{result.stdout}{result.stderr}", (result.stdout, result.stderr)
 
 
+def test_installer_validates_operations_before_side_effects() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-installer-operations-") as raw:
+        base = Path(raw)
+        source, project, record, env = installer_fixture(base)
+
+        for args, expected in (
+            (("--target", "codex", "--dry-run", "--unknown"), "unknown option: --unknown"),
+            (("--target",), "missing value for --target"),
+            (("--target", "not-a-client"), "invalid target: not-a-client"),
+            (("--update", "--uninstall"), "cannot combine --update and --uninstall"),
+        ):
+            result = run_installer(source, project, env, *args)
+            assert result.returncode != 0, (args, result.stdout, result.stderr)
+            assert expected in result.stderr, (args, result.stdout, result.stderr)
+            assert not recorded_calls(record), (args, recorded_calls(record))
+            assert not (base / "home").exists(), args
+
+        help_result = run_installer(source, project, env, "-h")
+        assert help_result.returncode == 0, help_result.stderr
+        assert "USAGE" in help_result.stdout, help_result.stdout
+        prompt_result = run_installer(source, project, env, "--agent-setup")
+        assert prompt_result.returncode == 0, prompt_result.stderr
+        assert "Read AGENT_SETUP.md" in prompt_result.stdout, prompt_result.stdout
+        assert not recorded_calls(record), recorded_calls(record)
+
+        dry_run = run_installer(source, project, env, "--target", "codex", "--update", "--dry-run")
+        assert dry_run.returncode == 0, (dry_run.stdout, dry_run.stderr)
+        assert "would fast-forward this clone" in dry_run.stdout, dry_run.stdout
+        assert not recorded_calls(record), recorded_calls(record)
+        assert not (base / "home").exists(), dry_run.stdout
+
+        env["GP_GIT_STATUS"] = " M modified-file"
+        dirty = run_installer(source, project, env, "--target", "codex", "--update")
+        assert dirty.returncode != 0, (dirty.stdout, dirty.stderr)
+        assert "clone has uncommitted changes" in dirty.stderr, (dirty.stdout, dirty.stderr)
+        assert not any("pull --ff-only" in call for call in recorded_calls(record)), recorded_calls(record)
+        assert not (base / "home").exists(), dirty.stdout
+
+        env["GP_GIT_STATUS"] = ""
+        clean = run_installer(source, project, env, "--target", "codex", "--update")
+        assert clean.returncode == 0, (clean.stdout, clean.stderr)
+        assert any("pull --ff-only" in call for call in recorded_calls(record)), recorded_calls(record)
+        assert "before-u → after-up" in clean.stdout, clean.stdout
+
+
 def main() -> int:
     tests = [
         test_claude_uses_the_exact_scoped_install,
         test_cursor_rejects_corrupt_and_ambiguous_cache_entries,
         test_grok_inventory_and_posture_use_grok_home,
         test_codex_home_distinguishes_blocked_from_inert_missing_paths,
+        test_codex_references_follow_the_active_home,
         test_incomplete_codex_clone_install_is_repaired,
+        test_codex_installer_preserves_adopted_rules,
         test_installer_refuses_stale_cursor_before_unrestricted,
         test_installer_refuses_stale_grok_clone_before_always_approve,
         test_standalone_cursor_installer_requires_verified_cache,
         test_standalone_grok_installer_rejects_stale_clone,
         test_auto_update_worker_never_replaces_grok_cache,
         test_installer_refuses_stale_claude_before_bypass,
+        test_installer_validates_operations_before_side_effects,
     ]
     for test in tests:
         test()

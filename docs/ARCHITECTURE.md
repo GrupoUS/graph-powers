@@ -252,9 +252,9 @@ and runtime discovery aligned.
 **Refused:** a second hand-maintained list of hooks or Hermes registrations. That is the divergence
 problem again, now inside a single repository.
 
-**The asymmetries worth knowing.** Codex has no per-tool denylist, so `disallowedTools: Write,
-Edit` becomes `sandbox_mode = "read-only"`. Denying only `Edit` — as the planner does, to keep
-`Write` for its plan file — is therefore not expressible, and correctly does not become a sandbox.
+**The asymmetries worth knowing.** Codex role files inherit the parent sandbox and approval posture;
+their read-only intent is advisory, not a per-role runtime boundary. The generator deliberately
+does not emit `sandbox_mode`, including when an agent denies both `Write` and `Edit`.
 
 And `workflows/` does not cross at all: Codex has no equivalent of `Workflow({name})`, so the two
 orchestrations are Claude Code only. This is the one place the "one source" rule bends, and it bends
@@ -302,8 +302,8 @@ Recorded so they do not come back as proposals:
 - **The ceiling defaults** live in `schema/config.schema.json` and are starting points rather than
   measured values. Calibrating their rolling spawn window, specialist rounds and wave width needs
   real usage data; this document deliberately does not duplicate them.
-- **There is no automated eval** of the agents and skills. `claude plugin eval` exists, and using it
-  is the natural next step — watching something fire is not the same as watching it work.
+- **Provider-backed evals are not measured in CI.** The repository does run local assertion grading
+  and trigger-capture regressions; neither proves live provider routing.
 - **The Codex artefacts are machine-specific.** `.codex/hooks.json` and `.codex/agents/` embed the
   installed plugin's absolute path, because Codex expands no plugin variable. Each machine re-runs
   the installer, and the files are gitignored. A relative-path scheme would be better and does not

@@ -582,6 +582,20 @@ def main() -> int:
         "deny",
     )
     check("B denies A's key (codex)", call("git_commit_gate", key_a, b, harness="codex")[0], "deny")
+    codex_raw, codex_rc = call_raw(
+        "git_push_gate",
+        {"tool_name": "Bash", "tool_input": {"command": "git push origin dev-test"}},
+        a,
+        harness="codex",
+    )
+    codex_body = json.loads(codex_raw)
+    check("Codex deny exits cleanly", codex_rc, 0)
+    check("Codex deny omits Grok's incompatible legacy decision", codex_body.get("decision"), None)
+    check(
+        "Codex deny keeps the supported hook-specific shape",
+        codex_body["hookSpecificOutput"].get("permissionDecision"),
+        "deny",
+    )
 
     print("### Same bytes under Grok — camelCase payload and GROK_WORKSPACE_ROOT")
     check("A denies (grok)", call("git_commit_gate", commit, a, harness="grok")[0], "deny")
