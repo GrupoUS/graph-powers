@@ -19,6 +19,8 @@ Skip irrelevant branches. Stop after that proof; do not add audits or optional i
   These are path placeholders, not shell variables. Quote paths; do not copy placeholders literally.
 - `<CLIENT>` is one requested client; `<SCOPE>` is `user` unless project/local scope was explicitly
   selected for Claude. Use that same scope in installation and verification.
+- `<VERSION>` is the target version from the verified plugin manifest. `<HERMES_ROOT>` is the
+  installed package path reported by `hermes plugins show graph-powers`.
 - Examples use `python` for the verified Python interpreter and `bun` for JavaScript. Substitute
   `python3` or `py -3`, and a supported `node`, when those are the installed runtimes.
 - Hooks invoke the literal `python3`: it must work in the **client process's PATH**, regardless
@@ -49,7 +51,7 @@ python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir 
 
 Inspect each requested client's result. Exit 0 can include absent runtimes: `SKIPPED` is not an
 installed client. Registry presence alone is insufficient; the verifier checks the actual package.
-Keep a valid current installation and repair only missing or stale components.
+Keep a valid installation matching the intended version and repair only missing or stale components.
 
 ## Step 1 — Resolve prerequisites, not every optional tool
 
@@ -110,6 +112,11 @@ Resolve the effective autonomy policy before Step 9; defer client permission cha
 package and hook probe pass. Do not overwrite a deliberate restrictive override merely because
 the enclosing level is autonomous. Keep Git permissions and the destructive floor explicit when
 the operator's requirements differ from the installer defaults.
+
+The installer repairs `ask` to `allow` for routine fields in an autonomous project. If an `ask`
+override is intentional, use `--autonomy guarded` for this run. No installer flag combines a new
+permissive client posture with preservation of those overrides; report that limitation rather
+than silently changing them.
 
 For JS/TS only, read `references/shared/130-typescript7-oxc-gates.md`. Reuse the local Oxc/TypeScript
 toolchain and declared runner. The explicit `--setup-oxc` installer option changes dependencies
@@ -190,14 +197,15 @@ listing budget or disable skills during every installation.
 
 Use an explicit target. `--target all` covers Claude, Codex, Cursor and Grok; it does **not**
 include Hermes or Zed and is unsuitable when it would mix native and clone Codex installations.
-Install → verify that client's package and hook execution → apply the chosen posture → reload.
+Install → verify that client's package/direct guardrail probe → apply the chosen posture → reload
+and prove live hook execution. Package checks do not certify an already-running client.
 
 ### Claude Code — native plugin
 
 ```bash
 claude plugin marketplace add GrupoUS/graph-powers
 claude plugin install graph-powers@graph-powers --scope <SCOPE>
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client claude --scope <SCOPE> --project-dir . --probe-guardrail
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client claude --scope <SCOPE> --project-dir . --expected-version <VERSION> --probe-guardrail
 bun "<PLUGIN>/bin/graph-powers.mjs" --target claude --scope <SCOPE> --skip-marketplace --autonomy <MODE>
 ```
 
@@ -234,7 +242,7 @@ Refresh `<PLUGIN>` from the newly installed native `source.path`, then emit role
 
 ```bash
 bun "<PLUGIN>/codex/native-plugin.mjs" --plugin "<PLUGIN>" --out "<CODEX_HOME>/agents"
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client codex --codex-route native --project-dir . --probe-guardrail
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client codex --codex-route native --project-dir . --expected-version <VERSION> --probe-guardrail
 ```
 
 The native manifest does not register agent roles itself. `--out` emits runtime-ready companions
@@ -245,10 +253,20 @@ Codex's per-role read-only/leaf limits are advisory where the runtime lacks enfo
 **Clone fallback**, only when native installation is unavailable or a project-scoped copy is needed:
 
 ```bash
-bun "<PLUGIN>/bin/graph-powers.mjs" --target codex --autonomy <MODE>
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client codex --codex-route clone --project-dir . --probe-guardrail
+bun "<PLUGIN>/bin/graph-powers.mjs" --target codex --scope user --autonomy <MODE>
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client codex --codex-route clone --project-dir . --expected-version <VERSION> --probe-guardrail
 ```
 
+Use `--scope project` instead of `--scope user` only for the explicit project-copy exception;
+the default user route installs both global components and the local project pointers.
+Project scope limits the Codex harness placement, not every wrapper side effect: use guarded
+autonomy when the request excludes creating machine-wide operator defaults.
+The `--codex-route clone` check above validates the **user** manifest only. For project scope,
+use `--package-root "<PLUGIN>"` instead for package-only proof. Separately require the project's
+`.graph-powers/installed.json` to be complete, at the target version, with its recorded paths
+present and hook commands in `.codex/hooks.json`; then prove the runtime in 9e. This local-manifest
+check is not automated by the shared verifier. Report `UNVERIFIED` if it cannot be completed;
+do not substitute a passing global installation.
 Never enable both routes. For an approved migration, use the manifest-backed `--uninstall` path
 before installing the chosen replacement; preserve third-party hooks and adapted rules, then
 re-emit native companions and restore project pointers. Never delete the shared hooks file.
@@ -287,7 +305,7 @@ Install Graph Powers through Cursor's marketplace first. `--target cursor` confi
 it does not install the plugin. Verify the cache selected by the shared verifier:
 
 ```bash
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client cursor --project-dir . --probe-guardrail
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client cursor --project-dir . --expected-version <VERSION> --probe-guardrail
 bun "<PLUGIN>/bin/graph-powers.mjs" --target cursor --autonomy <MODE>
 ```
 
@@ -298,9 +316,14 @@ handled by its owner. Never add a user hook file that bypasses the plugin.
 
 Use the existing native package or one supported clone path; preserve `GROK_HOME`.
 
+If a native package exists, use Grok's supported install/update path when needed and run the version
+and guardrail check below **before** applying posture. The wrapper reuses a valid native package;
+it does not guarantee an upgrade. For a clone route without native registration, run the installer
+line first, then the same check: the wrapper validates the chosen source before configuring posture.
+
 ```bash
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client grok --project-dir . --expected-version <VERSION> --probe-guardrail
 bun "<PLUGIN>/bin/graph-powers.mjs" --target grok --autonomy <MODE>
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client grok --project-dir . --probe-guardrail
 ```
 
 The installer validates the selected package before permissive posture and keeps discovery wired
@@ -312,7 +335,7 @@ list. Restart Grok after installation/update; the background updater does not re
 ```bash
 hermes plugins install GrupoUS/graph-powers --enable
 hermes plugins show graph-powers
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client hermes --project-dir .
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client hermes --plugin-root "<PLUGIN>" --package-root "<HERMES_ROOT>" --project-dir . --expected-version <VERSION>
 ```
 
 Prove the **installed** package path/version and its native registrations with Hermes Doctor,
@@ -329,11 +352,13 @@ client, not as Zed-native hook coverage.
 ## Step 10 — Verify once after the final relevant change
 
 ```bash
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client <CLIENT> --project-dir . --check-posture --probe-guardrail
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client <CLIENT> --project-dir . --expected-version <VERSION> --check-posture --autonomy <MODE> --probe-guardrail
 ```
 
-Repeat for requested clients only, adding the chosen scope/route where needed. The verifier derives current
-registration counts from manifests; never substitute a historical hard-coded count.
+Repeat for requested hook clients only, adding the chosen scope/route where needed. Use Hermes'
+installed-package check in 9i separately. `--check-posture` covers Claude, Cursor and Grok; Codex
+posture/runtime still needs the direct proof in 9e. The verifier derives current registration
+counts from manifests; never substitute a historical hard-coded count.
 
 Check only what this setup touched:
 
@@ -348,7 +373,7 @@ Check only what this setup touched:
    only where the runtime supports them; otherwise retain the documented fallback.
 6. Report Desktop separately and preserve Hermes/Zed `NOT ENFORCED` boundaries.
 
-The verifier's guardrail probe uses a synthetic command/config; it creates no commit. Run the
+Where supported, the verifier's guardrail probe uses a synthetic command/config; it creates no commit. Run the
 plugin's full hook/regression suite only when its source or wiring changed, not for every host
 installation. Reuse valid evidence until relevant files, config or environment change.
 
