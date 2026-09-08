@@ -8,15 +8,17 @@
 - Phase B is complete: `<plan dir>/PLAN.md` passed its required review and the user approved it.
 - Tier is **L5+** for automatic transition. Explicit `/implement` admits an approved L4 plan;
   explicit Gauntlet admits an approved L3+ plan. L1-L2 never enter Phase C.
-- The current branch is `${git.workBranch}` and is not protected.
+- Use the authorized current checkout and honor protected-branch hooks; never switch branches or
+  infer a protected-branch opt-in from plan approval.
 - When and only when successful validation passed `profile: gauntlet`, read `references/gauntlet-loop.md` and apply its delta; a missing profile is always default.
 
 ## Exit contract
 
 Every task has implementation and evidence, every dispatched wave has one consolidated adversarial
 Evaluator review, and every phase gate is met. Default
-execution closes with `/verify quick`; Gauntlet uses its profile's `/verify loop <PLAN_FILE>` close. Both run
-`/evolve auto` only after PASS and stop reviewed and unstaged. Git actions need separate approval.
+execution closes with `/verify quick`; Gauntlet uses its profile's `/verify loop <PLAN_FILE>` close.
+After PASS, `/evolve auto` runs only when its lifecycle trigger applies. Stop reviewed and unstaged;
+Git actions require their own action/scope approval, retaining an existing same-scope session approval.
 
 ## Step 1 — Validate and lease
 
@@ -150,7 +152,7 @@ run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review pa
 task-review ledger to a separate `graph-powers:evaluator` in
 `references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
 Minor findings and triage deferred or parked items. The default profile then runs `/verify quick`,
-`/evolve auto` on PASS and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
+conditionally `/evolve auto` on PASS when its trigger applies, and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
 `gauntlet-loop.md § Final close` while the lease remains held. A failing final gate leaves the lease
 and working-tree state explicit until resolution or a safe abort.
 

@@ -28,9 +28,8 @@ References:
 
 ## 2. The file contract, and preloading
 
-Both live in `SKILL.md` — the frontmatter shape and body sections in § 2, the preload-versus-`Skill()`
-decision in § 8. They are not repeated here; this file starts where those stop, at the four choices
-below that the contract leaves open.
+The entry owns the frontmatter and the conditional preload decision. They are not repeated here;
+this file covers the remaining architectural choices.
 
 ---
 
@@ -96,7 +95,8 @@ Nesting is allowed: a subagent may spawn a subagent, to a default depth of three
 main conversation. That is the trap, not a capability to reach for — a chain that spawns at every
 level exhausts `graphGuardrails.maxSpawnsPerSession` without anyone having decided to fan out. Spawn
 from the level that owns the decision; below L6, a coordinator plus phase gates costs less than a
-third layer. The rest of the anti-patterns are in `SKILL.md` § 11.
+third layer. Keep the contract bounded; this reference is the authority for its architectural
+anti-patterns.
 
 ---
 

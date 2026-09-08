@@ -8,7 +8,8 @@
 ## HARD GATE
 
 Do not invoke an implementation skill, write code or scaffold until the design has been presented
-and the user has approved it.
+and the user has approved it. An existing session approval covers its stated scope and transition;
+ask again only for a new decision, authority or material scope change.
 
 Tier-gated: L1-L2 skip the design gate and edit directly; L3+ never skip it. Step 0 already fixed
 the destination and tier, so Phase A starts from evidence rather than reopening scope.
@@ -21,7 +22,8 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 
 - Main agent has classified the task as **L3+** (per `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`).
 - `Skill("graph-powers:planning")` is loaded.
-- Branch is `${git.workBranch}`. If not, return to it before any action.
+- Preserve the current checkout; report any mismatch with `${git.workBranch}` and never switch
+  branches without explicit authorization.
 
 ## Exit contract
 
@@ -34,7 +36,7 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 
 > Phase A is a goal-gated loop. Model: `references/loop-engineering.md`.
 
-- **trigger:** task classified L3+ on `${git.workBranch}`.
+- **trigger:** task classified L3+ in the authorized checkout.
 - **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
 - **body:** inspect → clarify → compare approaches → present design → review → correct.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
@@ -67,8 +69,8 @@ or extension point without a current requirement or named consumer.
 ## Step 1 — Inspect before asking
 
 Read the current flow, its nearest `AGENTS.md`, recent relevant changes, the reuse candidates from
-Step 0 and `references/layer-map.md`. At L3 use one background `graph-powers:explorer`, as the
-execution floor requires. Add `graph-powers:librarian` only when the decision depends on current
+Step 0 and `references/layer-map.md`. Use a background `graph-powers:explorer` only for an
+independently useful repository investigation, not because the task is L3. Add `graph-powers:librarian` only when the decision depends on current
 external API, security or version behaviour; when both are needed, dispatch them in one message.
 Every prompt follows `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md § 4`.
 
@@ -141,13 +143,14 @@ pass ran, use its shortlist here; do not reopen discarded branches.
 - Layer chain: <which layers touched, in order>
 ```
 
-Get user pick.
+Use an already chosen approach. Ask for a pick only when an unresolved trade-off changes the scope.
 
 ## Step 5 — Present design in sections
 
 Sections scale to the decision: a few sentences when straightforward, up to roughly 200-300 words
 when nuanced. Cover **architecture**, **components and responsibilities**, **data flow**, **error
-handling** and **testing**. After each section ask whether it is correct so far; rewind on pushback.
+handling** and **testing**. Present the coherent design once; ask only about unresolved decisions
+and revise on feedback instead of requiring approval after every section.
 
 Design for isolation: one purpose per unit, explicit interfaces, independently testable boundaries.
 Follow existing repository patterns and keep targeted improvements inside touched code only. No
@@ -178,7 +181,7 @@ unrelated refactor and no new layer merely to make the diagram look cleaner.
 ```
 
 Run the relevant Markdown/config checks, but do not stage or commit the spec
-without explicit current-turn user approval.
+without explicit approval for that action and scope; existing same-scope session approval applies.
 
 ## Step 7 — Spec self-review
 
@@ -202,7 +205,8 @@ iterations** → escalate. **BLOCKED** → surface to the user, do not retry bli
 
 > "Spec written to `<plan dir>/spec.md` and the planning review passed. Approve Phase B, which writes the implementation plan?"
 
-Wait for explicit "yes"/"approve"/"go". On change request → revise + re-loop self-review + Step 8.
+Ask only if existing session approval does not cover this design/transition. Otherwise proceed.
+On a change request, revise and repeat only reviews whose scope/evidence changed; retain the cap.
 
 ## Step 10 — Transition
 
@@ -215,9 +219,9 @@ Read `phase-b-writing-plans.md` next.
 
 ## L3 light path (truncated flow)
 
-For L3: (1) targeted repository inspection with one background explorer · (2) one clarifying question
+For L3: (1) targeted repository inspection, with an explorer only for useful independent work · (2) one clarifying question
 only if it changes the design · (3) inline three-section spec (`Architecture`, `Data shape`,
-`Validation`) · (4) user approval · (5) hand off to the requested implementation path. No file and no
+`Validation`) · (4) confirm approval covers this scope · (5) hand off to the requested implementation path. No file and no
 reviewer gate.
 
 ## L6+ extra

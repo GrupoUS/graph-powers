@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Diagnose and fix a defect — error, crash, stack trace, failing test, 500, hydration mismatch, CI gone red, or behaviour that changed after a deploy. Use when the user reports something broken, pastes an error, says a test is failing, says it worked yesterday, or asks why staging differs from local. Modes (positional) — default: triage and fix · audit: 9-dimension full-stack audit · frontend: React/UI plus browser E2E · backend: API and services · auth-db: auth, permissions, RLS · recover: after two or more failed attempts, when the user says we tried three times and it is still broken, that we are going in circles, or asks to back out and start over. Do not use to add behaviour that never worked ($graph-powers:implement), to judge code that already works ($graph-powers:pr-review), or to prove gates pass ($graph-powers:verify)."
+description: "Diagnose and fix a defect — error, crash, failing test, 500, hydration mismatch, CI failure or regression. Modes: default triage/fix; audit; frontend; backend; auth-db; recover. Do not use for new behavior ($graph-powers:implement), review ($graph-powers:pr-review), or gate proof ($graph-powers:verify)."
 ---
 
 # $graph-powers:debug

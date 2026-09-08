@@ -1,6 +1,6 @@
 # Structural Quality — Code Judo Review Standards
 
-> the project adaptation of the "thermo-nuclear code quality review" doctrine (cursor-team-kit, absorbed 2026-07-06). Single source of truth for structural-quality review. Consumers **reference** this file, never duplicate its tables: SKILL.md Step 5 (fix-shape check), the `systematic-audit` pack (Code Archaeologist structural sweep, template B in `references/pack-guides.md`), and `/pr-review` (structural overlay in § 3C; token `full` deep-loads this file integrally per pr-review.md § 0 (Pre-flight)).
+> the project adaptation of the "thermo-nuclear code quality review" doctrine (cursor-team-kit, absorbed 2026-07-06). Single source of truth for structural-quality review. Consumers **reference** this file, never duplicate its tables: the Debugger entry's fix-shape check, the `systematic-audit` pack (Code Archaeologist structural sweep, template B in `references/pack-guides.md`), and `/pr-review` (structural overlay in § 3C; token `full` deep-loads this file integrally per pr-review.md § 0 (Pre-flight)).
 
 ## Code Judo Doctrine
 
@@ -55,7 +55,7 @@ Extension bias: enhance existing structures before creating new files.
 
 Never settle for "maybe rename this" feedback when the real issue is structural. Never settle for a merely cleaner version of the same messy idea when a much simpler idea is visible.
 
-## Fix-Shape Check (debugging — SKILL.md Step 5)
+## Fix-Shape Check (debugging)
 
 A bug fix that adds an ad-hoc conditional / one-off boolean / special case to an unrelated flow is a **symptom patch** in disguise: the special case usually marks the wrong layer (Iron Law #2). Prefer the fix at the model/boundary that deletes the special case. When ≥3 fix attempts fail, stop patching — hunt the code-judo restructure that deletes the whole bug class instead of a fourth patch.
 

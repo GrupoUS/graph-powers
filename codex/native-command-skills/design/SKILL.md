@@ -1,6 +1,6 @@
 ---
 name: design
-description: "Use when creating or improving UI layout, type, hierarchy, tokens, states, responsiveness or direction. Routes new work to designer and existing repair to design-fix. Not for broken behavior ($graph-powers:debug) or speed ($graph-powers:perf)."
+description: "Create or improve UI layout, type, hierarchy, tokens, states, responsiveness or direction. Modes: new target, fix target, improve target. Not for broken behavior ($graph-powers:debug) or speed ($graph-powers:perf)."
 ---
 
 # $graph-powers:design

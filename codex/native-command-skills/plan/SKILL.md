@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Decide how to build a multi-step feature before code: scope, architecture trade-offs, integrations, ordering, issue triage and implementation plans. Routes all planning through the planning skill. Do not use to execute an existing plan or fix a known bug."
+description: "Decide how to build a multi-step feature before code: scope, trade-offs, integrations, ordering, triage and a plan. Do not use to execute a plan or fix a known defect."
 ---
 
 # $graph-powers:plan

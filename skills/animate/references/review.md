@@ -39,8 +39,8 @@ Every animation in the diff is measured against all ten. A violation is a findin
 
 ## Escalation
 
-Every row of the **Never ship** table in `SKILL.md` is flagged on sight, hard. The table is not
-restated here; open it beside the diff.
+Flag violations of the frequency gate, properties, easing and reduced-motion requirements in
+`../SKILL.md`. Those sections own the constraints; do not duplicate them here.
 
 ## Remedial preference
 

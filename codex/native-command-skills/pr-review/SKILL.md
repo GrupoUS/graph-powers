@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: "Review a PR, branch or diff before merge. Uses one adversarial Evaluator plus only surface-required security/design specialists, then returns prioritized findings, a verdict and a ready comment. Read-only unless --fix; never approves or merges. Modes — <PR#> · --current · --branch <name> · full. Flags — --quick, --fix. Not for plan execution ($graph-powers:implement) or gate proof ($graph-powers:verify)."
+description: "Review a PR, branch or diff before merge. Read-only unless --fix; never approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --fix."
 ---
 
 # $graph-powers:pr-review

@@ -120,7 +120,7 @@ function validateArguments(args) {
 validateArguments(argv);
 
 const AGENT_PROMPT = `Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
-Stop for my approval before each write, as the playbook instructs.`;
+Complete authorized, reversible setup and its checks; preserve existing settings and follow the playbook's approval boundaries.`;
 
 if (has("--agent-setup")) {
   console.log(

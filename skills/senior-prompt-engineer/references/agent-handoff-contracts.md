@@ -1,184 +1,96 @@
 # Agent Handoff Contracts
 
-> Canonical structured handoff schema returned by every Claude Code subagent.
-> Loaded by the `senior-prompt-engineer` skill, by `skills/planning/SKILL.md`, named as the return
-> format by `references/execution-floor.md` §4, and read by all twelve agents in `agents/` for the
-> canonical Context Handoff.
-
----
+Canonical contract for the execution floor, planning and agents. Keep this file as the only owner of
+the spawn context, return, consultation and recovery shapes.
 
 ## 1. Spawn template (5 mandatory context fields)
 
-The `MANDATORY CONTEXT` section of the seven that `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` §4 requires of every spawn. That file is the envelope; this section is its semantics. Neither is re-declared in a command body.
-
 ```markdown
+## TASK
+<one bounded task>
+## EXPECTED OUTCOME
+<deliverables and observable acceptance criteria>
 ## MANDATORY CONTEXT
-**Original request:** <lossless summary; quote exactly when short or authoritative>
-**User decisions:** <approach choices made so far — e.g., "user chose Option B for the hero layout">
-**Prior agent findings:** <1-2 sentence summary from each completed agent — key facts only>
-**Current plan state:** <phase N, task X of Y — what has already been done>
-**Do NOT redo:** <what prior agents already covered — skip to avoid duplication>
+**Original request:** <lossless scope/authorization>
+**User decisions:** <chosen options or —>
+**Prior agent findings:** <relevant completed facts or —>
+**Current plan state:** <phase/task and completed work>
+**Do NOT redo:** <already-covered work or —>
+## REQUIRED SKILLS & TOOLS
+<methods to load, tools and relevant project authorities; supply excerpts when local reads are forbidden>
+## MUST DO
+<requirements and owned paths>
+## MUST NOT DO
+<scope boundaries and forbidden actions>
+## RETURN FORMAT
+Context Handoff from this contract; add the findings table for a parallel batch.
 ```
 
-The summary preserves scope, constraints, exclusions, exact identifiers and user decisions. Quote
-the request exactly when it is already short or when its wording is authoritative: user text being
-transformed, authorization or safety wording, error strings, or prompt/contract text under test.
-
-**Why:** agents without context rediscover what the parent already knows. Wastes tokens, conflicts with prior decisions, multiplies parallel-spawn overhead. The 5-field block is the minimum viable handoff for any spawn.
-
-**Edge cases:**
-- L1-L2 direct fix (no prior agent): leave `Prior agent findings` and `Do NOT redo` empty (`—`).
-- First spawn of a session: `User decisions` is `—`.
-- **Never omit the section.** Empty fields signal "fresh start"; missing section signals "broken contract".
-
----
+Include exact text when its wording is authoritative (authorization, errors, contracts). The execution
+floor requires this seven-section envelope; the five context fields prevent rediscovery. The parent
+supplies applicable AGENTS.md, config/rules and domain skills or their exact paths; an external-only
+researcher receives the necessary facts and return/rubric excerpts in its prompt, not local read tasks.
 
 ## 2. Context Handoff (return schema)
-
-Every agent returns this block at the end of its response. Single canonical shape — no variants per agent type.
-
-### Markdown form (default)
 
 ```markdown
 ## Context Handoff
 - **Status:** COMPLETED | BLOCKED | REVISION_REQUIRED
 - **Confidence:** 1-5
-- **Artifacts:**
-  - `<path>:<lines>` — <action: created | modified | deleted | inspected>
-  - …
-- **Quality gates:**
-  - <name>: PASS | FAIL — <evidence: command output, file ref, screenshot path>
-  - …
-- **Decisions:**
-  - <what>: <why>
-  - …
-- **Risks:**
-  - <desc> → <mitigation>
-  - …
-- **Next agent:** <agent-name> | NONE
-- **Resume hint:** <one sentence telling the next agent where to pick up>
+- **Artifacts:** [{ path, lines, action }]
+- **Quality gates:** [{ name, status, evidence }]
+- **Decisions:** [{ what, why }]
+- **Risks:** [{ desc, mitigation }]
+- **Next agent:** <name> | NONE
+- **Resume hint:** <one sentence>
 ```
 
 ### JSON form (for a consolidating caller, and for tooling)
 
 ```json
-{
-  "status": "COMPLETED",
-  "confidence": 4,
-  "artifacts": [
-    { "path": "<src>/<module>/<file>.<ext>", "lines": "12-45", "action": "modified" }
-  ],
-  "qualityGates": [
-    { "name": "<type-check command>", "status": "PASS", "evidence": "0 errors" }
-  ],
-  "decisions": [
-    { "what": "<decision>", "why": "<rationale>" }
-  ],
-  "risks": [
-    { "desc": "<risk>", "mitigation": "<how it was or will be mitigated>" }
-  ],
-  "nextAgent": "verification",
-  "resumeHint": "<one sentence telling the next agent where to pick up>"
-}
+{"status":"COMPLETED","confidence":4,"artifacts":[{"path":"<path>","lines":"<lines>","action":"modified"}],"qualityGates":[{"name":"<gate>","status":"PASS","evidence":"<output>"}],"decisions":[{"what":"<decision>","why":"<why>"}],"risks":[{"desc":"<risk>","mitigation":"<mitigation>"}],"nextAgent":"NONE","resumeHint":"<next step>"}
 ```
 
 ## 2a. Consultation request/result envelope
 
-This is the canonical request/result envelope used by the parent-mediated consultation ledger and
-mirrored in `references/execution-floor.md §4a`. It is one shape, not separate request and result
-schemas. All fields are required. A request starts as `RESERVED`/`PENDING`; a completed result is
-`RECORDED`, `BLOCKED`, or `USER_REQUIRED` and carries its explicit verdict.
-
 ```json
-{
-  "taskId": "T2",
-  "decisionKey": "architecture-boundary",
-  "question": "Which bounded design should the parent choose?",
-  "evidence": ["path:line or observed output"],
-  "options": ["option-a", "option-b"],
-  "recommendation": "option-a",
-  "risk": "what remains uncertain",
-  "verdict": "PENDING",
-  "requesterRole": "parent",
-  "depth": 0,
-  "backend": "evaluator",
-  "capabilityStatus": "SUPPORTED",
-  "status": "RESERVED"
-}
+{"taskId":"T2","decisionKey":"architecture-boundary","question":"<question>","evidence":["path:line or output"],"options":["option-a","option-b"],"recommendation":"option-a","risk":"<uncertainty>","verdict":"PENDING","requesterRole":"parent","depth":0,"backend":"evaluator","capabilityStatus":"SUPPORTED","status":"RESERVED"}
 ```
 
-The parent/controller owns identity, reservation, stable `decisionKey` deduplication, the per-task
-three-key cap, and resume. `decisionKey` is validated and supplied by the parent; it is never
-derived from sensitive prompt text. Only a parent/controller at depth zero may consult. A worker
-cannot spawn children. Evaluators, reviewers, and critics are read-only and cannot request a
-consultation; review calls are tagged separately and do not consume this budget. Duplicate keys
-return the recorded result. A capped request is `USER_REQUIRED`; unresolved capability or an
-unavailable fallback is `BLOCKED`, with no spawn or retry.
-
-Capability status is declared, never live-probed: native Fable/advisor is permitted only when
-`SUPPORTED`; `UNSUPPORTED` or `UNKNOWN` explicitly routes to the existing read-only evaluator
-without emitting the native backend. If the strong evaluator/fallback is unavailable, return
-`BLOCKED`. The executable ledger is `sdd.py consult reserve|record`; it is atomic, symlink-safe,
-machine-readable, and its `USER_REQUIRED`/`BLOCKED` result uses exit code `4`.
-
-A result may add `fallback: true` and a bounded `reason` as routing metadata; these do not form a
-second envelope.
-
----
+Only the parent/controller at depth zero reserves/records a stable `decisionKey`; workers and
+read-only reviewers cannot consult. Evaluators cannot spawn or consult. A duplicate returns its recorded result. Caps return
+`USER_REQUIRED`. Native Fable/advisor requires positive `SUPPORTED` metadata; `UNKNOWN` or
+`UNSUPPORTED` selects the existing read-only evaluator fallback, never a native probe. Unresolved
+capability or an unavailable fallback returns `BLOCKED` without a spawn or retry. Reserve and record
+through `sdd.py consult reserve|record` in the plan's existing workspace; retain the ledger on resume.
+Optional `fallback` and bounded `reason` record that routing.
 
 ## 3. Status semantics + invariants
 
-| Status | Meaning | Required fields |
-|---|---|---|
-| `COMPLETED` | Task done. All listed quality gates PASS. | `artifacts[]` non-empty (or `[]` if read-only); all `qualityGates[].status == PASS` |
-| `BLOCKED` | Cannot proceed without external input or escalation. | `risks[]` non-empty AND every entry has a `mitigation` (or `mitigation: "ESCALATE"` to flag for parent) |
-| `REVISION_REQUIRED` | Returned by reviewer agents (`graph-powers:evaluator`, `graph-powers:security-reviewer`, `codex:codex-rescue`) when output fails its rubric. | `decisions[]` lists each failed criterion + the threshold it missed |
+| Status | Required condition |
+|---|---|
+| `COMPLETED` | gates pass; artifacts may be `[]` only for read-only work |
+| `BLOCKED` | risk includes mitigation (use `ESCALATE` when applicable) |
+| `REVISION_REQUIRED` | reviewer-only; decisions name failed criterion/threshold |
 
-**Invariants:**
-1. `confidence < 3` on a **critical** finding → status MUST be `BLOCKED` (per
-   `${CLAUDE_PLUGIN_ROOT}/skills/planning/SKILL.md § Stopping & red flags`).
-2. `BLOCKED` cannot omit `risks[].mitigation`. A blocker without an escalation path is a defect.
-3. `REVISION_REQUIRED` is reviewer-only. Implementer agents return `BLOCKED` instead.
-4. `nextAgent: NONE` is valid only when `status: COMPLETED` and the task is terminal in its phase.
-
----
+A critical finding below confidence 3 is `BLOCKED`. `nextAgent: NONE` is terminal
+`COMPLETED` only. A completion without gate evidence is defective.
 
 ## 4. Coordinator failure recovery
 
-When an agent-team coordinator (`/implement § 6`) receives `REVISION_REQUIRED` from a specialist:
-
-1. **Iteration 1:** coordinator forwards reviewer's failures back to the responsible specialist with explicit fix list. Specialist resubmits.
-2. **Iteration 2:** if specialist returns `REVISION_REQUIRED` again, coordinator forwards once more — last attempt.
-3. **Iteration 3 (would be):** coordinator does NOT retry. Coordinator returns to main agent:
-   ```
-   BLOCKED: <criterion>
-   Specialist <name> failed 2 consecutive revisions on this criterion.
-   Last evidence: <reviewer output>
-   ```
-4. Main agent invokes `/debug recover`. Do **not** escalate to user mid-loop — `/debug recover` triages first.
-
-**Why a hard limit:** without it, `REVISION_REQUIRED` loops burn the session spawn ceiling (`graphGuardrails.maxSpawnsPerSession`) silently, and the only signal the user gets is a task tree that stopped moving.
-
----
+Forward a reviewer failure to its responsible specialist twice at most. A third would-be revision
+returns `BLOCKED` with criterion and last evidence; the main agent runs `/debug recover`.
+Do not loop or escalate to the user before that triage.
 
 ## 5. Parallel batch override
 
-When ≥2 agents run in a single message (parallel spawn pattern, `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md § 7`), each agent returns the standard Context Handoff PLUS the shared findings table from `parallel-batch-contracts.md`. The parent consolidates by:
-
-1. Concatenating all `artifacts[]` entries (deduped by `path`).
-2. Merging `qualityGates[]` — a single FAIL across batch members → batch FAIL.
-3. Taking max severity / max confidence per finding when row keys overlap.
-4. Aggregate `status` rule: `COMPLETED` only if ALL members `COMPLETED`; otherwise the worst status wins (`BLOCKED` > `REVISION_REQUIRED` > `COMPLETED`).
-
----
+For two or more agents, add the findings table in `parallel-batch-contracts.md`. Consolidation
+dedupes artifacts/findings, a single gate FAIL fails the batch, and the worst status wins
+(`BLOCKED` > `REVISION_REQUIRED` > `COMPLETED`).
 
 ## 6. What NOT to put in the handoff
 
-- ❌ Verbose narrative ("So I started by reading the file, then I noticed…"). Use `Decisions` for the why, not the journey.
-- ❌ Re-listing the original prompt. The parent has it.
-- ❌ Skill content dumps. Reference the skill name; don't paste its body.
-- ❌ Speculation without evidence. If `confidence ≤ 2`, mark it `BLOCKED` and ask.
-- ❌ "Done" without `qualityGates[]`. A claim of completion without evidence is the most common defect this schema prevents.
-- ❌ Burying outcomes or repeating facts: lead with outcome and evidence, state each fact once, and preserve exact paths, commands, errors, numbers, decisions and uncertainty. Safety and clarity override brevity.
+Do not narrate the journey, repeat the prompt, dump skill text, hide uncertainty, or claim done
+without evidence. Lead with outcome and preserve exact paths, commands, numbers and decisions.
 
 Owner: `senior-prompt-engineer` skill.

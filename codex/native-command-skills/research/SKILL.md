@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Investigate without changing anything — how this codebase does X, what a library or API actually supports, what a change would touch. Use when the user says to look into it, find out how something works, or explicitly not to edit yet. Explores the codebase and external docs in parallel and returns structured findings only. Do not use to then fix what it found ($graph-powers:debug) or to turn it into a plan ($graph-powers:plan)."
+description: "Investigate without changes: how this codebase works, what a library/API supports, or what a change touches. Findings only; not for fixing ($graph-powers:debug) or planning ($graph-powers:plan)."
 ---
 
 # $graph-powers:research

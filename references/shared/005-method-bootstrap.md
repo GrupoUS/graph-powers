@@ -1,8 +1,8 @@
 ## Section 0.5: Method bootstrap
 
-After required references load and before any action or response — including a clarifying question
-or task-file read — check for applicable skills. A plausible match means invoke it, announce
-`Using <skill> to <purpose>`, and follow it; drop it only after reading proves it irrelevant.
+Before a task action, load a skill when the user explicitly asks for it or its documented trigger
+clearly matches the task. Announce the choice once. Do not load a skill merely because it might be
+relevant; use the project rules and available tools when no clear match exists.
 
 Process skills precede domain skills: `graph-powers:planning` for discovery, design, plan authoring,
 approved-plan execution and TDD; `Skill("debugger")` for broken behaviour; `/pr-review § 4.1` for
@@ -15,8 +15,8 @@ review feedback. Full ordering is `120-skill-invocation-order.md`.
 - Apply `skills/planning/references/execution/tdd-policy.md` to behaviour changes; do not restate
   its RED/GREEN/exception contract here.
 - `025-solution-ladder.md`: only what the plan and failing test require.
-- Completion requires fresh command output and exit code per `015-verification-gate.md`; an agent
-  report or visual inspection is not evidence.
+- Completion evidence follows `015-verification-gate.md`; an agent report or visual inspection is
+  not enough on its own.
 
 Exceptions: `/prime` only recommends; a subagent follows its dispatch contract (`execution-floor.md § 4`).
 

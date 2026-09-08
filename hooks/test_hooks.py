@@ -322,6 +322,11 @@ def session_context_lifecycle() -> None:
     check("...on codex too", "Execution floor in force" in tag(installed, harness="codex"), True)
     check("...naming the file, not copying it", "execution-floor.md" in installed_tag, True)
     check(
+        "tier alone does not force a delegation",
+        "L3+ delegates" in installed_tag,
+        False,
+    )
+    check(
         "...and it does not disturb the gate tag",
         "lint" in installed_tag.split("gates: ")[-1].split("\n")[0],
         True,
@@ -349,7 +354,7 @@ def session_context_lifecycle() -> None:
         if pointer:
             check(
                 f"{harness} lifecycle pointer is bounded",
-                len(pointer[0].encode("utf-8")) <= 512,
+                len(pointer[0].encode("utf-8")) <= 256,
                 True,
             )
             check(f"{harness} lifecycle pointer is one line", "\n" in pointer[0], False)
@@ -369,13 +374,13 @@ def session_context_lifecycle() -> None:
                 False,
             )
             check(
-                f"{harness} lifecycle pointer gives the entry protocol precedence",
+                f"{harness} lifecycle pointer does not prescribe a response prefix",
                 "emit the matching lifecycle entry first" in pointer[0],
-                True,
+                False,
             )
             check(
-                f"{harness} lifecycle pointer ends before work",
-                pointer[0].endswith("before work."),
+                f"{harness} lifecycle pointer does not impose a pre-work ceremony",
+                all(word not in pointer[0] for word in ("blocker/refusal", "RED pending", "before work.")),
                 True,
             )
 

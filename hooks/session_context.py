@@ -57,17 +57,7 @@ def read_input() -> dict[str, object]:
 
 
 def execution_floor() -> str:
-    """The line that makes the execution floor active rather than merely available.
-
-    A pointer plus the posture, never a copy: `references/execution-floor.md` is the source, and a
-    second copy of it here would be the divergence this plugin exists to end. The posture sentence
-    is mirrored on purpose — a pointer nobody follows routes nothing, and the one decision that has
-    to survive a session that never opens the file is whether to delegate at all.
-
-    The path is resolved from this file rather than written down, because the same bytes run from
-    the plugin root on Claude Code and from a clone on Codex. Fail-open: if anything about the
-    lookup fails, the relative name still names the file.
-    """
+    """Point to dispatch rules without turning complexity into a delegation quota."""
     where = "references/execution-floor.md"
     try:
         floor = Path(__file__).resolve().parent.parent / "references" / "execution-floor.md"
@@ -77,9 +67,9 @@ def execution_floor() -> str:
         pass
     return (
         # mirror of execution-floor.md §1 — the posture, not the ladder
-        "Execution floor in force: L1-L2 is a direct edit and delegating is refused; L3+ delegates, "
-        "read-only agents in the background, a whole batch in one message, one writer per file. "
-        f"Read it before spawning anything: {where}"
+        "Execution floor in force: use specialists only for useful scoped work; one writer per file. "
+        "Stop when acceptance is verified. "
+        f"Dispatch rules: {where}"
     )
 
 
@@ -115,14 +105,12 @@ def lifecycle_pointer() -> str:
     except Exception:
         pass
     prefix = (
-        "Proactive skill lifecycle: when skill-improve's description selects the task, Mode A/B rows emit the "
-        "matching lifecycle entry first before blocker/refusal/permission/tool observation/clarification/plan/"
-        "draft/edit, even without tools/Write; read "
+        "Proactive skill lifecycle: when skill-improve's description selects the task, read "
     )
-    pointer = f"{prefix}{where} before work."
-    if len(pointer.encode("utf-8")) <= 512:
+    pointer = f"{prefix}{where}; use only the relevant mode."
+    if len(pointer.encode("utf-8")) <= 256:
         return pointer
-    return f"{prefix}{relative} before work."
+    return f"{prefix}{relative}; use only the relevant mode."
 
 
 def get_git_branch(project_dir: str) -> str:

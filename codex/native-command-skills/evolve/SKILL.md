@@ -1,6 +1,6 @@
 ---
 name: evolve
-description: "Turn what this session learned into something the next one inherits — updates the project's rules and AGENTS.md so a mistake does not recur. Use when the user says to capture the learning, make sure this does not happen again, or write the convention down. Do not use for a personal preference, which belongs in memory rather than in the repository."
+description: "Capture a session learning so the next one inherits it. Modes: default capture, auto for the AutoResearch Loop, handoff for session state. Do not store a personal preference in repository rules."
 ---
 
 # $graph-powers:evolve

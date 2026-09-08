@@ -1,38 +1,26 @@
 # Safety floor
 
-The invariants every agent in this plugin carries, whatever else its prompt says.
-
-They live here for one reason: **subagents do not inherit the main session's instructions.**
-A subagent starts with its own prompt and nothing else — not the project's `CLAUDE.md`, not a
-subdirectory `AGENTS.md`, not the rules the parent loaded. So each agent mirrors the sections it
-needs directly in its own body, with a provenance comment:
+The invariants every agent carries. Subagents do not inherit the main session's instructions, so an
+agent mirrors only the sections it needs and marks the source:
 
 ```markdown
 - <!-- mirror of safety-floor.md §1 --> Never commit, push, checkout a protected branch, merge, or
-  mutate Git history without explicit approval in the current turn.
+  mutate Git history without explicit approval for that action and scope; same-scope session
+  approval remains valid.
 ```
 
-The comment is the point. Without it the line reads as one author's opinion, and the next person
-edits it out of one agent and not the other eleven. With it, this file is the source and a
-divergence is visible.
-
-**When you change a section here, update every mirror of it.** That is the price of defensive
-duplication, and it is cheaper than a subagent that never learned the rule.
+When this source changes, update its mirrors.
 
 ---
 
 ## §1 — Git and anything that leaves the repository
 
-No commit, push, branch checkout onto a protected branch, merge, rebase, tag, stash drop, history
-rewrite, PR, release or deploy without explicit approval **in the current turn**. Approval given for
-one action does not carry to the next one, and approval given in an earlier turn has expired.
+No commit, push, protected-branch checkout, merge, rebase, tag, history rewrite, PR, release or
+deploy without explicit approval for that action and scope. An approval already given in the session
+remains valid for the same action and scope; it never authorizes a different outward action.
 
-Agents that judge, research or audit do not run state-changing git commands at all. Their Bash is
-read-only: `ls`, `find`, `grep`, `wc`, `head`, `jq`, `git log`, `git diff`, `git status`,
-`git ls-files`.
-
-The guardrails in `hooks/` enforce the same rule from outside the model. An agent that finds itself
-blocked by one has not found a bug — it has found the rule.
+Review, research and audit agents do not run state-changing Git commands. A hook denial is the
+rule, not a workaround opportunity.
 
 ## §2 — Tenant isolation and personal data
 
@@ -44,36 +32,22 @@ Personal data is never echoed back in full. A report names `path:line` and the k
 
 ## §3 — Irreversible data operations
 
-Schema migrations, destructive SQL, bulk updates, index drops, queue purges, cache flushes against a
-shared environment, and anything with no reverse: propose, show the exact statement, and stop for
-approval. Never as a side effect of another task.
+Schema migrations, destructive SQL, bulk updates, index drops, queue purges, shared cache flushes,
+and any irreversible operation require the exact statement and explicit approval. A migration needs
+a rollback path.
 
-A migration that cannot be rolled back ships with the rollback path written down, or it does not ship.
+Auth, payment, and PII changes also require explicit authorization for the affected action and
+scope. Existing session approval covers that scope; a new sensitive operation needs its own approval.
 
 ## §4 — Secrets and production configuration
 
-Never print, log, commit or embed a secret. When one is found, report the location and the kind,
-masked (`postgresql://user:***@host`), and treat it as the highest-severity finding available.
-
-Never weaken production configuration to make something pass: no loosened CORS, no disabled
-certificate checks, no `localhost` fallback standing in for a required production value, no auth
-check commented out "for now".
+Never print, log, commit or embed secrets; report location and kind masked. Never weaken production
+configuration, authentication, CORS, certificates, or required values to make work pass.
 
 ## §5 — Repository tooling
 
-Use the commands the project declared in `tooling.commands` — package manager, type checker, linter,
-formatter, test runner, build. Never substitute a different tool because it is more familiar: a gate
-run with the wrong tool reports on something the project does not ship.
-
-For JS/TS, declaration does not override `130-typescript7-oxc-gates.md`: vtsls is the only
-TypeScript provider, Oxlint is the only diagnostic provider, and Oxfmt is the only formatter.
-Type-aware Oxlint is an optional final gate at `/verify`, commit or CI, without a network fallback.
-Edit loops keep the project's declared test runner. Plugin ESM verification runs through Bun.
-
-When a command is not declared, say so. A gate that silently does nothing because the script does not
-exist is worse than an absent gate, because the report line reads as covered.
-
-Files stay LF-only.
+Use the project's declared tooling; do not substitute familiar tools. If a gate is undeclared, say
+so. JS/TS follows `130-typescript7-oxc-gates.md`. Files stay LF-only.
 
 ## §6 — Scope
 
@@ -84,11 +58,9 @@ Never touch a file the user has dirty in the working tree without saying so firs
 
 ## §7 — Completion claims
 
-"Done", "fixed" and "passing" require the command output that proves it, in the same message. A
-regression fix requires a check that would have failed before the fix.
-
-An agent that cannot verify says what it could not verify. Reporting an unverified claim as verified
-is the single most expensive failure mode in this harness.
+"Done", "fixed" and "passing" require applicable command evidence under
+`shared/015-verification-gate.md`; a regression fix needs a check that would have failed before the
+fix. State what could not be verified.
 
 ## §8 — Accessibility
 

@@ -1,6 +1,6 @@
 ---
 name: perf
-description: "Make something measurably faster, lighter or more findable — slow page, slow query, oversized bundle, poor Core Web Vitals, weak SEO or security baseline. Use when the user says something takes too long, feels sluggish, times out, or that the bundle is too big. Modes (positional) — default runtime audit · build · db · vercel · doctor · seo · sec. Pass URL, scope or strategy after the mode. Do not use when the output is wrong rather than slow ($graph-powers:debug)."
+description: "Make something measurably faster, lighter or more findable. Modes: runtime audit, build, db, vercel, doctor, seo and sec; `resources`, `hooks`, and `tests` use the resource audit. Do not use when output is wrong ($graph-powers:debug)."
 ---
 
 # $graph-powers:perf

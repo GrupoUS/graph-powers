@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Diagnose the local Oxc (Oxlint/Oxfmt), TypeScript 7, vtsls and Zed setup without changing the machine. Use when the user asks to configure or check project toolchain, editor diagnostics, format-on-save or competing linters and formatters. Reports missing tools and compatibility blockers, then prints local package-manager commands and a portable project-settings example. Never installs packages or edits global editor settings."
+description: "Diagnose local Oxc, TypeScript 7, vtsls and Zed setup without changing the machine. Reports blockers and local install suggestions; never installs packages or edits settings."
 ---
 
 # $graph-powers:setup
