@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.3 — Lean instruction sources
+
+Commands, skills, agent prompts and shared rules now keep their methods in the canonical owner,
+load detail only for the relevant task, and stop after sufficient verification. Existing modes,
+specialist roles, safety contracts and client projections remain available. SessionStart keeps
+routing and gate discovery without prescribing a response prefix or forcing delegation by tier.
+
+Context and listing budgets are tightened to retain the reduction. The repository includes a
+before/after report and lifecycle regression evidence for this change.
+
 ## 1.19.2 — Installer, routing and validation corrections
 
 Installer validation now rejects invalid operations before side effects, preserves adopted rules,

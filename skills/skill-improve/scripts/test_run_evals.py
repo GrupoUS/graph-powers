@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import subprocess
 import sys
 import tempfile
@@ -53,21 +52,16 @@ def tagged_eval_doc() -> dict:
 
 
 class RunEvalsTests(unittest.TestCase):
-    def test_mode_a_entry_precedes_the_preserved_blocker(self) -> None:
-        entry = "skill-improve Mode A — skill-authoring: RED established by evidence"
-        preserved = "I’m blocked by a pre-existing permission constraint."
-        synthetic = f"{entry}\n\n{preserved}"
+    def test_response_is_graded_by_case_evidence_without_a_fixed_entry_prefix(self) -> None:
+        document = tagged_eval_doc()
+        blocker = "I’m blocked by a pre-existing permission constraint."
+        accepted = RUN_EVALS.run_eval_suite(document, f"{blocker}\n\nEvidence: alpha", "tagged")
+        rejected = RUN_EVALS.run_eval_suite(document, blocker, "tagged")
 
-        def first(response: str) -> str:
-            return next(line.strip() for line in response.splitlines() if line.strip())
-
-        pattern = r"skill-improve Mode A — skill-authoring: RED (pending|established by evidence)"
-        self.assertIsNone(re.fullmatch(pattern, first(preserved)))
-        self.assertIsNotNone(re.fullmatch(pattern, first(synthetic)))
-
-        skill = SCRIPT.parents[1] / "SKILL.md"
-        content = skill.read_text(encoding="utf-8")
-        self.assertLess(content.index("[HARD] Entry protocol"), content.index("| Stage observed"))
+        self.assertEqual(accepted["pass_rate"], 1.0)
+        self.assertEqual(accepted["critical_failures"], 0)
+        self.assertEqual(rejected["pass_rate"], 0.0)
+        self.assertEqual(rejected["critical_failures"], 1)
 
     def test_case_tag_requires_per_case_response_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

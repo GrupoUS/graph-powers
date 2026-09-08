@@ -1,6 +1,6 @@
 ---
 name: verify
-description: "Prove the work actually holds before it is handed off — runs the gates the project declared, checks the safety floor, and returns a verdict with the command output behind it. Use when the user asks whether this is done, to run the gates, to check nothing broke, or before claiming any L3+ task complete. Do not use to review a diff for quality ($graph-powers:pr-review) or to chase a gate that is already failing ($graph-powers:debug)."
+description: "Prove work holds before handoff: declared gates, safety floor, and an evidence-backed verdict. Modes: quick, full, loop. Use before claiming L3+ complete; not for review ($graph-powers:pr-review) or fixing failures ($graph-powers:debug)."
 ---
 
 # $graph-powers:verify

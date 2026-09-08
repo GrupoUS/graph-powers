@@ -13,7 +13,7 @@
   the generated plan still waits for `/plan`'s human gate.
 - Task tier is **L4+**. Only an explicit request to prepare a plan for Gauntlet admits L3 to Phase B;
   ordinary L3 still skips it. Tier ladder: `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`.
-- Branch is `${git.workBranch}`.
+- Preserve the authorized checkout; report a mismatch with `${git.workBranch}` instead of switching.
 
 ## Exit contract
 
@@ -290,12 +290,15 @@ At L4, skip this gate unless the user asks for a second review. At L5+, **PASS**
 
 > "Plan saved at `<plan dir>/PLAN.md` and its required review passed. Approve execution, or stop at the plan?"
 
-Wait for an explicit yes. On a revision request → revise, re-run Step 6, re-run Step 7.
+Ask only if existing session approval does not cover execution of this plan. Otherwise continue
+within that scope. On a revision request, repeat Step 6 and only the Step 7 review affected by the
+change; never repeat an unchanged green review merely to accumulate rounds.
 
 ## Step 9 — Transition
 
-At L4, stop at the approved plan. An explicit Gauntlet L3 also stops there and requires a later
-`/gauntlet <plan dir>` invocation. At L5+, continue only after the Step 8 approval:
+At L4, stop at the approved plan unless execution is already requested. Gauntlet requires an explicit
+opt-in for this plan; preparing it does not imply that opt-in, but an existing opt-in need not be
+requested again. At L5+, continue when Step 8's execution approval is covered:
 
 ```
 "Phase B complete. Plan ready at <plan dir>/PLAN.md. Invoking Phase C."

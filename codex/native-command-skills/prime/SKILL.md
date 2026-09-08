@@ -1,6 +1,6 @@
 ---
 name: prime
-description: "Load this project's context at the start of a session — rules, conventions, stack, the paths that matter. Use when the user asks to load context, get up to speed, or what the conventions here are. Modes (positional) — default: auto-classify · backend · frontend · fullstack. Loads the minimum viable context, never eagerly. Do not use to locate one specific thing ($graph-powers:research)."
+description: "Load a project's minimum relevant context. Modes: auto, backend, frontend, fullstack. Use to get up to speed; not to locate one fact ($graph-powers:research)."
 ---
 
 # $graph-powers:prime

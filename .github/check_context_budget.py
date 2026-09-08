@@ -159,68 +159,12 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
     return raw
 
 
-# Measured 326,356 B / 435,117 B on the day the gate was given teeth, and rounded up to the next
-# 5,000 rather than to the next byte. A ceiling set flush against the measurement fails on the
-# next paragraph somebody writes in a command, which teaches people to raise the constant reflexively
-# — the failure mode this gate exists to prevent. The margin is one edit wide, not one feature wide.
-#
-# Same contract as `check_listing_budget.py`: the number is the high-water mark, not a target, and
-# lowering it when you do better is the point — a ceiling nobody ever tightens becomes headroom for
-# the next person to spend without noticing.
-#
-# FLOOR is what the command set loads on every invocation. CEILING is the worst case, every
-# conditional branch taken. WORST_FLOOR bounds a single command, because a total can stay flat
-# while one command doubles, and a command is what a person actually pays for.
-#
-# Lowered 330_000 -> 295_000 on 2026-08-24, in two steps, which is the half of this contract that
-# never gets honoured.
-#
-# 7,586 B came out of duplication, and no command lost content: the placeholder table in
-# `000-config-loader.md`, a third copy of the field list `schema/config.schema.json` owns, priced at
-# 9 command floors; and the old domain-skill enumeration in `005-method-bootstrap.md`, which
-# `120-skill-invocation-order.md` owns, priced at 10.
-#
-# The other 30,604 B were never a real load — they were this script mismeasuring one, which is the
-# failure its own docstring describes. `/verify § 0.3` fires only when the change set mapped the
-# `schema` surface and `/implement § 7.5` only on the `optIn` apply branch, but in both the
-# condition sat on the line above the `Skill("performance-optimization")` call, so the rule read the
-# call as unconditional and charged 15,323 B to every `/verify` on a passing typecheck. Moving the
-# condition onto the line that orders the load is the fix, and it is the sentence those two steps
-# should have been writing anyway.
-#
-# Measured floor after both: 291,810 B. So 3,190 B stays spendable and 35,000 B is locked away from
-# being spent without anyone noticing.
-#
-# Raised 295_000 -> 300_000 on 2026-08-26, and the 3,190 B were spent by two skills, not by prose:
-# `designer` (1.10.0) took 3,117 B of routing — `/design § 1` rewritten around its five moves, plus
-# a row in the skill-domain matrix, a WISC tier-3 line and the invocation order — and `animate`
-# (same release) took 300 B for its own matrix row, its `/pr-review` 3D cell and the `/design § 3`
-# call, which is conditional and so priced on the ceiling. Measured floor after both: 295,227 B.
-# Each row is a call site cardinal 4 requires; the alternative was a skill nothing routes to.
-#
-# Lowered 300_000 -> 270_000 on 2026-08-27 after the agent-resolution failure path moved behind a
-# conditional reference and `/research` stopped repeating routing, tool and output contracts.
-# Measured floor: 264,493 B. `/research` itself fell 18,537 -> 14,213 B on the normal path; even
-# loading the 3,280 B recovery reference after a resolution failure leaves it at 17,493 B.
-FLOOR_CEILING = 270_000
-# Raised 440_000 -> 470_000 on 2026-08-20, and what bought the increase is two separate things.
-# 18_585 B of it was already over the old ceiling before this change and had no owner. The rest is
-# `commands/evolve.md` gaining `Skill("skill-improve")`, the first functional call site the
-# skill-authoring territory has ever had: the external skill it replaced there matched no local
-# path, so it was charged zero and the gate was measuring a load it could not see. A merged 8.6 KB
-# body is the honest price of that edge, and the merge itself cut the two bodies from 384 non-empty
-# lines to 107. Lower this again when the pre-existing overage is paid down.
-#
-# Raised 470_000 -> 500_000 on 2026-08-26. 1.10.0 added four skills and every one of them loads on
-# a conditional branch, so the growth is ceiling and not floor: `/design` pays `landing-page-design`
-# (15.9 KB, only for a landing or marketing surface — the skill that used to be an external copy
-# and was therefore invisible to this gate, exactly as `skill-improve` was above) and `animate`
-# (14.6 KB, only before the animate pass); `/evolve § 5` pays `intent-layer` (8.5 KB). Measured
-# after: ceiling 497,086 B, floor 297,920 B — the floor stayed under its cap because the same loads
-# are conditional, which is the shape this gate exists to reward. The 18,585 B overage noted above
-# is still unpaid.
-CEILING_CEILING = 500_000
-WORST_FLOOR = 70_000
+# Measured after the lean-source pass: floor 46,243 B, ceiling 187,494 B,
+# largest command 11,526 B. Keep a small editing margin without changing the
+# measurement algorithm. These caps are ceilings, never targets.
+FLOOR_CEILING = 50_000
+CEILING_CEILING = 200_000
+WORST_FLOOR = 15_000
 
 
 def main() -> int:

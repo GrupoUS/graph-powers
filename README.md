@@ -504,16 +504,11 @@ finishes.
 
 ### Then: the setup playbook
 
-```
-Read AGENT_SETUP.md from the graph-powers plugin and execute it for this project.
-Stop for my approval before each write, as the playbook instructs.
-```
-
-Ten steps, every one of them with a stop before it writes: locate the plugin and back up →
-check optional integrations and workflow binaries → read the repository → write or merge the
-config → improve `CLAUDE.md` and `AGENTS.md` → create or improve the rules layer → clean what
-shadows the plugin →
-audit `settings.json` → wire Codex → verify with output.
+Use the prompt printed by `--agent-setup` in a session opened in the target project.
+[AGENT_SETUP.md](AGENT_SETUP.md) owns the procedure: verify prerequisites, preserve project
+configuration and rules, install the selected clients, and prove their packages and runtime state.
+Authorized reversible writes proceed directly; destructive cleanup, credentials and outward
+actions keep their approval boundaries.
 
 > **Installing without cleaning the project's `.claude/` does nothing.** Precedence is
 > `Project > Plugin`. While a local copy with the same name as a plugin agent, skill or command

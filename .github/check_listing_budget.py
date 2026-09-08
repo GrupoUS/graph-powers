@@ -38,10 +38,8 @@ import os
 import re
 import sys
 
-# The high-water mark, from the rewrite that introduced this gate. The plugin measured 10,752 before
-# it and 9,283 after; the ceiling is the *before*, so the headroom stays visible instead of being
-# spent silently by the next person who adds a skill.
-TOTAL_CEILING = 10_752
+# Measured 7,730 characters after the lean-source pass; retain limited editing room.
+TOTAL_CEILING = 8_000
 
 # Claude Code truncates a single entry's combined `description` + `when_to_use` at this many
 # characters regardless of the budget. An entry over it is not a style problem — it is text the

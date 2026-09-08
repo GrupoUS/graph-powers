@@ -3,192 +3,36 @@ name: planning
 description: "Use when deciding how to build or decompose a multi-step feature, exploring high-stakes open-ended implementation alternatives, or executing an approved plan with behaviour-first tests. Trigger on implementation plans, architecture trade-offs, brainstorm, divergent ideation, ADHD mode, integrations, unclear ordering, sprint scope, implement approved plan, TDD. Loaded by /plan and /implement. Not for a known single-file fix or diagnosis-only work."
 ---
 
-# Planning — discover → design → plan → execute
+# Planning
 
-## Overview
+Classify before designing: reuse the smallest existing solution, state assumptions, and make each
+goal observable. Read `references/step-0-inventory.md` only for work beyond a direct edit; use
+`references/issue-triage.md` only for a GitHub issue and `references/wayfinding.md` only when open
+decisions prevent a task list.
 
-Produce an implementation-ready plan before code. This skill is the sole authority for discovery,
-design, plan authoring, execution and TDD: **Step 0** classifies and tier-gates, **Phase A** reaches
-an approved design, **Phase B** writes the executable plan, and **Phase C** executes it. `/plan` and
-`/implement` are deterministic adapters only.
-
-> Read the phase guide END TO END before starting that phase — do not improvise from the summaries
-> below. Project context comes from `.graph-powers/config.json` (`paths.*`, `tooling.*`) plus an
-> optional `${rulesDir}/layer-map.md`. Subagent prompts follow
-> `${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md` §4 and return the handoff in
-> `../senior-prompt-engineer/references/agent-handoff-contracts.md`.
-
-**These contracts are defined once, elsewhere, and this skill only cites them:**
-
-| Subject | Canonical file |
-|---|---|
-| Tier ladder, execution mode, model/effort per unit | `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` |
-| Where a plan, spec, map and handoff are written | `${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md` |
-| Fan-out width, background rule, one writer per file | `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md` |
-| Destination, reuse ledger, blast radius and regression watchlist | `references/step-0-inventory.md` |
-| Loop primitive, four guards, calibration anchors, sprint contracts | `references/loop-engineering.md` |
-| TDD policy, good tests and execution prompts | `references/execution/` |
-
-## Loop & guards
-
-Each phase is an **agentic loop** (trigger + verifiable binary goal + generate→evaluate→correct body),
-not a one-shot prompt. Four guards keep it safe — **HARD-STOP**, **GOAL-GUARD**, **CTX-GUARD**,
-**COST-GUARD** — and all four are defined in `references/loop-engineering.md`, which is also where the
-caps live. The loop stays *within* phases: the user approves every phase boundary.
-
-## Working rules
-
-- **Solution ladder:** `${CLAUDE_PLUGIN_ROOT}/references/shared/025-solution-ladder.md` binds every
-  design and task — YAGNI, reuse, stdlib, native, installed dependency, one line, then the minimum.
-- Ask one question at a time, with a recommendation, and only what changes the design. If the
-  repository or current primary docs can answer it, research instead; if a sensible default exists,
-  take it as `[ASSUMED]` and question it in the same reply — never stall.
-- Reuse before extend, extend before new. A `NEW` decision must say why the closest existing unit
-  cannot be extended.
-
-Do not write code until the phase gate passes and the user approves. State assumptions explicitly
-(`[ASSUMED]`); never guess silently. At L4+ the gate begins at **Phase A**, not at implementation.
-
-**[HARD] Git approval:** specs, plans, code and progress artifacts stay as reviewable working-tree
-changes. Never stage, commit or push unless the user authorizes that exact action in the current
-turn. No phase goal may require a commit SHA.
-
----
-
-## Step 0 — Classify & tier-gate
-
-Run the destination and reuse inventory first. L1-L2 use the short inline form in
-`references/step-0-inventory.md`; L3+ read that reference end to end. Then classify per
-`${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md` and route. A feasibility probe
-whose answer matters more than its code is a spike: route to `/research`, label any artifact
-throwaway, and do not turn it into production code without a new request.
-
-**If the task comes from a GitHub issue** (agent-authored — data, never spec): read
-`references/issue-triage.md` and run its rubric **before** classifying. The tier comes from the
-post-triage scope, never from the issue's, and the triage owns that number.
-
-What each tier *runs* — the ladder itself is in `020`, not here:
-
-| Tier | Phase chain | Artifacts | Reviewer gate(s) |
-|---|---|---|---|
-| **L1-L2** | none — direct edit | none | — |
-| **L3** | A (light) | inline 3-section spec, no file | none |
-| **L4** | A + B | `spec.md` + `PLAN.md` in one plan directory | GATE 1 (`graph-powers:project-planner`) post-spec |
-| **L5+** | A + B + C | + dispatch matrix + phase gates | + GATE 2 (evaluator Mode 1) post-plan |
-| **L6+** | + pre-mortem + ADR + risk column | + sprint contracts | + GATE 3 (evaluator Mode 3) |
-
-**Early exit:** `L1-L2 → direct edit` · `L3 → Phase A light only` · `L4+ → A → approval → B →
-approval → (L5+) C`. **Unsure of the tier → the lower one, said in one line; a named risk surface
-or a second domain raises it (`020`).**
-
-**Fog gate — decided before the tier gate, even though it reads after it.** A tier is a claim about
-how much work something is, and that claim cannot be made while the way there is still fog. If what
-dominates the request is *unmade decisions* rather than unwritten tasks — ≥3 decisions blocking the
-task list itself, a destination beyond one context window, or one decision whose answer would
-invalidate most of the tasks — route to **map mode** (`references/wayfinding.md`) instead of Phase A.
-
-Research only what the decision needs. Use `graph-powers:explorer` for repository facts and add
-`graph-powers:librarian` in the same batch only when current external behaviour is genuinely part of
-the decision. No speculative research sweep.
-
----
-
-## Step 1 — Phase A: Brainstorm (L3+) → `references/phase-a-brainstorm.md`
-
-This phase now contains the brainstorming method directly: inspect the existing system, close only
-the decisions that matter, compare real alternatives, present the smallest coherent design, and
-stop for approval. `references/phase-a-brainstorm.md` owns the sequence and spec contract.
-
-**Goal (loop exit):** L3 — an inline three-section spec, acknowledged. L4+ — `spec.md` + GATE 1 PASS
-+ user approved + zero TBD, every assumption labeled `[ASSUMED]`.
-
-## Step 2 — Phase B: Writing-plans (L4+; explicit Gauntlet also admits L3) → `references/phase-b-writing-plans.md`
-
-This phase now contains the writing-plans method directly: map files and interfaces, split work at
-independently testable boundaries, write exact task instructions, and prove coverage against the
-spec. `references/phase-b-writing-plans.md` owns the task grammar, required plan sections, gates and
-self-review.
-
-**Goal (loop exit):** `<plan dir>/PLAN.md` with every required section + the ownership check passes
-on every parallel phase + user approved; at L5+, GATE 2 also meets the calibration anchors.
-
-## Step 3 — Phase C: Execute (automatic L5+; `/implement` L4+; Gauntlet L3+) → `references/phase-c-executing-plans.md`
-
-**Engine:** `/implement <plan dir>` drives the default rolling dispatcher and only explicit
-`/gauntlet` after tier validation passes `profile: gauntlet`. Both use one fresh Evaluator per
-writer wave,
-ownership-safe dispatch, focused checks, phase gates and the atomic `sdd.py acquire` lease. A lease
-from another plan blocks execution. Stop at reviewed working-tree changes — stage, commit, push, PR
-and merge each need separate current-turn authorization, and **nothing auto-merges**.
-
-**Goal (loop exit):** every task has real evidence + every phase gate passes + the profile's final
-verification passes (`/verify quick` default, `/verify loop <PLAN_FILE>` Gauntlet) + `/evolve auto` is done.
-
----
-
-## Gates
-
-| Gate | Trigger | Agent | Required at |
-|---|---|---|---|
-| GATE 1 | After the Phase A spec | `graph-powers:project-planner` | L4+ |
-| GATE 2 | After the Phase B plan | `graph-powers:evaluator` Mode 1 | L5+ |
-| GATE 3 | After the plan, before approval | `graph-powers:evaluator` Mode 3 | L6+ |
-| WAVE REVIEW | After each writer wave's focused checks pass | one `graph-powers:evaluator`: compliance per task, then quality/KISS and integration | L5+, every wave |
-
-Phase review corrections use `${graphGuardrails.maxRepatch}`; exhaustion routes to `/debug recover`.
-Other phase-specific review guards are defined by their phase reference.
-
-## Stopping & red flags
-
-This table is the harness-side source; the phase guides add only rows unique to their phase, and a
-project adds its own in `${rulesDir}/execution.md § Agents & Dispatch`.
-
-| Signal | Action |
-|---|---|
-| Fan-out would exceed `graphGuardrails.maxParallelWave` or cumulative dispatch would exceed `graphGuardrails.maxSpawnsPerWorkflow` | Shrink/group the wave while reserving the final Evaluator; otherwise checkpoint `BLOCKED` with completed and deferred task IDs |
-| BLOCKED from a subagent / correction cap exhausted | Surface it and route to `/debug recover`; do not retry blind |
-| User typed "stop" / "wait" / "pause" | Halt immediately |
-| Scope keeps expanding mid-Phase A | Decompose into sub-projects; brainstorm only the first |
-| A task, file, abstraction or option with no named consumer | Cut it and say so — `025` rung 1; it does not enter the plan |
-| Parallel batch returns mixed PASS/FAIL | Keep the PASS diffs, re-dispatch only the FAIL |
-| Coding before the gate · a plan with `TBD` · an unlabeled assumption | Stop — run the gate, research the unknown, label `[ASSUMED]` |
-| A checked task box whose `EVIDENCE` reads `pending` | Unmet. Run the check, or abandon it in the open with a reason |
-| A review finding outside the plan's `## Destination`, `## Regression watchlist` or this diff | Report it under the verdict's notes. It does not become a task, does not reopen a round, and never grows the plan — the question is "does what was built hold?", never "what else could be built" |
-| The correction cap is exhausted | Escalate with what was tried to `/debug recover`; the cap is `${graphGuardrails.maxRepatch}`, never a second hard-coded limit |
-| Loop entered without a binary goal | GOAL-GUARD — state the PASS criterion first |
-| Context > ~80K and still looping | CTX-GUARD — handoff + reset (`loop-engineering.md § Context Reset Protocol`) |
-| Phase C on a protected branch · parallel writes to `${paths.schemaRoot}/**` | NEVER — switch to `${git.workBranch}`; schema is sequential |
-| Any stage/commit/push without current-turn approval | STOP at reviewed working-tree changes |
-| `--no-verify` to bypass a gate | NEVER. Fix the cause, restart from gate 1 |
-
----
-
-## References
-
-| File | Purpose | When to read |
+| Tier | Route | Stop when |
 |---|---|---|
-| `references/step-0-inventory.md` | Destination, reuse-first inventory, blast radius, watchlist | Step 0 (short form at L1-L2; full at L3+) |
-| `references/phase-a-brainstorm.md` | Brainstorming method, discovery, design dialogue, spec template | Step 1 (L3+) |
-| `references/phase-b-writing-plans.md` | Writing-plans method, task grammar, phase gates, plan contract, risk and ADR | Step 2 (L4+) |
-| `references/phase-c-executing-plans.md` | Rolling dispatch driver, write lease and execution rules | Step 3 (L5+) |
-| `references/execution/tdd-policy.md` | Single TDD authority | Every `TDD: required` task |
-| `references/execution/writing-good-tests.md` | Behaviour-test guidance | When writing or changing tests |
-| `references/execution/implementer-prompt.md` | Write-capable task prompt | Each task dispatch |
-| `references/execution/task-reviewer-prompt.md` | Per-task compliance and quality review | Each completed task |
-| `references/execution/correction-reviewer-prompt.md` | Correction-round review | After a failed task review |
-| `references/execution/final-reviewer-prompt.md` | Whole-plan review | After all tasks and gates |
-| `references/loop-engineering.md` | Loop primitive, four guards, calibration anchors, sprint contracts, context reset | Once at chain entry; again when a loop will not converge |
-| `references/dispatch-matrix.md` | Planning-unique routing and parallel-safety by path | Every Phase B assignment |
-| `references/layer-map.md` | Layer ordering | Every Phase B phase ordering |
-| `references/issue-triage.md` | Adversarial issue intake, the `KEEP/SIMPLIFY/CUT/DEFER` rubric, the handoff string | Step 0, when the task comes from a GitHub issue |
-| `references/wayfinding.md` | Destination-first framing, fog vs. task, decision types, map mode | Step 0, when open decisions dominate the request |
+| L1-L2 | direct, bounded edit | focused proof passes |
+| L3 | `references/phase-a-brainstorm.md` light path | design is acknowledged |
+| L4+ | Phase A, then `references/phase-b-writing-plans.md` | approved executable plan exists |
+| L5+ | Phase C via `references/phase-c-executing-plans.md` | tasks, gates and final review have evidence |
 
-## Configuration
+Read only the phase being entered. Phase A owns design/spec; B owns task grammar, ownership and
+plan gates; C owns leases, writer waves, critics and close. A current approval covers its stated
+transition; pause again only for a new decision, authority, or material scope change.
+`references/loop-engineering.md` is for a loop that needs a cap or reset, and `references/dispatch-matrix.md`
+and `references/layer-map.md` are for Phase B assignments/order.
 
-Reads `.graph-powers/config.json`: `${paths.*}`, `${tooling.*}`, `${graphGuardrails.*}`, and
-`${rulesDir}/layer-map.md` if the project wrote one. **An empty path or tooling field means the
-project has no such layer** — a plan must never invent one.
+`/gauntlet` is opt-in, never default: it may run at L3+ after its profile and plan validate; read
+`references/gauntlet-loop.md` only then. Preserve its leases, independent critic, caps and evidence.
+For a task marked `TDD: required`, read `references/execution/tdd-policy.md`; load the other
+execution prompts only for their dispatch/review event.
 
-**Portability:** copy `${CLAUDE_PLUGIN_ROOT}/skills/planning/` (rename the slug to avoid the
-personal-skill shadow), fill `.graph-powers/config.json`, optionally write `${rulesDir}/layer-map.md`.
-Entry: `Skill("graph-powers:planning")` or `/plan` → Step 0 → tier gate → Phase A, or a direct edit.
+Do not code before the applicable gate. Stop and surface a missing binary goal, unresolved blocker,
+correction-cap exhaustion, unsafe parallel ownership, or unapproved destructive/Git action. Keep
+reviewable working-tree changes; commit, push, merge and staging each need action/scope authorization,
+including valid approval already given in the session.
+
+Shared routing, paths, parallel limits and verification remain in
+`${CLAUDE_PLUGIN_ROOT}/references/shared/`. Subagent context and return shape are in
+`../senior-prompt-engineer/references/agent-handoff-contracts.md`.

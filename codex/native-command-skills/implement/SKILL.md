@@ -1,6 +1,6 @@
 ---
 name: implement
-description: "Execute an approved implementation plan through planning Phase C. Use when the user says implement, build or execute an existing plan. Supports only --dry-run; use $graph-powers:plan to decide what to build and $graph-powers:verify to confirm the result."
+description: "Execute an approved implementation plan through planning Phase C. Supports only --dry-run; use $graph-powers:plan to decide and $graph-powers:verify to confirm."
 ---
 
 # $graph-powers:implement
