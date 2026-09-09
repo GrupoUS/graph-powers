@@ -157,6 +157,45 @@ class HermesPackageTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, "missing shorthand was silently classified as host data")
         self.assertIn("missing.md", result.stderr)
 
+    def test_hook_sources_are_external_inspection_boundaries_not_payload(self):
+        self.put("hooks/guard.py", "raise RuntimeError('hook must never be packaged')\n")
+        self.put("skills/demo/references/guide.md",
+                 "Inspect [guard](hooks/guard.py) and `guard.py` in the Claude source.\n")
+        package, plan = self.emit()
+        self.assertFalse((package / "skills/content/hooks").exists())
+        rendered = (package / "skills/content/skills/demo/references/guide.md").read_text()
+        url = "https://github.com/GrupoUS/graph-powers/blob/main/hooks/guard.py"
+        self.assertIn(f"[guard]({url})", rendered)
+        self.assertIn(f"`{url}`", rendered)
+        for reference in ("hooks/guard.py", "guard.py"):
+            self.assertIn(
+                {"from": "skills/demo/references/guide.md", "reference": reference,
+                 "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"},
+                plan["closure"]["host_references"],
+            )
+
+    def test_hook_source_boundary_rejects_missing_or_escaping_hook_paths(self):
+        for reference in ("hooks/missing.py", "hooks/../skills/demo/SKILL.md"):
+            with self.subTest(reference=reference):
+                self.put("skills/demo/references/guide.md", f"Inspect `{reference}`.\n")
+                result = self.generate("--package-only")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("hook source", result.stderr)
+
+    def test_semantic_projection_fails_loudly_when_canonical_source_drifts(self):
+        canonical = ROOT / "commands/evolve.md"
+        original = canonical.read_bytes()
+        result = self.generate("--plan-json", root=ROOT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        plan = json.loads(result.stdout)
+        source = next(row for row in plan["sources"] if row["path"] == "commands/evolve.md")
+        self.assertEqual(source["sha256"], hashlib.sha256(original).hexdigest())
+        self.assertEqual(canonical.read_bytes(), original)
+        self.put("commands/evolve.md", "# Changed canonical wording\n")
+        result = self.generate("--package-only")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stale Hermes semantic projection for commands/evolve.md", result.stderr)
+
     def test_canonical_instruction_templates_are_bundled_not_host_exemptions(self):
         self.put("skills/demo/SKILL.md", "Read `templates/AGENTS.md` and `templates/CLAUDE.md`.\n")
         self.put("templates/AGENTS.md", "# Instruction structure\n")

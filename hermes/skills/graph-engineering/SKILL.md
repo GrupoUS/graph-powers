@@ -30,10 +30,11 @@ host-project working directory. Do not maintain another inventory.
 | Child clarification | parent `clarify`; child returns the decision point |
 
 Slash names identify contract documents, not installed Hermes slash commands. Native `Workflow`
-is unsupported; use the planning method and native delegation. Source-client workflow authoring,
-setup guides, hook sources and their checkers are included only when referenced for inspection or
-an explicitly authorized external-client task. They install no hook and grant no execution
-permission. No model-family or tool-list metadata can bypass actual host policy.
+is unsupported; use the planning method and native delegation. When a document names `hooks/...`,
+it identifies an external Claude-only source for inspection during an explicitly authorized
+external-client task. Hermes never fetches, copies, installs, or executes those hooks. Source-client
+workflow authoring and setup guides remain inspection material and grant no execution permission.
+No model-family or tool-list metadata can bypass actual host policy.
 
 ## 1. Classify and load only needed context
 

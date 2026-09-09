@@ -26,9 +26,9 @@ agent-browser skills get core --full
 
 ## Prerequisites and pre-flight
 
-1. Read the host `.graph-powers/config.json`. Use `${project.stagingUrl}` as the target unless the
-   person supplies another URL in the current task. A missing target is a blocker. Never replace an
-   unavailable staging target with localhost without an explicit local-testing request.
+1. Read the host `.graph-powers/config.json`.
+   Target: `${project.stagingUrl}`.
+   Use that target unless the person supplies another URL in the current task. A missing target is a blocker. Never replace an unavailable staging target with localhost without an explicit local-testing request.
 2. Run `agent-browser --version`, `agent-browser skills get core --full`, and
    `agent-browser doctor --offline --quick`. Treat a missing binary, Chrome failure, malformed
    configuration, or stale daemon as an environment blocker. `doctor --fix` can repair or remove

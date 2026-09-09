@@ -35,12 +35,10 @@ python -X utf8 content/skills/debugger/scripts/turbo_dry_json.py --task test
 Declared `${tooling.commands.test}` is unchanged. That string runs the tests. This script
 only inspects the graph.
 
-**Files:** `content/skills/debugger/scripts/turbo_dry_json.py` · `content/hooks/smart_bash_approver.py`
+**Files:** `content/skills/debugger/scripts/turbo_dry_json.py` · `https://github.com/GrupoUS/graph-powers/blob/main/hooks/smart_bash_approver.py`
 (`_turbo_dry_json_denial`) · `content/skills/debugger/references/anti-patterns.md` (catalogue item 37)
 
-**Validation:** `python3 content/hooks/test_hooks.py` — the deny cases for `--dry=json` and the
-allow cases for `bun run test` / `turbo run test --filter=…`. Script with no turbo
-installed: non-zero, stdout is not a JSON object.
+**Validation:** In an explicitly authorized Claude source checkout, run the Claude hook test for the deny cases for `--dry=json` and the allow cases for `bun run test` / `turbo run test --filter=…`. Hermes does not fetch or execute that external hook test. Its bundled script with no turbo installed exits non-zero and does not print a JSON object.
 
 ### Anti-pattern discovered
 

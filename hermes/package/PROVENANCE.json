@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "ba6cd8d71a16da85f8709ec2328edd68dad9b49a",
+    "base_revision": "c244dcf3fa73ea0299d1bd6b27316dd70f09c96a",
     "version": "1.20.0",
     "dirty": true
   },
@@ -240,8 +240,8 @@
     {
       "path": ".claude-plugin/plugin.json",
       "sha256": "ca4c0760adddfe980ee5fb3b40a388a6eff423497fd8cb1a8008eacc18ebb2aa",
-      "base_sha256": "6f4c82479de184feb077986a2c2eb2ff7640c7c3d082fb2ecdae62ab1ae15749",
-      "dirty": true
+      "base_sha256": "ca4c0760adddfe980ee5fb3b40a388a6eff423497fd8cb1a8008eacc18ebb2aa",
+      "dirty": false
     },
     {
       "path": ".github/check_workflows.mjs",
@@ -252,8 +252,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "0f1d07a173bb830b5692d1c213df0d6e0563af92f015d93ed9f8dd96fbae7f57",
-      "base_sha256": "3a0ac14b3c2da9fbe0dc75eb6af5aa0b7d5489917be0a02bf5f6ab33c1a7c4ee",
-      "dirty": true
+      "base_sha256": "0f1d07a173bb830b5692d1c213df0d6e0563af92f015d93ed9f8dd96fbae7f57",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -264,8 +264,8 @@
     {
       "path": "NOTICE",
       "sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
-      "base_sha256": "040a06aa81c08ff78cee256860ceafd19c9bca496cd76d0131f56a68b405f9e3",
-      "dirty": true
+      "base_sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
+      "dirty": false
     },
     {
       "path": "agents/debugger.md",
@@ -384,8 +384,8 @@
     {
       "path": "commands/implement.md",
       "sha256": "66f3be00e47753e3e1669abc21040b8f5806401440434be182247d37c949ba99",
-      "base_sha256": "c5cdc2584cec5370bf5113120f3a895cde20612d74e933608adb4c1ecfe98a29",
-      "dirty": true
+      "base_sha256": "66f3be00e47753e3e1669abc21040b8f5806401440434be182247d37c949ba99",
+      "dirty": false
     },
     {
       "path": "commands/perf.md",
@@ -408,8 +408,8 @@
     {
       "path": "commands/prime.md",
       "sha256": "723cc83c84fb95f30b011ffbf09ea7a5832ec9db8d7b83019394d397b81cb842",
-      "base_sha256": "edc5878a4a6f49e85bac2f599429c38463b601f8ffc6447129843f61442cf98f",
-      "dirty": true
+      "base_sha256": "723cc83c84fb95f30b011ffbf09ea7a5832ec9db8d7b83019394d397b81cb842",
+      "dirty": false
     },
     {
       "path": "commands/research.md",
@@ -432,134 +432,20 @@
     {
       "path": "hermes/install.mjs",
       "sha256": "63b4b4cdaac5bd6d33257167e3d899473e92e351665ac74d94cd77ddb3bd0096",
-      "base_sha256": "6ed3dbf593ad9ec3ffae0218b581da161569427160566c7f14081f1a5927a0ae",
-      "dirty": true
+      "base_sha256": "63b4b4cdaac5bd6d33257167e3d899473e92e351665ac74d94cd77ddb3bd0096",
+      "dirty": false
     },
     {
       "path": "hermes/package_builder.py",
-      "sha256": "3f409d5b4c974ea5429f918b3cfc537b397af539dc41ddd8e2839a56dae82c7e",
-      "base_sha256": null,
+      "sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
+      "base_sha256": "3f409d5b4c974ea5429f918b3cfc537b397af539dc41ddd8e2839a56dae82c7e",
       "dirty": true
     },
     {
       "path": "hermes/skills/graph-engineering/SKILL.md",
-      "sha256": "3a7e7a2d85aa12f40a51a68e2e84d233db7861a0731744bf2e101fafcb16c2a2",
-      "base_sha256": "f63e4ed1dbad13616d7422a269252fa8eec17a1820b7466b8f2af41ccab51ef1",
+      "sha256": "c2f281fd4ee91dadeab22693b995eb4335f951633af5eee57d5c79c76387d41c",
+      "base_sha256": "3a7e7a2d85aa12f40a51a68e2e84d233db7861a0731744bf2e101fafcb16c2a2",
       "dirty": true
-    },
-    {
-      "path": "hooks/_change_set.py",
-      "sha256": "e6f88d3c1c4796745d71952a41975d75d52c6b5d795b56921c2b1f6ad4df2719",
-      "base_sha256": "e6f88d3c1c4796745d71952a41975d75d52c6b5d795b56921c2b1f6ad4df2719",
-      "dirty": false
-    },
-    {
-      "path": "hooks/_config.py",
-      "sha256": "a9f92140e1fc5c937fb74bdffb8779ad661b70a779da58031dc7d32dbfbd1f0f",
-      "base_sha256": "a9f92140e1fc5c937fb74bdffb8779ad661b70a779da58031dc7d32dbfbd1f0f",
-      "dirty": false
-    },
-    {
-      "path": "hooks/auto_update.py",
-      "sha256": "e8100753832fcd023e1aba730baae27a6500aaee8281b18f02a171cef2e12931",
-      "base_sha256": "e8100753832fcd023e1aba730baae27a6500aaee8281b18f02a171cef2e12931",
-      "dirty": false
-    },
-    {
-      "path": "hooks/branch_session_notice.py",
-      "sha256": "e28429b2202f2f17ee6b4cafb8cb2691ee8553e9e7d6fe57b84b8a6fac9e28df",
-      "base_sha256": "e28429b2202f2f17ee6b4cafb8cb2691ee8553e9e7d6fe57b84b8a6fac9e28df",
-      "dirty": false
-    },
-    {
-      "path": "hooks/command_trust.py",
-      "sha256": "2955c652cdb8e2f495bfeb2e87031a3b520f6015364c5c0870ab8acef64895e3",
-      "base_sha256": "2955c652cdb8e2f495bfeb2e87031a3b520f6015364c5c0870ab8acef64895e3",
-      "dirty": false
-    },
-    {
-      "path": "hooks/commit_audit_gate.py",
-      "sha256": "09312e9ab4e84111dae5f0693ae438683258e98ead33bdf3de7b5026081339cc",
-      "base_sha256": "09312e9ab4e84111dae5f0693ae438683258e98ead33bdf3de7b5026081339cc",
-      "dirty": false
-    },
-    {
-      "path": "hooks/git_branch_gate.py",
-      "sha256": "c6b117560f1814e3d18293fd7acef07488088adb737efc70bd7af426529de797",
-      "base_sha256": "c6b117560f1814e3d18293fd7acef07488088adb737efc70bd7af426529de797",
-      "dirty": false
-    },
-    {
-      "path": "hooks/git_commit_gate.py",
-      "sha256": "be7b440324bd8ba4d89ee9a5bf1583259da9686721217105e90d2ce0fa74b62c",
-      "base_sha256": "be7b440324bd8ba4d89ee9a5bf1583259da9686721217105e90d2ce0fa74b62c",
-      "dirty": false
-    },
-    {
-      "path": "hooks/git_push_gate.py",
-      "sha256": "dfcd556984237dbc0a39013890c4abc4fdac6cd920ed939fb4cac55c29c1579e",
-      "base_sha256": "dfcd556984237dbc0a39013890c4abc4fdac6cd920ed939fb4cac55c29c1579e",
-      "dirty": false
-    },
-    {
-      "path": "hooks/graph_guardrails.py",
-      "sha256": "8d0f2a651b1ca6b170f51377f1caf5bbfa50ae3a10654dc349640c2c0b11d17f",
-      "base_sha256": "8d0f2a651b1ca6b170f51377f1caf5bbfa50ae3a10654dc349640c2c0b11d17f",
-      "dirty": false
-    },
-    {
-      "path": "hooks/hooks.json",
-      "sha256": "bace44b0443586f04bd3959fb05e70e071102ad2933cd2c4fb4ed49dc8cf8e77",
-      "base_sha256": "bace44b0443586f04bd3959fb05e70e071102ad2933cd2c4fb4ed49dc8cf8e77",
-      "dirty": false
-    },
-    {
-      "path": "hooks/notify.py",
-      "sha256": "d5be15c2c411e94f70e0ef6519ea96f31758919d93a7f3959e27122278e9351e",
-      "base_sha256": "d5be15c2c411e94f70e0ef6519ea96f31758919d93a7f3959e27122278e9351e",
-      "dirty": false
-    },
-    {
-      "path": "hooks/protect_files.py",
-      "sha256": "88e37edab0c90db0ced6151f7a5f544a99145646e3714553ed4c2e087277e5dc",
-      "base_sha256": "88e37edab0c90db0ced6151f7a5f544a99145646e3714553ed4c2e087277e5dc",
-      "dirty": false
-    },
-    {
-      "path": "hooks/session_context.py",
-      "sha256": "0532146ad34f5f453dff6c9fc08933698fa34aac28945976f8016005419ac341",
-      "base_sha256": "0abebdefe5c31bf6faf805ca2b3ea00fb6a35d2163294aa825eddd16f8176ed3",
-      "dirty": true
-    },
-    {
-      "path": "hooks/smart_bash_approver.py",
-      "sha256": "ee5f9ef71763789e33cfae40fe8c0db060b3ec2c4315e6074c65f036d10afdc1",
-      "base_sha256": "ee5f9ef71763789e33cfae40fe8c0db060b3ec2c4315e6074c65f036d10afdc1",
-      "dirty": false
-    },
-    {
-      "path": "hooks/stop_verify.py",
-      "sha256": "0fccf939c6f37065f2001f8db718ed31aaa8ee192daaa8c088b831ce78cf5612",
-      "base_sha256": "0fccf939c6f37065f2001f8db718ed31aaa8ee192daaa8c088b831ce78cf5612",
-      "dirty": false
-    },
-    {
-      "path": "hooks/subagent_context.py",
-      "sha256": "24fa50ac482ac6127a8ebbeebe59b4dbbc9bfc2fd8d5734f5c03f106ba8ed5e5",
-      "base_sha256": "24fa50ac482ac6127a8ebbeebe59b4dbbc9bfc2fd8d5734f5c03f106ba8ed5e5",
-      "dirty": false
-    },
-    {
-      "path": "hooks/test_hooks.py",
-      "sha256": "cd72ed63185d2f590f50c9a4932ac44d4a84e88a9a85676c6c6bb539b3d5c9b3",
-      "base_sha256": "f5d816ac054795a8c215d5df2a5ddc8f30a9649d9e698438081372d758b19847",
-      "dirty": true
-    },
-    {
-      "path": "hooks/ultracite.py",
-      "sha256": "04b25d1e3d9747013b806e3b31aeb03489509547ea1cce11f3ac11bf3fecdb60",
-      "base_sha256": "04b25d1e3d9747013b806e3b31aeb03489509547ea1cce11f3ac11bf3fecdb60",
-      "dirty": false
     },
     {
       "path": "references/audit-agent-prompts.md",
@@ -672,8 +558,8 @@
     {
       "path": "references/shared/007-path-conventions.md",
       "sha256": "96fd415d2f78e162f900adadc10da6621f2e3b26c5b1777ea3c033089638af9b",
-      "base_sha256": "08cba111301e11d00748eeaef20995e30e0c7975a38649da46c3f442e6d1be2f",
-      "dirty": true
+      "base_sha256": "96fd415d2f78e162f900adadc10da6621f2e3b26c5b1777ea3c033089638af9b",
+      "dirty": false
     },
     {
       "path": "references/shared/010-quality-gates.md",
@@ -738,8 +624,8 @@
     {
       "path": "references/shared/070-parallel-agent-spawn.md",
       "sha256": "b3997d66511a48066bc8623e28e087a2783ebf6a28940f221c1000a70fb32e7d",
-      "base_sha256": "e6bdcb2f2e240d313c2a848ba43074373ba0f76b2dd0db1f3bd6dd43b61eb1ef",
-      "dirty": true
+      "base_sha256": "b3997d66511a48066bc8623e28e087a2783ebf6a28940f221c1000a70fb32e7d",
+      "dirty": false
     },
     {
       "path": "references/shared/090-verdict-matrix.md",
@@ -954,8 +840,8 @@
     {
       "path": "skills/intent-layer/evals/evals.json",
       "sha256": "70b2165670089a030d38ef3e189c56fc613fd24ca19e4a364e9f8e49bb7ae750",
-      "base_sha256": "03a44723c11bc319e19b22e6994897f444fdaa9275b4a9bb0273696248bb15e6",
-      "dirty": true
+      "base_sha256": "70b2165670089a030d38ef3e189c56fc613fd24ca19e4a364e9f8e49bb7ae750",
+      "dirty": false
     },
     {
       "path": "skills/intent-layer/references/capture-protocol.md",
@@ -1026,8 +912,8 @@
     {
       "path": "skills/planning/evals/evals.json",
       "sha256": "331adab8c24b750d1c0cc5013942053ef0b360545e209195f6d6195b7d79bec2",
-      "base_sha256": "070e9d29462689a84e7e3e02ea168046366b33c45d3a6562d9cefc8df8fd87c3",
-      "dirty": true
+      "base_sha256": "331adab8c24b750d1c0cc5013942053ef0b360545e209195f6d6195b7d79bec2",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -1056,8 +942,8 @@
     {
       "path": "skills/planning/references/execution/task-reviewer-prompt.md",
       "sha256": "7b60841af35a02b6c5e2717b6717d6c3dec5da813d0436e115910a2e04a5bfe0",
-      "base_sha256": "2e56edf56d327f027672c98a4fe2f461bb72c2af0ca8e8347a4934c6d380b507",
-      "dirty": true
+      "base_sha256": "7b60841af35a02b6c5e2717b6717d6c3dec5da813d0436e115910a2e04a5bfe0",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/execution/tdd-policy.md",
@@ -1092,26 +978,26 @@
     {
       "path": "skills/planning/references/loop-engineering.md",
       "sha256": "ce5563465f7560135b6c5b40765e5ef7f3e33a2f7c8849c5d44445f87e176e22",
-      "base_sha256": "e08de2737a3aa6475cb7ef9ae283e8a8a22ccd884c6f05feab62443fcbc169b1",
-      "dirty": true
+      "base_sha256": "ce5563465f7560135b6c5b40765e5ef7f3e33a2f7c8849c5d44445f87e176e22",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-a-brainstorm.md",
       "sha256": "25758eb415633758323aa7dfac534f728d7581588afb6309fe34aac1a8cf8c8c",
-      "base_sha256": "9c352fa36e5dd0c51ebf2e7bd34d775e154676366136d4e9c8a0d9429937301e",
-      "dirty": true
+      "base_sha256": "25758eb415633758323aa7dfac534f728d7581588afb6309fe34aac1a8cf8c8c",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
       "sha256": "d06ec53df5b201801ae709a8243d9cd117ca59a874c6be7d443ed6b5ac01f6c9",
-      "base_sha256": "f82548866c49e3d5276f152a458cfd9ec4a152a4334a2c25e096a371fe264d6b",
-      "dirty": true
+      "base_sha256": "d06ec53df5b201801ae709a8243d9cd117ca59a874c6be7d443ed6b5ac01f6c9",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
       "sha256": "832347c05846ba8a45ea0bdf8166877fb6d3e4e812ec6b3d1beb8b0f423250b6",
-      "base_sha256": "acfd3c3ab08a6d6ffa39ad2d73480491a79efee9f4e28d007e4bc3090e2622d6",
-      "dirty": true
+      "base_sha256": "832347c05846ba8a45ea0bdf8166877fb6d3e4e812ec6b3d1beb8b0f423250b6",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1128,8 +1014,8 @@
     {
       "path": "skills/planning/scripts/sdd.py",
       "sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
-      "base_sha256": "d35ef6494ae56cee8346161cedd176bf71cf16bd8bf230ce96033f73570cfbe9",
-      "dirty": true
+      "base_sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
+      "dirty": false
     },
     {
       "path": "skills/senior-architect/SKILL.md",
@@ -1465,7 +1351,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "719099dc4e0a4740abbdcc42a1e409ca1b856f221fd1c63892054edd6773fad2",
+      "sha256": "f7d81fb036720aafdf088d71320bcead761026bc4a7713ee20cf223318836d4b",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1601,7 +1487,7 @@
     },
     {
       "path": "skills/content/commands/evolve.md",
-      "sha256": "2b2fb56755a91ca37b6acb92d843a9a6d91b86d34de22e27c6fa1d1bdb896e6e",
+      "sha256": "d8c9cc85da809c0d25fcaadbb6c1ddb986ee86d4795f9210fb09a9c9deb53f23",
       "sources": [
         "commands/evolve.md"
       ],
@@ -1681,161 +1567,9 @@
     },
     {
       "path": "skills/content/hermes/skills/graph-engineering/SKILL.md",
-      "sha256": "df0465ddd93645d6e0e6f292b52ce860bba044632256761accccb47cae11caee",
+      "sha256": "c839dc68fba27ccacd192618a2ac3523493ce5be2fdec55c41cf35d936f58338",
       "sources": [
         "hermes/skills/graph-engineering/SKILL.md"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/_change_set.py",
-      "sha256": "e6f88d3c1c4796745d71952a41975d75d52c6b5d795b56921c2b1f6ad4df2719",
-      "sources": [
-        "hooks/_change_set.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/_config.py",
-      "sha256": "a9f92140e1fc5c937fb74bdffb8779ad661b70a779da58031dc7d32dbfbd1f0f",
-      "sources": [
-        "hooks/_config.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/auto_update.py",
-      "sha256": "e8100753832fcd023e1aba730baae27a6500aaee8281b18f02a171cef2e12931",
-      "sources": [
-        "hooks/auto_update.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/branch_session_notice.py",
-      "sha256": "e28429b2202f2f17ee6b4cafb8cb2691ee8553e9e7d6fe57b84b8a6fac9e28df",
-      "sources": [
-        "hooks/branch_session_notice.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/command_trust.py",
-      "sha256": "2955c652cdb8e2f495bfeb2e87031a3b520f6015364c5c0870ab8acef64895e3",
-      "sources": [
-        "hooks/command_trust.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/commit_audit_gate.py",
-      "sha256": "09312e9ab4e84111dae5f0693ae438683258e98ead33bdf3de7b5026081339cc",
-      "sources": [
-        "hooks/commit_audit_gate.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/git_branch_gate.py",
-      "sha256": "c6b117560f1814e3d18293fd7acef07488088adb737efc70bd7af426529de797",
-      "sources": [
-        "hooks/git_branch_gate.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/git_commit_gate.py",
-      "sha256": "be7b440324bd8ba4d89ee9a5bf1583259da9686721217105e90d2ce0fa74b62c",
-      "sources": [
-        "hooks/git_commit_gate.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/git_push_gate.py",
-      "sha256": "dfcd556984237dbc0a39013890c4abc4fdac6cd920ed939fb4cac55c29c1579e",
-      "sources": [
-        "hooks/git_push_gate.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/graph_guardrails.py",
-      "sha256": "8d0f2a651b1ca6b170f51377f1caf5bbfa50ae3a10654dc349640c2c0b11d17f",
-      "sources": [
-        "hooks/graph_guardrails.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/hooks.json",
-      "sha256": "bace44b0443586f04bd3959fb05e70e071102ad2933cd2c4fb4ed49dc8cf8e77",
-      "sources": [
-        "hooks/hooks.json"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/notify.py",
-      "sha256": "d5be15c2c411e94f70e0ef6519ea96f31758919d93a7f3959e27122278e9351e",
-      "sources": [
-        "hooks/notify.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/protect_files.py",
-      "sha256": "88e37edab0c90db0ced6151f7a5f544a99145646e3714553ed4c2e087277e5dc",
-      "sources": [
-        "hooks/protect_files.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/session_context.py",
-      "sha256": "0532146ad34f5f453dff6c9fc08933698fa34aac28945976f8016005419ac341",
-      "sources": [
-        "hooks/session_context.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/smart_bash_approver.py",
-      "sha256": "ee5f9ef71763789e33cfae40fe8c0db060b3ec2c4315e6074c65f036d10afdc1",
-      "sources": [
-        "hooks/smart_bash_approver.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/stop_verify.py",
-      "sha256": "0fccf939c6f37065f2001f8db718ed31aaa8ee192daaa8c088b831ce78cf5612",
-      "sources": [
-        "hooks/stop_verify.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/subagent_context.py",
-      "sha256": "24fa50ac482ac6127a8ebbeebe59b4dbbc9bfc2fd8d5734f5c03f106ba8ed5e5",
-      "sources": [
-        "hooks/subagent_context.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/test_hooks.py",
-      "sha256": "cd72ed63185d2f590f50c9a4932ac44d4a84e88a9a85676c6c6bb539b3d5c9b3",
-      "sources": [
-        "hooks/test_hooks.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/hooks/ultracite.py",
-      "sha256": "04b25d1e3d9747013b806e3b31aeb03489509547ea1cce11f3ac11bf3fecdb60",
-      "sources": [
-        "hooks/ultracite.py"
       ],
       "kind": "content"
     },
@@ -2049,7 +1783,7 @@
     },
     {
       "path": "skills/content/references/shared/045-context-staging.md",
-      "sha256": "5fb24b28b33871590c42da62518be0e7365186fa508b41fc028f79240da7ec94",
+      "sha256": "77f8c06c8c63b33182748af76d04bac066d5648af7bc042423008bea83c130a0",
       "sources": [
         "references/shared/045-context-staging.md"
       ],
@@ -2097,7 +1831,7 @@
     },
     {
       "path": "skills/content/references/shared/110-guardrails-index.md",
-      "sha256": "d0aea0c881eeb3ab51f134010bb1ecc6e33d8d769b5c45186d30150f7a653b17",
+      "sha256": "397a1b140e0a7ce4819beddc304a685659ac91ceda5679b1ca5abc7471fab3f5",
       "sources": [
         "references/shared/110-guardrails-index.md"
       ],
@@ -2145,7 +1879,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "bab02e700227e087e038016c6ae52212b94f8ae9f519543920e86f7b44b1553e",
+      "sha256": "c996bd4eef885cf0689c37b563192f59446887320b7233e29ab7c251e20d0585",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2225,7 +1959,7 @@
     },
     {
       "path": "skills/content/skills/debugger/references/diagnose.md",
-      "sha256": "463ac7f37bf25d9932ae6457bd1ddbd176fefb4723e9edd9dc6f7a038e5a42de",
+      "sha256": "75269c70dcd9f3bcb5b092f23f3c48fb950fc07625e244dace14fd15264e1627",
       "sources": [
         "skills/debugger/references/diagnose.md"
       ],
@@ -2257,7 +1991,7 @@
     },
     {
       "path": "skills/content/skills/debugger/references/turbo-dry-json-epipe.md",
-      "sha256": "8bdbb48f5f61bf60e9eb3ac8bd3fe283b625ce429ede9bce6a0c41fa1f2356ed",
+      "sha256": "d289846a49c3a114260aa1431e9bf319d2a1a9bb9a702daf79ab860b90904c17",
       "sources": [
         "skills/debugger/references/turbo-dry-json-epipe.md"
       ],
@@ -2529,7 +2263,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/issue-triage.md",
-      "sha256": "a369fd6296d97d98ffe404f0116b9b6e8578d1d1487daf7fcb6c0bb1630023c7",
+      "sha256": "200aec6c858d43102502e4e0e7fb2b0070a0285fa17851c885d4797e7f0b6725",
       "sources": [
         "skills/planning/references/issue-triage.md"
       ],
@@ -2793,7 +2527,7 @@
     },
     {
       "path": "skills/content/skills/webapp-testing/references/browser-setup.md",
-      "sha256": "9ab78b5098fa2860d9ef561e0eb235b548a248701297bf05f82d293777b286e5",
+      "sha256": "4e86d87e1038ca29e724f02ea0bde69c7105e2014837f811bfc9895292216631",
       "sources": [
         "skills/webapp-testing/references/browser-setup.md"
       ],
@@ -2889,7 +2623,7 @@
     },
     {
       "path": "skills/evolve.md",
-      "sha256": "2b2fb56755a91ca37b6acb92d843a9a6d91b86d34de22e27c6fa1d1bdb896e6e",
+      "sha256": "d8c9cc85da809c0d25fcaadbb6c1ddb986ee86d4795f9210fb09a9c9deb53f23",
       "sources": [
         "commands/evolve.md"
       ],
@@ -2905,7 +2639,7 @@
     },
     {
       "path": "skills/graph-engineering.md",
-      "sha256": "df0465ddd93645d6e0e6f292b52ce860bba044632256761accccb47cae11caee",
+      "sha256": "c839dc68fba27ccacd192618a2ac3523493ce5be2fdec55c41cf35d936f58338",
       "sources": [
         "hermes/skills/graph-engineering/SKILL.md"
       ],
@@ -3150,24 +2884,6 @@
         "from": "AGENT_SETUP.md",
         "reference": "AGENT_SETUP.md",
         "to": "AGENT_SETUP.md",
-        "kind": "reference"
-      },
-      {
-        "from": "AGENT_SETUP.md",
-        "reference": "hooks/_config.py",
-        "to": "hooks/_config.py",
-        "kind": "reference"
-      },
-      {
-        "from": "AGENT_SETUP.md",
-        "reference": "hooks/command_trust.py",
-        "to": "hooks/command_trust.py",
-        "kind": "reference"
-      },
-      {
-        "from": "AGENT_SETUP.md",
-        "reference": "hooks/hooks.json",
-        "to": "hooks/hooks.json",
         "kind": "reference"
       },
       {
@@ -3765,156 +3481,6 @@
         "kind": "reference"
       },
       {
-        "from": "hooks/_change_set.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/auto_update.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/branch_session_notice.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/command_trust.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/commit_audit_gate.py",
-        "reference": "_change_set",
-        "to": "hooks/_change_set.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/commit_audit_gate.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/commit_audit_gate.py",
-        "reference": "command_trust",
-        "to": "hooks/command_trust.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/git_branch_gate.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/git_commit_gate.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/git_push_gate.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/graph_guardrails.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/protect_files.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/session_context.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/smart_bash_approver.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/stop_verify.py",
-        "reference": "_change_set",
-        "to": "hooks/_change_set.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/stop_verify.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/stop_verify.py",
-        "reference": "command_trust",
-        "to": "hooks/command_trust.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "_change_set",
-        "to": "hooks/_change_set.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "auto_update",
-        "to": "hooks/auto_update.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "command_trust",
-        "to": "hooks/command_trust.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "stop_verify",
-        "to": "hooks/stop_verify.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/test_hooks.py",
-        "reference": "subagent_context",
-        "to": "hooks/subagent_context.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/ultracite.py",
-        "reference": "_config",
-        "to": "hooks/_config.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "hooks/ultracite.py",
-        "reference": "command_trust",
-        "to": "hooks/command_trust.py",
-        "kind": "python-import"
-      },
-      {
         "from": "references/audit-agent-prompts.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md",
         "to": "references/safety-floor.md",
@@ -4204,104 +3770,8 @@
       },
       {
         "from": "references/shared/110-guardrails-index.md",
-        "reference": "auto_update.py",
-        "to": "hooks/auto_update.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "branch_session_notice.py",
-        "to": "hooks/branch_session_notice.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "commit_audit_gate.py",
-        "to": "hooks/commit_audit_gate.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "git_branch_gate.py",
-        "to": "hooks/git_branch_gate.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "git_commit_gate.py",
-        "to": "hooks/git_commit_gate.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "git_push_gate.py",
-        "to": "hooks/git_push_gate.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "graph_guardrails.py",
-        "to": "hooks/graph_guardrails.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "hooks/_config.py",
-        "to": "hooks/_config.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "hooks/hooks.json",
-        "to": "hooks/hooks.json",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "notify.py",
-        "to": "hooks/notify.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "protect_files.py",
-        "to": "hooks/protect_files.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "session_context.py",
-        "to": "hooks/session_context.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "smart_bash_approver.py",
-        "to": "hooks/smart_bash_approver.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "stop_verify.py",
-        "to": "hooks/stop_verify.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "subagent_context.py",
-        "to": "hooks/subagent_context.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
         "reference": "turbo_dry_json.py",
         "to": "skills/debugger/scripts/turbo_dry_json.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/110-guardrails-index.md",
-        "reference": "ultracite.py",
-        "to": "hooks/ultracite.py",
         "kind": "reference"
       },
       {
@@ -4626,18 +4096,6 @@
         "from": "skills/debugger/references/turbo-dry-json-epipe.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/debugger/scripts/turbo_dry_json.py",
         "to": "skills/debugger/scripts/turbo_dry_json.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/debugger/references/turbo-dry-json-epipe.md",
-        "reference": "hooks/smart_bash_approver.py",
-        "to": "hooks/smart_bash_approver.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/debugger/references/turbo-dry-json-epipe.md",
-        "reference": "hooks/test_hooks.py",
-        "to": "hooks/test_hooks.py",
         "kind": "reference"
       },
       {
@@ -5658,6 +5116,21 @@
     "host_references": [
       {
         "from": "AGENT_SETUP.md",
+        "reference": "hooks/_config.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "hooks/command_trust.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "hooks/hooks.json",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": ".github/test_hermes.py",
         "reason": "external URL or caller-resolved host path"
       },
@@ -6108,6 +5581,86 @@
       },
       {
         "from": "references/shared/110-guardrails-index.md",
+        "reference": "auto_update.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "branch_session_notice.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "commit_audit_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "git_branch_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "git_commit_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "git_push_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "graph_guardrails.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "hooks/_config.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "hooks/hooks.json",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "notify.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "protect_files.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "session_context.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "smart_bash_approver.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "stop_verify.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "subagent_context.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
+        "reference": "ultracite.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "references/shared/110-guardrails-index.md",
         "reference": "design.md",
         "reason": "external URL or caller-resolved host path"
       },
@@ -6195,6 +5748,16 @@
         "from": "skills/debugger/references/pack-guides.md",
         "reference": "stability.md",
         "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "skills/debugger/references/turbo-dry-json-epipe.md",
+        "reference": "hooks/smart_bash_approver.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "skills/debugger/references/turbo-dry-json-epipe.md",
+        "reference": "hooks/test_hooks.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
       {
         "from": "skills/designer/references/mirror-test.md",

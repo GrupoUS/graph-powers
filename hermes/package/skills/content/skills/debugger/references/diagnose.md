@@ -22,7 +22,7 @@ Construct a deterministic, agent-runnable pass/fail signal. Pick the highest-ran
 | Rank | Loop | the project example | Use when |
 |------|------|------------------|----------|
 | **1** | Failing **vitest** test | `${tooling.commands.test} -t "<bug-name>"`, run from the workspace that owns the seam | Pure code logic; any API procedure or UI component bug |
-| **2** | **HTTP fixture** (curl) | `curl -sS -X POST ${project.stagingUrl}/api/<endpoint> -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '<json>' \| jq` | tRPC 500 / UNAUTHORIZED / payload edge case |
+| **2** | **HTTP fixture** (local test server) | deterministic synthetic request and response; no credential-like value in the command | tRPC 500 / UNAUTHORIZED / payload edge case |
 | **3** | **CLI fixture** (Python stdlib, per cardinal rule #3) | `python scripts/<repro>.py --param ...` | Multi-step external API repro (payment provider, messaging platform, ad platform) |
 | **4** | **Browser smoke** | `bunx agent-browser open ${project.stagingUrl}/<route> && bunx agent-browser snapshot -i -c && bunx agent-browser console` | UI regressions, hydration mismatch, auth redirect; auth pages use `--cdp` attach — `skill_view("graph-powers:webapp-testing")` |
 | **5** | **Replay harness** | Recorded webhook JSON re-posted to the local API → expected DB delta | Webhook idempotency / signature / partial-failure bugs |
@@ -61,19 +61,14 @@ bunx agent-browser errors  > ".graph-powers/logs/<bug>-errors.log"
 bunx agent-browser network requests --filter "api-staging" > ".graph-powers/logs/<bug>-net.log"
 ```
 
-**tRPC 500 repro:**
+**tRPC 500 repro:** First start the project's local test server with synthetic fixture data. Replace `8787` with its declared test port. This command contains no credential-like value. For a protected staging endpoint, authenticate only through an explicitly authorized host mechanism; otherwise record the missing authorization as the blocker.
 ```bash
-# Read the token with the Read tool and paste it in place of <token>. Never commit it; vault-only.
-# Not `curl … | jq`: in PowerShell `curl` is an alias of `Invoke-WebRequest`, which rejects `-s`,
-# and `jq` is not there at all — so on Windows this printed a parameter error, not a response body.
-python -X utf8 -c "import json,urllib.request as u;r=u.Request('${project.stagingUrl}/api/<endpoint>',data=json.dumps({'0':{'json':{}}}).encode(),headers={'authorization':'Bearer <token>','content-type':'application/json'});print(json.dumps(json.load(u.urlopen(r)),indent=2))"
+python -X utf8 -c "import json,urllib.request as u;r=u.Request('http://127.0.0.1:8787/api/<endpoint>',data=json.dumps({'0':{'json':{}}}).encode(),headers={'content-type':'application/json'});print(json.dumps(json.load(u.urlopen(r)),indent=2))"
 ```
 
-**SSE leak / listener count probe:** hold the stream open and read it line by line, then disconnect
-and check the server's `listener.attach` / `listener.detach` pairs for that wid. Same reason as
-above — a backgrounded `curl -N` is two POSIX-only constructs, the alias and the trailing `&`:
+**SSE leak / listener count probe:** Start the project's local test server with synthetic stream events, then hold the stream open and read it line by line. Replace `8787` with its declared test port; disconnect and check the server's `listener.attach` / `listener.detach` pairs. For a protected staging stream, use only an explicitly authorized host authentication mechanism; otherwise stop with the authorization blocker.
 ```bash
-python -X utf8 -c "import urllib.request as u;r=u.Request('${project.stagingUrl}/api/<stream-endpoint>',headers={'authorization':'Bearer <token>'});[print(l.decode('utf-8','replace').rstrip()) for l in u.urlopen(r)]"
+python -X utf8 -c "import urllib.request as u;[print(line.decode('utf-8','replace').rstrip()) for line in u.urlopen('http://127.0.0.1:8787/api/<stream-endpoint>')]"
 ```
 
 **Third-party integration repro:** when the project ships a skill for the integration, load it; otherwise reproduce against the provider's sandbox before touching code.

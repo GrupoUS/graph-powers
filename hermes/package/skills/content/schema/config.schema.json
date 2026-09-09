@@ -781,7 +781,7 @@
         "destructiveFloor": {
           "type": "boolean",
           "default": true,
-          "description": "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
+          "description": "Keep refusing operations git cannot undo at any autonomy level: recursive deletion of the filesystem root or home directory, filesystem formatting or raw device writes, recursively opening permissions on the filesystem root, root-preservation bypasses, destructive database statements, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands."
         },
         "allowPackageManagers": {
           "type": "array",

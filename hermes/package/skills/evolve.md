@@ -23,7 +23,7 @@ Read `.graph-powers/config.json`, apply the method bootstrap, then append one no
 
 Use `content/references/shared/060-skill-domain-matrix.md` and modified paths to find project-owned writable skills; project rules override generic mapping. A skill body/description/reference/eval change loads `skill_view("graph-powers:skill-improve")` first; a simple log/reference entry does not. Ask when several writable destinations are materially plausible. Add the smallest stability rule, anti-pattern, known case, or quick-reference row; never write a global plugin skill from project learning.
 
-Update the nearest applicable `AGENTS.md` only when the learning is a reusable project rule. If no suitable node exists or it exceeds its budget, load `skill_view("graph-powers:intent-layer")` before adding a node. Otherwise append problem, cause and solution; do not duplicate guidance.
+When the learning is a reusable project rule, propose a diff for the nearest applicable `AGENTS.md` and request explicit approval before changing it. If no suitable node exists or it exceeds its budget, load `skill_view("graph-powers:intent-layer")` to prepare that proposal. Do not automatically alter project instructions or configuration.
 
 ## 3. Summary
 

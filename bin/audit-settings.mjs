@@ -41,11 +41,34 @@ function readJson(p) {
   }
 }
 
+function commandWords(command) {
+  const words = [];
+  let word = "";
+  let quote = "";
+  for (const character of String(command)) {
+    if (quote) {
+      if (character === quote) quote = "";
+      else word += character;
+    } else if (character === '"' || character === "'") quote = character;
+    else if (/\s/.test(character)) {
+      if (word) words.push(word);
+      word = "";
+    } else word += character;
+  }
+  if (word) words.push(word);
+  return words;
+}
+
 /** A hook's identity for duplicate purposes: event + matcher + the file that runs.
  *  The full path differs between project and plugin by construction; the filename is what says
  *  whether the two do the same thing. */
 function hookKey(event, matcher, command) {
-  const file = basename(String(command).replace(/["']/g, "").split(/\s+/).pop() ?? "");
+  const arguments_ = commandWords(command);
+  const file = basename(
+    arguments_
+      .filter((argument) => argument.endsWith(".py"))
+      .pop() ?? String(command).replace(/["']/g, "").split(/\s+/).pop() ?? "",
+  );
   return `${event}::${matcher || "*"}::${file}`;
 }
 
@@ -68,10 +91,10 @@ function collectHooks(settings) {
 }
 
 const projectSettings = readJson(join(CWD, ".claude", "settings.json"));
-const pluginManifest = readJson(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"));
+const pluginManifest = readJson(join(PLUGIN_ROOT, "hooks", "hooks.json"));
 
 if (!pluginManifest) {
-  console.error("could not read the plugin manifest at", PLUGIN_ROOT);
+  console.error("could not read the plugin hook manifest at", PLUGIN_ROOT);
   process.exit(1);
 }
 

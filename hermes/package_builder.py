@@ -53,6 +53,52 @@ COMPUTED_INPUTS = {
     },
 }
 
+# Hermes is a projection, not a second canonical source. These source-specific rewrites preserve
+# the upstream rule while naming the equivalent Hermes boundary. Each expected source fragment is
+# checked before projection so a canonical wording change cannot silently produce a stale adapter.
+SEMANTIC_PROJECTIONS = {
+    "commands/evolve.md": [(
+        "Update the nearest applicable `AGENTS.md` only when the learning is a reusable project rule. If no suitable node exists or it exceeds its budget, load `skill_view(\"graph-powers:intent-layer\")` before adding a node. Otherwise append problem, cause and solution; do not duplicate guidance.",
+        "When the learning is a reusable project rule, propose a diff for the nearest applicable `AGENTS.md` and request explicit approval before changing it. If no suitable node exists or it exceeds its budget, load `skill_view(\"graph-powers:intent-layer\")` to prepare that proposal. Do not automatically alter project instructions or configuration.",
+    )],
+    "schema/config.schema.json": [(
+        "Keep refusing the operations git cannot undo, at any autonomy level: rm -rf on / or the home directory, mkfs, dd to a device, chmod -R 777 /, --no-preserve-root, DROP DATABASE, TRUNCATE, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands.",
+        "Keep refusing operations git cannot undo at any autonomy level: recursive deletion of the filesystem root or home directory, filesystem formatting or raw device writes, recursively opening permissions on the filesystem root, root-preservation bypasses, destructive database statements, and force-pushing a protected branch. Deleting files inside a committed repository is not on this list — git restores those, so autonomous mode does it without asking. Set false to remove even this floor; nothing else in the harness will stop those commands.",
+    )],
+    "skills/debugger/references/diagnose.md": [(
+        "| **2** | **HTTP fixture** (curl) | `curl -sS -X POST ${project.stagingUrl}/api/<endpoint> -H \"authorization: Bearer $TOKEN\" -H \"content-type: application/json\" -d '<json>' \\| jq` | tRPC 500 / UNAUTHORIZED / payload edge case |",
+        "| **2** | **HTTP fixture** (local test server) | deterministic synthetic request and response; no credential-like value in the command | tRPC 500 / UNAUTHORIZED / payload edge case |",
+    ), (
+        "**tRPC 500 repro:**\n```bash\n# Read the token with the Read tool and paste it in place of <token>. Never commit it; vault-only.\n# Not `curl … | jq`: in PowerShell `curl` is an alias of `Invoke-WebRequest`, which rejects `-s`,\n# and `jq` is not there at all — so on Windows this printed a parameter error, not a response body.\npython -X utf8 -c \"import json,urllib.request as u;r=u.Request('${project.stagingUrl}/api/<endpoint>',data=json.dumps({'0':{'json':{}}}).encode(),headers={'authorization':'Bearer <token>','content-type':'application/json'});print(json.dumps(json.load(u.urlopen(r)),indent=2))\"\n```",
+        "**tRPC 500 repro:** First start the project's local test server with synthetic fixture data. Replace `8787` with its declared test port. This command contains no credential-like value. For a protected staging endpoint, authenticate only through an explicitly authorized host mechanism; otherwise record the missing authorization as the blocker.\n```bash\npython -X utf8 -c \"import json,urllib.request as u;r=u.Request('http://127.0.0.1:8787/api/<endpoint>',data=json.dumps({'0':{'json':{}}}).encode(),headers={'content-type':'application/json'});print(json.dumps(json.load(u.urlopen(r)),indent=2))\"\n```",
+    ), (
+        "**SSE leak / listener count probe:** hold the stream open and read it line by line, then disconnect\nand check the server's `listener.attach` / `listener.detach` pairs for that wid. Same reason as\nabove — a backgrounded `curl -N` is two POSIX-only constructs, the alias and the trailing `&`:\n```bash\npython -X utf8 -c \"import urllib.request as u;r=u.Request('${project.stagingUrl}/api/<stream-endpoint>',headers={'authorization':'Bearer <token>'});[print(l.decode('utf-8','replace').rstrip()) for l in u.urlopen(r)]\"\n```",
+        "**SSE leak / listener count probe:** Start the project's local test server with synthetic stream events, then hold the stream open and read it line by line. Replace `8787` with its declared test port; disconnect and check the server's `listener.attach` / `listener.detach` pairs. For a protected staging stream, use only an explicitly authorized host authentication mechanism; otherwise stop with the authorization blocker.\n```bash\npython -X utf8 -c \"import urllib.request as u;[print(line.decode('utf-8','replace').rstrip()) for line in u.urlopen('http://127.0.0.1:8787/api/<stream-endpoint>')]\"\n```",
+    )],
+    "skills/debugger/references/turbo-dry-json-epipe.md": [(
+        "**Validation:** `python3 https://github.com/GrupoUS/graph-powers/blob/main/hooks/test_hooks.py` — the deny cases for `--dry=json` and the\nallow cases for `bun run test` / `turbo run test --filter=…`. Script with no turbo\ninstalled: non-zero, stdout is not a JSON object.",
+        "**Validation:** In an explicitly authorized Claude source checkout, run the Claude hook test for the deny cases for `--dry=json` and the allow cases for `bun run test` / `turbo run test --filter=…`. Hermes does not fetch or execute that external hook test. Its bundled script with no turbo installed exits non-zero and does not print a JSON object.",
+    )],
+    "skills/webapp-testing/references/browser-setup.md": [(
+        "1. Read the host `.graph-powers/config.json`. Use `${project.stagingUrl}` as the target unless the\n   person supplies another URL in the current task. A missing target is a blocker. Never replace an\n   unavailable staging target with localhost without an explicit local-testing request.",
+        "1. Read the host `.graph-powers/config.json`.\n   Target: `${project.stagingUrl}`.\n   Use that target unless the person supplies another URL in the current task. A missing target is a blocker. Never replace an unavailable staging target with localhost without an explicit local-testing request.",
+    )],
+    "references/shared/045-context-staging.md": [(
+        "| Runtime / env | env vars, deploy config, runtime behaviour | the project's architecture notes if any, otherwise `skill_view(\"graph-powers:senior-architect\")` |",
+        "| Runtime / environment | environment variables, deploy config, runtime behaviour | the project's architecture notes if any, otherwise `skill_view(\"graph-powers:senior-architect\")` |",
+    )],
+    "skills/planning/references/issue-triage.md": [(
+        "(`auth|payment|PII|schema|env|ci|none`).",
+        "(`auth`, `payment`, `PII`, `schema`, `env`, `ci`, or `none`).",
+    ), (
+        "RISK SURFACES: <auth|payment|PII|schema|env|ci|none>",
+        "RISK SURFACES: <one of auth, payment, PII, schema, env, ci, none>",
+    )],
+}
+
+HOOK_SOURCE_REASON = "external Claude hook source for inspection; Hermes never copies or executes hooks"
+HOOK_SOURCE_URL = "https://github.com/GrupoUS/graph-powers/blob/main/"
+
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -165,6 +211,18 @@ class PackageBuilder:
             if source == "references/rubrics/skill-improver-rubric.md" and reference in {"plan_validator.py", "pre_write_guard.py"}:
                 self.host(source, reference, "historical 2026-08-17 false-finding example, not an installed dependency")
                 continue
+            # Hooks belong to the Claude product boundary. Validate direct hooks/ references
+            # before externalizing them, so a traversal-like spelling cannot become an exemption.
+            if bare.startswith("hooks/"):
+                try:
+                    hook_target = self.resolve_reference(source, reference, required=True)
+                except ValueError as error:
+                    raise ValueError(f"invalid external hook source in {source}: {reference}") from error
+                if hook_target is None or not hook_target.startswith("hooks/"):
+                    raise ValueError(f"hook source escape in {source}: {reference}")
+                self.host(source, reference, HOOK_SOURCE_REASON)
+                resolved[match.start()] = (reference, HOOK_SOURCE_URL + hook_target)
+                continue
             if source == "skills/senior-prompt-engineer/references/llm_evaluation_frameworks.md" and reference == "evals/README.md":
                 self.host(source, reference, "documentation to create in the evaluated host project")
                 continue
@@ -185,11 +243,22 @@ class PackageBuilder:
                 continue
             target = self.resolve_reference(source, reference, required=required)
             if target:
-                resolved[match.start()] = (reference, target)
-                self.edge(source, reference, target)
+                if target.startswith("hooks/"):
+                    self.host(source, reference, HOOK_SOURCE_REASON)
+                    resolved[match.start()] = (reference, HOOK_SOURCE_URL + target)
+                else:
+                    resolved[match.start()] = (reference, target)
+                    self.edge(source, reference, target)
             else:
                 raise ValueError(f"unresolved reference {reference} in {source}; declare its concrete host boundary")
         return resolved
+
+    def project(self, source: str, text: str) -> str:
+        for expected, replacement in SEMANTIC_PROJECTIONS.get(source, []):
+            if expected not in text:
+                raise ValueError(f"stale Hermes semantic projection for {source}: expected source fragment is missing")
+            text = text.replace(expected, replacement, 1)
+        return text
 
     def script_dependencies(self, source: str, text: str) -> None:
         path = PurePosixPath(source)
@@ -244,7 +313,8 @@ class PackageBuilder:
         # Rewrite original spans once: a later shorthand must not corrupt an already-rooted path.
         for start, (reference, target) in sorted(references.items(), reverse=True):
             fragment = "#" + reference.split("#", 1)[1] if "#" in reference else ""
-            text = text[:start] + f"content/{target}{fragment}" + text[start + len(reference):]
+            replacement = f"content/{target}{fragment}" if not target.startswith("https://") else target + fragment
+            text = text[:start] + replacement + text[start + len(reference):]
         # Root placeholders in conceptual ownership rules name the installed content root.
         # Linked files are returned raw, so never emit another environment template here.
         text = text.replace(PLUGIN_TOKEN, "content")
@@ -273,7 +343,7 @@ class PackageBuilder:
                       'registered-document parent. Apply the loaded graph-engineering mapping and host policy; '
                       'this file is served without template expansion.\n\n')
         if source == "references/shared/110-guardrails-index.md":
-            header += '> Hermes does not install or enforce the Claude hooks listed here. These sources are bundled for inspection only; the parent carries safety rules and approvals.\n\n'
+            header += '> Hermes does not install or enforce the Claude hooks listed here. Each hook link leads to its external Claude source for inspection only; Hermes never fetches, copies, or executes hook code. The parent carries safety rules and approvals.\n\n'
         if source == "references/shared/130-workflow-authoring.md":
             header += '> Hermes has no native Workflow tool. This source-client authoring reference and its validator require an explicitly authorized external Claude workflow task. Do not invoke Workflow in Hermes; use the planning contract for native orchestration.\n\n'
         if text.startswith("---\n"):
@@ -312,10 +382,10 @@ class PackageBuilder:
                 self.host(source, "historical ledger", "historical paths/calls are evidence, not operational dependencies")
                 adapted = "> Historical evidence only. Load the current registered contract for operational instructions.\n\n" + raw
             elif source.endswith(".md"):
-                adapted = self.adapt(source, raw, self.references(source, raw))
+                adapted = self.project(source, self.adapt(source, raw, self.references(source, raw)))
             else:
                 self.script_dependencies(source, raw)
-                adapted = raw
+                adapted = self.project(source, raw)
             self.output(CONTENT + source, adapted, [source], "content")
             if source in self.registration_by_source:
                 self.output(f"skills/{self.registration_by_source[source]}.md", adapted, [source], "registration")

@@ -28,7 +28,7 @@ No deep references and no subdirectory `AGENTS.md` yet.
 | API / handler | route, validator, auth guard, response shape | `${paths.backendRoot}/AGENTS.md` if present |
 | Schema / data | columns, relations, indexes, enum alignment | `${paths.schemaRoot}/AGENTS.md` if present, plus the project's schema reference if it has one |
 | Service / integration | webhooks, external APIs, third-party providers | the project's integration rule if it has one; provider docs through `graph-powers:librarian` |
-| Runtime / env | env vars, deploy config, runtime behaviour | the project's architecture notes if any, otherwise `skill_view("graph-powers:senior-architect")` |
+| Runtime / environment | environment variables, deploy config, runtime behaviour | the project's architecture notes if any, otherwise `skill_view("graph-powers:senior-architect")` |
 | Historical bug pattern | tenant resolution, aggregation, date boundary | the project's backend-learnings document if it keeps one |
 | Multi-domain | API + schema + integration | only the exact combination required |
 

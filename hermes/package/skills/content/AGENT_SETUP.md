@@ -106,7 +106,7 @@ choices and account for the legacy `.claude/config.json` when present.
 | Scope | Owner |
 |---|---|
 | Shared client settings and manual model choices | The client's existing global native config; Codex uses its active home's `config.toml` |
-| Graph Powers operator defaults | User configuration read by `content/hooks/_config.py`; only supported operator-policy groups |
+| Graph Powers operator defaults | User configuration read by `https://github.com/GrupoUS/graph-powers/blob/main/hooks/_config.py`; only supported operator-policy groups |
 | Branches, paths, gates and necessary exceptions | Target project's `.graph-powers/config.json` |
 
 Avoid repeating global defaults in each project. Keep project opt-in prefixes distinct.
@@ -333,7 +333,7 @@ bun "<PLUGIN>/bin/graph-powers.mjs" --target grok --autonomy <MODE>
 ```
 
 The installer validates the selected package before permissive posture and keeps discovery wired
-under guarded policy. Hooks remain in the canonical `content/hooks/hooks.json`; do not create a second
+under guarded policy. Hooks remain in the canonical `https://github.com/GrupoUS/graph-powers/blob/main/hooks/hooks.json`; do not create a second
 list. Restart Grok after installation/update; the background updater does not replace its cache.
 
 ### 9i — Hermes
@@ -390,7 +390,7 @@ Check only what this setup touched:
 3. Changed instruction files have no unresolved placeholders or broken links. If nodes changed,
    run intent-layer `check` and resolve real failures rather than excluding them.
 4. Changed project tooling runs its declared focused gates. The exact config must be trusted
-   through `content/hooks/command_trust.py` before automatic configured commands execute; changed config
+   through `https://github.com/GrupoUS/graph-powers/blob/main/hooks/command_trust.py` before automatic configured commands execute; changed config
    invalidates its digest. Do not create trust on the operator's behalf.
 5. After reload, confirm one real role/skill invocation in each requested runtime. Check workflows
    only where the runtime supports them; otherwise retain the documented fallback.

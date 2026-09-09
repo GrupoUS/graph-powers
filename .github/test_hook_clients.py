@@ -119,6 +119,8 @@ def installer_fixture(base: Path) -> tuple[Path, Path, Path, dict[str, str]]:
     env.update(
         {
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            # Runtime transpilation must not look like an installer HOME write.
+            "BUN_RUNTIME_TRANSPILER_CACHE_PATH": str(base / "bun-transpiler-cache"),
             "GP_INSTALLER_RECORD": str(record),
             "GP_GIT_UPDATED": str(base / "git-updated"),
         }

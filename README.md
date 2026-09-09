@@ -67,7 +67,18 @@ approved package source pinned to a full commit SHA, and `--no-enable`. Review a
 bytes first: DANGEROUS stops; CAUTION requires explicit human consent. Installed identity, Doctor,
 fresh skill loads and profile isolation still need runtime evidence. Runtime validation is not
 implemented: `--hermes-proof runtime` returns nonzero even with its required `--package-root` and
-`--expected-version` arguments. No scanner, installation or runtime success is claimed here.
+`--expected-version` arguments. The static checks above do not establish scanner acceptance,
+installation or runtime success.
+
+For an approved native install, select `GrupoUS/graph-powers/hermes/package` as the source and
+pass `--ref` with the full 40-character commit containing the reviewed package, plus `--no-enable`.
+The [native installer](https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/plugins_cmd.py)
+supports repository subdirectories and scans that directory before installation. Installing the
+repository root also includes other clients, development tests and destructive-command rejection
+fixtures; it is not the Hermes distribution. Keep the
+[install-time scanner](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins#install-time-security-scanning)
+enabled: `--force` cannot override a dangerous result. A local package change is available from
+Git only after its publication; never substitute an older commit and claim it contains the fix.
 
 Then one prompt, pasted into an agent session opened in your project:
 
