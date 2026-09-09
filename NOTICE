@@ -231,3 +231,15 @@ Two further plugins are optional, and named where a command calls them:
 
   code-review   the official optional review skill invoked by /pr-review
   codex         the Codex rescue and result-handling skills invoked by /debug and /research
+
+================================================================================
+Source-informed compatibility guidance — no upstream files redistributed
+================================================================================
+
+  references/shared/115-code-graph.md
+
+Graft interface, freshness and side-effect notes were synthesized from trailhq/Graft at
+https://github.com/trailhq/Graft/tree/05760b07abc0e427f5af8ad378889ee402c5afc6
+(source inspection, 2026-09-08). Graph Powers adds project-only selection, bounded retrieval,
+textual fallback and policy-aware static diagnosis. No Graft code or package is distributed here;
+the inspected source does not qualify an installed runtime or demonstrate performance gains.

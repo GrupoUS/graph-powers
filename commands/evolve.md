@@ -29,4 +29,16 @@ Return log path, edited project-owned skills/AGENTS files, and actual gates. Say
 
 ## 4. `handoff`
 
-Overwrite `.graph-powers/HANDOFF.md` with: where work stopped; one next action; attempts not to repeat; open questions; branch/working-tree state; last real gates; touched files. It must be sufficient for `/prime` to resume without rediscovery.
+Update `.graph-powers/HANDOFF.md`, preserving sections, with:
+
+- Objective, completed/pending work, critical restrictions and open questions.
+- Approved action/scope and user-message or approval-artifact provenance; decisions/reasons and rejected attempts.
+- Project/worktree, branch/HEAD, relevant staged/unstaged/new/removed files; source/config/consumer digests.
+- Gates: exact command, result/exit, evidence and tested snapshot (files/config/dependencies/environment), validity/invalidators. Reusable discovery includes provider/scope and decisive sources.
+- Exactly one bounded next action and its prerequisites.
+
+The session entry links the active plan/checkpoint; plan-local `HANDOFF.md` links its plan/sprint,
+snapshots and existing ledgers without copying them or resetting counters. Handoffs record authority,
+grant none and activate no opt-in. On resume, verify scope/provenance and current state; reuse valid
+evidence, recheck invalidated dependents. HEAD alone is insufficient; compaction alone invalidates
+nothing. No second memory or automatic per-turn learning entry.

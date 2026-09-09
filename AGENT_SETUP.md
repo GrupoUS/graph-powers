@@ -76,6 +76,10 @@ enabling permissive client posture. Do not infer Python health from a different 
 
 Planning, TDD, design, landing-page design and review methods are bundled. Other plugins, MCP
 servers, browser downloads and code graphs are conditional; do not install them by default.
+When the project selects Graft or explicitly requests its diagnosis, follow only Static readiness
+diagnosis and Effects gate in `references/shared/115-code-graph.md`. Inspect existing manifests,
+configuration and registration metadata; do not start a backend or MCP health check. Keep missing
+components and unknown freshness/policy separate; selection does not install or activate anything.
 Use the project's package runner. Preserve native Claude/Codex installations and the shared
 Codex home. Never print credentials or put secret values in setup commands or reports.
 

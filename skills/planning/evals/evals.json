@@ -288,6 +288,116 @@
         { "id": "R04", "description": "Does not retry unavailable resolution", "check": "regex: (?is)(do not|não|never|nunca).*(retry|repet|resolver).*(resolution|resolu|specialist|especialista)", "critical": true },
         { "id": "R05", "description": "Keeps a capped or blocked run non-successful", "check": "regex: (?is)(capped|cap|BLOCKED).*(not|não).*(success|sucesso)", "critical": true }
       ]
+    },
+    {
+      "id": "context-reuse",
+      "polarity": "positive",
+      "tags": [
+        "graft-context"
+      ],
+      "prompt": "Plan the addition of name normalization. Project config selects codeGraph.provider=graft. The supplied graph candidate is src/names.ts:1 normalizeName(value: string): string. Current source: export function normalizeName(value: string) { return value.trim().toLowerCase(); }. Requested behavior is trim and lowercase. Explain the next investigation and reuse verdict.",
+      "expected_output": "Reuse supplied sufficient current source without redundant graph/status retrieval.",
+      "assertions": [
+        {
+          "id": "GC01",
+          "description": "Uses the current matching implementation",
+          "check": "regex: (?is)(normalizeName|src/names\\.ts).*\\bREUSE\\b|\\bREUSE\\b.*(normalizeName|src/names\\.ts)",
+          "critical": true
+        },
+        {
+          "id": "GC02",
+          "description": "Does not schedule graph freshness after sufficient current source",
+          "check": "regex: (?is)^(?!.*\\b(?:next|then|próxim[oa]|depois|então)\\b[^.\\n]{0,180}\\b(?:confirm\\w*|check|query|confer\\w*|verific\\w*|consult\\w*)\\b[^.\\n]{0,100}\\b(?:graph|grafo)\\b[^.\\n]{0,60}\\b(?:freshness|status|atualidade|frescor)\\b).*$",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "context-dynamic",
+      "polarity": "positive",
+      "tags": [
+        "graft-context"
+      ],
+      "prompt": "Assess the impact of changing normalizeName. Project config selects graft. Graph callers are empty. Text search finds src/registry.ts:3 registry['normalize-name'] = normalizeName and src/import-job.ts:8 registry[operation](value), with operation='normalize-name' in config/import.json. Explain the consumer set, next verification and regression watchlist.",
+      "expected_output": "Include dynamic textual consumers and their regression proof despite empty graph edges.",
+      "assertions": [
+        {
+          "id": "GC03",
+          "description": "Retains registry and dynamic consumer",
+          "check": "regex: (?s)src/registry\\.ts.*src/import-job\\.ts",
+          "critical": true
+        },
+        {
+          "id": "GC04",
+          "description": "Keeps consumer in regression evidence",
+          "check": "regex: (?is)^(?=.*(?:src/import-job\\.ts|\\bimport[- ](?:job|path|flow)\\b|(?:fluxo|caminho) de importa[çc][ãa]o))(?=.*(?:\\bregression\\b|\\bregress[ãa]o\\b|\\bwatchlist\\b)).*$",
+          "critical": true
+        },
+        {
+          "id": "GC05",
+          "description": "Verifies string/config mapping",
+          "check": "regex: (?i)config/import\\.json|configuration.*mapping",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "context-tests",
+      "polarity": "positive",
+      "tags": [
+        "graft-context"
+      ],
+      "prompt": "Assess tests before changing normalizeName. Project config selects graft. The graph reports zero tests. Text search finds tests/names.spec.ts referencing normalizeName seven times. Explain whether it is untested and which checks to retain.",
+      "expected_output": "Retain discovered tests and never infer untested from zero graph edges.",
+      "assertions": [
+        {
+          "id": "GC06",
+          "description": "Retains discovered test",
+          "check": "contains: tests/names.spec.ts",
+          "critical": true
+        },
+        {
+          "id": "GC07",
+          "description": "Does not infer untested from zero edges",
+          "check": "regex: (?is)(does not|not|never|cannot).{0,100}(untested|coverage gap)|no static edge|(?:não|nunca).{0,100}(?:não testad|lacuna de cobertura)|ausência de aresta estática",
+          "critical": true
+        },
+        {
+          "id": "GC08",
+          "description": "Retains real focused check",
+          "check": "regex: (?i)run.{0,100}(test|check)|focused.{0,50}(test|check)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "context-stale",
+      "polarity": "positive",
+      "tags": [
+        "graft-context"
+      ],
+      "prompt": "Plan a change using graph evidence. Project config explicitly selects graft; the graph names normalizeName at src/names.ts:1. The latest response starts 'graph refresh skipped: read-only filesystem'. HEAD is unchanged but src/names.ts has an uncommitted content change and its digest differs from the earlier evidence. Explain provider choice, evidence validity and next action.",
+      "expected_output": "Invalidate dirty-source evidence and use current source/text without silently changing backend.",
+      "assertions": [
+        {
+          "id": "GC09",
+          "description": "Keeps selected provider identity",
+          "check": "regex: (?i)\\bgraft\\b",
+          "critical": true
+        },
+        {
+          "id": "GC10",
+          "description": "Invalidates changed evidence",
+          "check": "regex: (?i)\\bSTALE\\b|\\bUNKNOWN\\b",
+          "critical": true
+        },
+        {
+          "id": "GC11",
+          "description": "Uses current source and text fallback",
+          "check": "regex: (?is)^(?=.*\\b(?:inspect|read|re-read|reread|reopen|ler|reler|reabrir|inspecion\\w*|confirm\\w*)\\b.{0,120}(?:current\\s+(?:source|definition|`?src/names\\.ts)|(?:fonte|conteúdo)\\s+atual|estado\\s+atual.{0,150}src/names\\.ts))(?=.*(?:\\btext(?:ual)?(?:/test)?\\s+search\\w*|\\bbusca\\w*\\s+textua\\w*)).*$",
+          "critical": true
+        }
+      ]
     }
   ]
 }

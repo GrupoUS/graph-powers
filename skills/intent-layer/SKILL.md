@@ -5,7 +5,9 @@ description: "Use when a repository's AGENTS.md hierarchy has to be built, grown
 
 # Intent Layer
 
-Build the smallest `AGENTS.md` hierarchy that tells an agent where rules change. Start at the root;
+For a diff audit, read `references/node-anatomy.md § Diff-scoped advisory audit` only when changed rules, paths, commands, consumers or invariants could contradict instructions. Otherwise report no relevant drift and stop. This route never builds a hierarchy.
+
+For hierarchy work, build the smallest `AGENTS.md` hierarchy that tells an agent where rules change. Start at the root;
 add a child only for a subtree with a distinct purpose, owner, tooling or safety rule. Each node
 links downward; avoid copying global rules and remove no user decisions.
 

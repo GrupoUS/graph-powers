@@ -301,6 +301,223 @@
           "critical": true
         }
       ]
+    },
+    {
+      "id": "pos-diff-audit-removed-path",
+      "polarity": "positive",
+      "tags": [
+        "cole-medin"
+      ],
+      "prompt": "Review whether our AGENTS.md is still accurate for this change; suggest fixes only. AGENTS.md:8 says routes live in src/routes/. The approved diff against release-base removes src/routes/api.ts, adds src/http/api.ts, and updates src/server.ts:3 to import ./http/api. An untracked src/http/health.ts also exists. Identify only contradicted instructions and the smallest correction, with evidence/confidence. Do not rebuild our hierarchy.",
+      "expected_output": "Reports the contradicted route-location rule at AGENTS.md:8, supported by removal of src/routes/api.ts, new src/http/api.ts and src/server.ts:3 importing it; states impact, minimum src/http/ correction and confidence. Respects release-base and relevant untracked scope without inferring health.ts ownership. Advisory only; no hierarchy construction.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Attributes the stale rule to its actual AGENTS.md:8 origin, not merely the audit method.",
+          "check": "regex: (?i)\\bAGENTS\\.md`?\\s*:\\s*8\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Identifies the removed route location and the concrete replacement plus its current consumer.",
+          "check": "regex: (?is)(?=.*src/routes(?:/api\\.ts|/)?)(?=.*(?:remov|delet|renam|substitu|contradi|obsolet|stale))(?=.*src/http/api\\.ts)(?=.*src/server\\.ts)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Explains why the stale route instruction matters.",
+          "check": "regex: (?i)(?:impact|consequ[êe]ncia|risco|risk|direcion\\w*.{0,60}(?:errad|inexistent)|(?:wrong|incorrect|obsolete|missing)\\s+(?:path|location|command|validation)|(?:valida[çc][ãa]o|validation).{0,60}(?:errad|falh|fail|wrong))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Recommends only updating the route instruction to the evidenced src/http boundary.",
+          "check": "regex: (?is)(?:corre[çc][ãa]o|atualiz\\w*|substitu\\w*|recommend\\w*|updat\\w*|replace\\w*|fix).{0,140}src/http/",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "States a confidence score from 1 to 5 inline or in the declared table score cell; a header scale alone is insufficient.",
+          "check": "regex: (?im)(?:(?:confian[çc]a|confidence)(?![a-zç])[ \\t*`]*:?[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?(?!\\d|[ \\t]*(?:[/–-][ \\t]*\\d|[.,]\\d))|^[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*(?:confian[çc]a|confidence)(?:[ \\t]*\\([ \\t]*1[ \\t]*[–-][ \\t]*5[ \\t]*\\))?[ \\t*`]*\\|[ \\t]*\\n[ \\t]*(?:\\|[ \\t]*:?-+:?[ \\t]*){5}\\|[ \\t]*\\n[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?[ \\t*`]*\\|[ \\t]*$)",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Reports actual no edits applied, not the future effect of the suggested correction.",
+          "check": "regex: (?i)(?:\\bno\\s+(?:edits?|changes?|mutations?|patches?|writes?)\\s+(?:(?:were|have been)\\s+)?(?:applied|made|performed|executed)\\b|\\b(?:did not|have not|haven.t)\\s+(?:edit|modify|change|write|apply)\\b|\\bno\\s+files?\\s+(?:were\\s+)?(?:edited|modified|changed|written)\\b|\\bnenhum[a]?\\s+(?:edi[çc][ãa]o|altera[çc][ãa]o|muta[çc][ãa]o|patch|arquivo)\\s+(?:foi\\s+)?(?:aplicad[oa]|feit[oa]|executad[oa]|alterad[oa]|modificad[oa])\\b|\\bn[aã]o\\s+(?:editei|alterei|modifiquei|apliquei|escrevi)\\b|\\b(?:files?|arquivos?)\\s+(?:remain|remained|permanecem|continuam)\\s+(?:unchanged|inalterados)\\b)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "pos-diff-audit-replaced-command",
+      "polarity": "positive",
+      "tags": [
+        "cole-medin"
+      ],
+      "prompt": "Check our instructions against this patch, without editing. AGENTS.md:12 says run npm test; package.json:8 changed scripts.test to scripts.check, and CI now runs bun run check. A staged change updates the runner; the unstaged part is its call site. Report the instruction affected, contradictory current evidence, impact, minimal fix and confidence.",
+      "expected_output": "Identifies AGENTS.md:12/npm test as stale, ties script rename test to check and CI/current runner evidence to bun run check across staged and unstaged changes, gives validation impact, minimum instruction correction and confidence without edits.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Preserves the instruction source AGENTS.md:12 and the contradicted npm test command.",
+          "check": "regex: (?is)(?=.*\\bAGENTS\\.md`?\\s*:\\s*12\\b)(?=.*\\bnpm\\s+test\\b)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Uses the changed script and CI evidence, not a package-manager preference alone.",
+          "check": "regex: (?is)(?=.*\\btest\\b)(?=.*\\bcheck\\b)(?=.*(?:script|package\\.json))(?=.*(?:\\bCI\\b|continuous integration|integra[çc][ãa]o cont[íi]nua))(?=.*(?:renam|mud|substitu|changed|replac|obsolet|stale|contradi))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Recommends the current bun run check command as the minimum correction.",
+          "check": "regex: (?is)(?:corre[çc][ãa]o|atualiz\\w*|substitu\\w*|recommend\\w*|updat\\w*|replace\\w*|fix).{0,140}\\bbun\\s+run\\s+check\\b",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Explains the effect on validation.",
+          "check": "regex: (?i)(?:impact|consequ[êe]ncia|risco|risk|direcion\\w*.{0,60}(?:errad|inexistent)|(?:wrong|incorrect|obsolete|missing)\\s+(?:path|location|command|validation)|(?:valida[çc][ãa]o|validation).{0,60}(?:errad|falh|fail|wrong))",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "States a confidence score from 1 to 5 inline or in the declared table score cell; a header scale alone is insufficient.",
+          "check": "regex: (?im)(?:(?:confian[çc]a|confidence)(?![a-zç])[ \\t*`]*:?[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?(?!\\d|[ \\t]*(?:[/–-][ \\t]*\\d|[.,]\\d))|^[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*(?:confian[çc]a|confidence)(?:[ \\t]*\\([ \\t]*1[ \\t]*[–-][ \\t]*5[ \\t]*\\))?[ \\t*`]*\\|[ \\t]*\\n[ \\t]*(?:\\|[ \\t]*:?-+:?[ \\t]*){5}\\|[ \\t]*\\n[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?[ \\t*`]*\\|[ \\t]*$)",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "Reports actual no edits applied, not the future effect of the suggested correction.",
+          "check": "regex: (?i)(?:\\bno\\s+(?:edits?|changes?|mutations?|patches?|writes?)\\s+(?:(?:were|have been)\\s+)?(?:applied|made|performed|executed)\\b|\\b(?:did not|have not|haven.t)\\s+(?:edit|modify|change|write|apply)\\b|\\bno\\s+files?\\s+(?:were\\s+)?(?:edited|modified|changed|written)\\b|\\bnenhum[a]?\\s+(?:edi[çc][ãa]o|altera[çc][ãa]o|muta[çc][ãa]o|patch|arquivo)\\s+(?:foi\\s+)?(?:aplicad[oa]|feit[oa]|executad[oa]|alterad[oa]|modificad[oa])\\b|\\bn[aã]o\\s+(?:editei|alterei|modifiquei|apliquei|escrevi)\\b|\\b(?:files?|arquivos?)\\s+(?:remain|remained|permanecem|continuam)\\s+(?:unchanged|inalterados)\\b)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "pos-diff-audit-valid-inherited-rule",
+      "polarity": "positive",
+      "tags": [
+        "cole-medin"
+      ],
+      "prompt": "Our root AGENTS.md says all DB calls use src/repositories. A child AGENTS.md does not repeat it. The diff only adds src/services/report.ts calling src/repositories/report.ts. Audit whether the inherited instruction needs an update; no edits authorized.",
+      "expected_output": "Returns no finding/update: the root AGENTS.md rule remains inherited and the new service uses src/repositories/report.ts. The child need not repeat the rule; preserve the existing hierarchy and make no edits.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Identifies the root AGENTS.md as the inherited source rather than treating the child as missing a rule.",
+          "check": "regex: (?is)(?=.*\\bAGENTS\\.md\\b)(?=.*(?:\\braiz\\b|\\broot\\b))(?=.*(?:herd|inherit))",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Returns no rule correction for valid inheritance.",
+          "check": "regex: (?is)(?:(?:nenhum[a]?|no)\\s+(?:\\w+\\s+){0,5}(?:atualiza[çc][ãa]o|altera[çc][ãa]o|corre[çc][ãa]o|update|change|fix|finding)|(?:n[aã]o|not|no need|unnecessary).{0,70}(?:precis|necess|updat|alter|duplic|repeat)|(?:regra|rule).{0,40}(?:permanece|remains|continua).{0,20}(?:v[áa]lid|valid))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Grounds compliance in the actual repository-layer call.",
+          "check": "regex: (?is)(?=.*src/repositories(?:/report\\.ts)?)(?=.*(?:cham|call|us[ea]|conform|compli|respeit|atrav[ée]s|through))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Rejects duplicating the ancestor rule in the child.",
+          "check": "regex: (?is)(?:(?:n[aã]o|sem|not|no need|avoid).{0,80}(?:duplic|repet|repeat)|(?:duplic|repet|repeat).{0,100}(?:risco|risk|desnecess|unnecess|drift)|(?:child|filh[oa]).{0,60}(?:need not|n[aã]o precisa))",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-diff-audit-irrelevant-change",
+      "polarity": "negative",
+      "tags": [
+        "cole-medin"
+      ],
+      "prompt": "Review only a punctuation correction in README.md. Paths, build commands, consumers and invariants are unchanged. Do we need to audit or rebuild the full AGENTS.md hierarchy? Explain the smallest appropriate action, without edits.",
+      "expected_output": "Explains that punctuation-only README scope has no changed instruction-bearing path, command, consumer or invariant; no semantic audit or hierarchy rebuild is justified and no edits are made.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Bases the scope decision on punctuation-only change.",
+          "check": "regex: (?i)(?:punctuat|pontua[çc])",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Declines the irrelevant audit or hierarchy reconstruction.",
+          "check": "regex: (?is)(?:n[aã]o|sem|no need|not needed|unnecessary|does not|do not).{0,100}(?:audit|rebuild|reconstru|hierarch|hierar)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Names the unchanged semantic boundaries that make the diff irrelevant.",
+          "check": "regex: (?is)(?=.*(?:caminh|path))(?=.*(?:comando|command))(?=.*(?:invariant|invariant[e]?|consum))(?=.*(?:sem altera|inalter|unchanged|intact|n[aã]o.{0,40}(?:mud|alter|contradi)|no change))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Stops at an advisory no-drift result without recommending a rewrite; actual tool traces separately verify zero successful writes.",
+          "check": "regex: (?is)(?:(?:(?:nenhum[a]?|sem|no|zero)\\s+(?:\\w+\\s+){0,5}(?:muta[çc]|edit|altera[çc]|modifica[çc]|mudan[çc]|patch|writ)|(?:did not|haven.t|n[aã]o)\\s+(?:\\w+\\s+){0,4}(?:edit|alter|modifi|apli|writ|chang)|(?:files?|arquivos?).{0,30}(?:unchanged|inalterad))|a[çc][ãa]o.{0,40}(?:nenhuma|nada)|no action|nothing to (?:change|do))|(?i:report\\s+no\\s+(?:relevant\\s+)?drift\\s+and\\s+stop)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "pos-diff-audit-consultative-only",
+      "polarity": "positive",
+      "tags": [
+        "cole-medin"
+      ],
+      "prompt": "The diff renamed src/jobs to src/workers; AGENTS.md:6 still names src/jobs. I asked for review only. Give the rule/source, evidence, impact, minimal recommendation and confidence, and state the mutation outcome.",
+      "expected_output": "Reports AGENTS.md:6/src/jobs contradicted by rename to src/workers, the misdirected-work impact, minimum recommendation and confidence. Explicitly reports no mutation; advisory findings never edit consumer instructions, even if a surrounding review offers --fix.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Attributes the target rule to AGENTS.md:6 in a rule/source statement or origin cell, not merely elsewhere in the response.",
+          "check": "regex: (?im)(?:^[ \\t]*\\|[^|\\n]*\\bAGENTS\\.md`?[ \\t]*:[ \\t]*6\\b[^|\\n]*\\||\\b(?:actual[ \\t]+)?(?:(?:rule|regra)(?:[ \\t/]+(?:and[ \\t]+)?(?:source|origin|fonte|origem))?|source|origin|fonte|origem)[ \\t*`]*(?::|[–—-])[ \\t*`]*(?:root[ \\t]+)?\\bAGENTS\\.md`?[ \\t]*:[ \\t]*6\\b|^[ \\t*`-]*\\bAGENTS\\.md`?[ \\t]*:[ \\t]*6\\b[^|\\n]{0,40}\\b(?:says|states|names|requires|instructs|references|diz|exige|aponta|nomeia|referencia)\\b)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Grounds the contradiction in the exact old/new directory rename.",
+          "check": "regex: (?is)(?=.*src/jobs\\b)(?=.*src/workers\\b)(?=.*(?:renam|mov|substitu|contradi|obsolet|stale))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "States the practical impact of the stale destination.",
+          "check": "regex: (?i)(?:impact|consequ[êe]ncia|risco|risk|direcion\\w*.{0,60}(?:errad|inexistent)|(?:wrong|incorrect|obsolete|missing)\\s+(?:path|location|command|validation)|(?:valida[çc][ãa]o|validation).{0,60}(?:errad|falh|fail|wrong))",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Recommends the minimum workers reference correction.",
+          "check": "regex: (?is)(?:corre[çc][ãa]o|atualiz\\w*|substitu\\w*|recommend\\w*|recomen\\w*|updat\\w*|replace\\w*|fix).{0,140}src/workers\\b",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Explicitly records no edits/mutation, rather than claiming the recommendation was applied.",
+          "check": "regex: (?i)(?:(?:nenhum[a]?|sem|no|zero)\\s+(?:\\w+\\s+){0,5}(?:muta[çc]|edit|altera[çc]|modifica[çc]|mudan[çc]|patch|writ)|(?:did not|haven.t|n[aã]o)\\s+(?:\\w+\\s+){0,4}(?:edit|alter|modifi|apli|writ|chang)|(?:files?|arquivos?).{0,30}(?:unchanged|inalterad))",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "States a confidence score from 1 to 5 inline or in the declared table score cell; a header scale alone is insufficient.",
+          "check": "regex: (?im)(?:(?:confian[çc]a|confidence)(?![a-zç])[ \\t*`]*:?[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?(?!\\d|[ \\t]*(?:[/–-][ \\t]*\\d|[.,]\\d))|^[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*(?:confian[çc]a|confidence)(?:[ \\t]*\\([ \\t]*1[ \\t]*[–-][ \\t]*5[ \\t]*\\))?[ \\t*`]*\\|[ \\t]*\\n[ \\t]*(?:\\|[ \\t]*:?-+:?[ \\t]*){5}\\|[ \\t]*\\n[ \\t]*\\|(?:[^|\\n]*\\|){4}[ \\t*`]*[1-5](?:[ \\t]*/[ \\t]*5)?[ \\t*`]*\\|[ \\t]*$)",
+          "critical": true
+        },
+        {
+          "id": "A07",
+          "description": "Does not assign target-rule authority to node-anatomy or assert an unsupported target downlink structure; separate method citations and explicit cautions remain valid.",
+          "check": "regex: (?im)\\A(?![\\s\\S]*(?:^[ \\t>*-]*[*`]*(?:(?:actual|rule|target)[ \\t]+){0,2}(?:source|origin|fonte|origem)(?:[ \\t]+(?:of[ \\t]+the[ \\t]+rule|da[ \\t]+regra))?[ \\t*`]*(?::|[—–-])[ \\t*`]*(?:(?:the|o)[ \\t]+)?(?:(?:audit[ \\t]+method|method|template|m[ée]todo|modelo)(?:[ \\t]+(?:in|em|from|de))?[ \\t]+)?(?:[\\w./-]+/)?node-anatomy\\.md\\b|^[ \\t]*(?:the|our|this|a|o|nossa?)[ \\t]+[\"\\x27`*]*(?:Where things live[\"\\x27`*]*[ \\t]+)?(?:downlink[ -](?:index|table|row)|tabela[ \\t]+de[ \\t]+downlinks?)[^\\n]{0,200}\\b(?:must|requires?|maps?|deve|exige|mapeia)\\b(?![ \\t]+(?:not|never|n[aã]o)\\b)|\\b(?:fix|correction|corre[çc][ãa]o)[^\\n]{0,60}\\b(?:is|é)\\b(?![ \\t]+(?:not|never|n[aã]o)\\b)[^\\n]{0,40}\\b(?:in|na|no)[ \\t]+(?:the[ \\t]+)?downlink[ \\t]+table\\b))",
+          "critical": true
+        }
+      ]
     }
   ]
 }

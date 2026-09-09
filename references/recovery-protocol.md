@@ -100,6 +100,8 @@ wrong attempt costs more.
 Recovery has a floor. When Steps 1-4 leave the cause unknown, **stop** and produce a handoff rather
 than a fifth attempt:
 
+When writing the blocked handoff, read `${CLAUDE_PLUGIN_ROOT}/commands/evolve.md § 4`; preserve its full continuation state and add these diagnostics:
+
 ```markdown
 ## Blocked — <task>
 
@@ -110,7 +112,8 @@ than a fifth attempt:
 **Needs:** <the access, decision or information that would unblock this>
 ```
 
-Write it to `.graph-powers/HANDOFF.md` and say it out loud in the response.
+Update `.graph-powers/HANDOFF.md` with this diagnostic supplement, preserving the full continuation
+contract; report it in the response. It grants no permission or opt-in.
 
 A `BLOCKED` handoff is a successful outcome of this protocol. Burning the spawn ceiling on retries
 that share a hypothesis is not.

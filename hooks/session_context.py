@@ -196,6 +196,13 @@ def main() -> None:
     additional_context = (
         f"{additional_context}\n{execution_floor()}\n{solution_ladder()}\n{lifecycle_pointer()}"
     )
+    provider = typing.cast(dict[str, object], config["codeGraph"])["provider"]
+    if provider in ("graft", "none"):
+        additional_context += (
+            f"\nCode graph: provider={provider}; selection starts nothing. "
+            "For structural retrieval or diagnosis, follow the plugin's "
+            "references/shared/115-code-graph.md; none uses text only."
+        )
 
     output = {
         "hookSpecificOutput": {

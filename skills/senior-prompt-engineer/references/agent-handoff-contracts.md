@@ -45,6 +45,27 @@ researcher receives the necessary facts and return/rubric excerpts in its prompt
 - **Resume hint:** <one sentence>
 ```
 
+Extend the existing fields, never the envelope keys:
+
+- **Artifacts:** touched/decisive sources, scoped query results and links to active plan, sprint,
+  snapshots and ledgers when present; name relevant new/removed files.
+- **Decisions:** objective and completed/pending work; choices and reasons; rejected attempts and
+  why not to repeat them; existing authorization's exact action/scope and provenance (user message
+  or approval artifact). Record project/worktree, branch/HEAD, relevant staged/unstaged state and
+  source/config/consumer digests; graph evidence also records provider/scope.
+- **Quality gates:** exact command, result/exit, evidence location and tested snapshot, including
+  relevant files, configuration, dependencies and environment; identify validity and invalidators.
+- **Risks:** critical restrictions, unresolved questions, missing evidence/authority and freshness
+  limits, each with mitigation or the bounded recheck.
+- **Resume hint:** exactly one next action, preserving its scope and prerequisites.
+
+Unchanged SHA alone is insufficient. Reuse while relevant identities and freshness hold; invalidate
+dependent findings when they change. Keep structural and card/semantic evidence distinct. Record
+unknown state explicitly; do not invent telemetry, dump graph output or create a second memory.
+
+Recorded authorization grants no new permission or opt-in; verify action/scope against its provenance
+and applicable rules. When writing a session/plan checkpoint, read `${CLAUDE_PLUGIN_ROOT}/commands/evolve.md § 4` for that format; do not copy the agent envelope into a second memory.
+
 ### JSON form (for a consolidating caller, and for tooling)
 
 ```json

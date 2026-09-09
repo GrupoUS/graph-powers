@@ -48,6 +48,19 @@
   },
   "type": "object",
   "properties": {
+    "codeGraph": {
+      "type": "object",
+      "description": "Optional code context backend, project-only; ignored in user configuration. Missing or invalid selection retains code-review-graph. Selection never installs or starts a backend.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["code-review-graph", "graft", "none"],
+          "default": "code-review-graph",
+          "description": "graft requires explicit project selection; none uses textual search only. Unavailable selected backends fall back to text, never another backend."
+        }
+      },
+      "additionalProperties": false
+    },
     "project": {
       "type": "object",
       "description": "Identity. Shows up in reports and gate messages; nothing here changes behaviour.",

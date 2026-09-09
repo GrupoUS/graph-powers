@@ -5,21 +5,27 @@ workflow_type: routing
 
 # /pr-review
 
-**ARGUMENTS:** $ARGUMENTS. Resolve one target: PR number, `--current`, or `--branch <name>`; default is current diff. Accept `full`, `--quick`, and `--fix`; reject conflicting/unknown flags. Never use this for implementation (`/implement`) or gate proof (`/verify`).
+**ARGUMENTS:** $ARGUMENTS. Target: PR number, `--current` (default), or `--branch <name>`. Accept `full`, `--quick`, `--fix`; reject conflicting/unknown flags. Implementation uses `/implement`; gate proof uses `/verify`.
 
 ## 0. Pre-flight
 
-Read `.graph-powers/config.json`, resolve the diff/base and touched surfaces, and load matching `${rulesDir}` plus root `REVIEW.md` when present. Only when `full` is requested, load `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md` and the full review references. `--branch` has no PR metadata or comments.
+Read `.graph-powers/config.json`, matching `${rulesDir}` and root `REVIEW.md` when present. Only for `full`, load `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md` and full review references. `--branch` has no PR metadata/comments.
+
+When resolving target/base and surfaces, read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md §§ A–B`.
+
+When structural risk remains unanswered, read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md § C` for retrieval/fallback; decisive source needs no graph probe.
 
 ## 1. Bounded review
 
-Dispatch read-only reviewers together: evaluator for correctness/plan/diff (except `--quick`), security-reviewer only for auth, API, data, payment or secrets, and ui-ux-designer only for web. Fold compatible `chain.lenses` into those roles; name an unresolved lens rather than claiming it ran. `full` requires source citation per finding. `--quick` may run security on a sensitive surface but skips evaluator/design and therefore can only return COMMENT.
+Dispatch read-only reviewers together: evaluator for correctness/plan/diff (except `--quick`), security-reviewer for auth/API/data/payment/secrets, ui-ux-designer for web. Fold compatible `chain.lenses` into these roles; report unresolved lenses. `--quick` skips evaluator/design, retains applicable security, and can only return COMMENT.
 
-Every finding needs opened `file:line`, severity, evidence and an actionable recommendation. Consolidate duplicates and distinguish introduced regressions from pre-existing or out-of-scope observations. Do not turn a suggestion into unbounded work.
+Every finding needs opened `file:line`, severity, evidence and a bounded recommendation. Deduplicate and distinguish introduced regressions from pre-existing/out-of-scope observations.
+
+Only when changed rules, paths, commands, consumers or invariants could contradict instructions, load `Skill("graph-powers:intent-layer")` for its diff audit. Findings stay advisory even with `--fix`; do not edit consumer rules.
 
 ## 2. Output
 
-Return target/base, scope, blocking and non-blocking tables, sensitive surfaces, skipped tracks, verdict and a ready review comment. Never state APPROVE without evaluator evidence; never hide an unreviewed sensitive surface.
+Return target/base, scope, blocking/non-blocking tables, sensitive surfaces, skipped tracks, verdict and ready review comment. Structural rows carry provider/scope/freshness and capability gaps; unsupported risk/orphan operations use source/text, never a second backend. APPROVE requires evaluator evidence; disclose unreviewed sensitive surfaces.
 
 ## 3. `--fix`
 
@@ -27,13 +33,8 @@ First evaluate every item using § 4.1; any `clarify` item stops the fix wave. U
 
 ## 4. Modes
 
-| Phase | default/full | `--quick` | `--branch` | `--fix` |
-|---|---|---|---|---|
-| scope + risk | yes | yes | yes, no PR metadata | yes |
-| evaluator | yes | skip | yes | yes |
-| conditional security/design | yes | security only if sensitive | yes | yes |
-| fix loop | no | no | no | accepted findings only |
+§§ 0–2 define mode coverage; only `--fix` enters § 3, for accepted findings.
 
 ### 4.1 Feedback evaluation
 
-Implement a supported, in-scope defect; clarify missing evidence; push back with file:line evidence when the feedback is incorrect, pre-existing, or out of scope. Record the decision before changing the diff.
+Implement evidenced in-scope defects; clarify missing evidence; push back on incorrect, pre-existing or out-of-scope feedback with file:line. Record decisions before edits.

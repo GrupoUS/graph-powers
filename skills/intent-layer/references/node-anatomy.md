@@ -142,3 +142,28 @@ reader:
   useful sentence in the node.
 - **Nothing generic.** How to plan, debug or verify comes from the plugin; a node that restates it
   is the drift this harness exists to end, one directory down.
+
+## Diff-scoped advisory audit
+
+Run only when changed rules, paths, validation commands, consumers or invariants could contradict
+an applicable instruction. Punctuation or unrelated content changes need no instruction audit.
+
+1. When auditing a diff, resolve its scope using `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md § A`; retain the explicit target/base and relevant staged, unstaged and untracked evidence.
+2. Read the applicable root, ancestor and nearest `AGENTS.md` plus matching project rules for that
+   scope. Retain each instruction's source `path:line`; do not enumerate or rebuild the hierarchy.
+3. Compare those instructions with the diff and decisive current sources: removed/renamed paths,
+   manifest/CI commands, callers and enforced invariants. A missing repetition in a child is not
+   drift when an inherited rule still holds. Missing evidence is a limitation, not a contradiction.
+4. Report only evidenced contradictions, using these columns:
+
+   | Rule and origin (`path:line`) | Contradictory evidence | Impact | Minimum correction | Confidence (1–5) |
+   |---|---|---|---|---|
+
+   Attribute the rule to its actual instruction source, not to this audit method. Preserve explicit
+   source lines supplied in the review. This document's hierarchy examples are methodology, not target facts.
+   A no-findings result is valid; name intact inheritance or
+   irrelevant scope when that explains it, without inventing a rule update.
+5. This audit is advisory: propose the smallest correction and report actual actions, not the
+   suggested fix's future effect. If no edit ran, state "No edits applied" (or equivalent). Never
+   edit consumer rules or create nodes, even during an ordinary review or a `--fix` wave. Applying
+   its recommendation is a separate authorized editing task.

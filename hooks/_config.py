@@ -81,6 +81,8 @@ USER_CONFIG_PATHS = (".graph-powers/config.json",)
 USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate")
 
 DEFAULTS: dict[str, Any] = {
+    # Optional code context backend; only an explicit project selection enables Graft.
+    "codeGraph": {"provider": "code-review-graph"},
     # Git — branch names and the opt-in key that releases a risky action.
     "git": {
         "workBranch": "dev-test",
@@ -435,7 +437,13 @@ def load(root: Path | None = None, payload: dict[str, Any] | None = None) -> dic
     user = _sanitise_user_scope(user)
 
     cfg = _deep_merge(DEFAULTS, user)
-    return _deep_merge(cfg, project)
+    cfg = _deep_merge(cfg, project)
+    graph = cfg.get("codeGraph")
+    provider = graph.get("provider") if isinstance(graph, dict) else None
+    if provider not in ("code-review-graph", "graft", "none"):
+        provider = "code-review-graph"
+    cfg["codeGraph"] = {"provider": provider}
+    return cfg
 
 
 def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:

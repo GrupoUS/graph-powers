@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Diagnose local Oxc, TypeScript 7, vtsls and Zed setup without changing the machine. Reports blockers and local install suggestions; never installs packages or edits settings."
+description: "Diagnose local Oxc, TypeScript 7, vtsls, Zed or optional Graft setup without changing the machine. Reports blockers and local install suggestions; never installs packages or edits settings."
 ---
 
 # $graph-powers:setup

@@ -605,6 +605,11 @@ A project **without** a config keeps working on the defaults — the git rails s
 the default branch and prefix. The file lives at `.graph-powers/config.json`; `.claude/config.json`
 is still read, for projects that only ever run Claude Code.
 
+Projects may select optional `codeGraph.provider`: `code-review-graph` (default), explicit `graft`,
+or `none` (text only). Graft is source-qualified, not runtime-qualified; selection installs or starts
+nothing. Context is retrieved on demand and falls back to text. See the
+[graph contract](references/shared/115-code-graph.md) for capabilities, freshness and static diagnosis.
+
 ---
 
 ## Autonomy — how much runs without asking

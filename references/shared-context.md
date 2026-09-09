@@ -30,7 +30,7 @@ measured against a worktree of the pre-split tree with the same script.
 | 9 | `090-verdict-matrix.md` | the consolidated ship / hold verdict template |
 | 10 | `100-autoresearch-loop.md` | the research cycle, its sources and its stop condition |
 | 11 | `110-guardrails-index.md` | each guardrail and the rule file that states it |
-| 11.5 | `115-code-graph.md` | the code-graph contract, its cookbook and its `[HARD]` limits |
+| 11.5 | `115-code-graph.md` | project-only graph selection, provider cookbooks, freshness/effects and `[HARD]` limits |
 | 12 | `120-skill-invocation-order.md` | meta, then method, then harness, then domain |
 | 13 | `130-workflow-authoring.md` | writing a workflow script by hand, and checking it before it runs |
 

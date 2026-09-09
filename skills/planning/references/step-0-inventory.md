@@ -52,12 +52,16 @@ fog into need-sized pieces.
 
 ## 0.2 Search order — stop at the first hit
 
-Preferred instrument is the code graph: contract, install state and `[HARD]` limits in
-`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`. It answers "does this already exist?"
-structurally, in one command, instead of a grep sweep over every string match. Unavailable is
-SKIPPED, never blocking — the grep order below is the fallback, slower and noisier but not wrong.
+Start with the task and current decisive source. If the supplied candidate already proves the
+requested behavior, choose REUSE and stop retrieval; do not check graph freshness/status merely to
+confirm sufficient source. Reuse current discovery after checking project/worktree and relevant
+source/config/consumer identity, including dirty state. Reopen only invalidated evidence.
 
-Then confirm each candidate by reading it. The graph tells you *where*, never *whether it fits*.
+Only when a structural question remains unanswered, use the selected provider under
+`${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md`; it owns capability, effects and freshness
+checks. Missing/unsupported/STALE evidence uses text, never another backend. Read candidate source
+and signature before the verdict. A capable caller may provide bounded evidence to an explorer
+without MCP; keep its declared tools unchanged.
 
 Fallback and confirmation order:
 
@@ -86,6 +90,11 @@ Verdicts: **REUSE** (call it as-is) · **EXTEND** (add to the existing unit, bac
 **NEW**. The default posture is REUSE → EXTEND → NEW, in that order. **A `NEW` row without the "why
 extending fails" line is not a plan, it is a preference** — rewrite it or downgrade it.
 
+Beside relevant ledger/watchlist rows, record provider (or text), project/worktree, query scope,
+decisive `path:line`, freshness and invalidators: relevant source/config/consumer digests plus dirty,
+new or removed files. Unchanged SHA alone is insufficient. Distinguish structural evidence from
+cards/semantic summaries; carry only useful findings into the existing handoff.
+
 In issue mode the ledger is evidence: a triage row whose need is already met by an existing asset is
 `CUT` or `SIMPLIFY`, with that `path:line` as its evidence line.
 
@@ -103,8 +112,9 @@ the false negative this step exists to prevent.
   the definition file from the results yourself.
 - `Grep` it again with `glob: "*test*"`, and again with `glob: "*spec*"`.
 
-The union of graph and grep is the consumer list. A consumer only the graph found is real; one only
-grep found is also real. Neither tool alone is the answer — per `115-code-graph.md § Limits` the
+The union of source-confirmed graph and textual hits is the consumer list. Include registry/string
+consumers and discovered tests even when graph edges are zero. Unavailable graph evidence leaves
+the textual list authoritative — per `115-code-graph.md § Limits` the
 graph misses client call paths, route ids, ORM columns and dynamic imports, and under-reports tests.
 
 Map each hit to the runtime surface it lives on:
@@ -157,7 +167,7 @@ Two rules, both cheap and both violated constantly:
   defect, not the answer.
 
 **Fog check.** If ≥3 open decisions block the writing of the task list itself, or the destination
-does not fit in one plan or context (CTX-GUARD ~80K), or resolving any one decision would invalidate
+needs multiple plans or checkpoints at actual client context signals/task boundaries (CTX-GUARD), or resolving any one decision would invalidate
 most of the tasks you would write today → this is **map mode**, not a plan (`wayfinding.md § Map
 mode`). Below all three thresholds, resolve the decisions and keep going.
 

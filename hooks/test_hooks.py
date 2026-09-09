@@ -384,11 +384,114 @@ def session_context_lifecycle() -> None:
                 True,
             )
 
+    # A selected graph adds advice only: same lifecycle envelope, no backend launch.
+    graph_projects = {
+        provider: mkproj({"project": {"name": "demo"}, "codeGraph": {"provider": provider}})
+        for provider in ("graft", "none", "code-review-graph", "invalid")
+    }
+    default = mkproj({"project": {"name": "demo"}})
+    for harness in ("claude", "codex"):
+        for source in ("startup", "resume", "compact"):
+            payload = {"hook_event_name": "SessionStart", "source": source}
+            legacy_out, _ = call_raw("session_context", payload, default, harness=harness)
+            legacy_context = json.loads(legacy_out)["hookSpecificOutput"]["additionalContext"]
+            for provider, project in graph_projects.items():
+                out, code = call_raw("session_context", payload, project, harness=harness)
+                envelope = json.loads(out)["hookSpecificOutput"]
+                context = envelope["additionalContext"]
+                lines = context.splitlines()
+                pointer = [line for line in lines if line.startswith("Code graph:")]
+                selected = provider in ("graft", "none")
+                label = f"{harness}/{source}/{provider}"
+                check(f"{label} exits 0", code, 0)
+                check(f"{label} preserves SessionStart envelope", envelope["hookEventName"], "SessionStart")
+                check(f"{label} emits only explicit selection", len(pointer), int(selected))
+                check(f"{label} preserves existing context", "\n".join(line for line in lines if not line.startswith("Code graph:")), legacy_context)
+                if pointer:
+                    check(f"{label} pointer is bounded", len(pointer[0].encode("utf-8")) <= 512, True)
+                    check(f"{label} pointer carries selected provider", f"provider={provider}" in pointer[0], True)
+                    check(f"{label} points to authority", "115-code-graph.md" in pointer[0], True)
+
+    # Audit subprocess creation in the real hook process; permit its existing Git read only.
+    # An attempted backend is recorded and blocked before it could launch in a regression.
+    runner = (
+        "import json,runpy,sys\n"
+        "def observe(event,args):\n"
+        "    if event == 'subprocess.Popen':\n"
+        "        print(json.dumps(args[1]),file=sys.stderr)\n"
+        "        if args[1] not in (['git','rev-parse','--abbrev-ref','HEAD'], ['git','rev-parse','--show-toplevel']):\n"
+        "            raise RuntimeError('unexpected process in SessionStart')\n"
+        "sys.addaudithook(observe)\n"
+        "runpy.run_path(sys.argv[1],run_name='__main__')\n"
+    )
+    for field in ("cwd", "workspaceRoot", "workspace_root"):
+        for provider in ("graft", "none", "code-review-graph", "graft"):
+            project = graph_projects[provider]
+            env = {**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME), "CLAUDE_PROJECT_DIR": str(default)}
+            result = subprocess.run(
+                [sys.executable, "-c", runner, str(HOOKS / "session_context.py")],
+                input=json.dumps({field: str(project), "source": "resume"}),
+                capture_output=True, encoding="utf-8", errors="replace", env=env,
+                cwd=str(default), timeout=30, check=False,
+            )
+            check(f"{field}/{provider} starts only existing Git read", all(json.loads(line) in (["git", "rev-parse", "--abbrev-ref", "HEAD"], ["git", "rev-parse", "--show-toplevel"]) for line in result.stderr.splitlines()), True)
+            check(f"{field}/{provider} exits 0", result.returncode, 0)
+            context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+            check(f"{field}/{provider} resolves payload over environment", f"provider={provider}" in context, provider != "code-review-graph")
+    malformed = graph_projects["invalid"] / ".graph-powers/config.json"
+    malformed.write_text("{", encoding="utf-8")
+    out, code = call_raw_input("session_context", "not json", graph_projects["invalid"])
+    check("graph advice fails open for malformed input/config", code, 0)
+    check("malformed config never activates graph advice", "Code graph:" in out, False)
+    for project in (*graph_projects.values(), default):
+        shutil.rmtree(project, ignore_errors=True)
+
     for project in (installed, absent, indirect):
         shutil.rmtree(project, ignore_errors=True)
 
 
+def code_graph_selection() -> None:
+    """Public loads keep graph selection project-only and fail open to the legacy provider."""
+    print("### code graph — explicit project selection, safe fallback and isolation")
+    home = mkproj({"codeGraph": {"provider": "graft"}})
+    a = mkproj({"codeGraph": {"provider": "graft"}})
+    b = mkproj({"codeGraph": {"provider": "none"}})
+    cases = [
+        ("absent", {}, "code-review-graph"),
+        ("legacy", {"codeGraph": {"provider": "code-review-graph"}}, "code-review-graph"),
+        ("empty block", {"codeGraph": {}}, "code-review-graph"),
+    ]
+    for value in (None, [], "graft", 1, True):
+        cases.append((f"block {value!r}", {"codeGraph": value}, "code-review-graph"))
+    for value in (None, [], {}, "", "Graft", "unknown", 1, True):
+        cases.append((f"provider {value!r}", {"codeGraph": {"provider": value}}, "code-review-graph"))
+    projects = [home, a, b]
+    with patch.dict(os.environ, {"HOME": str(home), "USERPROFILE": str(home)}):
+        for label, config, expected in cases:
+            project = mkproj(config)
+            projects.append(project)
+            check(f"{label} ignores global graft", config_module.load(project).get("codeGraph"), {"provider": expected})
+        for label, raw in (("missing file", None), ("malformed JSON", "{"), ("root list", "[]")):
+            project = mkproj({})
+            projects.append(project)
+            path = project / ".graph-powers/config.json"
+            if raw is None:
+                path.unlink()
+            else:
+                path.write_text(raw, encoding="utf-8")
+            check(label, config_module.load(project).get("codeGraph"), {"provider": "code-review-graph"})
+        for project, expected in ((a, "graft"), (b, "none"), (a, "graft")):
+            resolved = config_module.load(project)
+            check("A-B-A resolves independently", resolved.get("codeGraph"), {"provider": expected})
+            if isinstance(resolved.get("codeGraph"), dict):
+                resolved["codeGraph"]["provider"] = "changed by caller"
+        check("caller cannot poison default selection", config_module.load(projects[3]).get("codeGraph"), {"provider": "code-review-graph"})
+    for project in projects:
+        shutil.rmtree(project, ignore_errors=True)
+
+
 def main() -> int:
+    code_graph_selection()
     print("### Execution graph contract — schema and runtime share one default")
     schema = json.loads((HOOKS.parent / "schema/config.schema.json").read_text(encoding="utf-8"))
     schema_graph = schema.get("properties", {}).get("graphGuardrails", {})

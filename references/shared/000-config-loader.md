@@ -16,3 +16,10 @@ Project rules and supplements live only under `${rulesDir}`. Tier-2 rules auto-l
 `paths:` frontmatter; `globs:` is invalid and makes a rule effectively unscoped. Commands and
 skills read supplements explicitly when needed. Root `AGENTS.md` remains the Tier-1 source for
 identity, cardinals and constraints; `.graph-powers/logs/` is unversioned runtime state.
+
+`codeGraph.provider` is project-only: absent/invalid → `code-review-graph`, explicit `graft` →
+Graft, `none` → text. Ignore user/global selection; selection starts nothing. Only for unanswered
+structural retrieval, read `${CLAUDE_PLUGIN_ROOT}/references/shared/115-code-graph.md` Selection and
+evidence, HARD limits and the selected provider's cookbook. For selected/explicitly requested Graft
+diagnosis (even missing), read only its Static readiness diagnosis and Effects gate. Reuse loaded
+sections; consumers do not reload the full cookbook.

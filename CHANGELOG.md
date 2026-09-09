@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.19.4 — Optional project graph context
+
+Projects can explicitly select Graft or text-only context while absent/invalid selection retains
+code-review-graph. SessionStart emits bounded advice without launching a graph backend. Retrieval,
+freshness and side-effect guidance share one contract; planning and handoffs retain scoped evidence
+and textual consumer/test confirmation. Setup diagnoses Graft from static facts without starting it.
+
+Graft schemas are source-qualified only. Installed-runtime qualification remains NOT RUN; no
+installation, activation or measured performance gain is included. Client metadata and setup
+projections follow the canonical sources.
+
 ## 1.19.3 — Lean instruction sources
 
 Commands, skills, agent prompts and shared rules now keep their methods in the canonical owner,

@@ -1,5 +1,5 @@
 ---
-description: "Diagnose local Oxc, TypeScript 7, vtsls and Zed setup without changing the machine. Reports blockers and local install suggestions; never installs packages or edits settings."
+description: "Diagnose local Oxc, TypeScript 7, vtsls, Zed or optional Graft setup without changing the machine. Reports blockers and local install suggestions; never installs packages or edits settings."
 workflow_type: augmented-llm
 ---
 
@@ -10,6 +10,8 @@ workflow_type: augmented-llm
 ## 1. Inspect
 
 Identify package manager from lockfile; report declared and installed local TypeScript, Oxlint and Oxfmt, their versions, PATH tools, Zed settings, competitors and test/runtime hints. Prefer `node_modules` and lockfile evidence over PATH. Report each as PASS, MISSING or NEEDS-WORK. TypeScript requires declared stable local major 7; PATH-only or prerelease is NEEDS-WORK. The final low-resource gate is `oxlint --type-aware --type-check --threads 1`, never an edit-loop/editor hook.
+
+When `codeGraph.provider` selects `graft` or Graft diagnosis is explicitly requested (even missing), read `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md` and follow its static graph-diagnosis branch. Report selection, package/runtime, MCP, index, freshness, policy and duplicates separately; start no backend or MCP health check. A graph-only request needs no unrelated toolchain audit.
 
 ## 2. Zed and tests
 

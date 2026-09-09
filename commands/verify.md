@@ -22,7 +22,11 @@ Only when JS/TS changed, read `${CLAUDE_PLUGIN_ROOT}/references/shared/130-types
 
 A declared gate that lacks a command is `NOT DECLARED`, never PASS; a command is PASS only when it exits zero this session.
 
-Run matching `tooling.commands`, `${rulesDir}/verify-supplements.md` when present, conditional `chain.contractGates`, and `database.commands.status` only for a schema surface. Report skipped/undeclared separately. Database DRIFT or UNREACHABLE is NEEDS-WORK; `/verify` never applies schema changes. Use the code graph only when available and report `SKIPPED (graph unavailable)` otherwise.
+Run matching `tooling.commands`, `${rulesDir}/verify-supplements.md` when present, conditional `chain.contractGates`, and `database.commands.status` only for a schema surface. Report skipped/undeclared separately. Database DRIFT or UNREACHABLE is NEEDS-WORK; `/verify` never applies schema changes.
+
+### 0.2 Structural evidence
+
+For an unanswered structural question, apply the already-loaded `125-change-set.md § C`. Use the selected provider's supported capabilities; `none`, unavailable, unsupported or stale evidence falls back to text. Sufficient current source needs no graph/status query.
 
 ## 1. Run gates and review
 
@@ -44,4 +48,4 @@ Check the safety floor: no unapproved irreversible/data action; no secret in tra
 
 At verdict, read `${CLAUDE_PLUGIN_ROOT}/references/shared/090-verdict-matrix.md`.
 
-Return one: `VERIFIED` (all gates/floor/checklist clean), `VERIFIED-WITH-NOTES` (non-blocking notes), or `NEEDS-WORK` (failure, violation, or unverified item). Include base/confidence, executed commands, exit/evidence, skipped/undeclared rows and remaining decision.
+Return one: `VERIFIED` (all gates/floor/checklist clean), `VERIFIED-WITH-NOTES` (non-blocking notes), or `NEEDS-WORK` (failure, violation, or unverified item). Include base/confidence, executed commands, exit/evidence, skipped/undeclared rows and remaining decision. Include any graph provider/scope/freshness and unsupported capabilities; missing graph evidence is never a clean risk score.

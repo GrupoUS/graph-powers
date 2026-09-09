@@ -79,7 +79,7 @@ background, and free of the user's attention; grilling is the scarcest resource 
 **Trigger** (any one, evaluated at `step-0-inventory.md § 0.6`):
 
 - ≥3 open decisions block the writing of the task list itself; or
-- the destination cannot be reached inside one plan/context window (CTX-GUARD, ~80K —
+- the destination requires multiple plans or checkpoints at actual client context signals/task boundaries (CTX-GUARD —
   `loop-engineering.md § Context Reset Protocol`); or
 - resolving any one open decision would invalidate most of the tasks you would write today.
 
@@ -137,7 +137,7 @@ planning artifact. Never staged/committed without current-turn approval (`SKILL.
 
 **Work session** (user arrives with a map):
 
-1. Load the map only — low resolution. Do not read every linked artifact; zoom on demand.
+1. Load the map only — low resolution. Do not read every linked artifact; zoom on demand. Reuse discovery under `step-0-inventory.md §§ 0.2–0.4`; keep evidence in its owner and link it here.
 2. Take the first `Open front` row (or the one the user named). **Claim it first.**
 3. Resolve it with the type's resolver, loading whatever `## Notes` names.
 4. Record: the answer goes into the artifact it belongs to (spec/ADR/plan), **one line + link**

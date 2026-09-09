@@ -24,7 +24,7 @@ of them maps to a guard this skill already owns:
 |---|---|---|
 | **No hard stopping condition** — loops forever | **HARD-STOP**: max iterations per artifact → escalate to user | `SKILL.md § Stopping & red flags` + each phase guide |
 | **Underspecified goal** — "looks good" is not checkable | **GOAL-GUARD**: refuse to enter the loop unless the goal is a binary PASS/FAIL criterion | this file (§ Calibration anchors) |
-| **Context overflow** — long sessions degrade | **CTX-GUARD**: at ~80K tokens, write a handoff + reset, resume from the artifact | this file (§ Context Reset Protocol) |
+| **Context overflow** — long sessions degrade | **CTX-GUARD**: checkpoint at client context signals or task boundaries; resume from the artifact | this file (§ Context Reset Protocol) |
 | **Missing cost controls** — runaway spend | **COST-GUARD**: in-flight width `graphGuardrails.maxParallelWave`, correction cap `${graphGuardrails.maxRepatch}` in Phase C | `SKILL.md § Stopping & red flags` + `${rulesDir}/execution.md § Agents & Dispatch` |
 
 ---
@@ -41,7 +41,7 @@ LOOP <phase>:
   guards:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
-    - CTX-GUARD : context > ~80K → handoff artifact + reset (§ Context Reset Protocol)
+    - CTX-GUARD : client context signal or task boundary → checkpoint (§ Context Reset Protocol)
     - COST-GUARD: width `graphGuardrails.maxParallelWave` / cumulative `graphGuardrails.maxSpawnsPerWorkflow` / Phase C correction cap `${graphGuardrails.maxRepatch}`
   terminal: goal PASS → next phase | any guard trips → escalate / halt
 ```
@@ -98,7 +98,7 @@ Calibrate evaluator judgment against them before each session to prevent score d
 At/above threshold → goal PASS → exit. Below → FAIL with actionable feedback → loop body runs again.
 
 > **Loop budget (cost control).** Thresholds give the loop a terminal; the budget keeps it from
-> running away. CTX-GUARD = the Context Reset Protocol (§ below) at ~80K tokens. COST-GUARD =
+> running away. CTX-GUARD = the Context Reset Protocol (§ below) at client signals or task boundaries. COST-GUARD =
 > Phase C correction cap `${graphGuardrails.maxRepatch}` + `graphGuardrails.maxParallelWave` in flight
 > + cumulative `graphGuardrails.maxSpawnsPerWorkflow`. Together they prevent "context overflow" and
 > "runaway spend".
@@ -168,48 +168,27 @@ For lower complexity, use a 3-line version:
 
 ## Context Reset Protocol
 
-**When context becomes a problem:** after completing a phase in a long L6+ session · context
-exceeds ~80K tokens · the agent starts repeating/summarizing instead of progressing · "context
-anxiety" (model prematurely wraps up).
+**When to checkpoint:** a task/phase boundary, a real client context-capacity or compaction signal,
+or observed repetition/loss of critical state. Use only signals the client actually exposes;
+never infer a token count or impose a universal threshold.
 
-**The reset approach:** write a structured handoff artifact, clear context, resume with only the
-artifact + active sprint contract.
+Write the checkpoint before a deliberate session transition. Support the client's automatic
+compaction and continue from preserved state; never automatically clear context or impose a blanket
+`/compact` prohibition.
 
 ### Handoff Artifact Format
 
-Save to `<plan dir>/HANDOFF.md`:
+When writing/resuming a checkpoint, read `${CLAUDE_PLUGIN_ROOT}/commands/evolve.md § 4` for session state.
 
-```markdown
-# Context Handoff — {slug}
+Save to `<plan dir>/HANDOFF.md`, linking the active plan/sprint and existing snapshots/ledgers instead
+of pasting them. `/evolve handoff` maintains the session entry pointing to that plan checkpoint.
+Resume with the checkpoint and required linked state, preserving restrictions and scoped approval
+provenance; retain valid gates and recheck invalidated evidence before the one next action.
 
-**Session Date:** YYYY-MM-DD
-**Current Phase:** [Phase N: Name]
-**Complexity Level:** L[X]
-
-## Completed
-- [Phase 1]: [brief summary]
-- [Sprint 1]: [outcome]
-
-## Active Sprint Contract
-[paste the current sprint contract block here]
-
-## Decisions Made
-| Decision | Rationale |
-|----------|-----------|
-| [Decision A] | [why] |
-
-## Unresolved
-- [ ] [Question or issue still open]
-
-## Next Action
-[Exactly one sentence: what to do first after loading this handoff]
-```
-
-**How to resume:** new context loads this artifact + reads the plan file's relevant sprint —
-no need to replay full conversation history.
-
-**Not the same as a session handoff** (`/evolve handoff`, for ending a
-session entirely). Context resets are mid-plan checkpoints for long L6+ tasks.
+Partial-work check: preserve local-edit approval/provenance, a no-publication restriction and the
+rejected workaround. A gate PASS for snapshot A becomes stale after a relevant uncommitted config
+edit at the same HEAD. Keep unaffected completed work; the one next action is rerunning that gate
+against current inputs before accepting its result.
 
 ---
 
@@ -254,7 +233,7 @@ read them as "all clauses true → exit".
 |---|---|---|---|
 | **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect → clarify → compare → design → `graph-powers:project-planner` evaluates → revise | HARD-STOP 3 spec revisions · GOAL-GUARD (no observable destination → do not plan) |
 | **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** self-review passes **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approved; at L5+, GATE 2 meets the 4 anchors | map files/interfaces → write tasks → self-review → at L5+ `graph-powers:evaluator` Mode 1 scores vs anchors → revise | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** its wave Evaluator review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: grouped specialist lanes → one consolidated Evaluator per wave → grouped correction when needed → close verified tasks | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` and total `graphGuardrails.maxSpawnsPerWorkflow` · CTX-GUARD reset > 80K · then `/debug recover` |
+| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** its wave Evaluator review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: grouped specialist lanes → one consolidated Evaluator per wave → grouped correction when needed → close verified tasks | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` and total `graphGuardrails.maxSpawnsPerWorkflow` · CTX-GUARD at client signals/task boundaries · then `/debug recover` |
 
 ---
 
