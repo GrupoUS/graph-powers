@@ -22,6 +22,7 @@ Exit 0 = all passed. Exit 1 = at least one guarantee fell.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shlex
@@ -38,6 +39,7 @@ import _change_set as change_set
 import _config as config_module
 import auto_update as auto_update_module
 import command_trust as trust_module
+import notify as notify_module
 import stop_verify as stop_module
 import subagent_context as ladder_module
 
@@ -602,6 +604,110 @@ def code_graph_selection() -> None:
         check("caller cannot poison default selection", config_module.load(projects[3]).get("codeGraph"), {"provider": "code-review-graph"})
     for project in projects:
         shutil.rmtree(project, ignore_errors=True)
+
+
+def manifest_fail_open() -> None:
+    """Exercise every registered entrypoint without reaching operator settings or desktop tools."""
+    manifest = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
+    with tempfile.TemporaryDirectory(prefix="gp-manifest-input-") as directory:
+        project = Path(directory)
+        (project / ".graph-powers").mkdir()
+        (project / ".graph-powers/config.json").write_text(
+            '{"autoUpdate":{"enabled":false}}', encoding="utf-8"
+        )
+        env = {
+            **os.environ,
+            "HOME": str(EMPTY_HOME),
+            "USERPROFILE": str(EMPTY_HOME),
+            "PATH": directory,
+            "GRAPH_POWERS_NO_AUTO_UPDATE": "1",
+        }
+        for key in ("CLAUDE_PROJECT_DIR", "GROK_WORKSPACE_ROOT", "GROK_HOOK_EVENT"):
+            env.pop(key, None)
+        for harness in ("claude", "codex", "grok"):
+            client_env = dict(env)
+            if harness == "claude":
+                client_env["CLAUDE_PROJECT_DIR"] = directory
+            elif harness == "grok":
+                client_env["GROK_WORKSPACE_ROOT"] = directory
+            for event, groups in manifest["hooks"].items():
+                for group in groups:
+                    for hook in group["hooks"]:
+                        argv = shlex.split(hook["command"], posix=True)
+                        args = [
+                            part.replace("${CLAUDE_PLUGIN_ROOT}", str(HOOKS.parent))
+                            for part in argv[1:]
+                        ]
+                        for raw in ("", "not json", "null", "[]", '"text"', "1", "{}"):
+                            result = subprocess.run(
+                                [sys.executable, *args], input=raw, capture_output=True,
+                                encoding="utf-8", errors="replace", cwd=directory,
+                                env=client_env, timeout=15, check=False,
+                            )
+                            check(
+                                f"{harness} {event} {Path(args[-1]).name} fails open for {raw!r}",
+                                (result.returncode, "Traceback" in result.stderr), (0, False),
+                            )
+
+
+def notification_fail_open() -> None:
+    """A slow or unavailable desktop service must not turn Notification into a hook error."""
+    for platform_name in ("Linux", "Darwin", "Windows"):
+        for failure in (None, subprocess.TimeoutExpired("fixture", 5), PermissionError("fixture")):
+            output = io.StringIO()
+            raised = None
+            with (
+                patch.object(notify_module.sys, "stdin", io.StringIO(
+                    '{"title":"Fixture title","message":"Fixture message"}'
+                )),
+                patch.object(notify_module.sys, "stdout", output),
+                patch.object(notify_module, "is_wsl", return_value=platform_name == "Windows"),
+                patch.object(notify_module.platform, "system", return_value=platform_name),
+                patch.object(notify_module.subprocess, "run", side_effect=failure,
+                             return_value=SimpleNamespace(returncode=0)) as runner,
+            ):
+                try:
+                    notify_module.main()
+                except Exception as error:
+                    raised = type(error).__name__
+            check(
+                f"{platform_name} notification handles {type(failure).__name__}",
+                (raised, output.getvalue()), (None, "\a" if failure else ""),
+            )
+            if failure is None:
+                rendered = " ".join(runner.call_args.args[0])
+                check(
+                    f"{platform_name} notification preserves the supplied content",
+                    ("Fixture title" in rendered, "Fixture message" in rendered), (True, True),
+                )
+
+    manifest = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
+    timeout = manifest["hooks"]["Notification"][0]["hooks"][0]["timeout"]
+    # Mock only the external desktop service, honoring the real subprocess timeout. WSL may try
+    # both PowerShell and notify-send; both attempts must finish before the client's hook deadline.
+    probe = """
+import sys, time
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+import notify
+def stalled(*args, **kwargs):
+    time.sleep(kwargs['timeout'])
+    raise notify.subprocess.TimeoutExpired('fixture', kwargs['timeout'])
+with (patch.object(notify, 'is_wsl', return_value=True),
+      patch.object(notify.platform, 'system', return_value='Linux'),
+      patch.object(notify.subprocess, 'run', side_effect=stalled)):
+    notify.main()
+"""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", probe, str(HOOKS)], input="{}", capture_output=True,
+            encoding="utf-8", errors="replace", timeout=timeout, check=False,
+            env={**os.environ, "HOME": str(EMPTY_HOME), "USERPROFILE": str(EMPTY_HOME)},
+        )
+        observed = (result.returncode, result.stdout, result.stderr)
+    except subprocess.TimeoutExpired:
+        observed = ("hook deadline exceeded", "", "")
+    check("notification fallback fits the registered client timeout", observed, (0, "\a", ""))
 
 
 def main() -> int:
@@ -3828,29 +3934,8 @@ def main() -> int:
     shutil.rmtree(one, ignore_errors=True)
 
     print("### Fail-open — invalid payload never takes the session down")
-    for hook in (
-        "git_commit_gate",
-        "git_push_gate",
-        "git_branch_gate",
-        "graph_guardrails",
-        "protect_files",
-        "smart_bash_approver",
-        "session_context",
-        "notify",
-        "commit_audit_gate",
-        "auto_update",
-    ):
-        r = subprocess.run(
-            [sys.executable, str(HOOKS / f"{hook}.py")],
-            input="this is not json",
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            env={**os.environ, "CLAUDE_PROJECT_DIR": str(a)},
-            timeout=30,
-            check=False,
-        )
-        check(f"{hook} exits 0 on garbage input", r.returncode, 0)
+    manifest_fail_open()
+    notification_fail_open()
 
     print("### protect_files — the generic floor plus what the project declared")
     guarded = mkproj({"protectedFiles": {"exact": ["ops/secrets.yaml"]}})
@@ -4282,6 +4367,31 @@ def main() -> int:
     (active / "tracked.ts").write_text("const value = 7;\n", encoding="utf-8")
     out, rc = stop(active, {"hook_event_name": "Stop", "stop_hook_active": True})
     check("stop_hook_active allows without rerunning", (rc, out), (0, ""))
+
+    # These are entrypoint/output contracts; they do not prove Desktop blocking parity or turn
+    # Grok's passive Stop event into an enforced gate.
+    client_stop = lint_fixture(code=1)
+    stop_projects.append(client_stop)
+    (client_stop / "tracked.ts").write_text("const value = 8;\n", encoding="utf-8")
+    for code in (1, 0):
+        (client_stop / "lint_fixture.py").write_text(f"raise SystemExit({code})\n", encoding="utf-8")
+        for harness, payload in (
+            ("claude", {"hook_event_name": "Stop"}),
+            ("codex", {"hook_event_name": "Stop", "turn_id": "codex-test-turn"}),
+            ("grok", {"hookEventName": "stop"}),
+        ):
+            out, rc = call_raw("stop_verify", payload, client_stop, harness=harness)
+            check(
+                f"{harness} Stop preserves the lint exit {code} response contract",
+                (rc, decoded(out).get("decision"), "DENY" in out),
+                (0, "block" if code else None, bool(code)),
+            )
+            if harness != "grok":
+                out, rc = call_raw(
+                    "stop_verify", {**payload, "stop_hook_active": True},
+                    client_stop, harness=harness,
+                )
+                check(f"{harness} Stop follow-up cannot loop", (rc, out), (0, ""))
 
     cursor = lint_fixture(code=1, output="cursor diagnostic\n")
     stop_projects.append(cursor)

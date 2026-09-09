@@ -19,13 +19,14 @@ try:
 except Exception:
     pass
 
-
-
+# WSL can try two backends; leave one second of the registered 5s hook budget for startup.
+NOTIFY_TIMEOUT_S = 2
 
 def read_input() -> dict[str, object]:
     try:
         raw = sys.stdin.read()
-        return typing.cast(dict[str, object], json.loads(raw)) if raw.strip() else {}
+        value = json.loads(raw) if raw.strip() else {}
+        return typing.cast(dict[str, object], value) if isinstance(value, dict) else {}
     except Exception:
         return {}
 
@@ -61,7 +62,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-Command", ps_script],
             capture_output=True,
-            timeout=5,
+            timeout=NOTIFY_TIMEOUT_S,
             check=False,
         )
         return result.returncode == 0
@@ -75,11 +76,11 @@ def notify_linux(title: str, message: str) -> bool:
         result = subprocess.run(
             ["notify-send", "--app-name=Claude Code", title, message],
             capture_output=True,
-            timeout=5,
+            timeout=NOTIFY_TIMEOUT_S,
             check=False,
         )
         return result.returncode == 0
-    except FileNotFoundError:
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
 
@@ -92,11 +93,11 @@ def notify_macos(title: str, message: str) -> bool:
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True,
-            timeout=5,
+            timeout=NOTIFY_TIMEOUT_S,
             check=False,
         )
         return result.returncode == 0
-    except FileNotFoundError:
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
 

@@ -509,7 +509,8 @@ def command_segments(command: str) -> list[str]:
 def read_input() -> dict[str, object]:
     try:
         raw = sys.stdin.read()
-        return typing.cast(dict[str, object], json.loads(raw)) if raw.strip() else {}
+        value = json.loads(raw) if raw.strip() else {}
+        return typing.cast(dict[str, object], value) if isinstance(value, dict) else {}
     except Exception:
         return {}
 

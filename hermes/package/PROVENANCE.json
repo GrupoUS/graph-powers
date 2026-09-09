@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "c244dcf3fa73ea0299d1bd6b27316dd70f09c96a",
-    "version": "1.20.0",
+    "base_revision": "46e1f5a4a46d4182a493ca649842b9523eef667a",
+    "version": "1.20.1",
     "dirty": true
   },
   "registrations": [
@@ -239,9 +239,9 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "ca4c0760adddfe980ee5fb3b40a388a6eff423497fd8cb1a8008eacc18ebb2aa",
+      "sha256": "6b61d39ef7c5017bdd4bcad9c10fcf2def145efc2022c60997c56e34c95da07d",
       "base_sha256": "ca4c0760adddfe980ee5fb3b40a388a6eff423497fd8cb1a8008eacc18ebb2aa",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": ".github/check_workflows.mjs",
@@ -438,14 +438,14 @@
     {
       "path": "hermes/package_builder.py",
       "sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
-      "base_sha256": "3f409d5b4c974ea5429f918b3cfc537b397af539dc41ddd8e2839a56dae82c7e",
-      "dirty": true
+      "base_sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
+      "dirty": false
     },
     {
       "path": "hermes/skills/graph-engineering/SKILL.md",
       "sha256": "c2f281fd4ee91dadeab22693b995eb4335f951633af5eee57d5c79c76387d41c",
-      "base_sha256": "3a7e7a2d85aa12f40a51a68e2e84d233db7861a0731744bf2e101fafcb16c2a2",
-      "dirty": true
+      "base_sha256": "c2f281fd4ee91dadeab22693b995eb4335f951633af5eee57d5c79c76387d41c",
+      "dirty": false
     },
     {
       "path": "references/audit-agent-prompts.md",
@@ -1231,7 +1231,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "5f14bc6645ef3a40ee696c504344e3df7230752b9210910e6ea7978d4ab7b61f",
+      "sha256": "b4d0a35ed519ec44f4a0dc234f58741183d6b62c53f90769699e557a7970709b",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
