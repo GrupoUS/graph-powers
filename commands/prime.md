@@ -5,7 +5,7 @@ workflow_type: augmented-llm
 
 # /prime
 
-**ARGUMENTS:** $ARGUMENTS. Read `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`, `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`, and `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`, then `.graph-powers/config.json`. Read `.graph-powers/HANDOFF.md` first when it exists; inspect working-tree/recent history. This command loads context, not an implementation skill.
+**ARGUMENTS:** $ARGUMENTS. Read `${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md`, `${CLAUDE_PLUGIN_ROOT}/references/shared/005-method-bootstrap.md`, and `${CLAUDE_PLUGIN_ROOT}/references/shared/020-complexity-routing.md`, then `.graph-powers/config.json`. Read `.graph-powers/HANDOFF.md` first when present; inspect working-tree/recent history. Load context only.
 
 | Token | Load |
 |---|---|
@@ -14,10 +14,12 @@ workflow_type: augmented-llm
 | `frontend` / `ui` / `react` only | read `${CLAUDE_PLUGIN_ROOT}/references/shared/045-context-staging.md § 4.5b` |
 | `fullstack` / `multi` only | read `${CLAUDE_PLUGIN_ROOT}/references/shared/045-context-staging.md § 4.5c` |
 
-Auto classifies UI as frontend, API/service/schema/integration as backend, and combined UI/API/schema as fullstack. Documentation-only scope follows the named document and applicable rules without forcing a code domain. Ask a context question only when the missing fact prevents the requested load; never ask for a domain already resolved by the task. List `${rulesDir}`, match `paths:`, and read only applicable rules; Tier 3 docs, ADRs and learnings are on demand. Never eager-load both architecture and design sets.
+Auto maps UI to frontend, API/service/schema/integration to backend, combined work to fullstack. Documentation follows its named source and rules. Ask only for a fact blocking the load. Match `${rulesDir}` by `paths:`; Tier 3 docs, ADRs and learnings stay on demand. Never eager-load architecture and design together.
 
-Reuse valid handoff evidence after checking project/worktree identity and relevant source/config/consumer digests, including dirty state; unchanged SHA alone is insufficient. Read the named source/document and its nearest applicable instructions now, before claiming readiness. For a flow question, first trace a short source chain through the entrypoint, relevant definitions and callers until it answers the question. Expand to architecture notes or a specialist only if a concrete question remains. Reassess after each four-file stage and stop once the question is answered.
+Before readiness, verify constraints and action/scope approval provenance. Reuse proof only with matching project/worktree, source/config/consumer digests, dirty state, dependencies and environment; SHA alone is insufficient. Mark missing proof. Read decisive sources and nearest instructions now; trace entrypoint, definitions and callers for a flow question. Reassess every four files; stop when answered.
 
-For an unanswered structural question, use the graph branch of the already-read config loader. A local/document task or sufficient current source needs no graph/status query; keep discovery bounded to the selected provider and text fallback.
+Only for resume with an identified same-worktree plan, run `python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>` (validated Gauntlet adds `--profile gauntlet`). Inspect its state and next ID/line; counts prove neither approval nor current checks. Invalid/ambiguous binding stops for correction/selection. Ordinary loads never scan plans or query plan status.
 
-For an L3+ intent, and only if this context load cannot answer a concrete fact, dispatch `graph-powers:explorer` (repository) or `graph-powers:librarian` (current external API/advisory), at most one for L3 and both only for independent L4+ needs; `--no-auto-research` skips it. Return under 120 words: project/branch/mode/stage, enumerate only files actually read, supplements, next on-demand file, and ready task or the missing evidence preventing readiness. A proposed reading list is not a completed context load. Stop after the minimum sufficient load.
+For an unanswered structural question, use the config loader's graph branch with bounded provider discovery/text fallback. Sufficient source or local/document work needs no graph query.
+
+Only for an unanswered concrete L3+ fact, dispatch `graph-powers:explorer` (repository) or `graph-powers:librarian` (external API/advisory): one at L3, both only for independent L4+ needs; `--no-auto-research` skips. Return under 120 words: project/branch/mode/stage, files actually read, supplements, next on-demand file and ready task or missing proof. Planned reads are not completed reads.

@@ -48,21 +48,26 @@ The installer verifies the exact Grok-reported package path and its sixteen fail
 writing `always-approve`. Restart the Grok session. Git commit and push still ask. `rm -rf /` still
 denies.
 
-**Hermes Agent** — skills and agent contracts, no executable git hooks (same class as Zed):
+**Hermes Agent** — generated skills and agent contracts; runtime acceptance is pending:
 
 ```bash
-hermes plugins install GrupoUS/graph-powers --enable
-hermes plugins show graph-powers
-hermes plugins doctor <clone> --ci
+bun hermes/install.mjs --package-only
+bun hermes/install.mjs --check
+python3 -X utf8 bin/verify-hook-clients.py --client hermes --hermes-proof static --plugin-root . --package-root hermes/package --json
 ```
 
-The native package derives `graph-powers:<name>` from every `skills/*/SKILL.md`, command document,
-and `graph-powers:agent-<slug>` from every `agents/<slug>.md`. Git hooks are **NOT ENFORCED** in
-Hermes; use the parent agent's approvals for that boundary.
+Run these from the source checkout. The candidate in `hermes/package` preserves the public
+`graph-powers:<name>` skills/commands and `graph-powers:agent-<slug>` contracts, with bundled
+references and source hashes. Static PASS verifies these bytes; runtime remains `UNVERIFIED`.
+Hermes does not enforce Graph Powers hooks or source agent model/tool frontmatter. The parent
+carries approvals and actual host policy.
 
-Some Hermes releases scan community Git trees before installation and may block this repository's
-intentional security examples. That is an upstream scanner decision; review its report or use an
-approved organization policy, and do not treat `--force` as a way around a dangerous verdict.
+Native installation requires separate approval for a credential-free disposable sandbox, an
+approved package source pinned to a full commit SHA, and `--no-enable`. Review a scan of those exact
+bytes first: DANGEROUS stops; CAUTION requires explicit human consent. Installed identity, Doctor,
+fresh skill loads and profile isolation still need runtime evidence. Runtime validation is not
+implemented: `--hermes-proof runtime` returns nonzero even with its required `--package-root` and
+`--expected-version` arguments. No scanner, installation or runtime success is claimed here.
 
 Then one prompt, pasted into an agent session opened in your project:
 

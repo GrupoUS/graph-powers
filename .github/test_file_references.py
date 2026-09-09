@@ -25,6 +25,32 @@ class FileReferenceTests(unittest.TestCase):
             missing = check_file_references.scan(root)
             self.assertEqual(missing, {"references/missing.md": ["skills/demo/SKILL.md"]})
 
+    def test_generated_history_keeps_canonical_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(root, "hermes/package/skills/content/skills/demo/learning.md", "Removed scripts/retired.py.\n")
+            self.assertEqual(check_file_references.scan(root), {})
+
+    def test_generated_operational_reference_cannot_fall_back_to_source_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            citing = "hermes/package/skills/demo.md"
+            self.write(root, citing, "Read content/skills/demo/references/required.md.\n")
+            self.write(root, "skills/demo/references/required.md", "# Source exists\n")
+            self.assertEqual(check_file_references.scan(root), {
+                "content/skills/demo/references/required.md": [citing],
+            })
+            self.write(root, "hermes/package/skills/content/skills/demo/references/required.md", "# Packaged\n")
+            self.assertEqual(check_file_references.scan(root), {})
+
+    def test_generated_auxiliary_uses_the_common_registration_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write(root, "hermes/package/skills/content/references/shared/guide.md",
+                       "Read content/skills/demo/references/required.md.\n")
+            self.write(root, "hermes/package/skills/content/skills/demo/references/required.md", "# Present\n")
+            self.assertEqual(check_file_references.scan(root), {})
+
     def test_relative_reference_resolves_from_its_owner(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

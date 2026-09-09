@@ -13,6 +13,7 @@ runtime. Exit 1 means a client must not be switched to bypass/unrestricted/alway
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -21,7 +22,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Iterable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 PLUGIN = "graph-powers"
@@ -321,127 +322,124 @@ def yaml_scalar(path: Path, key: str) -> str | None:
     return next((value.strip() for value in match.groups() if value is not None), None)
 
 
-class _HermesCapture:
-    """Minimal context used to prove the native entrypoint is skill-only."""
-
-    def __init__(self) -> None:
-        self.registrations: list[tuple[str, Path, str]] = []
-
-    def register_skill(self, name: str, path: Path, description: str = "", *args: Any) -> None:
-        self.registrations.append((name, path, description))
-
-
-def hermes_registrations(root: Path) -> tuple[list[tuple[str, Path, str]], str | None]:
-    """Load the entrypoint in isolation and capture its native skill registrations."""
-    entrypoint = root / "__init__.py"
-    if not entrypoint.is_file():
-        return [], f"Hermes entrypoint is missing: {entrypoint}"
-    try:
-        module_name = f"graph_powers_hermes_verify_{id(root)}"
-        spec = importlib.util.spec_from_file_location(module_name, entrypoint)
-        if spec is None or spec.loader is None:
-            return [], f"could not import Hermes entrypoint: {entrypoint}"
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        planned = module.planned_registrations(root)
-        context = _HermesCapture()
-        module.register(context)
-    except Exception as exc:
-        return [], f"Hermes entrypoint registration failed: {exc}"
-    expected = [(name, path, description) for name, path, description in planned]
-    actual = context.registrations
-    if [(name, path) for name, path, _ in actual] != [(name, path) for name, path, _ in expected]:
-        return actual, "Hermes register() output differs from planned_registrations()"
-    return actual, None
-
-
-def verify_hermes(args: argparse.Namespace, _python_proof: dict[str, Any]) -> dict[str, Any]:
-    """Verify the native Hermes manifest and entrypoint without mutating client state."""
+def verify_hermes(args: argparse.Namespace, _python_proof=None) -> dict[str, Any]:
+    """Inspect package bytes against the trusted development generator; never import it."""
     result = base_result("hermes")
-    result["route"] = "native"
-    root = args.package_root or args.plugin_root
-    result["root"] = str(root)
+    result.update(route="native", proof=args.hermes_proof, runtime="UNVERIFIED")
     result["posture"] = {"hooks": "NOT ENFORCED", "tools": "none"}
-
-    if not root.is_dir():
-        result["present"] = False
-        fail(result, f"Hermes package root does not exist: {root}")
+    if args.hermes_proof == "runtime":
+        if args.package_root is None:
+            fail(result, "runtime proof requires explicit --package-root for the installed package")
+        if not args.expected_version:
+            fail(result, "runtime proof requires explicit --expected-version")
+        fail(
+            result,
+            "runtime validation is not implemented: TASK-05/07 must establish approved sandbox, native installed identity and a verified scan of the exact bytes before any import or Doctor",
+        )
         return finish(result)
 
-    manifest_path = root / "plugin.yaml"
-    name = yaml_scalar(manifest_path, "name")
-    version = yaml_scalar(manifest_path, "version")
-    result["manifest"] = str(manifest_path)
-    result["version"] = version
-    if name != PLUGIN:
-        fail(result, f"corrupt Hermes package: manifest name is {name!r}, expected {PLUGIN!r}")
-    if not version:
-        fail(result, f"corrupt Hermes package: manifest version is missing: {manifest_path}")
-
-    source_manifest, source_error = read_json(args.plugin_root / ".claude-plugin/plugin.json")
-    if source_error:
-        fail(result, f"Hermes source manifest is unavailable: {source_error}")
-    source_version = source_manifest.get("version") if isinstance(source_manifest, dict) else None
-    expected_version = args.expected_version or (str(source_version) if source_version else None)
-    if expected_version and version != expected_version:
-        fail(result, f"Hermes package is {version}; this verifier requires {expected_version}")
-
+    root = args.package_root or args.plugin_root / "hermes/package"
+    result["root"] = str(root)
+    result["present"] = root.is_dir()
     try:
-        manifest_text = manifest_path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        fail(result, f"could not read Hermes manifest: {exc}")
-        manifest_text = ""
-    for field in ("provides_tools: []", "provides_hooks: []"):
-        if field not in manifest_text:
-            fail(result, f"Hermes manifest must declare {field}")
-
-    registrations, registration_error = hermes_registrations(root)
-    if registration_error:
-        fail(result, registration_error)
-    names = [name for name, _path, _description in registrations]
-    if len(names) != len(set(names)):
-        fail(result, "Hermes registration names are not unique")
-    for required in ("graph-engineering", "planning", "plan", "agent-explorer"):
-        if required not in names:
-            fail(result, f"Hermes registration is missing graph-powers:{required}")
-    missing_paths = [str(path) for _name, path, _description in registrations if not path.is_file()]
-    if missing_paths:
-        fail(result, f"Hermes registration sources are missing: {', '.join(missing_paths)}")
-    result["registrations"] = len(registrations)
-    result["skills"] = {
-        "registrations": len(registrations),
-        "names": names,
-        "missingPaths": missing_paths,
-    }
-    if result["errors"]:
-        return finish(result)
-
-    hermes = shutil.which("hermes")
-    result["runtime"] = {"path": hermes, "doctor": None}
-    if not hermes:
-        result["status"] = "SKIPPED"
-        result["ok"] = True
-        warn(result, "Hermes runtime is not installed; static native-package checks passed")
-        return result
-
-    try:
-        doctor = subprocess.run(
-            [hermes, "plugins", "doctor", str(root), "--ci"],
+        if not root.is_dir():
+            raise ValueError(f"Hermes package root does not exist: {root}")
+        if root.resolve() == args.plugin_root.resolve():
+            raise ValueError("static proof requires distinct source and generated package roots")
+        provenance_path = root / "PROVENANCE.json"
+        actual, error = read_json(provenance_path)
+        if error:
+            raise ValueError(error)
+        if not isinstance(actual, dict) or actual.get("schema_version") != 1:
+            raise ValueError("invalid PROVENANCE.json schema")
+        # The caller's source and package are data. Only this verifier's reviewed sibling
+        # generator is executable; never run a helper supplied inside either input root.
+        generator = Path(__file__).resolve().parents[1] / "hermes/install.mjs"
+        generated = subprocess.run(
+            ["bun", str(generator), "--plugin", str(args.plugin_root), "--plan-json"],
             capture_output=True,
             encoding="utf-8",
-            errors="replace",
             check=False,
             timeout=60,
         )
-        doctor_output = (doctor.stdout + doctor.stderr).strip()
-        result["runtime"]["doctor"] = {
-            "exitCode": doctor.returncode,
-            "output": doctor_output,
+        if generated.returncode:
+            raise ValueError(f"trusted source generation failed: {generated.stderr.strip()}")
+        expected = json.loads(generated.stdout)
+        if actual != expected:
+            raise ValueError(
+                "package provenance differs from the current source-derived registration and dependency plan"
+            )
+
+        def package_file(name):
+            path = PurePosixPath(name)
+            if (
+                not isinstance(name, str)
+                or not name
+                or path.is_absolute()
+                or ".." in path.parts
+                or "\\" in name
+                or path.as_posix() != name
+            ):
+                raise ValueError(f"invalid package path: {name!r}")
+            target = root / path
+            if not target.resolve().is_relative_to(root.resolve()):
+                raise ValueError(f"package path escapes its root: {name}")
+            return target
+
+        files = actual["files"]
+        paths = [row["path"] for row in files]
+        if len(paths) != len({name.casefold() for name in paths}):
+            raise ValueError("duplicate package payload path")
+        on_disk = set()
+        for path in root.rglob("*"):
+            if path.is_symlink():
+                raise ValueError(f"package symlink is unsupported: {path.relative_to(root)}")
+            if path.is_file():
+                on_disk.add(path.relative_to(root).as_posix())
+        expected_paths = set(paths) | {"PROVENANCE.json"}
+        if on_disk != expected_paths:
+            raise ValueError(
+                f"package file set differs: missing={sorted(expected_paths - on_disk)}, unexpected={sorted(on_disk - expected_paths)}"
+            )
+        for row in files:
+            target = package_file(row["path"])
+            if hashlib.sha256(target.read_bytes()).hexdigest() != row["sha256"]:
+                raise ValueError(f"package payload differs from source: {row['path']}")
+        sources = {row["path"] for row in actual["sources"]}
+        for edge in actual["closure"]["edges"]:
+            if edge["from"] not in sources or edge["to"] not in sources:
+                raise ValueError("dependency edge has no source provenance")
+            if "skills/content/" + edge["to"] not in expected_paths:
+                raise ValueError(f"missing operational dependency: {edge['to']}")
+        registrations = actual["registrations"]
+        names = [row["name"] for row in registrations]
+        if not names or len(names) != len({name.casefold() for name in names}):
+            raise ValueError("missing or duplicate Hermes registrations")
+        for row in registrations:
+            if (
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", row["name"])
+                or PurePosixPath(row["path"]).parent != PurePosixPath("skills")
+                or row["path"] not in expected_paths
+                or row["source"] not in sources
+            ):
+                raise ValueError("invalid Hermes registration name, source or containment")
+            package_file(row["path"])
+        version = actual["source"]["version"]
+        if args.expected_version and version != args.expected_version:
+            raise ValueError(f"Hermes package is {version}; expected {args.expected_version}")
+        manifest = root / "plugin.yaml"
+        if yaml_scalar(manifest, "name") != PLUGIN or yaml_scalar(manifest, "version") != version:
+            raise ValueError("Hermes manifest name/version differs from source provenance")
+        result.update(version=version, manifest=str(manifest), registrations=len(names))
+        result["skills"] = {"registrations": len(names), "names": names, "missingPaths": []}
+        result["provenance"] = {
+            "path": str(provenance_path),
+            "baseRevision": actual["source"]["base_revision"],
+            "dirty": actual["source"]["dirty"],
+            "files": len(files),
         }
-        if doctor.returncode != 0:
-            fail(result, f"Hermes Doctor exited {doctor.returncode}: {doctor_output}")
-    except Exception as exc:
-        fail(result, f"Hermes Doctor probe failed: {exc}")
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        fail(result, f"Hermes static verification failed: {error}")
     return finish(result)
 
 
@@ -1276,6 +1274,7 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--scope", choices=("user", "project", "local"), default="user")
     cli.add_argument("--codex-route", choices=("auto", "native", "clone"), default="auto")
     cli.add_argument("--inventory-file", type=resolved)
+    cli.add_argument("--hermes-proof", choices=("static", "runtime"), default="static")
     cli.add_argument("--expected-version")
     cli.add_argument("--check-posture", action="store_true")
     cli.add_argument("--autonomy", choices=("auto", "autonomous", "guarded"), default="auto")
@@ -1286,6 +1285,16 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = parser().parse_args(list(argv) if argv is not None else None)
+    if args.client == "hermes":
+        body = verify_hermes(args)
+        if args.json:
+            print(json.dumps(body, indent=2))
+        else:
+            print(human_line(body))
+            print(f"  proof: {body['proof']}; runtime: {body['runtime']}")
+            for message in body["errors"]:
+                print(f"  ERROR: {message}")
+        return 0 if body["ok"] else 1
     proof = python3_proof()
     policy = effective_policy(args.plugin_root, args.project_dir)
     if args.client == "all":

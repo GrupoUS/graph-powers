@@ -79,12 +79,12 @@ def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, accept
 
 
 class SddCliTests(unittest.TestCase):
-    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def run_cli(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, "-X", "utf8", str(SCRIPT), *args],
+            [sys.executable, "-B", "-X", "utf8", str(SCRIPT.resolve()), *args],
             capture_output=True,
             encoding="utf-8",
-            cwd=SCRIPT.parents[3],
+            cwd=cwd if cwd is not None else SCRIPT.parents[3],
             check=False,
         )
 
@@ -92,6 +92,309 @@ class SddCliTests(unittest.TestCase):
         path = root / "PLAN.md"
         path.write_text(text, encoding="utf-8")
         return path
+
+    def status_snapshot(self, root: Path) -> dict[str, object]:
+        """Watch contents and metadata, including Git, without following test symlinks."""
+        result: dict[str, object] = {}
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            for path in [Path(directory), *(Path(directory) / name for name in dirs + files)]:
+                info = path.lstat()
+                content = os.readlink(path) if path.is_symlink() else (
+                    path.read_bytes() if path.is_file() else None
+                )
+                result[path.relative_to(root).as_posix()] = (
+                    info.st_mode, info.st_mtime_ns, info.st_ctime_ns, content,
+                )
+        return result
+
+    def run_status(
+        self, plan: Path, *, cwd: Path, watch: Path, maximum: int = 12,
+        profile: str = "default",
+    ) -> subprocess.CompletedProcess[str]:
+        before = self.status_snapshot(watch)
+        result = self.run_cli(
+            "status", str(plan), "--max-tasks", str(maximum), "--profile", profile, cwd=cwd,
+        )
+        self.assertEqual(self.status_snapshot(watch), before, "status mutated its inputs or Git")
+        return result
+
+    def test_status_frontier(self) -> None:
+        # Wrong phase ordering, Needs handling, gate barriers or a hidden list cap breaks resume.
+        cases = (
+            ("source order", plan_text(task("T1.9", "a"), task("T1.2", "b")),
+             1, "TASK", "T1.9", 2, "ACTION_REQUIRED"),
+            ("needs", plan_text(task("T1.1", "a", "T1.2 (reads: API)"), task("T1.2", "b")),
+             1, "TASK", "T1.2", 1, "ACTION_REQUIRED"),
+            ("checked needs", plan_text(task("T1.1", "a", checked=True, evidence="ok"),
+                                        task("T1.2", "b", "T1.1 (reads: API)")),
+             1, "TASK", "T1.2", 1, "ACTION_REQUIRED"),
+            ("numeric phase", plan_text(task("T10.1", "a"), task("T2.1a", "b")),
+             2, "TASK", "T2.1a", 1, "ACTION_REQUIRED"),
+            ("future dependency", plan_text(task("T1.1", "a", "T2.1 (reads: API)"),
+                                             task("T2.1", "b")),
+             1, None, None, 0, "BLOCKED_DEPENDENCIES"),
+            ("gate source order", plan_text(task("T1.1", "a", checked=True, evidence="ok"),
+                task("T2.1", "b", "T1.1 (reads: API)"),
+                gates=gate("G1.9") + gate("G1.2") + gate("G2.1")),
+             1, "GATE", "G1.9", 0, "ACTION_REQUIRED"),
+            ("closed phase", plan_text(task("T1.1", "a", checked=True, evidence="ok"),
+                task("T2.1", "b", "T1.1 (reads: API)"),
+                gates=gate("G1.1", checked=True, evidence="gate ok") + gate("G2.1")),
+             2, "TASK", "T2.1", 1, "ACTION_REQUIRED"),
+            ("gate-only phase", plan_text(task("T2.1"), gates=gate("G1.1") + gate("G2.1")),
+             1, "GATE", "G1.1", 0, "ACTION_REQUIRED"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            for label, source, phase, kind, identifier, ready, state in cases:
+                with self.subTest(label=label):
+                    plan = self.write_plan(root, source)
+                    result = self.run_status(plan, cwd=root, watch=root)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = json.loads(result.stdout)
+                    self.assertEqual(output["currentPhase"], phase)
+                    self.assertEqual(output["state"], state)
+                    self.assertEqual(output["counts"]["tasks"]["ready"], ready)
+                    action = None if identifier is None else {
+                        "kind": kind, "id": identifier,
+                        "line": next(i for i, line in enumerate(source.splitlines(), 1)
+                                     if line.startswith(f"- [ ] **{identifier}**")),
+                    }
+                    self.assertEqual(output["nextAction"], action)
+
+            for closed in (False, True):
+                with self.subTest(long_plan_closed=closed):
+                    source = plan_text(
+                        *(task(f"T{number}.1", f"src/{number}.py", checked=number < 40 or closed,
+                               evidence="ok" if number < 40 or closed else "pending")
+                          for number in range(1, 41)),
+                        gates="".join(gate(f"G{number}.1", checked=number < 40 or closed,
+                            evidence="gate ok" if number < 40 or closed else "pending")
+                            for number in range(1, 41)),
+                    )
+                    plan = self.write_plan(root, source)
+                    result = self.run_status(plan, cwd=root, watch=root, maximum=40)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = json.loads(result.stdout)
+                    self.assertEqual(output["counts"], {
+                        "tasks": {"total": 40, "checked": 40 if closed else 39,
+                                  "pending": 0 if closed else 1, "ready": 0 if closed else 1},
+                        "gates": {"total": 40, "checked": 40 if closed else 39,
+                                  "pending": 0 if closed else 1},
+                    })
+                    self.assertEqual(output["currentPhase"], None if closed else 40)
+                    self.assertEqual(output["state"],
+                                     "NEEDS_FINAL_VERIFICATION" if closed else "ACTION_REQUIRED")
+                    self.assertEqual(output["nextAction"], None if closed else {
+                        "kind": "TASK", "id": "T40.1", "line": 475,
+                    })
+
+    def test_status_scope_and_lease(self) -> None:
+        # A query must reject another worktree and distinguish unsafe leases from conflicts.
+        with tempfile.TemporaryDirectory() as directory:
+            container = Path(directory)
+            root = container / "repo"
+            root.mkdir()
+            plan = self.consult_plan(root)
+            subdir = root / "subdir"
+            subdir.mkdir()
+            relative = self.run_status(Path("../PLAN.md"), cwd=subdir, watch=container)
+            self.assertEqual(relative.returncode, 0, relative.stderr)
+            self.assertEqual(json.loads(relative.stdout)["planFile"], "PLAN.md")
+
+            other = container / "other"
+            other.mkdir()
+            other_plan = self.consult_plan(other)
+            nested = root / "nested"
+            nested.mkdir()
+            nested_plan = self.consult_plan(nested)
+            external = self.write_plan(container, plan_text(task("T1.1")))
+            for selected, cwd in ((plan, other), (other_plan, root), (external, root),
+                                  (nested_plan, root), (plan, nested), (plan, container)):
+                with self.subTest(plan=selected, cwd=cwd):
+                    result = self.run_status(selected, cwd=cwd, watch=container)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertEqual(result.stdout, "")
+                    self.assertNotIn("Traceback", result.stderr)
+
+            # Git state changes below only prepare isolated fixtures; status is measured afterward.
+            subprocess.run(["git", "add", "PLAN.md"], cwd=root, check=True)
+            subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                            "commit", "-qm", "fixture"], cwd=root, check=True)
+            sibling = container / "sibling"
+            subprocess.run(["git", "worktree", "add", "--detach", "-q", str(sibling)],
+                           cwd=root, check=True)
+            for selected, cwd in ((sibling / "PLAN.md", root), (plan, sibling)):
+                with self.subTest(sibling_cwd=cwd):
+                    result = self.run_status(selected, cwd=cwd, watch=container)
+                    self.assertEqual(result.returncode, 2)
+            own = self.run_status(sibling / "PLAN.md", cwd=sibling, watch=container)
+            self.assertEqual(own.returncode, 0, own.stderr)
+            self.assertEqual(json.loads(own.stdout)["repositoryRoot"], sibling.resolve().as_posix())
+
+            logs = root / ".graph-powers/logs"
+            logs.mkdir(parents=True)
+            lease = logs / "write-lease.json"
+            paths = [".graph-powers/logs/progress.md", ".graph-powers/logs/sdd/repo/dispatches.json",
+                     ".graph-powers/logs/sdd/repo/task-reviews.md", "PLAN.md", "src/main.py"]
+            for payload, code, state, owner in (
+                ({"plan": "PLAN.md", "paths": paths}, 0, "MATCHING", "PLAN.md"),
+                ({"plan": "PLAN.md", "paths": list(reversed(paths))}, 0, "MATCHING", "PLAN.md"),
+                ({"plan": "PLAN.md", "paths": paths[:-1]}, 4, "CONFLICT", "PLAN.md"),
+                ({"plan": "PLAN.md", "paths": [*paths, "other.py"]}, 4, "CONFLICT", "PLAN.md"),
+                ({"plan": "other/PLAN.md", "paths": paths}, 4, "CONFLICT", "other/PLAN.md"),
+            ):
+                with self.subTest(lease=payload):
+                    lease.write_text(json.dumps(payload), encoding="utf-8")
+                    result = self.run_status(plan, cwd=root, watch=container)
+                    self.assertEqual(result.returncode, code, result.stderr)
+                    output = json.loads(result.stdout)
+                    self.assertEqual(output["lease"], {"state": state, "planFile": owner})
+                    self.assertEqual(output["state"], "LEASE_CONFLICT" if code else "ACTION_REQUIRED")
+                    if code:
+                        self.assertIsNone(output["nextAction"])
+
+            malformed = ["{", "[]", json.dumps({"plan": "PLAN.md", "paths": [3]})]
+            for value in ("", ".", "../escape", "/outside", "C:\\outside", "C:relative", "bad\x00path"):
+                malformed.append(json.dumps({"plan": value, "paths": paths}))
+                malformed.append(json.dumps({"plan": "PLAN.md", "paths": [value]}))
+            for source in malformed:
+                with self.subTest(malformed=source):
+                    lease.write_text(source, encoding="utf-8")
+                    result = self.run_status(plan, cwd=root, watch=container)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertEqual(result.stdout, "")
+                    self.assertNotIn("Traceback", result.stderr)
+
+        for link_kind in ("plan escape", "plan dangling", "plan loop", "state escape",
+                          "state dangling", "logs dangling", "lease dangling", "lease escape",
+                          "lease path escape", "lease path dangling", "lease owner escape"):
+            with self.subTest(symlink=link_kind), tempfile.TemporaryDirectory() as directory:
+                container = Path(directory)
+                root = container / "repo"
+                root.mkdir()
+                plan = self.consult_plan(root)
+                outside = container / "outside"
+                outside.mkdir()
+                outside_plan = self.write_plan(outside, plan_text(task("T1.1")))
+                selected = plan
+                try:
+                    if link_kind.startswith("plan"):
+                        selected = root / "linked.md"
+                        target = outside_plan if link_kind == "plan escape" else (
+                            selected if link_kind == "plan loop" else root / "missing.md")
+                        selected.symlink_to(target)
+                    elif link_kind.startswith("state"):
+                        (root / ".graph-powers").symlink_to(
+                            outside if link_kind == "state escape" else root / "missing",
+                            target_is_directory=True)
+                    else:
+                        state_dir = root / ".graph-powers"
+                        state_dir.mkdir()
+                        if link_kind == "logs dangling":
+                            (state_dir / "logs").symlink_to(root / "missing", target_is_directory=True)
+                        else:
+                            logs = state_dir / "logs"
+                            logs.mkdir()
+                            lease = logs / "write-lease.json"
+                            if link_kind in {"lease dangling", "lease escape"}:
+                                lease.symlink_to(root / "missing" if link_kind == "lease dangling"
+                                                 else outside_plan)
+                            else:
+                                (root / "linked").symlink_to(
+                                    root / "missing" if link_kind == "lease path dangling" else outside,
+                                    target_is_directory=True)
+                                lease.write_text(json.dumps({
+                                    "plan": "linked/PLAN.md" if link_kind == "lease owner escape" else "PLAN.md",
+                                    "paths": ["linked/file.py"],
+                                }), encoding="utf-8")
+                except OSError as error:
+                    self.skipTest(f"symlinks unavailable: {error}")
+                result = self.run_status(selected, cwd=root, watch=container)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, "")
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_status_readonly_deterministic(self) -> None:
+        # Emitting a body, claiming verification or running CHECK must fail this exact contract.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            selected = root / "docs/plans/resume"
+            selected.mkdir(parents=True)
+            source = plan_text(task("T1.1")).replace(
+                "print('ok')", "__import__('pathlib').Path('EXECUTED').write_text('bad')",
+            ).replace("print('gate ok')", "__import__('pathlib').Path('GATE_EXECUTED').touch()")
+            plan = self.write_plan(selected, source)
+            first = self.run_status(plan, cwd=root, watch=root)
+            second = self.run_status(plan, cwd=root, watch=root)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual(first.stdout, second.stdout)
+            self.assertEqual(first.stderr, "")
+            self.assertFalse((root / ".graph-powers").exists())
+            self.assertEqual(json.loads(first.stdout), {
+                "repositoryRoot": root.resolve().as_posix(), "planFile": "docs/plans/resume/PLAN.md",
+                "tier": "L4", "profile": "default",
+                "counts": {"tasks": {"total": 1, "checked": 0, "pending": 1, "ready": 1},
+                           "gates": {"total": 1, "checked": 0, "pending": 1}},
+                "currentPhase": 1, "nextAction": {"kind": "TASK", "id": "T1.1", "line": 7},
+                "state": "ACTION_REQUIRED", "lease": {"state": "ABSENT", "planFile": None},
+                "approval": "NOT_VERIFIED", "checksExecuted": False,
+            })
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "12")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            workspace = root / ".graph-powers/logs/sdd/resume"
+            workspace.mkdir(parents=True)
+            for name in ("task-reviews.md", "dispatches.json", "consultations.json"):
+                (workspace / name).write_text("opaque existing evidence\n", encoding="utf-8")
+            first = self.run_status(plan, cwd=root, watch=root)
+            second = self.run_status(plan, cwd=root, watch=root)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(first.stdout, second.stdout)
+            self.assertEqual(json.loads(first.stdout)["lease"], {
+                "state": "MATCHING", "planFile": "docs/plans/resume/PLAN.md",
+            })
+
+    def test_status_validation_compatibility(self) -> None:
+        # status must reuse admission, while validate/acquire retain their existing API and cwd.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            legacy = plan_text(task("T1.1")).replace(
+                "  Acceptance: the focused check prints ok\n", "",
+            )
+            for source, profile, maximum, code in (
+                (plan_text(task("T1.1")), "default", 12, 0),
+                (plan_text(task("T1.1")), "gauntlet", 12, 0),
+                (legacy, "default", 12, 0), (legacy, "gauntlet", 12, 2),
+                (plan_text(task("T1.1", checked=True)), "default", 12, 2),
+                (plan_text(task("T1.1"), gates=gate("G1.1", checked=True)), "default", 12, 2),
+                ("# Plan\n- [ ] old task\n", "default", 12, 2),
+                (plan_text(task("T1.1"), tier=None), "default", 12, 2),
+                (plan_text(task("T1.1")), "default", 0, 2),
+                (plan_text(task("T1.1", "a"), task("T1.2", "b")), "default", 1, 2),
+            ):
+                with self.subTest(profile=profile, code=code, source=source):
+                    plan = self.write_plan(root, source)
+                    status = self.run_status(plan, cwd=root, watch=root, maximum=maximum, profile=profile)
+                    validated = self.run_cli("validate", str(plan), "--max-tasks", str(maximum),
+                                             "--profile", profile)
+                    self.assertEqual(status.returncode, code, status.stderr)
+                    self.assertEqual(validated.returncode, code, validated.stderr)
+                    if code:
+                        self.assertEqual(status.stderr, validated.stderr)
+                        self.assertEqual(status.stdout, "")
+                    else:
+                        self.assertEqual(json.loads(status.stdout)["profile"], profile)
+                        acquired = self.run_cli("acquire", str(plan), "--max-tasks", str(maximum),
+                                                "--profile", profile)
+                        self.assertEqual(acquired.returncode, 0, acquired.stderr)
+                        self.assertEqual(acquired.stdout, validated.stdout)
+            missing = self.run_status(root / "missing.md", cwd=root, watch=root)
+            self.assertEqual(missing.returncode, 2)
+            self.assertIn("no such plan file", missing.stderr)
 
     def consult_request(
         self,

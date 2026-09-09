@@ -1,0 +1,156 @@
+{
+  "skill_name": "uxmaster",
+  "notes": "The core cases require user/task/journey framing, interaction and recovery states, accessibility, trust, evidence and validation before commercial lenses. Border cases must route visual direction to designer, implemented repair to design-fix, implementation to the relevant executor, broken behavior to debugger, performance to performance, motion to animate, and landing-page systems to landing-page-design. Run one invocation per case id with --threshold 1.0. The description_queries list is a 20-query calibration set for trigger tuning; it is metadata for review, not an additional runner case.",
+  "assertion_design": "Assertions test observable behavior rather than style preferences. Negative cases test routing and absence of uxmaster ownership. Numeric guidance is not required except where the response must distinguish normative WCAG target-size levels from conservative product recommendations.",
+  "description_queries": [
+    { "polarity": "positive", "prompt": "Como descobrir as necessidades de usuários de um produto B2B antes de definir o fluxo?" },
+    { "polarity": "positive", "prompt": "Revise a jornada de compra mobile de um produto vendido por peso." },
+    { "polarity": "positive", "prompt": "Como estruturar estados, erros e recuperação de um formulário de saúde?" },
+    { "polarity": "positive", "prompt": "Avalie a arquitetura da informação e a navegação de um aplicativo." },
+    { "polarity": "positive", "prompt": "Precisamos testar onboarding sem analytics; quais hipóteses e métodos usar?" },
+    { "polarity": "positive", "prompt": "Audite acessibilidade e confiança de um fluxo para pessoas com deficiência." },
+    { "polarity": "positive", "prompt": "Compare opções de preço sem manipular o usuário." },
+    { "polarity": "positive", "prompt": "Como medir compreensão e sucesso de uma tarefa?" },
+    { "polarity": "positive", "prompt": "Mapeie a continuidade da experiência entre web, app e suporte." },
+    { "polarity": "positive", "prompt": "Analise a relação entre CTA, promessa e evidência em um checkout." },
+    { "polarity": "negative", "prompt": "Escolha uma paleta e uma tipografia para o aplicativo." },
+    { "polarity": "negative", "prompt": "Ajuste tokens de espaçamento, raio e sombra da interface." },
+    { "polarity": "negative", "prompt": "Conserte o botão quebrado na tela existente." },
+    { "polarity": "negative", "prompt": "Implemente um componente React Native para esta tela." },
+    { "polarity": "negative", "prompt": "Investigue o erro 500 no checkout." },
+    { "polarity": "negative", "prompt": "Reduza o LCP e o bundle da landing page." },
+    { "polarity": "negative", "prompt": "Adicione uma animação de transição ao menu." },
+    { "polarity": "negative", "prompt": "Crie a estrutura completa da landing page." },
+    { "polarity": "negative", "prompt": "Qual a duração ideal de um spring no dropdown?" },
+    { "polarity": "negative", "prompt": "Defina o schema de banco para eventos de funil." }
+  ],
+  "evals": [
+    {
+      "id": "pos-weighted-product-mobile",
+      "polarity": "positive",
+      "prompt": "Analise a UX mobile de uma loja que vende queijo por peso. O usuário escolhe uma peça, informa ou seleciona a quantidade, vê o preço por kg e precisa entender o total estimado antes de adicionar ao carrinho. Não temos analytics confiável.",
+      "expected_output": "Fires uxmaster. Frames the user, context and purchase task before proposing a screen. Makes unit, quantity, variable weight and estimated total explicit, covers availability and error/recovery states, includes accessibility and trust, and labels recommendations as hypotheses to validate. Does not turn a 24px margin, fixed preset, F-pattern or sticky CTA into a universal rule.",
+      "assertions": [
+        { "id": "A01", "description": "Routes the UX direction to uxmaster.", "check": "regex: (?i)\\buxmaster\\b", "critical": true },
+        { "id": "A02", "description": "Frames user, context and task before the interface.", "check": "regex: (?i)(contexto|context|tarefa|task|usu.rio|user).*(fluxo|jornada|interface|tela)|(fluxo|jornada|interface|tela).*(contexto|context|tarefa|task)", "critical": true },
+        { "id": "A03", "description": "Distinguishes unit price, quantity or weight, and estimated total.", "check": "regex: (?i)(pre.o por (kg|quilo|unidade)|price per (kg|unit)|unit price).*(quantidade|quantity|peso|weight)|(quantidade|quantity|peso|weight).*(total (estimado|aproximado)|estimated total)", "critical": true },
+        { "id": "A04", "description": "Covers uncertainty, states, errors or recovery.", "check": "regex: (?i)(vari.vel|incerteza|uncertainty|estado|state|erro|error|recupera|recovery|disponibilidade|availability)", "critical": true },
+        { "id": "A05", "description": "Requires validation and avoids invented analytics.", "check": "regex: (?i)(hip.tese|hypothes|validar|validate|pesquisa|research|sem analytics|sem dados|no analytics|não invent|not invent)", "critical": true },
+        { "id": "A06", "description": "Does not impose the source video's fixed visual rules.", "check": "not_contains: 60/30/10", "critical": false }
+      ]
+    },
+    {
+      "id": "pos-high-risk-form",
+      "polarity": "positive",
+      "prompt": "Faça uma análise UX de um formulário mobile que coleta dados de saúde e renda para uma decisão de crédito. O usuário pode abandonar e voltar depois; pessoas com baixa visão e leitores de tela precisam utilizá-lo.",
+      "expected_output": "Fires uxmaster. Starts with risk, purpose and user task; separates validation from eligibility; minimizes collection and explains consent and data use; preserves entries; designs labels, focus, error summary, field recovery, loading and denied states; includes disabled participants and assistive technology; rejects coercive conversion; defines research and task-level validation.",
+      "assertions": [
+        { "id": "A01", "description": "Frames risk, purpose and user task.", "check": "regex: (?i)(risco|risk|prop.sito|purpose|tarefa|task|contexto|context)", "critical": true },
+        { "id": "A02", "description": "Separates validation from eligibility or decisioning.", "check": "regex: (?i)(valida..o|validation).*(elegibilidade|eligibility|aprova..o|decision)|(elegibilidade|eligibility|aprova..o|decision).*(valida..o|validation)", "critical": true },
+        { "id": "A03", "description": "Covers data minimization, consent and preservation/recovery.", "check": "regex: (?i)(consent|privacidade|privacy|mínim|minimum|preserv|save|rascunho|draft|recupera|recovery)", "critical": true },
+        { "id": "A04", "description": "Includes accessibility and disabled participants or assistive technology.", "check": "regex: (?i)(defici.ncia|disabled|baixa vis.o|low vision|leitor de tela|screen reader|teclado|keyboard|WCAG)", "critical": true },
+        { "id": "A05", "description": "Requires usable error and focus behavior.", "check": "regex: (?i)(erro|error).*(foco|focus|campo|field|corrig|fix|resum|summary)|(foco|focus|campo|field|corrig|fix|resum|summary).*(erro|error)", "critical": true },
+        { "id": "A06", "description": "Rejects coercive or deceptive persuasion.", "check": "regex: (?i)(dark pattern|manipula|coerci|autonomia|autonomy|transpar.ncia|transparen|honest)", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-onboarding-without-analytics",
+      "polarity": "positive",
+      "prompt": "O onboarding de um produto novo não tem analytics, entrevistas nem baseline. Precisamos saber se o usuário chega ao primeiro valor sem criar uma sequência de telas baseada em suposições.",
+      "expected_output": "Fires uxmaster. States the unknowns instead of inventing a funnel, frames the user's first task and value moment, proposes lightweight research before or alongside instrumentation, defines hypotheses and task-level success measures, and keeps business outcomes separate from user outcomes.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to uxmaster.", "check": "regex: (?i)\\buxmaster\\b", "critical": true },
+        { "id": "A02", "description": "Names missing evidence and refuses to invent a baseline.", "check": "regex: (?i)(sem analytics|sem dados|sem baseline|unknown|desconhec|não invent|not invent|não presum|do not assume)", "critical": true },
+        { "id": "A03", "description": "Frames first task, first value or time-to-value.", "check": "regex: (?i)(primeir[oa] (tarefa|valor)|first (task|value)|time.to.value|tempo.at. valor|ativação|activation)", "critical": true },
+        { "id": "A04", "description": "Proposes research and/or instrumentation matched to questions.", "check": "regex: (?i)(pesquisa|research|entrevista|interview|observa|usability|instrumenta|event|m.trica|metric)", "critical": true },
+        { "id": "A05", "description": "Uses hypotheses and validation rather than guaranteed uplift.", "check": "regex: (?i)(hip.tese|hypothes|validar|validate|testar|test|não garante|not guarantee)", "critical": true },
+        { "id": "A06", "description": "Distinguishes user and business outcomes.", "check": "regex: (?i)(usu.rio|user).*(neg.cio|business)|(neg.cio|business).*(usu.rio|user)", "critical": false }
+      ]
+    },
+    {
+      "id": "pos-manipulative-conversion",
+      "polarity": "positive",
+      "prompt": "A equipe quer aumentar o checkout usando contagem regressiva falsa, urgência fabricada, add-on pré-selecionado e cancelamento escondido. Faça a recomendação de UX.",
+      "expected_output": "Fires uxmaster. Identifies dark patterns, explains the harm to autonomy and trust, removes fabricated urgency and preselection, makes price and cancellation clear, and proposes transparent alternatives with user and business measures. It does not optimize conversion at the expense of informed choice.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to uxmaster and the ethics boundary.", "check": "regex: (?i)\\buxmaster\\b|dark pattern|padr.o manipul", "critical": true },
+        { "id": "A02", "description": "Identifies fabricated urgency, preselection or hidden cancellation.", "check": "regex: (?i)(urg.ncia falsa|fake urgency|countdown|pré.sele|pre.select|add.on|cancelamento escond|hidden cancel|scarcity)", "critical": true },
+        { "id": "A03", "description": "Protects autonomy and informed choice.", "check": "regex: (?i)(autonomia|autonomy|escolha informada|informed choice|controle|control|consentimento|consent)", "critical": true },
+        { "id": "A04", "description": "Makes cost and exit transparent.", "check": "regex: (?i)(pre.o|price|custo|cost|cancel|sa.da|exit|termos|terms).*(claro|clear|transparen)|\bclear exit\\b", "critical": true },
+        { "id": "A05", "description": "Proposes validation and measures beyond a raw conversion lift.", "check": "regex: (?i)(validar|validate|task success|sucesso da tarefa|confian.a|confidence|abandono|abandon|qualidade|quality)", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-visual-direction",
+      "polarity": "negative",
+      "prompt": "Escolha a paleta, tipografia, grid, sombras e direção visual de um novo aplicativo de saúde.",
+      "expected_output": "Routes visual direction to designer. Does not run uxmaster as the owner of visual styling.",
+      "assertions": [
+        { "id": "A01", "description": "Routes visual direction to designer.", "check": "regex: (?i)designer|dire..o visual", "critical": true },
+        { "id": "A02", "description": "Does not claim uxmaster owns the visual system.", "check": "not_contains: uxmaster owns visual", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-implemented-ui-repair",
+      "polarity": "negative",
+      "prompt": "A tela existente já está aprovada, mas o foco do teclado sumiu, o estado vazio está ruim e o layout quebra no mobile. Faça o reparo em produção.",
+      "expected_output": "Routes the implemented UI repair to design-fix, with a baseline and preservation of behavior.",
+      "assertions": [
+        { "id": "A01", "description": "Routes implemented repair to design-fix.", "check": "regex: (?i)design[- ]fix", "critical": true },
+        { "id": "A02", "description": "Recognizes an existing implementation and bounded repair.", "check": "regex: (?i)(existente|implemented|baseline|linha de base|preserv)", "critical": true },
+        { "id": "A03", "description": "Does not make uxmaster the implementation owner.", "check": "not_contains: uxmaster implementa", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-frontend-implementation",
+      "polarity": "negative",
+      "prompt": "Implemente este fluxo de cadastro em React Native com componentes, navegação e validação de formulário.",
+      "expected_output": "Routes implementation to the mobile/frontend executor. UX criteria may inform the work, but uxmaster does not own code or component implementation.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to implementation or the mobile/frontend executor.", "check": "regex: (?i)(implementa|frontend|mobile.developer|react native|component)", "critical": true },
+        { "id": "A02", "description": "Keeps uxmaster out of code ownership.", "check": "regex: (?i)(não.*(c.digo|code|componente)|not.*(code|component)|ux criteria|crit.rios de UX)", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-broken-behavior",
+      "polarity": "negative",
+      "prompt": "O botão de pagamento não faz nada quando clicado. Investigue e corrija o problema.",
+      "expected_output": "Routes broken behavior to /debug for reproduction and diagnosis, not to uxmaster.",
+      "assertions": [
+        { "id": "A01", "description": "Routes broken behavior to debug.", "check": "regex: (?i)(/debug|debugger|reprodu|causa|diagn.stic)", "critical": true },
+        { "id": "A02", "description": "Does not route the defect to uxmaster.", "check": "not_contains: uxmaster", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-performance-only",
+      "polarity": "negative",
+      "prompt": "A interface está correta, mas o LCP, o bundle e o tempo de carregamento pioraram. Otimize apenas a performance.",
+      "expected_output": "Routes performance-only work to performance or /perf, not uxmaster.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to performance tooling.", "check": "regex: (?i)(/perf|performance|LCP|bundle)", "critical": true },
+        { "id": "A02", "description": "Does not route the performance defect to uxmaster.", "check": "not_contains: uxmaster", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-motion-only",
+      "polarity": "negative",
+      "prompt": "A transição do dropdown parece lenta. Ajuste easing, duração e spring sem mudar a UX do fluxo.",
+      "expected_output": "Routes motion tuning to animate, without opening a uxmaster direction pass.",
+      "assertions": [
+        { "id": "A01", "description": "Routes motion work to animate.", "check": "regex: (?i)animate|motion|easing|dura..o|spring", "critical": true },
+        { "id": "A02", "description": "Does not route motion-only work to uxmaster.", "check": "not_contains: uxmaster", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-landing-system",
+      "polarity": "negative",
+      "prompt": "Crie a estrutura completa de uma landing page de campanha, incluindo hero, seções, FAQ, SEO e ordem de construção.",
+      "expected_output": "Routes landing-page system work to landing-page-design. uxmaster may supply behavioral criteria, but does not own the page system.",
+      "assertions": [
+        { "id": "A01", "description": "Routes page system work to landing-page-design.", "check": "regex: (?i)landing.page.design|landing page", "critical": true },
+        { "id": "A02", "description": "Recognizes page structure, SEO or section-order ownership.", "check": "regex: (?i)(estrutura|section|se..o|FAQ|SEO|ordem|outline)", "critical": true },
+        { "id": "A03", "description": "Does not make uxmaster the page-system owner.", "check": "not_contains: uxmaster owns the page system", "critical": true }
+      ]
+    }
+  ]
+}

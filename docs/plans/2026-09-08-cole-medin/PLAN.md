@@ -48,14 +48,14 @@ coverage. The earlier read-only baseline is preparation evidence.
 
 ## Phase 1 — Instruction and continuation contracts [SEQUENTIAL]
 
-- [ ] **T1.1** — Reach a diff-scoped advisory instruction audit
+- [x] **T1.1** — Reach a diff-scoped advisory instruction audit
   Owns: skills/intent-layer/SKILL.md, skills/intent-layer/references/node-anatomy.md, skills/intent-layer/evals/evals.json, commands/pr-review.md, references/shared/125-change-set.md, .claude/audit/cole-medin
   Needs: none
   Acceptance: Five cole-medin cases pass with real captured responses; rule/source, contradictory evidence, impact, minimal fix and confidence are returned only for relevant drift; valid inheritance and irrelevant diffs need no edit.
   Agent: graph-powers:debugger · Skill: graph-powers:skill-improve · Effort: high
   CHECK: python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/intent-layer --evals-path skills/intent-layer/evals/evals.json --response-dir .claude/audit/cole-medin/intent-layer/candidate --case-tag cole-medin --threshold 1.0
   EXPECT: all five selected cases pass with exit 0
-  EVIDENCE: pending
+  EVIDENCE: current tagged run_evals exit0,5/5 cases,27 assertions; W1-F1 false-positive sample retained and rejected; fresh wave1_confirmation compliance/quality PASS, source/read hashes checked at HEADba6cd8d.
   TDD: not-applicable (Markdown contracts and semantic evaluations)
   Steps:
     1. Read the current files and preserve Graft changes, especially section C of 125. Add the small advisory procedure to node-anatomy and a conditional caller from intent-layer and pr-review; do not rebuild the full hierarchy or add a skill.
@@ -78,10 +78,10 @@ coverage. The earlier read-only baseline is preparation evidence.
     3. Replace all universal 80K context triggers in loop-engineering, wayfinding and step-0-inventory with actual client signals or task boundaries. Automatic compaction remains supported; never invent telemetry or automatically clear context.
     4. Make recovery-protocol preserve the full session contract when adding blocked diagnostics. Handoff records existing authorization but grants none and activates no opt-ins.
 
-- [ ] **G1.1** — Verify instruction boundaries
+- [x] **G1.1** — Verify instruction boundaries
   CHECK: python3 .github/check_wiring.py
   EXPECT: 0 unresolved routing references
-  EVIDENCE: pending
+  EVIDENCE: python3 .github/check_wiring.py exit0:283 routing references,0 unresolved; wave1 independently accepted.
 
 ## Phase 2 — Runtime integration and finalization [SEQUENTIAL]
 
@@ -92,7 +92,7 @@ coverage. The earlier read-only baseline is preparation evidence.
   Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: high
   CHECK: python3 hooks/test_hooks.py --focus session-context-lifecycle
   EXPECT: EVERY GUARANTEE HELD with exit 0; parent additionally grades the five planning cases and complete final inventory before acceptance
-  EVIDENCE: pending
+  EVIDENCE: Implemented at snapshot35b29ee; real-hook RED/GREEN reported and parent fullsuite exit0; planning5/5 authentic cases/13assertions exit0; six versions1.19.4-to1.19.5;24/25 finalchecks pass. Independent integration_review compliance/quality PASS, source35b29ee; mandatory gate17 fails only on preexisting external docs/RELATORIO.md historical404, scoped editorial approval pending. Full acceptance remains open.
   TDD: required
   Steps:
     1. Approved T3: read TDD policy and writing-good-tests. Preserve Graft tests/provider pointer and prime's current decisive-source reads. Add real-subprocess cases for startup/resume/compact, with/without handoff, bounded JSON/pointer, malformed and non-object payloads, UTF-8 and project A/B/A isolation. Observe RED for missing behavior before production edits.
@@ -106,15 +106,15 @@ coverage. The earlier read-only baseline is preparation evidence.
     9. Focused static checks include quick_validate for affected skills, file references, wiring, context/listing and portability. Keep all caps unchanged. Reduce only redundancy inside owned, changed contracts if needed; preserve semantics and public anchors.
     10. Parent executes the exact planning run_evals command in Verification after capturing stable candidate responses and the current full final gate inventory. The integration-wave Evaluator and separate final Evaluator remain mandatory.
 
-- [ ] **G2.1** — Verify portable integration
+- [x] **G2.1** — Verify portable integration
   CHECK: python3 .github/check_portability.py
   EXPECT: 0 portability problem(s)
-  EVIDENCE: pending
+  EVIDENCE: python3 .github/check_portability.py exit0,0 portability problem(s); final-gates/20260909T103009-18.stdout.txt.
 
-- [ ] **G2.2** — Run declared hook suite at final boundary
+- [x] **G2.2** — Run declared hook suite at final boundary
   CHECK: python3 hooks/test_hooks.py
   EXPECT: EVERY GUARANTEE HELD with exit 0
-  EVIDENCE: pending
+  EVIDENCE: python3 hooks/test_hooks.py exit0,EVERY GUARANTEE HELD; final-gates/20260909T102848-02.stdout.txt, current hook/test hashes in integration-evidence.json.
 
 ## Verification
 Run the 25 exact commands in .claude/rules/verify-supplements.md separately and in order. Include

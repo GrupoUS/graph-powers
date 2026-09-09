@@ -77,10 +77,13 @@ jobs:
       - name: Installed client packages gate permissive posture
         run: python3 .github/test_hook_clients.py
 
-      - name: Hermes native package and registration gate
+      - name: Hermes generated package and static proof (runtime unverified)
         run: |
-          python3 -X utf8 .github/test_hermes.py
-          python3 -X utf8 bin/verify-hook-clients.py --client hermes --plugin-root "$PWD" --project-dir "$PWD" --json
+          bun hermes/install.mjs --package-only
+          bun hermes/install.mjs --check
+          python3 -X utf8 .github/test_hermes_package.py
+          python3 -X utf8 .github/test_hermes.py --static
+          python3 -X utf8 bin/verify-hook-clients.py --client hermes --hermes-proof static --plugin-root . --package-root hermes/package --json
 
       - name: Structured planning and TDD contract
         run: python3 skills/planning/scripts/test_sdd.py

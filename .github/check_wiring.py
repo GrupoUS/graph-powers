@@ -29,10 +29,15 @@ external namespace is skipped rather than guessed at, and anything ambiguous is 
 
 from __future__ import annotations
 
+import ast
 import glob
 import os
 import re
 import sys
+from pathlib import Path
+
+from check_file_references import candidates as file_candidates
+from check_file_references import canonical_source
 
 # Namespaced references belong to somebody else's plugin. This repository cannot open that plugin's
 # tree in CI — but "cannot verify" was read as "do not look", and a name nobody looked at stayed
@@ -67,7 +72,8 @@ EXTERNAL_SKILLS = {
     # `skills/apple-design/SKILL.md`, both present in the upstream tree (checked 2026-08-26 against
     # the GitHub tree API). Optional supplements to `skills/animate`: `/design` loads them when
     # installed and says so when absent. Declared in README.md.
-    "emil-design-eng", "apple-design",
+    "emil-design-eng",
+    "apple-design",
 }
 
 # `plugin:skill` is the shape itself, written out in prose that explains the shape. It is not a
@@ -77,8 +83,12 @@ PLACEHOLDER_ROUTES = {"plugin:skill", "plugin:agent", "plugin:command"}
 # Names that are roles in prose, not routing targets. Each one was checked by hand once; the
 # rubric at references/rubrics/skill-improver-rubric.md warns about exactly this class.
 ROLE_LABELS = {
-    "code archaeologist", "regression hunter", "evidence collector",
-    "db state inspector", "db-state-inspector", "main",
+    "code archaeologist",
+    "regression hunter",
+    "evidence collector",
+    "db state inspector",
+    "db-state-inspector",
+    "main",
 }
 
 SCAN = ["agents", "commands", "skills", "hermes", "references", "templates", "hooks", "workflows"]
@@ -101,9 +111,11 @@ WEAK_MODELS = {"inherit", "haiku"}
 
 
 def external_problem(path: str, line: int, name: str, kind: str) -> str:
-    return (f"{path}:{line}: routes to `{name}`, a {kind} of another plugin that is not declared "
-            f"in EXTERNAL_ROUTES — check the name against that plugin's tree and add it there, or "
-            f"fix the spelling")
+    return (
+        f"{path}:{line}: routes to `{name}`, a {kind} of another plugin that is not declared "
+        f"in EXTERNAL_ROUTES — check the name against that plugin's tree and add it there, or "
+        f"fix the spelling"
+    )
 
 
 def scan_files() -> list[str]:
@@ -111,13 +123,60 @@ def scan_files() -> list[str]:
     for root in SCAN:
         for ext in ("md", "py", "js", "mjs"):
             out += glob.glob(f"{root}/**/*.{ext}", recursive=True)
-    out += [f for f in ("AGENTS.md", "AGENT_SETUP.md", "README.md", "CONTRIBUTING.md",
-                        "DESIGN.md", "PRODUCT.md", "REVIEW.md") if os.path.exists(f)]
+    out += [
+        f
+        for f in (
+            "AGENTS.md",
+            "AGENT_SETUP.md",
+            "README.md",
+            "CONTRIBUTING.md",
+            "DESIGN.md",
+            "PRODUCT.md",
+            "REVIEW.md",
+        )
+        if os.path.exists(f)
+    ]
     return sorted(set(out))
 
 
 def read(path: str) -> str:
     return open(path, encoding="utf-8", errors="replace").read()
+
+
+def routing_text(path: str) -> str:
+    """A regex pattern is syntax for matching calls, not itself a prescribed call."""
+    text = read(path)
+    if not path.endswith(".py"):
+        return text
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    lines = text.splitlines(keepends=True)
+    spans = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "re"
+            and node.func.attr
+            in {"compile", "sub", "search", "match", "fullmatch", "finditer", "findall", "split"}
+            and node.args
+            and isinstance(node.args[0], (ast.Constant, ast.JoinedStr))
+        ):
+            pattern = node.args[0]
+            assert pattern.end_lineno is not None and pattern.end_col_offset is not None
+            start = sum(map(len, lines[: pattern.lineno - 1])) + len(
+                lines[pattern.lineno - 1].encode()[: pattern.col_offset].decode()
+            )
+            end = sum(map(len, lines[: pattern.end_lineno - 1])) + len(
+                lines[pattern.end_lineno - 1].encode()[: pattern.end_col_offset].decode()
+            )
+            spans.append((start, end))
+    for start, end in sorted(spans, reverse=True):
+        text = text[:start] + re.sub(r"[^\n]", " ", text[start:end]) + text[end:]
+    return text
 
 
 def lineno(text: str, pos: int) -> int:
@@ -135,7 +194,9 @@ def have_skills() -> set[str]:
 def have_hermes_registrations() -> set[str]:
     """Derive the native Hermes namespace from the same source directories as __init__.py."""
     names = have_skills()
-    names.update(os.path.basename(os.path.dirname(f)) for f in glob.glob("hermes/skills/*/SKILL.md"))
+    names.update(
+        os.path.basename(os.path.dirname(f)) for f in glob.glob("hermes/skills/*/SKILL.md")
+    )
     names.update(
         os.path.basename(f)[:-3]
         for f in glob.glob("commands/*.md")
@@ -204,8 +265,12 @@ def sections_of(path: str) -> set[str]:
 
 def resolve(cited: str, base: str) -> str | None:
     """A cited path, resolved the way every other gate in this repository resolves one."""
-    for candidate in (cited, os.path.join(base, cited),
-                      os.path.join(base, "..", cited), os.path.join(base, "../..", cited)):
+    for candidate in (
+        cited,
+        os.path.join(base, cited),
+        os.path.join(base, "..", cited),
+        os.path.join(base, "../..", cited),
+    ):
         if os.path.exists(candidate):
             return os.path.normpath(candidate)
     # Cited by bare filename — accept it only when the name is unambiguous in the tree.
@@ -233,7 +298,7 @@ def frontmatter_field(block: str, key: str) -> list[str] | None:
     if inline:
         return [v.strip().strip("\"'[]") for v in inline.split(",") if v.strip()]
     values: list[str] = []
-    for line in block[m.end():].splitlines():
+    for line in block[m.end() :].splitlines():
         if not line.strip():
             continue
         if not line.lstrip().startswith("- "):
@@ -342,17 +407,19 @@ def namespaced_spawns() -> list[str]:
     ours = have_agents()
     if not ours:
         return problems
-    literal = re.compile(r"""subagent_type\s*[:=]\s*["']?(?!graph-powers:)("""
-                         + "|".join(sorted(ours)) + r""")\b""")
+    literal = re.compile(
+        r"""subagent_type\s*[:=]\s*["']?(?!graph-powers:)(""" + "|".join(sorted(ours)) + r""")\b"""
+    )
     # A backticked bare name in a routing file is a dispatch instruction too, and it is the shape
     # the literal check above cannot see: an audit found 129 of them across fifteen files —
     # role labels in fenced blocks, table cells, and prose reading "spawn `explorer`". They hand
     # the reader the form that does not resolve.
     backticked = re.compile(r"`(?!graph-powers:)(" + "|".join(sorted(ours)) + r")`")
     for path in scan_files():
-        if os.path.dirname(path) == "agents":
-            continue          # an agent describing itself is not prescribing a spawn
-        text = read(path)
+        rel = canonical_source(Path.cwd(), Path(path).absolute()).as_posix()
+        if os.path.dirname(rel) == "agents":
+            continue  # an agent describing itself is not prescribing a spawn
+        text = routing_text(path)
         for m in literal.finditer(text):
             problems.append(
                 f"{path}:{lineno(text, m.start())}: prescribes `subagent_type: {m.group(1)}` — "
@@ -362,13 +429,12 @@ def namespaced_spawns() -> list[str]:
         # describe the host project, the rubrics describe what an auditor checks, the
         # prompt-engineering references discuss how agents are written, and `workflows/*.js` holds
         # bare names in `PLUGIN_AGENTS` precisely so `AG()` can add the namespace.
-        rel = path.replace(os.sep, "/")
-        if (rel in ("REVIEW.md", "DESIGN.md", "PRODUCT.md", "AGENTS.md")
-                or rel.startswith(("references/rubrics/", "skills/senior-prompt-engineer/",
-                                   "workflows/"))):
+        if rel in ("REVIEW.md", "DESIGN.md", "PRODUCT.md", "AGENTS.md") or rel.startswith(
+            ("references/rubrics/", "skills/senior-prompt-engineer/", "workflows/")
+        ):
             continue
         for m in backticked.finditer(text):
-            line = text[text.rfind("\n", 0, m.start()) + 1:text.find("\n", m.start())]
+            line = text[text.rfind("\n", 0, m.start()) + 1 : text.find("\n", m.start())]
             # A quoted CLI error message has to keep the bare name it actually prints.
             if "not found" in line or "Valid:" in line or "Unknown subagent_type" in line:
                 continue
@@ -398,8 +464,9 @@ def external_routes() -> list[str]:
     namespaces = {n.split(":", 1)[0] for n in EXTERNAL_ROUTES}
     if not namespaces:
         return problems
-    ref = re.compile(r"`(" + "|".join(sorted(map(re.escape, namespaces)))
-                     + r"):([a-z0-9][a-z0-9-]*)`")
+    ref = re.compile(
+        r"`(" + "|".join(sorted(map(re.escape, namespaces))) + r"):([a-z0-9][a-z0-9-]*)`"
+    )
     for path in scan_files():
         text = read(path)
         for m in ref.finditer(text):
@@ -459,7 +526,12 @@ def debug_perf_routing(debug: str | None = None, perf: str | None = None) -> lis
 
 
 def main() -> int:
-    agents, skills, workflows, rules = have_agents(), have_skills(), have_workflows(), have_rule_templates()
+    agents, skills, workflows, rules = (
+        have_agents(),
+        have_skills(),
+        have_workflows(),
+        have_rule_templates(),
+    )
     hermes = have_hermes_registrations()
     problems: list[str] = hermes_registration_collisions()
     checked = 0
@@ -472,21 +544,25 @@ def main() -> int:
     # ordinary English and constantly refer to a step of the CURRENT file while a filename happens
     # to sit nearby — a table row reading "`layer-map.md` cross-check (Step 3)" means Step 3 of the
     # file you are reading. So those two only count when they are glued to the filename.
-    section_re = re.compile(r"([A-Za-z0-9._/-]+\.md)`?[^\n]{0,24}?§\s*([0-9]+(?:\.[0-9]+)*[a-z]?)\b")
-    phase_re = re.compile(r"([A-Za-z0-9._/-]+\.md)`?\s{0,2}(?:Phase|Step)\s*([0-9]+(?:\.[0-9]+)*[a-z]?)\b")
+    section_re = re.compile(
+        r"([A-Za-z0-9._/-]+\.md)`?[^`\n]{0,24}?§\s*([0-9]+(?:\.[0-9]+)*[a-z]?)\b"
+    )
+    phase_re = re.compile(
+        r"([A-Za-z0-9._/-]+\.md)`?\s{0,2}(?:Phase|Step)\s*([0-9]+(?:\.[0-9]+)*[a-z]?)\b"
+    )
 
     # The three root specs describe what the HOST project's file must contain. A citation of
     # `DESIGN.md § 15` is about the host's design authority, which this repository does not have
     # and cannot check. Verifying it against our own spec would report a defect that does not exist.
     HOST_SPECS = {"DESIGN.md", "PRODUCT.md", "REVIEW.md"}
     subagent_re = re.compile(r"""subagent_type["']?\s*[:=]\s*["']([^"']+)["']""")
-    skill_re = re.compile(r"""Skill\(\s*["']([^"']+)["']""")
+    skill_re = re.compile(r"""(?:Skill|skill_view)\(\s*["']([^"']+)["']""")
     workflow_re = re.compile(r"""Workflow\(\s*\{[^}]*?name:\s*["']([^"']+)["']""")
     rules_re = re.compile(r"\$\{rulesDir\}/([A-Za-z0-9._-]+\.md)")
     plugin_path_re = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9._/-]+)")
 
     for path in scan_files():
-        text = read(path)
+        text = routing_text(path)
         base = os.path.dirname(path)
 
         for m in subagent_re.finditer(text):
@@ -500,15 +576,21 @@ def main() -> int:
                     problems.append(external_problem(path, lineno(text, m.start()), name, "agent"))
                 continue
             checked += 1
-            if name.startswith(OWN_NAMESPACE + ":") and bare in hermes and bare.startswith("agent-"):
+            if (
+                name.startswith(OWN_NAMESPACE + ":")
+                and bare in hermes
+                and bare.startswith("agent-")
+            ):
                 continue
             if bare not in agents:
-                problems.append(f"{path}:{lineno(text, m.start())}: subagent_type \"{name}\" — no agents/{bare}.md")
+                problems.append(
+                    f'{path}:{lineno(text, m.start())}: subagent_type "{name}" — no agents/{bare}.md'
+                )
 
         for m in skill_re.finditer(text):
             name = m.group(1).strip()
             bare = name.split(":", 1)[1] if name.startswith(OWN_NAMESPACE + ":") else name
-            if "$" in bare or "<" in bare:
+            if "$" in bare or "<" in bare or "{" in bare:
                 continue
             if ":" in bare:
                 checked += 1
@@ -519,7 +601,9 @@ def main() -> int:
             if name.startswith(OWN_NAMESPACE + ":") and bare in hermes:
                 continue
             if bare not in skills and bare not in EXTERNAL_SKILLS:
-                problems.append(f"{path}:{lineno(text, m.start())}: Skill(\"{name}\") — no skills/{bare}/SKILL.md")
+                problems.append(
+                    f'{path}:{lineno(text, m.start())}: Skill("{name}") — no skills/{bare}/SKILL.md'
+                )
 
         for m in workflow_re.finditer(text):
             name = m.group(1).strip()
@@ -530,7 +614,9 @@ def main() -> int:
                 continue
             checked += 1
             if bare not in workflows:
-                problems.append(f"{path}:{lineno(text, m.start())}: Workflow({{name:'{name}'}}) — no workflows/{bare}.js")
+                problems.append(
+                    f"{path}:{lineno(text, m.start())}: Workflow({{name:'{name}'}}) — no workflows/{bare}.js"
+                )
             elif not name.startswith(OWN_NAMESPACE + ":"):
                 problems.append(
                     f"{path}:{lineno(text, m.start())}: Workflow({{name:'{name}'}}) — a plugin workflow "
@@ -567,11 +653,21 @@ def main() -> int:
             target, sec = m.group(1), m.group(2)
             if os.path.basename(target) in HOST_SPECS:
                 continue
-            resolved = resolve(target, base)
+            if Path(path).parts[:3] == ("hermes", "package", "skills"):
+                resolved = next(
+                    (
+                        str(candidate)
+                        for candidate in file_candidates(Path.cwd(), Path(path).absolute(), target)
+                        if candidate.is_file()
+                    ),
+                    None,
+                )
+            else:
+                resolved = resolve(target, base)
             if resolved is None or not resolved.endswith(".md"):
-                continue                      # the path gate owns missing files; do not double-report
+                continue  # the path gate owns missing files; do not double-report
             if os.path.normpath(resolved) == os.path.normpath(path):
-                continue                      # a file citing its own section — the reader is already there
+                continue  # a file citing its own section — the reader is already there
             checked += 1
             if sec not in sections_of(resolved):
                 problems.append(
@@ -586,11 +682,15 @@ def main() -> int:
         print(f"AGENT:   {p}")
     for p in problems:
         print(f"WIRING: {p}")
-    print(f"\n{checked} routing references checked, {len(problems)} unresolved; "
-          f"{len(glob.glob('agents/*.md'))} agents checked, {len(frontmatter)} that would not register")
+    print(
+        f"\n{checked} routing references checked, {len(problems)} unresolved; "
+        f"{len(glob.glob('agents/*.md'))} agents checked, {len(frontmatter)} that would not register"
+    )
     problems += frontmatter
     if problems:
-        print("::error::a routing reference does not resolve — the model reads it, finds nothing, and continues")
+        print(
+            "::error::a routing reference does not resolve — the model reads it, finds nothing, and continues"
+        )
     return 1 if problems else 0
 
 

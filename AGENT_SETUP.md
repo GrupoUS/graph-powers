@@ -336,16 +336,33 @@ list. Restart Grok after installation/update; the background updater does not re
 
 ### 9i — Hermes
 
+Static development checks run with the reviewed source checkout as the working directory.
+`<SOURCE>` is its absolute path, not an installed Hermes package; these development scripts are
+not included in the distribution. The generated candidate is at its `hermes/package` path:
+
 ```bash
-hermes plugins install GrupoUS/graph-powers --enable
-hermes plugins show graph-powers
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client hermes --plugin-root "<PLUGIN>" --package-root "<HERMES_ROOT>" --project-dir . --expected-version <VERSION>
+bun "<SOURCE>/hermes/install.mjs" --package-only
+bun "<SOURCE>/hermes/install.mjs" --check
+python -X utf8 "<SOURCE>/.github/test_hermes.py" --static
+python -X utf8 "<SOURCE>/bin/verify-hook-clients.py" --client hermes --hermes-proof static --plugin-root "<SOURCE>" --package-root "<SOURCE>/hermes/package" --expected-version <VERSION> --json
 ```
 
-Prove the **installed** package path/version and its native registrations with Hermes Doctor,
-then load a skill, command document and agent contract in a fresh session. This package registers
-skills/contracts, not executable Graph Powers hooks: report `NOT ENFORCED`. Do not invent a
-personal adapter or bypass the community-plugin scanner.
+Static proof compares package bytes and provenance with the trusted source generator. It never
+imports the plugin, runs Doctor or scans/installs anything; PASS keeps runtime `UNVERIFIED`.
+The default Hermes result in `--client all` has the same static meaning.
+
+Native installation is a later, separately approved sandbox task: use disposable credential-free
+HOME/HERMES_HOME, an approved package source at a full commit SHA and `--no-enable`. Match the
+exact package bytes to the scanner result before any import or enablement. DANGEROUS stops;
+CAUTION needs an explicit human decision. Preserve canonical provenance separately from any
+sandbox fixture revision. Then prove native installed metadata/identity, authorized Doctor,
+fresh loads of planning/plan/agent-explorer and profile isolation.
+
+Runtime validation is not implemented. The reserved `--hermes-proof runtime` route (also selected
+by the test runner's `--runtime`) requires explicit installed `--package-root` and
+`--expected-version`, then fails nonzero with the pending proof requirements. It cannot certify
+an installation. Graph Powers hooks remain `NOT ENFORCED`; model/tool frontmatter is descriptive,
+and the parent must apply actual host policy and approvals.
 
 ### 9j — Zed
 

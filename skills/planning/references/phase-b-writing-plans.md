@@ -41,9 +41,10 @@ If the design authority contains independent subsystems, stop and propose one pl
 useful, testable slice. A long input is not automatically several plans; a slice is independent only when a
 reviewer could accept it while rejecting its neighbour.
 
-Map every file the work creates or modifies, its single responsibility, and the interfaces between
-files. Follow the repository's existing layout. Split a touched file only when the change needs that
-seam now; do not reorganize the tree for hypothetical future work.
+Reread the objective, constraints, relevant findings and rejected options (Phase A Step 3) before mapping
+files, responsibilities and interfaces. Carry binding decisions into Acceptance, Needs and proofs;
+link the research, keeping the approved spec unchanged. Follow the existing layout and split files
+only where this change needs a seam.
 
 KISS and YAGNI bind the plan: fold setup, scaffolding, config and docs into the task whose
 deliverable needs them. Do not create a task, abstraction, flag or compatibility path without a

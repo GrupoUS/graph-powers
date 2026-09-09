@@ -1,0 +1,119 @@
+{
+  "skill_name": "animate",
+  "notes": "Positives must fire animate and land in the right mode: build writes code from the gate and the tables, or refuses at the gate; review returns a Before/After/Why table and Block or Approve; audit is read-only, severity-ranked, and stops for a pick; find caps its list and names rejected candidates. Negatives sit on the real borders: designer (visual direction), /debug (a broken animation), mobile-developer (React Native), the project's Astro route doctrine (a client router is the project's call). Run one invocation per case id with --threshold 1.0; prose assertions use (?i) regex because responses capitalise sentence-initially.",
+  "evals": [
+    {
+      "id": "pos-build-dropdown",
+      "polarity": "positive",
+      "prompt": "Add an open/close animation to the dropdown menu in src/components/Menu.tsx. It uses Base UI.",
+      "expected_output": "Fires animate in build mode. Names the tier (occasional) and the purpose (spatial consistency), scales from the trigger with transform-origin, enters from scale(0.95) plus opacity 0 on the strong ease-out curve at 150-250ms, ships prefers-reduced-motion, and writes the code rather than offering options.",
+      "assertions": [
+        { "id": "A01", "description": "The skill fires by name.", "check": "regex: (?i)\\banimate\\b", "critical": true },
+        { "id": "A02", "description": "Names the frequency tier or the purpose from the gate.", "check": "regex: (?i)(occasional|spatial consistency|state indication|preventing a jarring change)", "critical": true },
+        { "id": "A03", "description": "Scales from the trigger, not from centre.", "check": "regex: (?i)transform-origin", "critical": true },
+        { "id": "A04", "description": "Uses the strong ease-out curve from the table, not an approximation.", "check": "contains: cubic-bezier(0.23, 1, 0.32, 1)", "critical": true },
+        { "id": "A05", "description": "Enters from a near-full scale rather than scale(0).", "check": "regex: scale\\(0\\.9[0-9]?\\)", "critical": true },
+        { "id": "A06", "description": "Ships reduced motion with the animation.", "check": "contains: prefers-reduced-motion", "critical": true },
+        { "id": "A07", "description": "Duration lands in the dropdown budget.", "check": "regex: \\b(1[5-9]0|2[0-5]0)ms\\b", "critical": false }
+      ]
+    },
+    {
+      "id": "pos-build-refuses-keyboard-action",
+      "polarity": "positive",
+      "prompt": "Animate the command palette open and close — it is on Cmd+K and I want it to feel smooth.",
+      "expected_output": "Fires animate, runs the gate, and refuses: a keyboard-initiated action met 100+ times a day gets no animation. States which question killed it, cites Raycast or the frequency tier, and offers the non-motion alternative — an instant open, press feedback on the items at most. Writes no open/close animation.",
+      "assertions": [
+        { "id": "A01", "description": "The skill fires by name.", "check": "regex: (?i)\\banimate\\b", "critical": true },
+        { "id": "A02", "description": "Refuses on frequency or keyboard grounds, stated positively.", "check": "regex: (?i)(no animation|should not animate|does not animate|stays instant|instant)", "critical": true },
+        { "id": "A03", "description": "Names the disqualifier.", "check": "regex: (?i)(keyboard|100\\+|hundreds of times)", "critical": true },
+        { "id": "A04", "description": "Offers the non-motion alternative.", "check": "regex: (?i)(alternative|instead|static affordance|instant state change)", "critical": true },
+        { "id": "A05", "description": "Does not write an open/close transition for the palette.", "check": "regex: (?is)^(?!.*\\.palette\\s*\\{[^}]*transition)", "critical": false }
+      ]
+    },
+    {
+      "id": "pos-review-diff",
+      "polarity": "positive",
+      "prompt": "Review the animation in this diff before I merge:\n\n.dropdown {\n  transition: all 300ms ease-in;\n  transform-origin: center;\n}\n.dropdown[data-closed] {\n  transform: scale(0);\n  opacity: 0;\n}",
+      "expected_output": "Fires animate in review mode. Returns a Before/After/Why findings table naming transition: all, ease-in and scale(0) with exact replacements from the tables, the verdict by tier, and an explicit Block.",
+      "assertions": [
+        { "id": "A01", "description": "The skill fires by name.", "check": "regex: (?i)\\banimate\\b", "critical": true },
+        { "id": "A02", "description": "Produces the findings table header.", "check": "regex: (?i)\\|\\s*before\\s*\\|\\s*after\\s*\\|\\s*why\\s*\\|", "critical": true },
+        { "id": "A03", "description": "Flags transition: all.", "check": "contains: transition: all", "critical": true },
+        { "id": "A04", "description": "Flags ease-in and replaces it with the strong ease-out.", "check": "contains: cubic-bezier(0.23, 1, 0.32, 1)", "critical": true },
+        { "id": "A05", "description": "Flags scale(0) and replaces it with a near-full scale plus opacity.", "check": "regex: scale\\(0\\.9[0-9]?\\)", "critical": true },
+        { "id": "A06", "description": "Closes with an explicit Block.", "check": "regex: (?i)\\*\\*block\\b|\\bverdict\\b[^\\n]*\\bblock\\b", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-audit-codebase",
+      "polarity": "positive",
+      "prompt": "Audit the motion across our React app and give me a roadmap of the animation fixes worth doing.",
+      "expected_output": "Fires animate in audit mode. Runs recon (stack, tokens, personality, frequency map), sweeps the eight categories read-only, vets findings at file:line, returns one severity-ranked table ordered by leverage, and stops for the user to pick before writing plans into the plan directory.",
+      "assertions": [
+        { "id": "A01", "description": "The skill fires by name.", "check": "regex: (?i)\\banimate\\b", "critical": true },
+        { "id": "A02", "description": "Runs recon before judging.", "check": "regex: (?i)\\brecon\\b", "critical": true },
+        { "id": "A03", "description": "Ranks by severity.", "check": "regex: (?i)\\b(HIGH|MEDIUM|LOW)\\b", "critical": true },
+        { "id": "A04", "description": "Stays read-only on source and writes plans only.", "check": "regex: (?i)(read-only|no source (file|code) (was |is )?(edited|changed|modified)|plans? only|writes? nothing but)", "critical": true },
+        { "id": "A05", "description": "Stops for the user to pick before writing plans.", "check": "regex: (?i)(select|pick|choose) which", "critical": true },
+        { "id": "A06", "description": "Cites findings at file:line.", "check": "regex: \\w+\\.(tsx?|css|jsx?):\\d+", "critical": false }
+      ]
+    },
+    {
+      "id": "pos-find-opportunities",
+      "polarity": "positive",
+      "prompt": "What could be animated in the dashboard to make it feel more alive? It feels flat.",
+      "expected_output": "Fires animate in find mode. Sweeps the seams, gates every candidate, returns at most 5-7 suggestions with exact values, and a rejected-candidates section naming what was deliberately not suggested and which gate question killed it — on a dashboard, a short list.",
+      "assertions": [
+        { "id": "A01", "description": "The skill fires by name.", "check": "regex: (?i)\\banimate\\b", "critical": true },
+        { "id": "A02", "description": "Names the rejected candidates section.", "check": "regex: (?i)rejected", "critical": true },
+        { "id": "A03", "description": "Every suggestion carries an exact value.", "check": "regex: (cubic-bezier\\(|\\d+ms|type: \"spring\")", "critical": true },
+        { "id": "A04", "description": "Names the gate question that killed a rejection.", "check": "regex: (?i)(keyboard|100\\+|functional data|decoration hinders|tens a day|tens/day)", "critical": true },
+        { "id": "A05", "description": "Practises restraint on a dashboard.", "check": "regex: (?i)(restraint|less motion|fewer|crisp|already close to right)", "critical": false }
+      ]
+    },
+    {
+      "id": "neg-visual-direction",
+      "polarity": "negative",
+      "prompt": "The landing page looks like every other SaaS page. Give it a real look and feel that is ours.",
+      "expected_output": "Routes to designer for the visual direction: subject, palette, type, signature. Motion is at most the mood line in the direction contract; no curve or duration is chosen here.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to designer.", "check": "regex: (?i)\\bdesigner\\b", "critical": true },
+        { "id": "A02", "description": "Does not choose a curve.", "check": "regex: (?is)^(?!.*cubic-bezier)", "critical": true },
+        { "id": "A03", "description": "Does not open a motion findings table.", "check": "regex: (?is)^(?!.*\\|\\s*before\\s*\\|\\s*after\\s*\\|)", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-broken-animation",
+      "polarity": "negative",
+      "prompt": "The drawer stopped animating after we upgraded Motion — it just snaps open and the console says TypeError: Cannot read properties of undefined (reading 'animate').",
+      "expected_output": "Routes to /debug: reproduce, isolate, find the root cause of the TypeError. Review mode judges motion that runs; this does not run. No findings table, no easing advice before the error is understood.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to the debug workflow.", "check": "regex: (?i)(/debug|graph-powers:debugger|systematic-debugging|reproduce|root cause)", "critical": true },
+        { "id": "A02", "description": "Does not open a motion findings table.", "check": "regex: (?is)^(?!.*\\|\\s*before\\s*\\|\\s*after\\s*\\|)", "critical": true },
+        { "id": "A03", "description": "Does not tune easing before the error is understood.", "check": "regex: (?is)^(?!.*cubic-bezier)", "critical": false }
+      ]
+    },
+    {
+      "id": "neg-react-native-sheet",
+      "polarity": "negative",
+      "prompt": "Add a spring animation to the bottom sheet in our Expo app so it feels native.",
+      "expected_output": "Routes to mobile-developer with Reanimated on the UI thread. None of the CSS recipes apply; no @starting-style, no cubic-bezier tokens.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to the mobile lane.", "check": "regex: (?i)(mobile-developer|reanimated|react native)", "critical": true },
+        { "id": "A02", "description": "Does not reach for a CSS recipe.", "check": "regex: (?is)^(?!.*@starting-style)", "critical": true },
+        { "id": "A03", "description": "Does not hand over CSS curve tokens.", "check": "regex: (?is)^(?!.*--ease-out)", "critical": false }
+      ]
+    },
+    {
+      "id": "neg-astro-route-transitions",
+      "polarity": "negative",
+      "prompt": "Add page transitions between routes on our Astro site so navigation feels smoother.",
+      "expected_output": "Reads the project's route doctrine first — and the landing-page-design Astro floor when this is a landing or marketing page. Whether a client router (ClientRouter) exists at all is the project's call. A static-MPA project gets no transition router; only after that decision would any motion be tuned.",
+      "assertions": [
+        { "id": "A01", "description": "Goes through the project's Astro route doctrine first.", "check": "regex: (?i)(route doctrine|landing-page-design)", "critical": true },
+        { "id": "A02", "description": "Treats the client router as the project's decision.", "check": "regex: (?i)(project'?s (own )?(call|decision|doctrine)|static MPA|static-MPA)", "critical": true },
+        { "id": "A03", "description": "Does not write a crossfade recipe before that decision.", "check": "regex: (?is)^(?!.*cubic-bezier)", "critical": false }
+      ]
+    }
+  ]
+}

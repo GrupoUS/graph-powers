@@ -182,8 +182,28 @@ When writing/resuming a checkpoint, read `${CLAUDE_PLUGIN_ROOT}/commands/evolve.
 
 Save to `<plan dir>/HANDOFF.md`, linking the active plan/sprint and existing snapshots/ledgers instead
 of pasting them. `/evolve handoff` maintains the session entry pointing to that plan checkpoint.
-Resume with the checkpoint and required linked state, preserving restrictions and scoped approval
-provenance; retain valid gates and recheck invalidated evidence before the one next action.
+On resume, recover six answers from the checkpoint and linked artifacts, marking missing facts:
+
+1. Where are we? Canonical project/worktree, selected plan, phase and recorded frontier.
+2. What is the objective? Approved scope/acceptance, restrictions and approval provenance.
+3. What remains? Pending tasks, dependency/gate barriers and retained execution budgets.
+4. What was learned? Sourced findings, rejected alternatives and distinct failed hypotheses.
+5. What is done? Recorded work and checks/reviews with matching current inputs.
+6. What is next? One bounded eligible action, or the missing selection/proof needed first.
+
+Use Phase C's read-only status before resume/waves. Load `nextAction` by ID and source line, then
+relevant Needs, spec decisions and linked proof; recheck the ID if lines moved. Status is the
+recorded frontier, not approval or fresh verification: `approval: NOT_VERIFIED`,
+`checksExecuted: false` and counts never prove success. `LEASE_CONFLICT` stops writers;
+`BLOCKED_DEPENDENCIES` needs missing dependency proof; `NEEDS_FINAL_VERIFICATION` routes to final
+acceptance, never DONE. Status replaces neither CHECK, independent review nor validate/acquire.
+
+Reuse valid research; invalidate only findings whose relevant sources changed. Approved specs stay
+unchanged during execution. The controller records decision-changing findings, failed attempts and
+distinct hypotheses in existing `task-reviews.md`; changed contracts or newly requested scope after
+completion return to planning. Retain dispatch/consultation reservations and correction attempts
+across contexts; a new status query never resets caps. Preserve restrictions and scoped approval
+provenance, reuse current gates and recheck affected proof before advancing.
 
 Partial-work check: preserve local-edit approval/provenance, a no-publication restriction and the
 rejected workaround. A gate PASS for snapshot A becomes stale after a relevant uncommitted config

@@ -12,36 +12,53 @@ metadata:
 # Graph engineering in Hermes
 
 Graph Powers is canonical upstream; this adapter only translates names and limits Hermes cannot
-provide. Read the installed plugin's referenced files with `read_file`; do not maintain another
-inventory.
+provide. Read registered documents with `skill_view("graph-powers:<name>")`. In the generated
+package every registration shares the `skills/` parent. Read an auxiliary file with
+`skill_view("graph-powers:graph-engineering", file_path="content/<source-path>")`; paths never
+traverse above that common parent. Auxiliary content is served raw, without template expansion.
+Resolve the installed absolute content path before terminal execution; preserve the declared
+host-project working directory. Do not maintain another inventory.
 
 | Graph Powers | Hermes |
 |---|---|
 | Agent invocation | `delegate_task(goal=..., context=...)` with the selected `agent-<slug>` contract |
-| Graph Powers skill invocation | `skill_view("graph-powers:name")` |
+| Graph Powers skill invocation | `skill_view("graph-powers:<name>")` |
 | Read/Grep/Glob/Bash | `read_file` / `search_files` / `terminal` |
 | Web tools | `web_search` / `web_extract`, unless a needed MCP is configured |
-| Background read-only spawn | top-level `delegate_task` already runs in background |
+| Background read-only spawn | set `background=true` explicitly; the native default is false |
 | Native hooks | Unsupported: parent carries safety rules and approvals |
 | Child clarification | parent `clarify`; child returns the decision point |
 
+Slash names identify contract documents, not installed Hermes slash commands. Native `Workflow`
+is unsupported; use the planning method and native delegation. Source-client workflow authoring,
+setup guides, hook sources and their checkers are included only when referenced for inspection or
+an explicitly authorized external-client task. They install no hook and grant no execution
+permission. No model-family or tool-list metadata can bypass actual host policy.
+
 ## 1. Classify and load only needed context
 
-Use `references/shared/020-complexity-routing.md` and `025-solution-ladder.md`. L1-L2 stay local;
+Use `references/shared/020-complexity-routing.md` and `references/shared/025-solution-ladder.md`. L1-L2 stay local;
 L3 may delegate once; L4-L5 use a disjoint batch; L6+ plans before waves. Read project config when
 present, then only matching rules and the nearest authority. Missing config/rule is a stated gap,
 not an error or an invented default.
 
 ## 2. Choose and dispatch a specialist
 
-Use `030-agent-assignment-matrix.md` and `060-skill-domain-matrix.md`. State the agent contract,
+Use `references/shared/030-agent-assignment-matrix.md` and `references/shared/060-skill-domain-matrix.md`. State the agent contract,
 why it fits, required skills and deliberate omissions, and the outcome. Read the contract through
 `skill_view("graph-powers:agent-<slug>")`; a read-only contract must become an explicit child
 `MUST NOT DO`, because Hermes children inherit parent tools.
 
+The `model`, `tools`, `disallowedTools`, `skills` and `memory` frontmatter preserves the source
+contract, not native Hermes enforcement. The parent supplies method context, enforces the actual
+host policy and includes read-only restrictions in the child prompt. Read-only wording alone
+does not remove write-capable tools. Resolve the model through the live host configuration;
+Claude model-family labels are not Hermes model IDs. User approvals and host policy prevail.
+
 Use one `delegate_task(tasks=[...])` call for independent tasks. Each child gets the canonical
 seven-section prompt and Context Handoff from
-`references/execution-floor.md §4` and the handoff contract. Declare exact disjoint `Owns:` paths.
+`references/execution-floor.md §4` and
+`skills/senior-prompt-engineer/references/agent-handoff-contracts.md`. Declare exact disjoint `Owns:` paths.
 Read live `delegate_task` limits; do not hardcode concurrency or models. Children do not delegate,
 clarify, use memory, or message. They have their own working directory, so pass absolute paths.
 
@@ -49,7 +66,7 @@ clarify, use memory, or message. They have their own working directory, so pass 
 
 `/gauntlet` and `/verify loop` are **NOT SUPPORTED** Hermes slash commands. When requested, read
 `graph-powers:gauntlet` and `graph-powers:verify`, validate the approved plan with
-`sdd.py validate ... --profile gauntlet`, and apply the normalized tier. L1-L2 is `NOT ELIGIBLE FOR
+the packaged `skills/planning/scripts/sdd.py` with `validate ... --profile gauntlet`, and apply the normalized tier. L1-L2 is `NOT ELIGIBLE FOR
 GAUNTLET`; invalid input routes to planning. For L3+, acquire the Gauntlet lease before writers,
 use disjoint waves within live limits, run each focused CHECK, then an independent critic. A capped
 or blocked lane is not success. Release only after PASS.

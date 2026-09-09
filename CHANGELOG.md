@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.20.0 — Persistent planning and verifiable resume
+
+Planning retains decision-changing research in existing spec/plan owners. Read-only `sdd.py status`
+reports the selected plan's recorded frontier, dependency/gate barriers and lease state without
+executing checks or certifying approval/completion. Explicit or active invalid bindings stop;
+ambiguous candidates require selection. Dry-run keeps conversational plans in the response.
+
+Prime queries only an identified resume. Phase C recovers linked findings and current evidence,
+preserving failed hypotheses, independent review and cumulative budgets. Focused resume fixtures
+cover selection, partial work, completion boundaries and conversational dry-run. Provenance is in
+NOTICE; Codex projections follow canonical metadata without model or permission changes.
+
+## 1.19.5 — Evidence-aware continuation and bounded review
+
+Instruction-drift review follows the changed files and their consumers. Session checkpoints retain
+constraints, approval provenance and proof validity; SessionStart guides validated resume/compact
+and conditionally names a usable handoff without loading it or executing commands. Malformed, non-object and oversized
+payloads fail open. Prime reads decisive current sources before reporting readiness.
+
+Phase C reuses matching evidence and rechecks only affected proof/dependents. Existing persistent
+reservations and correction history survive context/model changes; direct rolling-window limits
+remain unchanged. Wave and final reviews stay distinct, accepted work stops, and unavailable
+independent review remains explicit. Five focused planning cases cover these decisions.
+
 ## 1.19.4 — Optional project graph context
 
 Projects can explicitly select Graft or text-only context while absent/invalid selection retains

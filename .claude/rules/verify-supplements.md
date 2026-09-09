@@ -28,6 +28,13 @@ gate nobody needed.
 
 Run all of them, in this order, from the repository root. Every one exits 0 on success.
 
+For Hermes gates 8–9, first generate the candidate from the current source revision with
+`bun hermes/install.mjs --package-only`, then run `bun hermes/install.mjs --check`.
+These are static checks; no candidate import, scanner, Doctor or installation belongs to them.
+Runtime validation is not implemented and remains `UNVERIFIED`: the reserved
+`--hermes-proof runtime` route requires explicit installed `--package-root` and `--expected-version`
+and returns nonzero pending separately approved native identity, exact-byte scan and sandbox proof.
+
 | # | Gate | Command | A failure means |
 |---|---|---|---|
 | 1 | Manifest | `claude plugin validate .` | `plugin.json` or `marketplace.json` is malformed — the plugin will not load at all |
@@ -37,8 +44,8 @@ Run all of them, in this order, from the repository root. Every one exits 0 on s
 | 5 | Skill eval runner | `python3 skills/skill-improve/scripts/test_run_evals.py` | the eval path or CLI contract regressed |
 | 6 | Skill trigger-eval capture | `python3 skills/skill-improve/scripts/test_capture_trigger_evals.py` | clean-session trigger-eval capture drifted |
 | 7 | Oxc and Zed policy | `python3 .github/check_oxc_policy.py` | TypeScript 7, Oxc or editor policy drifted |
-| 8 | Hermes package | `python3 -X utf8 .github/test_hermes.py` | the Hermes package or registration regressed |
-| 9 | Hermes client package | `python3 -X utf8 bin/verify-hook-clients.py --client hermes --plugin-root . --project-dir . --json` | Hermes client discovery or verification regressed |
+| 8 | Hermes static regressions | `python3 -X utf8 .github/test_hermes_package.py` and `python3 -X utf8 .github/test_hermes.py --static` | package generation, byte integrity or no-import isolation regressed |
+| 9 | Hermes static package proof | `python3 -X utf8 bin/verify-hook-clients.py --client hermes --hermes-proof static --plugin-root . --package-root hermes/package --json` | source-derived inventory, closure, provenance or packaged bytes differ |
 | 10 | Hook syntax | `python3 -c "import ast,glob;[ast.parse(open(f).read()) for f in glob.glob('hooks/*.py')]"` | a hook would raise on import, and a hook that cannot start is a guardrail that is not running |
 | 11 | JSON | `python3 -c "import json,glob;[json.load(open(f)) for f in glob.glob('**/*.json',recursive=True)+glob.glob('.*/*.json')]"` | a config file is unparseable. Claude Code ignores such a file wholesale rather than erroring |
 | 12 | Workflows | `bun .github/check_workflows.mjs` | a workflow does not parse, or its `meta.name` disagrees with its filename, so the name will not resolve at runtime |

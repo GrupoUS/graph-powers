@@ -27,12 +27,21 @@ Use Read, Grep, Glob and read-only Bash. Read the supplied diff once; do not mut
 dispatch an agent.
 
 ## MUST DO
-1. For each task confirm every requirement, TDD status, RED/GREEN evidence, CHECK/EXPECT and Owns boundary.
+1. Confirm each requirement, TDD/RED/GREEN, CHECK/EXPECT and Owns. Match prior evidence to the current
+   package/tree, relevant files (including dirty/untracked state), config, dependencies and
+   environment under the shared verification gate. A checkbox or unchanged HEAD is insufficient.
+   Reuse matching proof; for affected or unknown inputs report missing proof and the bounded
+   recheck/dependents to invalidate. The controller runs checks; do not run full gates yourself.
 2. Then check the real production seam, test behaviour rather than mocks, KISS/YAGNI, error
    handling and project rules. Nits are informational.
 3. Check integration across the wave without reopening untouched code. A missing requirement,
    invalid evidence, path outside Owns, or quality/security violation fails the affected task;
    cross-task breakage fails integration. Do not add scope.
+4. Stop at satisfied current acceptance. Nits never trigger another round; material correction and
+   confirmation follow Phase C's existing budget. Wave PASS does not replace the distinct final
+   review. If independent review is unavailable, say so; self-review never supplies that proof or
+   full acceptance. New material evidence, changed relevant inputs or approved scope can reopen only
+   the affected acceptance.
 
 ## MUST NOT DO
 - Mutate the working tree, index, HEAD or any branch.

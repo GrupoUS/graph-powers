@@ -12,9 +12,10 @@
  * Powers git rails.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, lstatSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 import { readJson, writeFile } from "../codex/lib.mjs";
 
@@ -64,6 +65,22 @@ export function buildPluginManifest(claudeManifest) {
     provides_hooks: [],
     capabilities: [],
   };
+}
+
+/** Static generator protocol: no Python plugin or packaged script is ever imported. */
+export function buildPackagePlan(pluginRoot = HERE) {
+  const root = resolve(pluginRoot);
+  const manifest = buildPluginManifest(requiredClaudeManifest(root));
+  manifest.description = "Graph Powers engineering skills, command documents and agent contracts adapted for Hermes. No tools or hooks.";
+  const result = execFileSync(process.platform === "win32" ? "python" : "python3", [
+    join(HERE, "hermes/package_builder.py"), root,
+  ], {
+    input: JSON.stringify({ manifest: renderPluginManifest(manifest), version: manifest.version,
+      registrations: buildRegistrationPlan(root) }),
+    encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  return JSON.parse(result);
 }
 
 export function renderPluginManifest(manifest) {
@@ -170,6 +187,8 @@ function checkEntrypoint(pluginRoot, plan) {
 
 export function check({ pluginRoot = HERE } = {}) {
   const root = resolve(pluginRoot);
+  const planned = buildPackagePlan(root);
+  verifyPackageFiles(root, planned.files);
   const expected = renderPluginManifest(buildPluginManifest(requiredClaudeManifest(root)));
   const path = join(root, MANIFEST);
   if (!existsSync(path)) throw new Error(`Hermes manifest is missing: ${path}`);
@@ -179,7 +198,60 @@ export function check({ pluginRoot = HERE } = {}) {
   }
   const registrations = buildRegistrationPlan(root);
   checkEntrypoint(root, registrations);
-  return { manifest: buildPluginManifest(requiredClaudeManifest(root)), registrations };
+  return { manifest: buildPluginManifest(requiredClaudeManifest(root)), registrations,
+    provenance: planned.provenance };
+}
+
+function packagePaths(root, path = join(root, "hermes/package")) {
+  for (const parent of [join(root, "hermes"), path]) {
+    if (existsSync(parent) && lstatSync(parent).isSymbolicLink()) {
+      throw new Error(`package output symlink escape is not supported: ${parent}`);
+    }
+  }
+  if (!existsSync(path)) return [];
+  return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
+    const current = join(path, entry.name);
+    if (entry.isSymbolicLink()) throw new Error(`package symlink is not supported: ${current}`);
+    return entry.isDirectory() ? packagePaths(root, current) : [current];
+  });
+}
+
+function verifyPackageFiles(root, files) {
+  const output = join(root, "hermes/package");
+  for (const path of packagePaths(root)) {
+    const name = relativePath(output, path);
+    if (!Object.hasOwn(files, name)) throw new Error(`unexpected package file: ${name}`);
+  }
+  for (const [name, contents] of Object.entries(files)) {
+    const path = join(output, name);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== contents) {
+      throw new Error(`Hermes package is stale or missing: ${name}; run bun hermes/install.mjs --package-only`);
+    }
+    if (process.platform !== "win32" && contents.startsWith("#!") && (statSync(path).mode & 0o111) !== 0o111) {
+      throw new Error(`Hermes package file is not executable: ${name}; run bun hermes/install.mjs --package-only`);
+    }
+  }
+}
+
+export function emitPackage({ pluginRoot = HERE, dryRun = false } = {}) {
+  const root = resolve(pluginRoot);
+  const planned = buildPackagePlan(root);
+  // Unknown files are never deleted to make regeneration pass.
+  for (const path of packagePaths(root)) {
+    if (!Object.hasOwn(planned.files, relativePath(join(root, "hermes/package"), path))) {
+      throw new Error(`unexpected package file: ${path}`);
+    }
+  }
+  if (!dryRun) {
+    for (const [name, contents] of Object.entries(planned.files)) {
+      const path = join(root, "hermes/package", name);
+      writeFile(path, contents);
+      if (process.platform !== "win32" && contents.startsWith("#!")) {
+        chmodSync(path, statSync(path).mode | 0o111);
+      }
+    }
+  }
+  return planned;
 }
 
 export function install({
@@ -208,9 +280,18 @@ export function install({
 function main() {
   const argv = process.argv.slice(2);
   const pluginRoot = pluginRootFromArgv(argv);
+  if (argv.includes("--plan-json")) {
+    console.log(JSON.stringify(buildPackagePlan(pluginRoot).provenance, null, 2));
+    return;
+  }
+  if (argv.includes("--package-only")) {
+    const result = emitPackage({ pluginRoot, dryRun: argv.includes("--dry-run") });
+    console.log(`hermes: ${result.provenance.registrations.length} packaged registrations; runtime UNVERIFIED`);
+    return;
+  }
   if (argv.includes("--check")) {
     const result = check({ pluginRoot });
-    console.log(`hermes: ${result.registrations.length} source registrations and manifest are current`);
+    console.log(`hermes: ${result.registrations.length} registrations, source manifest and package are current; runtime UNVERIFIED`);
     return;
   }
   const result = install({

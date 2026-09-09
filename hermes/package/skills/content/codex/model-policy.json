@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "reasoningEfforts": [
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+  ],
+  "topLevelReasoningEfforts": [
+    "low",
+    "ultra"
+  ],
+  "warningCategories": {
+    "topLevelProfileDowngraded": "top-level-only-profile",
+    "topLevelEffortDowngraded": "top-level-only-effort",
+    "modelOverrideUnverified": "model-override-unverified",
+    "profileOverrideUnverified": "profile-override-unverified"
+  },
+  "legacyTiers": {
+    "haiku": "light",
+    "sonnet": "standard",
+    "fable": "standard",
+    "opus": "heavy"
+  },
+  "profiles": {
+    "judge": {
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "max",
+      "escalationProfile": null
+    },
+    "architect": {
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "max",
+      "escalationProfile": "judge"
+    },
+    "executor": {
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high",
+      "escalationProfile": "judge"
+    },
+    "verifier": {
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high",
+      "escalationProfile": "judge"
+    },
+    "scout": {
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "escalationProfile": "judge"
+    },
+    "native-ultra": {
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "ultra",
+      "topLevelOnly": true,
+      "fallbackProfile": "judge",
+      "escalationProfile": null
+    },
+    "native-economic": {
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "low",
+      "topLevelOnly": true,
+      "fallbackProfile": "executor",
+      "escalationProfile": "judge"
+    }
+  },
+  "leafAgents": [
+    "evaluator"
+  ],
+  "agents": {
+    "debugger": "executor",
+    "evaluator": "judge",
+    "explorer": "scout",
+    "frontend-specialist": "executor",
+    "librarian": "scout",
+    "mobile-developer": "executor",
+    "performance-optimizer": "executor",
+    "project-planner": "architect",
+    "security-reviewer": "judge",
+    "skill-improver": "judge",
+    "ui-ux-designer": "judge",
+    "verification": "verifier"
+  }
+}

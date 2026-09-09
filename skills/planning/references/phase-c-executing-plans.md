@@ -14,11 +14,10 @@
 
 ## Exit contract
 
-Every task has implementation and evidence, every dispatched wave has one consolidated adversarial
-Evaluator review, and every phase gate is met. Default
-execution closes with `/verify quick`; Gauntlet uses its profile's `/verify loop <PLAN_FILE>` close.
-After PASS, `/evolve auto` runs only when its lifecycle trigger applies. Stop reviewed and unstaged;
-Git actions require their own action/scope approval, retaining an existing same-scope session approval.
+Every task has implementation/evidence, every dispatched wave its consolidated adversarial review,
+and every phase gate passes. Default closes with `/verify quick`; Gauntlet with `/verify loop <PLAN_FILE>`.
+After PASS, `/evolve auto` requires its lifecycle trigger. Stop reviewed and unstaged; Git requires
+action/scope approval, retaining valid same-scope session approval.
 
 ## Step 1 — Validate and lease
 
@@ -28,12 +27,9 @@ For `--dry-run`, validate without creating state:
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
 
-The command returns exit `0` only for a structured plan and emits normalized JSON with `tier`,
-`tasks`, phase `gates` and `writeLease`; invalid plans return exit `2`. A legacy plan is rejected
-and routed to `/plan`, never inferred. The validator checks unique IDs, task and gate fields,
-checked-box evidence, existing dependencies, the `reads` payload, acyclic dependencies, task count,
-phase-gate coverage and `Owns` conflicts. File overlap is valid only when a dependency makes the
-tasks sequential.
+Exit `0` returns `tier`, `tasks`, `gates`, `writeLease`; invalid/legacy plans route to `/plan`,
+never inferred. Validation checks IDs/fields/evidence, dependencies/reads/cycles, task cap, phase
+gates and ownership. Overlap requires a sequential dependency.
 
 For a real run, atomically validate and acquire the plan-scoped lease before the first writer:
 
@@ -41,28 +37,36 @@ For a real run, atomically validate and acquire the plan-scoped lease before the
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
 ```
 
-The default profile omits a profile flag. Gauntlet appends `--profile gauntlet` to both `validate`
-and `acquire`, so its Acceptance and bundled-Skill admission checks are repeated before lease.
+Default omits profile flags. Gauntlet adds `--profile gauntlet` to validate/acquire/status;
+Acceptance and bundled-Skill checks repeat before lease.
 
-`acquire` creates `.graph-powers/logs/write-lease.json` with create-if-absent semantics and a run ID.
-Its `paths` are the validated `writeLease`, canonical repository-relative `PLAN_FILE`, the phase
-progress ledger, task-review ledger and dispatch ledger. A concurrent controller can observe the same empty state, but
-only one atomic create wins; an existing lease for another plan is a conflict and is never merged or
-overwritten. Create the workspace only after acquisition.
+`acquire` atomically creates `.graph-powers/logs/write-lease.json`: run ID and paths for
+`writeLease`, relative PLAN_FILE, progress/review/dispatch ledgers. One create wins; another plan's
+lease is never merged/overwritten. Create the workspace only after acquisition.
 
-`--dry-run` performs validation and displays routing, dependencies and the lease that would be
-created, but does not create a workspace, write a lease or dispatch an agent.
+Dry-run reports validation/routing/dependencies/proposed lease without writes or dispatch;
+conversation-only plans remain in the response until an approved non-dry run materializes them.
 
-On resume, skip only tasks whose validator object has `checked: true` and non-pending evidence.
-Their dependencies count as verified. Validation rejects a checked task that still says
-`EVIDENCE: pending`; do not infer completion from a checkbox alone.
+Before resume and each wave, read `references/loop-engineering.md § Context Reset Protocol` and
+query the selected plan (read-only; approval and current evidence remain separate):
+
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
+```
+
+Before skipping checked work, match checks/reviews to current package/tree, relevant staged,
+unstaged/untracked files, config, dependencies and environment under
+`${CLAUDE_PLUGIN_ROOT}/references/shared/015-verification-gate.md`; HEAD alone is insufficient.
+Reuse matching PASS without repeating suites/reviews for compaction; then dependencies are verified.
+Changed/unknown inputs invalidate only affected evidence/dependents: retain work, record the gap,
+obtain bounded proof before advancing. Checked `EVIDENCE: pending` fails validation; boxes are not proof.
 
 ## Step 2 — Rolling task loop
 
-Build a wave from tasks whose `Needs` are verified and whose `Owns` paths are pairwise disjoint. Then
-cluster those tasks by the same declared Graph Powers writer role and compatible context into the
-fewest useful lane packages, up to `graphGuardrails.maxParallelWave`. A task with no dependency
-payload cannot be treated as independent.
+Only `state: ACTION_REQUIRED`, `nextAction.kind: TASK` admits a writer wave in `currentPhase`.
+A pending GATE goes to Step 3; conflict/dependency blocks stop writers. Require verified `Needs`,
+disjoint `Owns` and dependency payload. Group by declared writer role/compatible context into the
+fewest useful lanes, up to `graphGuardrails.maxParallelWave`.
 
 Reserve `graph-powers:evaluator` for final review before the first wave. Before every child call:
 
@@ -70,15 +74,13 @@ Reserve `graph-powers:evaluator` for final review before the first wave. Before 
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" dispatch reserve <PLAN_FILE> --key <stable-key> --kind <kind> --role graph-powers:<agent> --max-spawns <graphGuardrails.maxSpawnsPerWorkflow>
 ```
 
-Kinds are bootstrap, writer, evaluator, correction and confirmation. Only the fresh `status:
-RESERVED` response from an atomic reservation authorizes exactly one matching child call.
-`status: ALREADY_RESERVED` is a successful resume fact, never an authorization, even though it
-returns exit 0. The persisted reservation is the irrevocable attempt and cap consumption: if the
-controller crashes after receiving `RESERVED` but before spawning, resume must not launch with that
-key. Reconcile the missing/unknown child evidence, then reserve a new stable retry key for any real
-retry; that new attempt consumes another dispatch slot. `dispatches.json` survives resume under the
-lease run ID. Reservation 9 is `BLOCKED`: persist completed/deferred IDs and return. Only a later
-user-requested run may release and reacquire; never reset automatically.
+Kinds are bootstrap, writer, evaluator, correction and confirmation. Only fresh `status: RESERVED`
+authorizes exactly one matching child call; `status: ALREADY_RESERVED` returns exit 0 as a resume
+fact, never permission to launch. Reservations irrevocably consume attempts, even after a crash
+before spawning. Reconcile missing/unknown child evidence; a retry needs a new stable key and slot.
+`dispatches.json` and correction history survive resume, compaction and model/context changes under
+the lease run ID. At `graphGuardrails.maxSpawnsPerWorkflow`, return `BLOCKED` with completed/deferred
+IDs and evidence; never clear reservations. Only a later user-requested run may release/reacquire.
 
 Cluster each package under a write-capable role from
 `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` and
@@ -99,44 +101,39 @@ Close a task only when its focused `CHECK` passes, changed paths are a subset of
 wave Evaluator verdict is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
 output (plus RED/GREEN/refactor evidence when TDD is required) and checks the task box. For either
 explicit exception status, retain its reason and run the applicable focused check. Implementers do
-not edit the plan. Append one row to the plan workspace's `task-reviews.md`: timestamp, task ID,
-package snapshot, wave Evaluator verdict, correction count and deciding check output. Failed and blocked
-attempts get rows too, so resumption does not erase why a task was retried or stopped.
+not edit the plan. The controller appends workspace `task-reviews.md` rows: timestamp, task ID,
+snapshot, wave verdict, correction count, deciding check output, failed/blocked attempts and distinct
+hypotheses. The recovery protocol owns findings and contract changes.
 
 ### Parent-mediated consultation
 
-The controller is the only consultation requester and owns the stable `taskId`, validated
-`decisionKey`, reservation, deduplication, cap and resume state. Before any consultation, tag the
-operation `consult` and use the canonical request/result envelope and `sdd.py consult reserve`; tag
-ordinary task, correction, wave Evaluator and final Evaluator calls `review`. Review calls are separate from
-consultations, do not consume the consultation budget, and must not reset its ledger on resume.
-Workers cannot spawn children; evaluators, reviewers and critics are read-only and cannot request a
-consultation. A duplicate decision key returns its recorded result, a capped request returns
-`USER_REQUIRED`, and unresolved capability or unavailable fallback returns `BLOCKED` without a spawn
-or retry; persistent uncertainty is returned to the user.
-
-Capability status is supplied by the parent and is not live-probed. Native Fable/advisor is selected
-only after positive `SUPPORTED` metadata. `UNSUPPORTED` or `UNKNOWN` selects the existing read-only
-evaluator as an explicit fallback without emitting the native backend. Record a result only through
-the same ledger with `sdd.py consult record`; the atomic, symlink-safe state lives in this plan's
-existing SDD workspace.
+Only the controller requests consultations, owning `taskId`, validated `decisionKey`, reservations,
+deduplication, caps and resume state. Use the canonical envelope in
+`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md § 2a`
+and `sdd.py consult reserve|record` in the existing atomic, symlink-safe plan workspace. Tag these
+`consult`; ordinary task/correction/wave/final calls are `review`, separate from consultation budgets.
+Retain that ledger across resume, compaction and model changes. Workers cannot spawn; read-only
+evaluators/reviewers/critics cannot consult. Duplicate keys return recorded results; caps return
+`USER_REQUIRED`. Unresolved capability or unavailable fallback is `BLOCKED` without spawn/retry;
+persistent uncertainty returns to the user. Parent-supplied `SUPPORTED` metadata alone enables native
+Fable/advisor; `UNKNOWN`/`UNSUPPORTED` selects the read-only evaluator fallback, never a live probe.
 
 ### Inline fallback
 
 If the runtime has no Agent tool, review the plan critically and surface blocking concerns before
 code, then execute tasks sequentially in the main thread. Keep the same briefs, TDD status, focused
 checks, packages, evidence writes and stop conditions; self-review each wave against both verdicts
-in the task-reviewer prompt and report that independent review was unavailable. If the Agent tool
+in the task-reviewer prompt. Report independent review as unavailable and acceptance pending that
+required proof; author checks never count as independent review or full acceptance. If the Agent tool
 exists but a declared write-capable lane does not resolve, stop — do not silently replace it with a
 general agent or the main thread.
 
 ## Step 3 — Phase gates
 
-When all tasks in a phase are closed, execute that phase's normalized `gates` in plan order. For
-each gate, run its exact `CHECK`, require both a successful exit and its `EXPECT`, then have the
-controller replace `EVIDENCE: pending` with the deciding output and check the gate box. Do not close
-the phase until every gate for it is checked with non-pending evidence. Focused task checks run per
-task and are not replaced by the phase gate. Then append the phase checkpoint to
+After all phase tasks close, run normalized `gates` in plan order: exact `CHECK`, successful exit
+and matching `EXPECT`. The controller records deciding `EVIDENCE` and checks each box; every phase
+gate must have non-pending proof before phase closure. Phase gates never replace focused task checks.
+Then append the phase checkpoint to
 `.graph-powers/logs/progress.md`: timestamp, canonical plan, phase, base `HEAD`, working-tree status,
 closed gate IDs and the next runnable or blocked task.
 
@@ -155,6 +152,12 @@ Minor findings and triage deferred or parked items. The default profile then run
 conditionally `/evolve auto` on PASS when its trigger applies, and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
 `gauntlet-loop.md § Final close` while the lease remains held. A failing final gate leaves the lease
 and working-tree state explicit until resolution or a safe abort.
+
+Wave acceptance and final acceptance remain distinct; reuse their valid evidence, never substitute
+one for the other. Apply the existing bounded material correction/confirmation policy and retained
+budgets. Stop once approved criteria, required independent reviews and gates cover the current
+snapshot and pass. Nits are informational; no cosmetic review loop. Reopen only for changed relevant
+inputs, new material findings/failures, or newly approved scope, invalidating only affected proof.
 
 ## Required invariants
 

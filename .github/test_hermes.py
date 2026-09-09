@@ -1,150 +1,258 @@
 #!/usr/bin/env python3
-"""Focused RED/GREEN checks for the native Hermes projection."""
+"""Hermes static CLI regressions. Never import a source or generated plugin."""
 
 from __future__ import annotations
 
-import importlib.util
+import argparse
+import hashlib
 import json
-import os
+import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+import tempfile
+import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
+VERIFIER = ROOT / "bin/verify-hook-clients.py"
 
 
-def load_entrypoint():
-    path = ROOT / "__init__.py"
-    spec = importlib.util.spec_from_file_location("graph_powers_hermes_entry", path)
-    if spec is None or spec.loader is None:
-        raise AssertionError(f"could not load {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def run(*command: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        list(command),
-        cwd=ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        env=env,
-    )
-
-
-def test_source_registration() -> None:
-    module = load_entrypoint()
-    registrations = module.planned_registrations(ROOT)
-    names = [name for name, _path, _description in registrations]
-    expected_skills = {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")}
-    expected_commands = {
-        path.stem
-        for path in (ROOT / "commands").glob("*.md")
-        if path.name.upper() != "AGENTS.MD"
-    }
-    expected_agents = {
-        f"agent-{path.stem}"
-        for path in (ROOT / "agents").glob("*.md")
-        if path.name.upper() != "AGENTS.MD"
-    }
-    expected = expected_skills | expected_commands | expected_agents | {"graph-engineering"}
-    assert expected <= set(names), f"missing Hermes registrations: {sorted(expected - set(names))}"
-    assert len(names) == len(set(names)), "Hermes registration names must not collide"
-    assert all(path.is_file() for _name, path, _description in registrations)
-
-
-def test_collision_is_explicit() -> None:
-    module = load_entrypoint()
-    with TemporaryDirectory(prefix="hermes-registration-") as raw:
-        root = Path(raw)
-        (root / "skills" / "same").mkdir(parents=True)
-        (root / "skills" / "same" / "SKILL.md").write_text(
-            "---\nname: same\n---\n", encoding="utf-8"
+class HermesStaticTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="hermes-static-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "source"
+        self.root.mkdir()
+        self.marker = self.root.parent / "EXECUTED"
+        self.sentinel = (
+            f"from pathlib import Path\nPath({str(self.marker)!r}).write_text('executed')\n"
         )
-        (root / "commands").mkdir()
-        (root / "commands" / "same.md").write_text(
-            "---\ndescription: same\n---\n", encoding="utf-8"
+        self.put("__init__.py", self.sentinel)
+        self.put("hooks/_config.py", self.sentinel)
+        self.put(
+            ".claude-plugin/plugin.json",
+            json.dumps({"name": "graph-powers", "version": "0.0.1", "description": "fixture"}),
         )
-        try:
-            module.planned_registrations(root)
-        except ValueError as exc:
-            assert "same" in str(exc)
-        else:
-            raise AssertionError("duplicate Hermes names must fail explicitly")
+        self.put(
+            "skills/demo/SKILL.md",
+            "---\nname: demo\ndescription: Fixture\n---\nRead `references/guide.md`.\n",
+        )
+        self.put("skills/demo/references/guide.md", "# Guide\nStatic content.\n")
+        self.put("LICENSE", "Fixture license\n")
+        self.put("NOTICE", "Fixture notice\n")
+        for source in ("hermes/install.mjs", "hermes/package_builder.py", "codex/lib.mjs"):
+            destination = self.root / source
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / source, destination)
+        result = subprocess.run(
+            ["bun", str(self.root / "hermes/install.mjs"), "--package-only"],
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.package = self.root / "hermes/package"
 
+    def put(self, relative, text):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
 
-def test_generator_check() -> None:
-    result = run("bun", "hermes/install.mjs", "--check")
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_verifier_route() -> None:
-    result = run(
-        sys.executable,
-        "-X",
-        "utf8",
-        "bin/verify-hook-clients.py",
-        "--client",
-        "hermes",
-        "--plugin-root",
-        str(ROOT),
-        "--json",
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["client"] == "hermes"
-    assert payload["status"] in {"PASS", "SKIPPED"}
-    assert payload["present"] is True
-    assert payload["registrations"] >= 1
-
-
-def test_missing_runtime_is_visible() -> None:
-    with TemporaryDirectory(prefix="hermes-no-runtime-") as raw:
-        env = dict(os.environ)
-        env["PATH"] = raw
-        result = run(
+    def run_cli(self, *extra, proof="static", package=True):
+        command = [
             sys.executable,
             "-X",
             "utf8",
-            "bin/verify-hook-clients.py",
+            str(VERIFIER),
             "--client",
             "hermes",
+            "--hermes-proof",
+            proof,
             "--plugin-root",
-            str(ROOT),
+            str(self.root),
             "--json",
-            env=env,
+        ]
+        if package:
+            command.extend(["--package-root", str(self.package)])
+        result = subprocess.run(
+            command + list(extra), capture_output=True, encoding="utf-8", check=False
         )
-    assert result.returncode == 0, result.stdout + result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["status"] == "SKIPPED"
-    assert any("runtime is not installed" in warning for warning in payload["warnings"])
+        self.assertFalse(self.marker.exists(), "route executed a plugin or config sentinel")
+        return result
 
+    def tamper(self, relative, text):
+        path = self.package / relative
+        path.write_text(text, encoding="utf-8")
+        provenance_path = self.package / "PROVENANCE.json"
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        for row in provenance["files"]:
+            if row["path"] == relative:
+                row["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
 
-def main() -> int:
-    tests: list[tuple[str, Callable[[], None]]] = [
-        ("source registration", test_source_registration),
-        ("collision", test_collision_is_explicit),
-        ("generator", test_generator_check),
-        ("verifier", test_verifier_route),
-        ("missing runtime", test_missing_runtime_is_visible),
-    ]
-    failures: list[str] = []
-    for name, test in tests:
+    def test_static_success_never_imports_source_entrypoint_or_hook_config(self):
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(
+            (payload["status"], payload["proof"], payload["runtime"]),
+            ("PASS", "static", "UNVERIFIED"),
+        )
+        self.assertEqual(payload["skills"]["names"], ["demo"])
+
+    def test_static_rejects_self_hashed_entrypoint_without_importing_it(self):
+        self.tamper("__init__.py", self.sentinel)
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("source", result.stdout.lower())
+
+    def test_static_rejects_self_hashed_main_and_auxiliary_edits(self):
+        for path in ("skills/demo.md", "skills/content/skills/demo/references/guide.md"):
+            with self.subTest(path=path):
+                original = (self.package / path).read_bytes()
+                provenance = (self.package / "PROVENANCE.json").read_bytes()
+                try:
+                    self.tamper(path, "# Forged content\n")
+                    result = self.run_cli()
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn("source", result.stdout.lower())
+                finally:
+                    (self.package / path).write_bytes(original)
+                    (self.package / "PROVENANCE.json").write_bytes(provenance)
+
+    def test_caller_supplied_generator_is_data_never_executed(self):
+        self.put(
+            "hermes/install.mjs",
+            f"import fs from 'node:fs'; fs.writeFileSync({json.dumps(str(self.marker))}, 'executed');\n",
+        )
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("source", result.stdout.lower())
+
+    def test_static_rejects_omitted_registration(self):
+        path = self.package / "PROVENANCE.json"
+        provenance = json.loads(path.read_text(encoding="utf-8"))
+        provenance["registrations"] = []
+        path.write_text(json.dumps(provenance), encoding="utf-8")
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("source", result.stdout.lower())
+
+    def test_static_rejects_extra_missing_and_malformed_payloads(self):
+        extra = self.package / "unexpected.py"
+        extra.write_text(self.sentinel, encoding="utf-8")
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("unexpected.py", result.stdout)
+        extra.unlink()
+        (self.package / "skills/demo.md").unlink()
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("skills/demo.md", result.stdout)
+        (self.package / "PROVENANCE.json").write_text("[invalid", encoding="utf-8")
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("PROVENANCE", result.stdout)
+
+    def test_static_rejects_source_drift(self):
+        self.put("skills/demo/references/guide.md", "# Updated source\n")
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("source", result.stdout.lower())
+
+    def test_static_rejects_symlink_payload(self):
+        path = self.package / "skills/demo.md"
+        path.unlink()
         try:
-            test()
-        except Exception as exc:
-            failures.append(f"{name}: {exc}")
-    if failures:
-        print("Hermes focused tests: FAIL")
-        print("\n".join(f"  - {failure}" for failure in failures))
-        return 1
-    print(f"Hermes focused tests: PASS ({len(tests)} checks)")
-    return 0
+            path.symlink_to(self.root / "skills/demo/SKILL.md")
+        except OSError as error:
+            self.skipTest(str(error))
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("symlink", result.stdout.lower())
+
+    def test_runtime_missing_args_never_falls_back_to_checkout(self):
+        result = self.run_cli(proof="runtime", package=False)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["runtime"], "UNVERIFIED")
+        self.assertIn("--package-root", result.stdout)
+        self.assertIn("--expected-version", result.stdout)
+
+    def test_runtime_complete_args_cannot_claim_unimplemented_proof(self):
+        self.tamper("__init__.py", self.sentinel)
+        result = self.run_cli("--expected-version", "0.0.1", proof="runtime")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["runtime"], "UNVERIFIED")
+        self.assertIn("not implemented", result.stdout.lower())
+
+    def test_wiring_reads_invalid_native_calls_in_generated_bytes(self):
+        for command in ("verify", "debug", "perf"):
+            self.put(f"commands/{command}.md", "# Fixture\n")
+        self.tamper("skills/demo.md", 'Load skill_view("graph-powers:definitely-missing").\n')
+        result = subprocess.run(
+            [sys.executable, str(ROOT / ".github/check_wiring.py")],
+            cwd=self.root,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        self.assertIn("definitely-missing", result.stdout)
+
+    def test_wiring_preserves_source_role_classification_for_generated_agents(self):
+        for command in ("verify", "debug", "perf"):
+            self.put(f"commands/{command}.md", "# Fixture\n")
+        self.put(
+            "agents/explorer.md",
+            "---\nname: explorer\nrole_type: researcher\nmodel: haiku\ntools: Read\ndisallowedTools: Write, Edit\n---\n# Explorer\n",
+        )
+        self.put(
+            "hermes/package/skills/agent-explorer.md",
+            "A contract uses `explorer` as its own name.\n",
+        )
+        result = subprocess.run(
+            [sys.executable, str(ROOT / ".github/check_wiring.py")],
+            cwd=self.root,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        )
+        self.assertEqual(result.stderr, "")
+        self.assertNotIn("hermes/package/skills/agent-explorer.md", result.stdout)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--static", action="store_true")
+    mode.add_argument("--runtime", action="store_true")
+    parser.add_argument("--package-root")
+    parser.add_argument("--expected-version")
+    args = parser.parse_args()
+    if args.runtime:
+        command = [
+            sys.executable,
+            "-X",
+            "utf8",
+            str(VERIFIER),
+            "--client",
+            "hermes",
+            "--hermes-proof",
+            "runtime",
+            "--json",
+        ]
+        for name in ("package_root", "expected_version"):
+            if getattr(args, name):
+                command.extend(["--" + name.replace("_", "-"), getattr(args, name)])
+        return subprocess.run(command, check=False).returncode
+    result = unittest.TextTestRunner().run(
+        unittest.defaultTestLoader.loadTestsFromTestCase(HermesStaticTests)
+    )
+    print(
+        "Hermes verifier: STATIC PASS" if result.wasSuccessful() else "Hermes verifier: STATIC FAIL"
+    )
+    return 0 if result.wasSuccessful() else 1
 
 
 if __name__ == "__main__":

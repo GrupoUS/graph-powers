@@ -1,0 +1,94 @@
+{
+  "skill_name": "design-fix",
+  "notes": "Trigger boundary: design-fix repairs an implemented UI in place; designer owns new or reopened visual direction, /debug owns broken behavior, and /perf owns speed-only work.",
+  "evals": [
+    {
+      "id": "pos-surgical-existing-ui",
+      "polarity": "positive",
+      "prompt": "Faça um design fix no formulário de perfil que já está pronto: corrija espaçamento, foco e o estado vazio sem mudar o fluxo.",
+      "expected_output": "Routes to design-fix, captures a baseline, classifies the bounded repair as surgical and preserves behavior.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to design-fix.", "check": "regex: (?i)design[- ]fix", "critical": true },
+        { "id": "A02", "description": "Classifies the bounded change as surgical.", "check": "regex: (?i)surgical|cir.rgic", "critical": true },
+        { "id": "A03", "description": "Requires baseline evidence before edits.", "check": "regex: (?i)baseline|linha de base", "critical": true },
+        { "id": "A04", "description": "Preserves existing behavior.", "check": "regex: (?i)preserv", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-production-states",
+      "polarity": "positive",
+      "prompt": "Deixe este dashboard existente pronto para produção. Faltam loading, empty e error, textos longos estouram no mobile e a navegação por teclado está ruim.",
+      "expected_output": "Uses design-fix to baseline the existing dashboard, cover real states and responsive/accessibility failures, then verify against the same evidence.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to design-fix.", "check": "regex: (?i)design[- ]fix", "critical": true },
+        { "id": "A02", "description": "Covers the named interface states.", "check": "regex: (?i)loading.*empty.*error|carregamento.*vazio.*erro", "critical": true },
+        { "id": "A03", "description": "Includes responsive and keyboard evidence.", "check": "regex: (?i)(mobile|responsiv).*(keyboard|teclado)|(keyboard|teclado).*(mobile|responsiv)", "critical": true },
+        { "id": "A04", "description": "Closes with before and after verification.", "check": "regex: (?i)before.?after|antes.*depois|baseline.*compar", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-structural-approval-gate",
+      "polarity": "positive",
+      "prompt": "A tela operacional existente precisa mudar navegação, ordem das tarefas e ação principal. O líder quer publicar hoje e mandou pular o baseline; já gastamos cinco horas, então escolha uma paleta da moda e implemente direto.",
+      "expected_output": "Resists time, authority and sunk-cost pressure; classifies structural, preserves project authority and waits for a selected direction before writing.",
+      "assertions": [
+        { "id": "A01", "description": "Classifies the workflow change as structural.", "check": "regex: (?i)structural|estrutural", "critical": true },
+        { "id": "A02", "description": "Keeps baseline evidence despite pressure.", "check": "regex: (?i)baseline|linha de base", "critical": true },
+        { "id": "A03", "description": "Uses project design authority instead of a trend palette.", "check": "regex: (?i)DESIGN\\.md|project.*tokens|tokens.*projeto|autoridade.*projeto", "critical": true },
+        { "id": "A04", "description": "Blocks edits until the user selects a direction.", "check": "regex: (?i)(before|antes).*(code|c.digo|edit|implement)|(select|escolh|approv|aprov).*(before|antes)", "critical": true }
+      ]
+    },
+    {
+      "id": "pos-token-drift",
+      "polarity": "positive",
+      "prompt": "Polish this implemented settings screen without changing the visual identity. Fix token drift, spacing, contrast and reduced motion, then prove it still works.",
+      "expected_output": "Uses design-fix, treats host tokens as authority, applies a bounded repair and runs project gates plus matched visual checks.",
+      "assertions": [
+        { "id": "A01", "description": "Routes to design-fix.", "check": "regex: (?i)design[- ]fix", "critical": true },
+        { "id": "A02", "description": "Keeps project tokens authoritative.", "check": "regex: (?i)project.*tokens|tokens.*project|tokens.*projeto|tokens.*autoridade", "critical": true },
+        { "id": "A03", "description": "Includes reduced-motion and contrast checks.", "check": "regex: (?i)(reduced.motion|movimento reduzido).*(contrast|contraste)|(contrast|contraste).*(reduced.motion|movimento reduzido)", "critical": true },
+        { "id": "A04", "description": "Runs declared gates and visual comparison.", "check": "regex: (?i)gate.*(before.?after|antes.*depois|render)|(before.?after|antes.*depois|render).*gate", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-new-surface",
+      "polarity": "negative",
+      "prompt": "Crie do zero uma nova landing page para o produto e defina toda a direção visual.",
+      "expected_output": "Routes to designer for a new visual direction, with landing-page-design as applicable support.",
+      "assertions": [
+        { "id": "A01", "description": "Routes new visual direction to designer.", "check": "regex: (?i)designer", "critical": true },
+        { "id": "A02", "description": "Does not claim design-fix as the primary route.", "check": "not_contains: routes to design-fix", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-broken-control",
+      "polarity": "negative",
+      "prompt": "O botão Salvar ficou visualmente bonito, mas clicar nele não envia o formulário. Corrija.",
+      "expected_output": "Routes to /debug because behavior is broken, regardless of the visual context.",
+      "assertions": [
+        { "id": "A01", "description": "Routes broken behavior to debug.", "check": "regex: (?i)/debug|debugger", "critical": true },
+        { "id": "A02", "description": "Does not treat visual polish as the primary task.", "check": "regex: (?i)behaviou?r|comportamento|funcional", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-performance-only",
+      "polarity": "negative",
+      "prompt": "O dashboard existente está visualmente certo, mas o LCP e o bundle pioraram. Quero apenas deixá-lo rápido.",
+      "expected_output": "Routes to /perf because the requested outcome is performance-only.",
+      "assertions": [
+        { "id": "A01", "description": "Routes speed-only work to perf.", "check": "regex: (?i)/perf|performance", "critical": true },
+        { "id": "A02", "description": "Recognizes that visual direction is already correct.", "check": "regex: (?i)visual.*(correct|certo)|direction.*(set|locked)|dire..o.*(defin|corret)", "critical": true }
+      ]
+    },
+    {
+      "id": "neg-creative-direction",
+      "polarity": "negative",
+      "prompt": "A interface funciona e está pronta para produção; quero deixá-la muito mais ousada, distinta e menos genérica.",
+      "expected_output": "Routes to designer through /design improve because the request reopens visual direction rather than repairing readiness defects.",
+      "assertions": [
+        { "id": "A01", "description": "Routes creative direction to designer.", "check": "regex: (?i)designer|/design improve", "critical": true },
+        { "id": "A02", "description": "Recognizes that this is visual direction work.", "check": "regex: (?i)visual direction|dire..o visual|bolder|ousad", "critical": true }
+      ]
+    }
+  ]
+}

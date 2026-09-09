@@ -1,0 +1,262 @@
+{
+  "skill_name": "designer",
+  "notes": "Positives must fire designer and produce a direction, not code — or, on a locked direction, run one craft pass without reopening it. Negatives sit on the real borders: animate (motion only), uxmaster (conversion levers), /debug (broken control). Run one invocation per case id with --threshold 1.0; prose assertions use (?i) regex because responses capitalise sentence-initially.",
+  "evals": [
+    {
+      "id": "pos-new-surface-no-design-system",
+      "polarity": "positive",
+      "prompt": "/design a pricing page for our podcast-hosting app. We have no design system yet. I want it to feel like ours, not like every SaaS pricing page.",
+      "expected_output": "Fires designer. Grounds the subject (podcasting, its audience, the page's single job), mines the subject's world for material before proposing anything, offers three directions that differ in kind with the category standard as an explicit exit, names one signature, and writes a direction contract. No implementation code before the user picks.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\bdesigner\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Derives from the subject's world rather than a template.",
+          "check": "regex: (?i)(subject'?s? (own )?world|derive[sd]? from|podcast\\w*.*(artefact|artifact|material|ritual|notation))",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Offers three directions before code.",
+          "check": "regex: (?i)three directions",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Names one signature element.",
+          "check": "regex: (?i)\\bsignature\\b",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "Writes the direction contract.",
+          "check": "regex: (?i)direction contract|DIRECTION —",
+          "critical": true
+        },
+        {
+          "id": "A06",
+          "description": "The category standard is offered as an explicit exit, not the default.",
+          "check": "regex: (?i)(category standard|explicit exit|standing exit)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-looks-ai-generated",
+      "polarity": "positive",
+      "prompt": "Our landing page looks like ChatGPT made it: cream background, big serif headline, terracotta button, three feature cards with icons. Make it look like a human designed it for us.",
+      "expected_output": "Fires designer. Names the cream-serif-terracotta look and the three-card block as defaults from the catalogue, counts the tells, and rewrites from the subject's world rather than softening the palette. Runs the any-brief test. Keeps the floor.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\bdesigner\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Recognises the look as a default or template.",
+          "check": "regex: (?i)\\b(default|template|the three AI looks|slop)\\b",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Rewrites from the subject rather than softening the same look.",
+          "check": "regex: (?i)(rewrit|not soften|rather than soften|instead of soften)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Runs the any-brief or mirror test.",
+          "check": "regex: (?i)(any-brief|mirror)",
+          "critical": true
+        },
+        {
+          "id": "A05",
+          "description": "States that the floor still holds.",
+          "check": "regex: (?i)(4\\.5:1|WCAG|reduced.motion|floor)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-bolder-without-slop",
+      "polarity": "positive",
+      "prompt": "The analytics dashboard works but it is bland. Make it bolder without turning it into AI slop.",
+      "expected_output": "Fires designer. Spends boldness in one place — a single signature — and keeps the rest quiet; sets a motion mood rather than adding scattered effects; distinguishes distinct from loud; on an Operate surface, keeps the task and states legible.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\bdesigner\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Spends boldness once, on one signature.",
+          "check": "regex: (?i)(spend\\w* boldness once|boldness is one|one signature|single signature|\\bsignature\\b)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Says distinct is not loud, or equivalent restraint.",
+          "check": "regex: (?i)(distinct(ive)? is not loud|not louder|remove one accessory|quiet)",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Sets a motion mood instead of adding effects everywhere.",
+          "check": "regex: (?i)(motion (mood|inherits)|one authored moment|crisp|calm)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-brief-pins-the-look",
+      "polarity": "positive",
+      "prompt": "/design the About page. Brand guide, non-negotiable: cream paper background, Playfair Display headlines, terracotta call-to-action. Use exactly that.",
+      "expected_output": "Fires designer and follows the pinned brief exactly, even though it matches a catalogued default — the brief's own words win. Spends the remaining free axes (layout, signature, copy, motion) on the subject. Does not redirect the palette or the face.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "The skill fires by name.",
+          "check": "regex: (?i)\\bdesigner\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "States that the brief wins and keeps the pinned values.",
+          "check": "regex: (?i)(brief'?s? (own )?words? win|brief wins|follow\\w* (it |the brief )?exactly|pinned)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Keeps Playfair Display rather than replacing it.",
+          "check": "contains: Playfair Display",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Spends the free axes on the subject.",
+          "check": "regex: (?i)(free axis|free axes|axis (is|was) free|remaining axes|layout|signature)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "neg-motion-tuning-only",
+      "polarity": "negative",
+      "prompt": "The dropdown open animation feels sluggish — it is 300ms with ease-in. Fix the easing and duration.",
+      "expected_output": "Does not run the direction method. Routes to the animate skill (build mode) for easing and duration: ease-out, a custom curve, 150–250ms. No direction contract, no three directions.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Answers the motion question with an easing or duration value.",
+          "check": "regex: (?i)(ease-out|cubic-bezier|\\b1[5-9]0ms|\\b2[0-5]0ms)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Routes to the motion skill rather than a direction pass.",
+          "check": "regex: (?i)(emil-design-eng|animate|apple-design)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not produce a direction contract.",
+          "check": "not_contains: DIRECTION —",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-conversion-lever",
+      "polarity": "negative",
+      "prompt": "Signup conversion on the onboarding flow is 1.2 percent. Which behavioural levers should the first-run screens use?",
+      "expected_output": "Does not run the direction method. Routes to uxmaster and names a lever — goal gradient, smart defaults, IKEA effect, loss aversion — with its honesty check. No palette or type decisions.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to uxmaster.",
+          "check": "regex: (?i)\\buxmaster\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Names a behavioural lever.",
+          "check": "regex: (?i)(goal gradient|smart default|IKEA effect|loss aversion|reciprocity|zeigarnik|peak-end|anchoring)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not produce a direction contract.",
+          "check": "not_contains: DIRECTION —",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "neg-broken-control",
+      "polarity": "negative",
+      "prompt": "The Pay button on the checkout page does nothing when clicked. Nothing in the console either.",
+      "expected_output": "Routes to /debug: reproduce, isolate, find the cause. No visual direction, no palette, no typography.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Routes to the debug workflow.",
+          "check": "regex: (?i)(/debug|graph-powers:debugger|systematic-debugging|reproduce)",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not open a direction pass.",
+          "check": "not_contains: DIRECTION —",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not propose a palette or type pair.",
+          "check": "regex: (?is)^(?!.*\\b(palette|typeface|display face)\\b)",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "pos-craft-pass-on-locked-direction",
+      "polarity": "positive",
+      "prompt": "/design fix src/pages/about.astro — the direction was approved last week. Only the typeset pass: fix the type scale and the line lengths.",
+      "expected_output": "Fires designer in its craft layer: runs the typeset pass from references/craft-passes.md against the existing contract, in frontend-specialist, measured against craft-floor.md. Does not reopen the direction, does not offer three directions, does not rewrite the palette.",
+      "assertions": [
+        {
+          "id": "A01",
+          "description": "Runs the typeset pass.",
+          "check": "regex: (?i)\\btypeset\\b",
+          "critical": true
+        },
+        {
+          "id": "A02",
+          "description": "Does not reopen the direction with three alternatives.",
+          "check": "regex: (?is)^(?!.*three directions)",
+          "critical": true
+        },
+        {
+          "id": "A03",
+          "description": "Does not write a new direction contract.",
+          "check": "not_contains: DIRECTION —",
+          "critical": true
+        },
+        {
+          "id": "A04",
+          "description": "Names the craft layer or its runner.",
+          "check": "regex: (?i)(craft-passes|craft floor|craft-floor|frontend-specialist)",
+          "critical": false
+        }
+      ]
+    }
+  ]
+}

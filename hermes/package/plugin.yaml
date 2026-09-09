@@ -1,0 +1,21 @@
+name: "graph-powers"
+version: "1.20.0"
+description: "Graph Powers engineering skills, command documents and agent contracts adapted for Hermes. No tools or hooks."
+author: "GrupoUS"
+license: "MIT AND Apache-2.0 AND CC-BY-4.0"
+homepage: "https://github.com/GrupoUS/graph-powers#readme"
+kind: standalone
+manifest_version: 1
+tags:
+  - "harness"
+  - "agents"
+  - "skills"
+  - "guardrails"
+  - "claude-code"
+  - "codex"
+  - "cursor"
+  - "grok"
+  - "hermes"
+provides_tools: []
+provides_hooks: []
+capabilities: []
