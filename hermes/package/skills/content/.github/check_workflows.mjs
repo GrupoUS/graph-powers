@@ -132,6 +132,11 @@ function checkPolicy(path, source) {
         `POLICY ${path}: every inner agent must pass through the cumulative workflow dispatch counter`,
       );
   }
+  if (path.endsWith("ultra-verify.js")) {
+    const roundCap = source.match(/const SCHEMA_MAX_FIX_ROUNDS = ([0-9]+)/);
+    if (Number(roundCap?.[1]) !== CONFIG_SCHEMA.properties.chain.properties.maxFixRounds.maximum)
+      problems.push(`POLICY ${path}: final correction ceiling must match chain.maxFixRounds.maximum`);
+  }
   return problems;
 }
 
@@ -450,7 +455,7 @@ async function dryRun(body, args, fixture = {}) {
         model: opts.model,
       };
       spawned.push(spawn);
-      const response = fixture.respond?.({ prompt, opts, spawn, spawned });
+      const response = await fixture.respond?.({ prompt, opts, spawn, spawned });
       return response === undefined ? (opts.schema ? sampleFor(opts.schema) : "ok") : response;
     },
     parallel: async (thunks) => Promise.all(thunks.map((t) => t())),
@@ -625,6 +630,13 @@ function surfaceNamesIn(prompt) {
   return [...prompt.matchAll(/^\s{3}([^=\n]+?) = /gm)].map((match) => match[1]);
 }
 
+function fixturePlanRequirements(ids = ["R1"]) {
+  return ids.map((id) => ({ id, taskId: id.replace("R", "T"), agent: "debugger", owns: ["src/core.js"], checks: ["test", "bun test"] }));
+}
+function fixtureOwnership() {
+  return { verdict: "PASS", evidence: "Current diff src/core.js fits T1 Owns", checkedPaths: ["src/core.js"] };
+}
+
 function fixtureResponse({ prompt, opts }) {
   if (opts.label === "frame")
     return {
@@ -651,6 +663,7 @@ function fixtureResponse({ prompt, opts }) {
       baseRef: "HEAD",
       touched: Object.fromEntries(surfaceNamesIn(prompt).map((name) => [name, name === "web"])),
       confidence: "high",
+      planRequirements: fixturePlanRequirements(),
     };
   }
   if (opts.label === "review:skeptic:init:correctness")
@@ -658,7 +671,7 @@ function fixtureResponse({ prompt, opts }) {
       lens: "correctness",
       satisfied: false,
       findings: [],
-      items: [{ id: "R1", status: "missing", evidence: "fixture", agent: "debugger" }],
+      items: [{ id: "R1", status: "missing", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }],
       drift: [],
     };
   if (opts.label === "review:skeptic:final:correctness")
@@ -666,11 +679,12 @@ function fixtureResponse({ prompt, opts }) {
       lens: "correctness",
       satisfied: true,
       findings: [],
-      items: [{ id: "R1", status: "done", evidence: "fixed", agent: "debugger" }],
+      items: [{ id: "R1", status: "done", evidence: "fixed", agent: "debugger", owns: ["src/core.js"] }],
       drift: [],
+      ownership: fixtureOwnership(),
     };
   if (opts.label.startsWith("review:skeptic:")) return { lens: opts.label.split(":").at(-1), satisfied: true, findings: [] };
-  if (opts.label.startsWith("fix-group:")) return { status: "done", applied: ["fixture"] };
+  if (opts.label.startsWith("fix-group:")) return { status: "done", applied: ["fixture"], changedPaths: ["src/core.js"] };
   return undefined;
 }
 
@@ -678,17 +692,137 @@ function cleanVerifyResponse(context) {
   const { opts } = context;
   if (["gates", "gates:final"].includes(opts.label)) return { allGreen: true, gates: [] };
   if (["review:skeptic:init:correctness", "review:skeptic:final:correctness"].includes(opts.label))
-    return { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] };
+    return { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() };
   return fixtureResponse(context);
 }
 
 function coreVerifyResponse(context) {
-  if (context.opts.label === "scope") return { changedFiles: ["src/core.js"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(context.prompt).map((name) => [name, false])), confidence: "high" };
+  if (context.opts.label === "scope") return { changedFiles: ["src/core.js"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(context.prompt).map((name) => [name, false])), confidence: "high", planRequirements: fixturePlanRequirements() };
   return cleanVerifyResponse(context);
 }
 
-async function runSchedulingFixtures() {
+async function runVerifyLoopFixtures() {
   const problems = [];
+  const requirement = (id, status, agent = "debugger") => ({ id, status, agent, evidence: "src/core.js:1", owns: ["src/core.js"] });
+  const review = (items) => ({ lens: "correctness", satisfied: items.every((item) => item.status === "done"), findings: [], items, drift: [], ownership: fixtureOwnership() });
+  const cases = [
+    ["independent plan inventory catches omitted requirement", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: ["R1", "R2"].map((id) => ({ id, taskId: id, owns: ["src/core.js"], agent: "debugger", checks: [] })) };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+    ["done without changedPaths is unverified", (context) => {
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+      if (context.opts.label.startsWith("fix-group:")) return { status: "done" };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.blocked?.length > 0],
+    ["missing structured ownership review", (context) => {
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return { ...review([requirement("R1", "done")]), ownership: undefined };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.unresolvedSignals?.some((signal) => signal.includes("ownership"))],
+    ["failed structured ownership review", (context) => {
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return { ...review([requirement("R1", "done")]), ownership: { verdict: "FAIL", evidence: "diff writes outside Owns", checkedPaths: ["other/file.js"] } };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.unresolvedSignals?.some((signal) => signal.includes("ownership"))],
+    ["unmapped gate cannot borrow all plan ownership", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [{ id: "R1", taskId: "T1", owns: ["src/core.js"], agent: "debugger", checks: [] }] };
+      if (context.opts.label === "gates") return { allGreen: false, gates: [{ name: "test", exitCode: 1, pass: false }] };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.blocked?.some((item) => item.id === "gate:test") && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+    ...[[], ["R1", "R1"]].map((ids) => ["empty or duplicated independent inventory", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: fixturePlanRequirements(ids) };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))]),
+    ["namespaced task owner", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [{ ...fixturePlanRequirements()[0], agent: "graph-powers:debugger" }] };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+    }, (run) => run.result?.verdict === "VERIFIED" && run.spawned.some((spawn) => spawn.label.startsWith("fix-group:") && spawn.agentType === "graph-powers:debugger")],
+    ["unknown task owner cannot fall back to debugger", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [{ ...fixturePlanRequirements()[0], agent: "graph-powers:unknown" }] };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.blocked?.length > 0 && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+    ["ownership evidence must cover reported paths", (context) => {
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return { ...review([requirement("R1", "done")]), ownership: { ...fixtureOwnership(), checkedPaths: [] } };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.unresolvedSignals?.some((signal) => signal.includes("ownership"))],
+    ["gate uses only its declared task lane", (context, state) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [fixturePlanRequirements()[0], { ...fixturePlanRequirements(["R2"])[0], agent: "graph-powers:performance-optimizer", owns: ["src/perf.js"], checks: ["bun run perf"] }] };
+      if (context.opts.label === "gates") return { allGreen: false, gates: [{ name: "perf", command: "bun run perf", exitCode: 1, pass: false }] };
+      if (context.opts.label.includes(":correctness")) return { ...review([requirement("R1", "done"), requirement("R2", "done")]), ownership: { ...fixtureOwnership(), checkedPaths: ["src/perf.js"] } };
+      if (context.opts.label.startsWith("fix-group:")) {
+        state.entries = JSON.parse(context.prompt.split("PACKAGE: ")[1]);
+        return { status: "done", changedPaths: ["src/perf.js"] };
+      }
+    }, (run, state) => run.result?.verdict === "VERIFIED" && state.entries?.length === 1 && state.entries[0].item.owns.join() === "src/perf.js" && run.spawned.some((spawn) => spawn.label.startsWith("fix-group:") && spawn.agentType === "graph-powers:performance-optimizer")],
+    ["untracked-only web files keep surface coverage", (context) => {
+      if (context.opts.label === "scope") return { ...fixtureResponse(context), changedFiles: context.prompt.includes("git ls-files --others --exclude-standard -z") ? ["web/new-page.tsx"] : [] };
+    }, (run) => run.result?.verdict === "VERIFIED" && run.spawned.some((spawn) => spawn.agentType.endsWith(":ui-ux-designer")) && run.spawned.some((spawn) => spawn.agentType.endsWith(":security-reviewer"))],
+    ["gate-only correction", (context, state) => {
+      if (context.opts.label === "gates") return { allGreen: false, gates: [{ name: "test", exitCode: 1, pass: false, failing: "src/core.js:1" }] };
+      if (context.opts.label.includes(":correctness")) return review([requirement("R1", "done")]);
+      if (context.opts.label.startsWith("fix-group:")) state.package = context.prompt;
+    }, (run, state) => run.result?.verdict === "VERIFIED" && state.package?.includes('"kind":"gate"') && state.package.includes('"owns":["src/core.js"]')],
+    ["overlapping writer groups", async (context, state) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [fixturePlanRequirements()[0], { ...fixturePlanRequirements(["R2"])[0], agent: "performance-optimizer" }] };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing"), requirement("R2", "missing", "performance-optimizer")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return review([requirement("R1", "done"), requirement("R2", "done", "performance-optimizer")]);
+      if (context.opts.label.startsWith("fix-group:")) {
+        state.active = (state.active ?? 0) + 1;
+        state.maxActive = Math.max(state.maxActive ?? 0, state.active);
+        state.packages = [...(state.packages ?? []), context.prompt];
+        await Promise.resolve();
+        state.active--;
+        return { status: "done", changedPaths: ["src/core.js"] };
+      }
+    }, (run, state) => run.result?.verdict === "VERIFIED" && state.packages?.length === 2 && state.maxActive === 1 && state.packages.every((prompt) => prompt.includes('"owns":["src/core.js"]'))],
+    ["invalid second-round request preserves fresh evidence and schema cap", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: fixturePlanRequirements(["R1", "R2"]) };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing"), requirement("R2", "done")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return review([requirement("R1", "done"), requirement("R2", "missing")]);
+      if (context.opts.label === "gates:final") return { allGreen: false, gates: [{ name: "test", exitCode: 1, pass: false, failing: "R2 regression" }] };
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.capped === true && run.result?.missing?.map((item) => item.id).join() === "R2" && run.result?.gateDetail?.[0]?.failing === "R2 regression" && run.spawned.filter((spawn) => spawn.label.startsWith("fix-group:")).length === 1,
+    (args) => { args.config.maxFixRounds = 2; args.config.maxRepatch = 2; }],
+    ["ownership unavailable", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [{ ...fixturePlanRequirements()[0], owns: [] }] };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([{ id: "R1", status: "missing", agent: "debugger", evidence: "no task Owns" }]);
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.blocked?.length > 0 && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+    ["gate failure without plan ownership", (context) => {
+      if (context.opts.label === "scope") return { ...coreVerifyResponse(context), planRequirements: [{ ...fixturePlanRequirements()[0], owns: [] }] };
+      if (context.opts.label === "gates") return { allGreen: false, gates: [{ name: "test", exitCode: 1, pass: false }] };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([{ ...requirement("R1", "done"), owns: [] }]);
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.blocked?.some((item) => item.id === "gate:test") && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+    ["contract gates stay fresh after writes", (context, state) => {
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+      if (context.opts.label === "review:skeptic:final:correctness") return review([requirement("R1", "done")]);
+      if (context.opts.label === "contract-gates") return { allGreen: true, gates: [{ name: "contract", exitCode: 0, pass: true }] };
+      if (context.opts.label === "gates:final") state.finalPrompt = context.prompt;
+    }, (run, state) => run.result?.verdict === "VERIFIED" && state.finalPrompt?.includes("bun run contract"),
+    (args) => { args.config.contractGates = [{ name: "contract", command: "bun run contract", when: [] }]; }],
+    ["nested caller config", (context, state) => {
+      if (context.opts.label === "gates") state.gatePrompt = context.prompt;
+    }, (run, state) => run.result?.workflowSpawnCap === 7 && state.gatePrompt?.includes("bun run custom-test"),
+    (args) => { delete args.config.maxSpawnsPerWorkflow; args.config.graphGuardrails = { maxSpawnsPerWorkflow: 7 }; args.config.tooling = { commands: { test: "bun run custom-test" } }; }],
+    ["generic web design coverage", () => undefined, (run) => run.result?.verdict === "VERIFIED" && run.spawned.some((spawn) => spawn.agentType.endsWith(":ui-ux-designer")), null, true],
+    ["reserve every final review before API writes", (context) => {
+      if (context.opts.label === "scope") return { changedFiles: ["api/handler.js"], baseRef: "HEAD", touched: Object.fromEntries(surfaceNamesIn(context.prompt).map((name) => [name, name === "api"])), confidence: "high", planRequirements: fixturePlanRequirements() };
+      if (context.opts.label === "review:skeptic:init:correctness") return review([requirement("R1", "missing")]);
+    }, (run) => run.result?.verdict === "NEEDS-WORK" && run.result?.capped === true && !run.spawned.some((spawn) => spawn.label.startsWith("fix-group:"))],
+  ];
+  for (const [name, override, accepts, configure, web = false] of cases) {
+    const args = capabilityFixtureArgs("ultra-verify", "SUPPORTED");
+    args.config.maxParallelWave = 3;
+    configure?.(args);
+    const state = {};
+    // Each case runs the shipped workflow; only external agent responses are replaced.
+    // oxlint-disable-next-line no-await-in-loop
+    const run = await dryRun(workflowBody("ultra-verify"), args, { respond: async (context) => {
+      const result = await override(context, state);
+      return result === undefined ? (web ? cleanVerifyResponse(context) : coreVerifyResponse(context)) : result;
+    } });
+    if (!accepts(run, state) || run.spawned.length > MAX_MAX_SPAWNS_PER_WORKFLOW)
+      problems.push(`LOOP ultra-verify: ${name} failed (${run.result?.verdict}; ${run.spawned.map((spawn) => spawn.label).join(", ")})`);
+  }
+  return problems;
+}
+
+async function runSchedulingFixtures() {
+  const problems = await runVerifyLoopFixtures();
   const planArgs = capabilityFixtureArgs("ultra-plan", "SUPPORTED");
   planArgs.task = "three-angle L4 fixture";
   planArgs.config.maxParallelWave = 3;
@@ -712,12 +846,10 @@ async function runSchedulingFixtures() {
   try {
     const run = await dryRun(workflowBody("ultra-verify"), verifyArgs, { respond: fixtureResponse });
     const labels = run.spawned.map((spawn) => spawn.label);
-    if (!labels.some((label) => label.startsWith("fix-group:")))
-      problems.push("SCHED ultra-verify: cap-8 non-clean fixture dispatched no grouped correction");
-    if (!labels.includes("review:skeptic:final:correctness") || !labels.includes("gates:final"))
-      problems.push(`SCHED ultra-verify: cap-8 non-clean fixture lost the final evaluator or final gates (${labels.join(", ")})`);
-    if (!run.result?.unresolvedSignals?.includes("final security-tenant-PII review returned no evidence") || run.result?.verdict !== "NEEDS-WORK")
-      problems.push("SCHED ultra-verify: omitted final security evidence must remain an explicit NEEDS-WORK result");
+    if (labels.some((label) => label.startsWith("fix-group:") || label.includes(":final")))
+      problems.push("SCHED ultra-verify: cap-8 web correction must not write without reserved evaluator and gate capacity");
+    if (run.result?.capped !== true || run.result?.verdict !== "NEEDS-WORK" || !run.result?.missing?.length)
+      problems.push("SCHED ultra-verify: web correction beyond budget must preserve missing requirements as capped NEEDS-WORK");
     if (!run.spawned.some((spawn) => spawn.agentType.endsWith(":security-reviewer")))
       problems.push("SECURITY ultra-verify: web-only fixture did not dispatch security-reviewer");
   } catch (error) {
@@ -743,11 +875,11 @@ async function runSchedulingFixtures() {
     ["missing security response", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? null : undefined],
     ["unparseable security finding", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{}] } : undefined],
     ["out-of-scope malformed security finding", "NEEDS-WORK", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{ inScope: false }] } : undefined],
-    ["P2 security note", "VERIFIED-WITH-NOTES", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{ title: "advisory", file: "web/page.tsx", severity: "P2", inScope: true, agent: "debugger" }] } : undefined],
-    ["confirmed P1", "NEEDS-WORK", ({ opts }) => opts.label.includes(":correctness") ? { lens: "correctness", satisfied: true, findings: [{ title: "still broken", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : undefined, true],
-    ["blocked correction", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label.startsWith("fix-group:") ? { status: "blocked" } : undefined, true],
-    ["empty final completeness", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [] } : undefined, true],
-    ["mismatched final requirement IDs", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger" }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger" }], drift: [] } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R2", status: "done", evidence: "wrong requirement", agent: "debugger" }], drift: [] } : undefined, true],
+    ["P2 security note", "VERIFIED-WITH-NOTES", ({ opts }) => opts.label.endsWith(":security-tenant-PII") ? { lens: "security-tenant-PII", satisfied: true, findings: [{ taskId: "T1", title: "advisory", file: "web/page.tsx", severity: "P2", inScope: true, agent: "debugger", owns: ["src/core.js"] }] } : undefined],
+    ["confirmed P1", "NEEDS-WORK", ({ opts }) => opts.label.includes(":correctness") ? { lens: "correctness", satisfied: true, findings: [{ taskId: "T1", title: "still broken", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger", owns: ["src/core.js"] }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() } : undefined, true],
+    ["blocked correction", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ taskId: "T1", title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger", owns: ["src/core.js"] }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() } : opts.label.startsWith("fix-group:") ? { status: "blocked" } : undefined, true],
+    ["empty final completeness", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ taskId: "T1", title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger", owns: ["src/core.js"] }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [], ownership: fixtureOwnership() } : undefined, true],
+    ["mismatched final requirement IDs", "NEEDS-WORK", ({ opts }) => opts.label === "review:skeptic:init:correctness" ? { lens: "correctness", satisfied: true, findings: [{ taskId: "T1", title: "trigger correction", file: "src/core.js", severity: "P1", inScope: true, agent: "debugger", owns: ["src/core.js"] }], items: [{ id: "R1", status: "done", evidence: "fixture", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() } : opts.label === "review:skeptic:final:correctness" ? { lens: "correctness", satisfied: true, findings: [], items: [{ id: "R2", status: "done", evidence: "wrong requirement", agent: "debugger", owns: ["src/core.js"] }], drift: [], ownership: fixtureOwnership() } : undefined, true],
     ["missing contract-gate response", "NEEDS-WORK", ({ opts }) => opts.label === "contract-gates" ? null : undefined, true, (args) => { args.config.contractGates = [{ name: "fixture", command: "bun test", when: [] }]; }],
   ];
   for (const [name, expected, override, coreScope = false, configure] of semanticCases) {
@@ -757,7 +889,7 @@ async function runSchedulingFixtures() {
     // Keep the semantic fixture matrix ordered so failure messages remain deterministic.
     // oxlint-disable-next-line no-await-in-loop
     const run = await dryRun(workflowBody("ultra-verify"), args, { respond: (context) => { const response = override(context); return response === undefined ? (coreScope ? coreVerifyResponse(context) : cleanVerifyResponse(context)) : response; } });
-    if (run.result?.verdict !== expected)
+    if (run.result?.verdict !== expected || (expected !== "NEEDS-WORK" && run.result?.capped === true))
       problems.push(`VERDICT ultra-verify: ${name} returned ${run.result?.verdict}, expected ${expected}`);
   }
 

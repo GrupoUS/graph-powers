@@ -129,6 +129,11 @@ toolchain and declared runner. The explicit `--setup-oxc` installer option chang
 and editor files; use it only when that setup is authorized. Keep vtsls's compatible SDK and
 manual model/effort choices. Leave auto-update settings alone unless a change was requested.
 
+Inspect the script behind `tooling.commands.lint`, including its file arguments and exit status.
+Stop appends changed JS/TS paths; a wrapper whose script already includes `.` still scans the
+whole tree. Do not claim changed-only coverage from the appended paths alone. Report an incompatible
+command contract and resolve it within the authorized tooling scope; never hide findings with an opt-in.
+
 After merging, prove the **effective** config rather than trusting valid JSON:
 
 ```bash
@@ -198,6 +203,35 @@ Use the installer for additive posture changes in Step 9; do not recreate that l
 If skill descriptions are actually being dropped, inspect the client's listing diagnostics.
 Prefer removing verified duplicates or narrowing descriptions; do not automatically enlarge the
 listing budget or disable skills during every installation.
+
+### 8a — Prevent recurring hook errors
+
+Inspect all effective registrations for the requested clients: the plugin manifest, generated
+adapters and separately registered global/project hooks. Attribute each to its owner and exact
+executable path/version. The package verifier's single guardrail probe does not exercise every
+hook; a healthy plugin does not certify custom hooks outside its package.
+
+Classify a reported error before changing settings:
+
+| Evidence | Required response |
+|---|---|
+| Stop reports `[DENY] lint failed with exit code ...` | Inspect the configured linter's diagnostics in the target project and fix the reported violations. The hook can intentionally block through JSON while exiting 0; this is not a crash. Do not set the suggested opt-in automatically. |
+| Traceback, malformed response or timeout | Reproduce against the named entrypoint in an isolated fixture; repair its owner under `https://github.com/GrupoUS/graph-powers/blob/main/hooks/AGENTS.md` or the custom hook's own contract. |
+| `SKIP_UNTRUSTED`, unavailable tooling or internal-error summary | Record a skipped/unverified check, not passing lint. Resolve trust with the operator or repair the named prerequisite. |
+| Source tests pass, but the error names an older cache | Verify installed bytes/version, update through the client's native route and reload. A source fix alone has not updated that process. |
+
+For a hook repair, follow `https://github.com/GrupoUS/graph-powers/blob/main/hooks/AGENTS.md` and reuse `https://github.com/GrupoUS/graph-powers/blob/main/hooks/test_hooks.py`; use the owner's tests
+for custom hooks. Cover legitimate input, deliberate denial and malformed input, including valid
+JSON that is not an object (`null`, arrays and scalars) and invalid nested field types. Test backend
+timeouts and permission failures; total attempts plus startup must fit the registered client timeout.
+Use disposable homes/projects and simulated external services so probes cannot update plugins,
+format user files, send notifications or modify real logs. Do not replay every hook against the
+operator's home as a smoke test.
+
+After correction, rerun the original failing case and the applicable regression suite. Keep
+checker diagnostics local and redact sensitive content from reports. Preserve the lifecycle
+boundaries in `https://github.com/GrupoUS/graph-powers/blob/main/hooks/AGENTS.md`: subprocess success does not prove Desktop blocking parity,
+and Grok's passive Stop is not an enforced gate.
 
 ## Step 9 — Install and prove the selected clients
 
@@ -395,6 +429,8 @@ Check only what this setup touched:
 5. After reload, confirm one real role/skill invocation in each requested runtime. Check workflows
    only where the runtime supports them; otherwise retain the documented fallback.
 6. Report Desktop separately and preserve Hermes/Zed `NOT ENFORCED` boundaries.
+7. For hook repairs, include Step 8a's regression and original-error reproduction results;
+   distinguish corrected source, updated installed package and reloaded runtime.
 
 Where supported, the verifier's guardrail probe uses a synthetic command/config; it creates no commit. Run the
 plugin's full hook/regression suite only when its source or wiring changed, not for every host

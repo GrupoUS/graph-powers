@@ -66,9 +66,11 @@ clarify, use memory, or message. They have their own working directory, so pass 
 ## 3. Gauntlet translation
 
 `/gauntlet` and `/verify loop` are **NOT SUPPORTED** Hermes slash commands. When requested, read
-`graph-powers:gauntlet` and `graph-powers:verify`, validate the approved plan with
+`graph-powers:gauntlet` and `graph-powers:verify` and follow their entry contract. An objective first
+uses the canonical planning phases and their review/approval boundaries; reuse valid existing
+approval. Dry-run remains read-only and dispatches nobody. Before implementation, validate the approved plan with
 the packaged `skills/planning/scripts/sdd.py` with `validate ... --profile gauntlet`, and apply the normalized tier. L1-L2 is `NOT ELIGIBLE FOR
-GAUNTLET`; invalid input routes to planning. For L3+, acquire the Gauntlet lease before writers,
+GAUNTLET`; invalid input routes to planning. For a validated non-dry L3+ run, acquire the Gauntlet lease before writers,
 use disjoint waves within live limits, run each focused CHECK, then an independent critic. A capped
 or blocked lane is not success. Release only after PASS.
 
@@ -82,7 +84,9 @@ ordinary L1-L2 work.
 `VERIFIED` means all required signals passed; `VERIFIED-WITH-NOTES` has only documented minor
 issues; `NEEDS-WORK` means a required signal failed or could not run. A regression fix needs a test
 that would fail before it. Resolve an independent verification specialist once for final Gauntlet
-close; use its documented objective fallback once if unavailable and report the degradation.
+close. Translate the `graph-powers:verify` loop fallback with native delegation, including its
+independent review and bounded correction; report the workflow degradation once. If a required
+independent reviewer is unavailable, return `NEEDS-WORK`; self-review cannot close Gauntlet.
 
 ## 5. External CLI routing
 

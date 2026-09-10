@@ -6,12 +6,17 @@
 
 ## Activation and goal
 
-Only `/gauntlet <approved-plan-file-or-directory> [--dry-run]` may pass `profile: gauntlet`, and
-only after `sdd.py validate --profile gauntlet` returns a normalized eligible tier. The explicit non-dry invocation is
-current-turn approval for exactly that canonical plan; it authorizes neither another plan nor a Git
-or outward-facing action. Never infer a plan: a missing path, invalid plan or tier routes to `/plan`
-before this file is loaded. L1-L2 returns `NOT ELIGIBLE FOR GAUNTLET` and follows the normal route. `/implement`
-always keeps Phase C's default profile and `/verify quick` close.
+Only `/gauntlet <objective-or-approved-plan-file-or-directory> [--plan <path>] [--dry-run]` may pass `profile: gauntlet`,
+and only after `sdd.py validate --profile gauntlet` returns a normalized eligible tier. An objective
+first uses Planning Step 0 → Phase A → Phase B; its Gauntlet plan review is required at every eligible
+L3+ tier before validation. A direct approved-plan non-dry invocation authorizes Phase C for exactly
+that canonical plan without a second execution request. An objective authorizes only its stated scope
+and already-covered transitions; a new decision, authority or material scope change pauses. Neither
+form authorizes another plan, Git or an outward-facing action. Never infer a plan: a supplied path
+that is missing, invalid or outside the worktree stops as that path and returns to `/plan`; it never
+becomes an objective.
+L1-L2 returns `NOT ELIGIBLE FOR GAUNTLET` and follows the normal route. `/implement` always keeps
+Phase C's default profile and `/verify quick` close.
 
 The controller owns the loop. Its stable unit is:
 
@@ -27,11 +32,21 @@ lane with explicit state is equivalent; persistent subagent identity is never re
 The normalized plan must provide `tier`, unique task IDs, non-empty `Owns`, payload-bearing `Needs`,
 observable acceptance, decisive `CHECK`/`EXPECT`, an `EVIDENCE` field, valid TDD status and a
 routable writer and bundled skill (or `none`). `EVIDENCE: pending` is correct for an open task; Phase C replaces it only when the
-task closes. Phase C's validator remains the authority for the complete grammar and lease.
+task closes. Before lease or a product writer, it must also have a valid independent evaluator Mode
+1 plan review that still matches the current relevant snapshot. The review evaluates applicable
+database, backend/API and frontend/client coverage from the Gauntlet matrix when present, or from an
+approved legacy plan's existing task/connection evidence. Missing or invalidated coverage/review
+returns to Phase B; do not rewrite an otherwise green spec merely to add a heading, and reuse matching
+evidence instead of requesting approval again. Phase C's validator remains the authority for the
+complete grammar and lease.
 
-For `--dry-run`, derive and display tier, task count, `Owns`, `Needs`, ready waves, writer and
-reviewer routes, every applicable cap and the final `/verify loop <PLAN_FILE>`. Do not acquire a lease, create a
-workspace, write any file or dispatch any agent. Reject unknown flags rather than ignoring them.
+For a plan `--dry-run`, validate read-only, then derive and display tier, task count, `Owns`, `Needs`,
+ready waves, writer and reviewer routes, every applicable cap and the final `/verify loop <PLAN_FILE>`.
+For an objective `--dry-run`, report only the proposed Step 0 → Phase A → Phase B → evaluator →
+approval → Phase C → verify sequence and its artifact boundary. Neither form acquires a lease, creates
+a workspace, writes any file, or dispatches an agent; objective dry-run additionally does not
+investigate, materialize, validate an on-disk artifact, or run a check. Reject unknown flags rather
+than ignoring them.
 
 ## Scheduler
 
@@ -173,9 +188,10 @@ declared performance and project gates remain authoritative.
 
 After Phase C's separate final reviewer resolves Critical and Important findings, keep the lease
 and run `/verify loop <PLAN_FILE>`. Its documented fallback in `commands/verify.md § 1.6` runs once when the
-workflow tool is absent, the name does not resolve or the workflow declines; record the degradation
-and never retry resolution. Merge workflow `blocked` and `capped` into the verdict: either prevents
-success and is handled before evolve or release.
+workflow tool is absent, the name does not resolve or the workflow declines; it still requires a fresh
+independent Evaluator and permits correction only through declared `chain.maxFixRounds`. Record the
+degradation and never retry resolution. Merge workflow `blocked` and `capped` into the verdict: either
+prevents success and is handled before evolve or release.
 
 On complete PASS, run `/evolve auto`, then release only this plan's lease and stop at reviewed,
 unstaged changes. On `NEEDS-WORK` or `BLOCKED`, leave the lease and state explicit until the failure

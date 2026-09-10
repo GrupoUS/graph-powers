@@ -1,6 +1,6 @@
 export const meta = {
   name: 'ultra-verify',
-  description: 'Adversarial loop-until-done verification of the working tree vs the plan: gates+scope → simplify (folds dead-code cleanup) → multi-lens skeptics (folds the perf scan) → completeness → bounded fix loop (root-cause first, re-patch cap). Combats self-preferential bias, agentic laziness and goal drift. Token-lean: skeptics bracket the loop rather than running per round, folded checks are surface-gated, an empty diff exits early, and the final confirm re-runs only the lenses that flagged. Commits nothing.',
+  description: 'Adversarial verification of the working tree vs the plan: gates+scope → simplify → multi-lens skeptics → completeness → bounded corrections with fresh evaluator and gate evidence. Serial writers require plan ownership; missing evidence and exhausted budgets remain NEEDS-WORK. Commits nothing.',
   whenToUse: 'After /implement, to verify the working tree against the approved plan before committing. Pass { planPath, config }, or the plan path as a plain string; args.deep enables the networked render-health scan when the project declares one. Always terminates (max rounds + re-patch cap); never commits.',
   phases: [{ title: 'Gates', model: 'haiku' }, { title: 'Simplify' }, { title: 'Adversarial verify' }, { title: 'Completeness' }, { title: 'Fix loop' }],
 }
@@ -21,9 +21,8 @@ export const meta = {
 // anti-pattern catalogue for the checklist and report or fix directly.
 //
 // Cost shape (the adversarial skeptic panel is the heaviest repeated cost):
-//   - Skeptics run ONCE up front + ONCE after the loop converges (to catch fix-induced
-//     regressions) — NOT per round. Intermediate rounds drive on the cheap objective pair
-//     (gates + completeness). The final confirm re-runs ONLY the lenses that flagged.
+//   - Every correction round is followed by fresh reviewers and gates. The cumulative dispatch
+//     budget reserves those boundaries before permitting writes; exhaustion is never success.
 //   - Empty change set → early exit (gates only); nothing to simplify, skeptic or complete.
 //   - The folded perf and dead-code passes are surface-gated by ONE haiku `scope` agent running in
 //     parallel with gates: an untouched surface spawns ZERO extra work.
@@ -154,6 +153,12 @@ async function resolveConfig() {
     )
     return {
       ...supplied,
+      workBranch: supplied.workBranch ?? supplied.git?.workBranch,
+      commands: supplied.commands ?? supplied.tooling?.commands,
+      ...Object.fromEntries(['contractGates', 'surfaces', 'lenses', 'hardRules', 'invariants', 'maxFixRounds']
+        .map((key) => [key, supplied[key] ?? supplied.chain?.[key]])),
+      ...Object.fromEntries(['maxParallelWave', 'maxSpawnsPerWorkflow', 'maxRepatch']
+        .map((key) => [key, supplied[key] ?? supplied.graphGuardrails?.[key]])),
       scoutAgents: policy?.scoutAgents,
       agentModels: policy?.agentModels,
       evaluatorCapability: ['SUPPORTED', 'UNSUPPORTED', 'UNKNOWN'].includes(suppliedCapability)
@@ -178,7 +183,7 @@ async function resolveConfig() {
       maxParallelWave <- graphGuardrails.maxParallelWave, else 3
       maxSpawnsPerWorkflow <- graphGuardrails.maxSpawnsPerWorkflow, else 8
       maxRepatch     <- graphGuardrails.maxRepatch, else 2
-      maxFixRounds   <- chain.maxFixRounds, else 0 (0 means "let the workflow decide from its budget")
+      maxFixRounds   <- chain.maxFixRounds, else 1
       scoutAgents    <- read <pluginRoot>/codex/model-policy.json and return the agent names whose profile is "scout"
       agentModels    <- read the model field from every canonical <pluginRoot>/agents/*.md frontmatter
       evaluatorCapability <- positive runtime/provider evidence supplied by the caller, else "UNKNOWN"; never probe live capability
@@ -197,8 +202,10 @@ const WORK_BRANCH = cfg.workBranch || 'main'
 WORKFLOW_CAP = Math.min(positiveNumber(cfg.maxSpawnsPerWorkflow, 8), 8)
 const REPATCH_CAP = Math.min(positiveNumber(cfg.maxRepatch, 2), 2)
 const FIX_CAP = Math.min(positiveNumber(cfg.maxParallelWave, 3), 3, WORKFLOW_CAP)
-const configuredRounds = positiveNumber(cfg.maxFixRounds, 0)
-const MAX_ROUNDS = Math.min(configuredRounds || 1, 1)
+// Keep the final correction ceiling aligned with schema/config.schema.json. The task-level
+// Gauntlet loop is separate; malformed caller config cannot expand this final workflow.
+const SCHEMA_MAX_FIX_ROUNDS = 1
+const MAX_ROUNDS = Math.min(Math.floor(positiveNumber(cfg.maxFixRounds, 1)), SCHEMA_MAX_FIX_ROUNDS)
 // Width and cumulative total are separate. Every inner dispatch goes through `dispatch`; this
 // wrapper also reserves later mandatory boundaries before allowing an optional batch to start.
 const boundedParallel = async (thunks, reserve = 0, label = 'batch') => {
@@ -284,9 +291,7 @@ const writerFor = (requested) => {
 
 const projectRules = (cfg.hardRules ?? []).map((r) => ` ${r}`).join('')
 const gateList = [commands.typeCheck, commands.lint, commands.test].filter(Boolean)
-// `build` runs in the opening and, after any writes, final boundary. No intermediate per-finding
-// re-gate exists: related fixes are grouped and the fresh Evaluator confirmation is the only review
-// boundary after them.
+// Each correction round reruns the declared gates, including build, against its resulting tree.
 const openingGateList = [...gateList, commands.build].filter(Boolean)
 // Presented one per line, never chained: `;` is not a separator in cmd.exe, and a chained
 // line makes "capture each exit code" unanswerable even where the chain does work.
@@ -312,21 +317,23 @@ const turboGuidance = (changedFiles = []) => {
 }
 const GATES = { type: 'object', required: ['allGreen', 'gates'], properties: {
   allGreen: { type: 'boolean' },
-  gates: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, exitCode: { type: 'number' }, pass: { type: 'boolean' }, failing: { type: 'string' } } } },
+  gates: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, command: { type: 'string' }, exitCode: { type: 'number' }, pass: { type: 'boolean' }, failing: { type: 'string' } } } },
 } }
-const FIX = { type: 'object', required: ['status'], properties: {
+const FIX = { type: 'object', required: ['status', 'changedPaths'], properties: {
   status: { type: 'string', enum: ['done', 'partial', 'blocked'] }, applied: { type: 'array', items: { type: 'string' } },
-  changedPaths: { type: 'array', items: { type: 'string' } }, gateEvidence: { type: 'string' },
+  changedPaths: { type: 'array', items: { type: 'string', minLength: 1 } }, gateEvidence: { type: 'string' },
 } }
+const OWNS = { type: 'array', items: { type: 'string', minLength: 1 } }
 // SKEPTIC is declared with the lens list in § "Adversarial verify", not here: its `lens` field is an
 // enum over the lenses this run actually dispatches, and that set is not known until the scope agent
 // has reported which surfaces the diff touched.
 const COMPLETENESS = { type: 'object', required: ['items'], properties: {
-  items: { type: 'array', minItems: 1, items: { type: 'object', required: ['id', 'status', 'evidence', 'agent'], properties: { id: { type: 'string', minLength: 1 }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string', minLength: 1 }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
+  items: { type: 'array', minItems: 1, items: { type: 'object', required: ['id', 'status', 'evidence', 'agent', 'owns'], properties: { id: { type: 'string', minLength: 1 }, status: { type: 'string', enum: ['done', 'missing', 'partial'] }, evidence: { type: 'string', minLength: 1 }, agent: { type: 'string', enum: WRITER_AGENT_ENUM }, owns: OWNS } } },
   drift: { type: 'array', items: { type: 'string' } },
 } }
 const hasRequirementEvidence = (items) => Array.isArray(items) && items.length > 0
-  && items.every((item) => typeof item?.id === 'string' && item.id && typeof item?.evidence === 'string' && item.evidence)
+  && items.every((item) => typeof item?.id === 'string' && item.id && typeof item?.evidence === 'string' && item.evidence
+    && ['done', 'missing', 'partial'].includes(item.status))
 
 // Built-ins remain usable with an empty config: configured roots sharpen classification but never
 // decide whether a generic web/API/schema or user-input boundary exists at all.
@@ -341,7 +348,11 @@ const BUILTIN_SURFACES = [
 ]
 const BUILTIN_SURFACE_NAMES = new Set(BUILTIN_SURFACES.map((surface) => surface.name))
 const SURFACES = [...BUILTIN_SURFACES, ...(cfg.surfaces ?? []).filter((surface) => !BUILTIN_SURFACE_NAMES.has(surface.name))]
-const SCOPE = { type: 'object', required: ['changedFiles', 'baseRef', 'touched', 'confidence'], properties: {
+const SCOPE = { type: 'object', required: ['changedFiles', 'baseRef', 'touched', 'confidence', 'planRequirements'], properties: {
+  planRequirements: { type: 'array', minItems: 1, items: { type: 'object', required: ['id', 'taskId', 'agent', 'owns', 'checks'], properties: {
+    id: { type: 'string', minLength: 1 }, taskId: { type: 'string' }, agent: { type: 'string' }, owns: OWNS,
+    checks: { type: 'array', items: { type: 'string' } },
+  } } },
   touched: {
     type: 'object', required: SURFACES.map((surface) => surface.name),
     properties: Object.fromEntries(SURFACES.map((surface) => [surface.name, { type: 'boolean', enum: [false, true] }])),
@@ -371,8 +382,10 @@ const [g0, scope] = await boundedParallel([
    b) If (a) is EMPTY (the environment auto-committed the build): run \`git merge-base origin/${WORK_BRANCH} HEAD\` ON ITS OWN, read the SHA it prints, then run \`git diff --name-only <that-SHA> HEAD\` — the branch's cumulative diff vs its fork point. Do NOT use \`$(...)\` substitution: it is POSIX syntax, and cmd.exe passes it through as literal text. Set baseRef to that SHA.
    c) If merge-base fails (no local origin/${WORK_BRANCH} ref): fall back to \`git diff --name-only HEAD~1 HEAD\`, baseRef="HEAD~1", confidence="low".
    d) If (a) and (b) are BOTH non-empty, UNION them. confidence="high" unless (c) was used.
+   e) ALWAYS include new untracked files: run \`git ls-files --others --exclude-standard -z\` and read its NUL-delimited paths portably (no shell splitting). Union them with the tracked paths BEFORE deciding the change set is empty or classifying surfaces; untracked-only work is a non-empty diff.
 2. Return \`touched\` as an object with one boolean per surface below, keyed by its name:
 ${SURFACES.map((s) => `   ${s.name} = ${s.match}`).join('\n')}${deadCodeProbe}
+Read PLAN ${PLAN_PATH} independently of the reviewers. Return planRequirements: every acceptance/Verification ID exactly once, its owning taskId, that task's exact Agent, Owns paths/globs and executable CHECK commands as checks. Do not infer ownership from the diff or associate a global gate with every task; unresolved task/Agent is an empty string and unresolved Owns/checks are empty arrays. Preserve omitted or unimplemented requirements in this inventory.
 Return changedFiles (the union), touched, baseRef, confidence. Empty diff → changedFiles:[] and every boolean false.`,
     { agentType: AG('explorer'), phase: 'Gates', schema: SCOPE, label: 'scope', model: M('explorer') }
   ),
@@ -382,17 +395,31 @@ const sc = scope ?? { changedFiles: [], baseRef: 'HEAD', touched: {}, confidence
 const touched = sc.touched ?? {}
 const scopeOut = () => ({ confidence: sc.confidence ?? 'low', deep: DEEP, touched })
 const unresolvedSignals = []
+const planRequirements = Array.isArray(sc.planRequirements) ? sc.planRequirements.map((item) => ({
+  ...item, agent: typeof item?.agent === 'string' ? item.agent.replace(/^graph-powers:/, '') : item?.agent,
+})) : []
+const expectedRequirementIds = new Set(planRequirements.map((item) => item?.id))
+const completePlanInventory = planRequirements.length > 0 && expectedRequirementIds.size === planRequirements.length
+  && planRequirements.every((item) => typeof item?.id === 'string' && item.id.trim()
+    && typeof item.taskId === 'string' && typeof item.agent === 'string' && Array.isArray(item.owns)
+    && item.owns.every((path) => typeof path === 'string' && path.trim())
+    && Array.isArray(item.checks) && item.checks.every((check) => typeof check === 'string' && check.trim()))
+const hasExpectedRequirements = (items) => hasRequirementEvidence(items)
+  && items.length === expectedRequirementIds.size
+  && new Set(items.map((item) => item.id)).size === expectedRequirementIds.size
+  && items.every((item) => expectedRequirementIds.has(item.id))
 
 const completeScopeEvidence = !!scope
   && sc.confidence === 'high'
   && sc.touched && typeof sc.touched === 'object'
   && SURFACES.every((surface) => typeof touched[surface.name] === 'boolean')
+  && completePlanInventory
 if (!completeScopeEvidence) {
   return {
     verdict: 'NEEDS-WORK', capped: false, workflowSpawns, workflowSpawnCap: WORKFLOW_CAP,
     deferredDispatches, gates: g?.allGreen ? 'green' : 'RED', gateDetail: g?.gates ?? [],
     missing: [], openFindings: [], unconfirmed: [], blocked: [], drift: [], scope: scopeOut(),
-    reason: 'Scope classification was missing, low-confidence, or omitted a required surface; security routing cannot fail open.',
+    reason: 'Scope classification or independent plan inventory was missing, incomplete, duplicated, or low-confidence; verification cannot fail open.',
     next: 'Repair or rerun the read-only scope classification before accepting this change.',
   }
 }
@@ -557,7 +584,7 @@ phase('Adversarial verify')
 const BUILTIN_LENSES = [
   { name: 'correctness', agent: 'evaluator', when: [] },
   { name: 'security-tenant-PII', agent: 'security-reviewer', when: ['auth', 'api', 'schema', 'web', 'userInput'] },
-  paths.frontendRoot && { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
+  { name: 'design-tokens-a11y', agent: 'ui-ux-designer', when: ['web'] },
 ].filter(Boolean)
 // Dynamic lenses select an existing Graph Powers review role; they never manufacture a subagent
 // name. Compatible questions are folded into one track per role, so four project lenses owned by
@@ -597,11 +624,15 @@ const LENS_ENUM = lenses.map((l) => l.name)
 const KNOWN_LENS = new Set(LENS_ENUM)
 const SKEPTIC = { type: 'object', required: ['lens', 'satisfied', 'findings'], properties: {
   lens: { type: 'string', enum: LENS_ENUM }, satisfied: { type: 'boolean' },
-  findings: { type: 'array', items: { type: 'object', required: ['title', 'file', 'severity', 'inScope', 'agent'], properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM } } } },
+  findings: { type: 'array', items: { type: 'object', required: ['title', 'file', 'severity', 'inScope', 'agent', 'owns', 'taskId'], properties: { title: { type: 'string' }, file: { type: 'string' }, severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] }, inScope: { type: 'boolean' }, agent: { type: 'string', enum: WRITER_AGENT_ENUM }, owns: OWNS, taskId: { type: 'string' } } } },
+  ownership: { type: 'object', required: ['verdict', 'evidence', 'checkedPaths'], properties: {
+    verdict: { type: 'string', enum: ['PASS', 'FAIL', 'UNVERIFIED'] }, evidence: { type: 'string', minLength: 1 }, checkedPaths: OWNS,
+  } },
   items: COMPLETENESS.properties.items,
   drift: COMPLETENESS.properties.drift,
 } }
 const CORRECTNESS_SKEPTIC = { ...SKEPTIC, required: [...SKEPTIC.required, 'items'] }
+const FINAL_CORRECTNESS_SKEPTIC = { ...CORRECTNESS_SKEPTIC, required: [...CORRECTNESS_SKEPTIC.required, 'ownership'] }
 
 // Performance is a conditional checklist inside the consolidated correctness Evaluator, not a
 // second general reviewer. The write-capable performance specialist remains the remediation lane.
@@ -666,12 +697,15 @@ const unsatisfiedFrom = (arr) => (arr ?? []).filter((result) => result?.satisfie
 // freshly spawned agent. Lens + file + title is that identity.
 const findingKey = (f) => JSON.stringify([f?.lens ?? '', f?.file ?? '', f?.title ?? ''])
 
+const correctionEvidence = []
 const skMaker = (pass, lensList = lenses) => lensList.map((l) => () => dispatch(
   `Adversarially verify the working tree against the plan through the consolidated "${l.name}" track (${l.lensNames.join(', ')}). DEFAULT to "not satisfied" when uncertain — your job is to REFUTE, not to confirm. Apply the checklist in ${DBG_GUIDE} (read it); do NOT invoke a skill — this workflow is the orchestration, report only.${clauseFor(l)}
 PLAN: ${PLAN_PATH}
-REQUIREMENTS: Read every acceptance criterion and ## Verification step directly from PLAN; include their ids in your response.
-Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it.${pass === 'final' && l.name === 'correctness' ? ' This is the one post-correction Evaluator boundary: also walk every requirement against the current diff and return items plus drift.' : ''} Read-only.${SCOPE_LOCK}`,
-  { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: l.name === 'correctness' ? CORRECTNESS_SKEPTIC : SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
+REQUIREMENTS: Read every acceptance criterion and ## Verification step directly from PLAN; return the exact ID set from this independent scope inventory: ${JSON.stringify(planRequirements)}.
+Read the task Owns declarations in PLAN and return the exact owned paths/globs as owns on each requirement and finding, plus the owning taskId on each finding. Return owns:[] and taskId:"" if no owning task resolves; never infer write permission from a changed file.
+${pass !== 'init' ? `CORRECTION REPORTS: ${JSON.stringify(correctionEvidence)}. Independently inspect the current diff, including untracked files, and verify each fixer's changedPaths against its package Owns and PLAN. Return ownership:{verdict:PASS|FAIL|UNVERIFIED,evidence,checkedPaths} on correctness: name the observed diff and ownership checks; checkedPaths lists every reviewed changed path. Missing changedPaths evidence or writes outside Owns require FAIL/UNVERIFIED and an unresolved in-scope finding (and drift for correctness); a fixer status:done is not proof of ownership or completion.` : ''}
+Surface concrete failures with file:line + severity P0-P3 + inScope + which agent should fix it.${pass !== 'init' && l.name === 'correctness' ? ` This is a fresh post-correction Evaluator boundary: read the current working-tree diff and rerun the acceptance checks, then return items plus drift. Preserve every known requirement ID: ${JSON.stringify([...expectedRequirementIds])}. Earlier verdicts are context only, never evidence for the current tree.` : ''} Read-only.${SCOPE_LOCK}`,
+  { agentType: AG(l.agent), phase: pass === 'final' ? 'Fix loop' : 'Adversarial verify', schema: l.name === 'correctness' ? (pass === 'final' ? FINAL_CORRECTNESS_SKEPTIC : CORRECTNESS_SKEPTIC) : SKEPTIC, label: `review:skeptic:${pass}:${l.name}`, model: M(l.agent) }
 ))
 // Keep the post-correction Evaluator and final gates available if the initial panel finds work.
 // A clean panel needs neither boundary, so the optional design lens can use the remaining slot
@@ -690,23 +724,40 @@ if (outOfScope.length) log(`${outOfScope.length} finding(s) outside this plan's 
 // adversarial boundary removes a duplicate explorer pass while keeping the production seam real.
 phase('Completeness')
 const initialCorrectness = sk.find((result) => result.lens === 'correctness')
-let c = hasRequirementEvidence(initialCorrectness?.items)
+const initialEvidenceComplete = hasExpectedRequirements(initialCorrectness?.items)
+let c = initialEvidenceComplete
   ? { items: initialCorrectness.items, drift: initialCorrectness.drift ?? [] }
-  : null
-if (!hasRequirementEvidence(initialCorrectness?.items)) {
-  unresolvedSignals.push('initial correctness/completeness evidence missing')
+  : { items: planRequirements.map((item) => ({ ...item, status: 'missing', evidence: 'Initial evaluator evidence does not cover the independent plan inventory' })), drift: [] }
+if (!initialEvidenceComplete) {
+  unresolvedSignals.push('initial correctness/completeness evidence does not match the independent plan inventory')
   log('Mandatory correctness/completeness boundary returned no requirement evidence; preserving NEEDS-WORK rather than treating an empty field as a clean diff')
 }
-const expectedRequirementIds = new Set((c?.items ?? []).map((item) => item.id))
 
-// 5. Loop-until-done — fix → re-verify until clean or capped.
-// Intermediate rounds drive on the cheap objective pair (gates + completeness); the expensive
-// skeptic panel is NOT re-fanned-out per round — it brackets the loop.
+// 5. Each round owns correction → fresh independent review → fresh gates, then a new decision.
 phase('Fix loop')
+const hasOwnership = (item) => Array.isArray(item?.owns) && item.owns.length > 0
+  && item.owns.every((path) => typeof path === 'string' && path.trim())
+  && !!item.taskId && WRITER_AGENTS.has(item.agent)
+const uniqueOwner = (rows) => {
+  const owners = new Map(rows.map((item) => [JSON.stringify([item.taskId, item.agent, item.owns]), item]))
+  return owners.size === 1 ? [...owners.values()][0] : null
+}
 const openItems = (completeness, refuted, gates) => {
-  const missing = (completeness?.items ?? []).filter((i) => i.status !== 'done')
-  const gateFail = !(gates?.allGreen)
-  return { missing, refuted, gateFail, total: missing.length + refuted.length + (gateFail ? 1 : 0) }
+  const missing = (completeness?.items ?? []).filter((i) => i.status !== 'done').map((item) => ({
+    ...item, ...planRequirements.find((requirement) => requirement.id === item.id),
+  }))
+  const ownedFindings = refuted.map((item) => {
+    const owner = uniqueOwner(planRequirements.filter((requirement) => requirement.taskId === item.taskId))
+    return { ...item, owns: owner?.owns ?? [], taskId: owner?.taskId ?? '', agent: owner?.agent ?? '' }
+  })
+  const failedGates = gates?.allGreen ? [] : (gates?.gates ?? []).filter((gate) => gate.pass !== true || gate.exitCode !== 0)
+  if (!gates?.allGreen && !failedGates.length) failedGates.push({ name: 'gate-evidence', failing: 'Gate result missing or not green' })
+  const gateItems = failedGates.map((gate) => {
+    const command = gate.command ?? commands[gate.name] ?? firedGates.find((declared) => declared.name === gate.name)?.command ?? gate.name
+    const owner = uniqueOwner(planRequirements.filter((requirement) => requirement.checks.includes(command)))
+    return { id: `gate:${gate.name}`, agent: owner?.agent ?? '', taskId: owner?.taskId ?? '', owns: owner?.owns ?? [], evidence: gate }
+  })
+  return { missing, refuted: ownedFindings, gateItems, total: missing.length + ownedFindings.length + gateItems.length }
 }
 const fixGroups = (state, round) => {
   const grouped = new Map()
@@ -717,11 +768,13 @@ const fixGroups = (state, round) => {
   }
   for (const item of state.missing ?? []) add('missing', item)
   for (const item of state.refuted ?? []) add('finding', item)
+  for (const item of state.gateItems ?? []) add('gate', item)
   return [...grouped.entries()].map(([agentName, entries], index) => ({
     entries,
     run: () => dispatch(
       `Fix this bounded package of related work assigned to one existing specialist. Resolve every entry you can in one pass; report an entry as blocked rather than spawning a child or widening scope. Do NOT invoke a process skill that re-dispatches agents. ${ROOT_CAUSE} ${GIT_RAILS}
 PLAN: ${PLAN_PATH}
+OWNS: Edit only the exact plan-owned paths/globs attached to each entry. Read PLAN to confirm them before editing; unresolved or insufficient Owns means blocked. Other writers share this tree: preserve their changes. Groups run serially because disjoint ownership has not been proven.
 PACKAGE: ${JSON.stringify(entries)}`,
       { agentType: AG(agentName), phase: 'Fix loop', schema: FIX, label: `fix-group:${round}:${index}`, model: M(agentName) }
     ),
@@ -730,7 +783,7 @@ PACKAGE: ${JSON.stringify(entries)}`,
 // Drop a non-converging item after it fails its gate REPATCH_CAP times across rounds. The
 // orchestrator respawns a fresh fixer each round, so this counter MUST live here, not in the agent
 // prompt. It stops the loop burning rounds on something it cannot fix.
-const keyOf = (it) => it?.id ?? it?.title ?? JSON.stringify(it)
+const keyOf = (it) => it?.lens ? findingKey(it) : (it?.id ?? JSON.stringify(it))
 const attempts = new Map()
 const blocked = []
 const rememberBlocked = (item, reason, fixResult = null) => {
@@ -739,6 +792,11 @@ const rememberBlocked = (item, reason, fixResult = null) => {
 }
 const dropExhausted = (it) => {
   const k = keyOf(it)
+  if (blocked.some((entry) => keyOf(entry) === k)) return false
+  if (!hasOwnership(it)) {
+    rememberBlocked(it, it.id?.startsWith('gate:') ? 'gate CHECK has no unique writable plan owner' : 'plan Owns unavailable')
+    return false
+  }
   if ((attempts.get(k) || 0) >= REPATCH_CAP) {
     rememberBlocked(it, 're-patch limit')
     return false
@@ -746,17 +804,18 @@ const dropExhausted = (it) => {
   return true
 }
 let round = 0
+let unconfirmed = []
 let state = openItems(c, actionableFrom(sk), g)
-while (state.total > 0 && round < MAX_ROUNDS) {
-  round++
+while (initialEvidenceComplete && state.total > 0 && round < MAX_ROUNDS) {
   state.missing = state.missing.filter(dropExhausted)
   state.refuted = state.refuted.filter(dropExhausted)
-  if (state.missing.length + state.refuted.length === 0) break // only gate failures / exhausted items remain
-  const groups = fixGroups(state, round)
-  const available = Math.max(0, Math.min(FIX_CAP, remainingWorkflowSpawns() - 2))
+  state.gateItems = state.gateItems.filter(dropExhausted)
+  if (state.missing.length + state.refuted.length + state.gateItems.length === 0) break
+  const groups = fixGroups(state, round + 1)
+  const available = Math.max(0, remainingWorkflowSpawns() - lenses.length - 1)
   const selected = groups.slice(0, available)
   const deferred = groups.length - selected.length
-  log(`Fix round ${round}/${MAX_ROUNDS}: ${state.missing.length} missing · ${state.refuted.length} P0/P1 · gates ${g?.allGreen ? 'green' : 'RED'}${blocked.length ? ` · ${blocked.length} blocked (re-patch cap)` : ''}${deferred ? ` · deferring ${deferred} past the spawn cap of ${FIX_CAP}` : ''}`)
+  log(`Fix round ${round + 1}/${MAX_ROUNDS}: ${state.missing.length} missing · ${state.refuted.length} P0/P1 · ${state.gateItems.length} failing gates · ${deferred} deferred groups`)
   if (deferred) {
     workflowCapped = true
     deferredDispatches += deferred
@@ -765,27 +824,24 @@ while (state.total > 0 && round < MAX_ROUNDS) {
     workflowCapped = true
     break
   }
+  round++
   for (const it of selected.flatMap((group) => group.entries.map((entry) => entry.item))) {
     attempts.set(keyOf(it), (attempts.get(keyOf(it)) || 0) + 1)
   }
-  // Each round reads the tree the previous round wrote, so the loop is serial by construction.
-  // oxlint-disable-next-line no-await-in-loop
-  const fixResults = await boundedParallel(selected.map((group) => group.run), 2, 'grouped fix round')
-  for (const [index, group] of selected.entries()) {
-    const result = fixResults[index]
+  // Agent names do not prove disjoint file ownership. Serialize the writers within the round too.
+  for (const group of selected) {
+    // oxlint-disable-next-line no-await-in-loop
+    const result = await group.run()
+    correctionEvidence.push({ entries: group.entries, result })
+    if (!Array.isArray(result?.changedPaths) || !result.changedPaths.every((path) => typeof path === 'string' && path.trim())) {
+      for (const entry of group.entries) rememberBlocked(entry.item, 'fixer changedPaths evidence missing or malformed', result)
+      continue
+    }
     if (result?.status === 'done') continue
     for (const entry of group.entries) rememberBlocked(entry.item, `fixer ${result?.status ?? 'unavailable'}`, result)
   }
-  // The one fresh post-correction Evaluator below owns completeness re-check. Do not spend an
-  // intermediate reviewer on the same acceptance boundary.
-  state = openItems(c, [], g)
-}
-
-// 6. Final adversarial pass — catch regressions the fixes introduced (skeptics bracket the loop).
-let openFindings = []
-let unconfirmed = [] // findings not re-checked: P0/P1 block; P2/P3 remain explicit notes
-let unsatisfiedReviews = []
-if (round > 0) {
+  // Never dispatch another writer against the previous round's requirement or gate evidence.
+  // oxlint-disable-next-line no-await-in-loop
   const finalSk = (await boundedParallel(skMaker('final'), 1, 'final adversarial confirmation')).filter(Boolean)
   unresolvedSignals.push(...malformedFindingSignalsFrom(finalSk, 'final'))
   const returnedFinalLenses = new Set(finalSk.map((result) => result?.lens))
@@ -793,44 +849,42 @@ if (round > 0) {
     if (!returnedFinalLenses.has(lens.name)) unresolvedSignals.push(`final ${lens.name} review returned no evidence`)
   }
   const finalCorrectness = finalSk.find((result) => result.lens === 'correctness')
-  const finalRequirementIds = new Set((finalCorrectness?.items ?? []).map((item) => item?.id))
-  const finalEvidenceComplete = hasRequirementEvidence(finalCorrectness?.items)
-    && expectedRequirementIds.size > 0
-    && [...expectedRequirementIds].every((id) => finalRequirementIds.has(id))
+  const ownership = finalCorrectness?.ownership
+  const reportedPaths = correctionEvidence.flatMap((fix) => Array.isArray(fix.result?.changedPaths) ? fix.result.changedPaths : [])
+  if (ownership?.verdict !== 'PASS' || typeof ownership.evidence !== 'string' || !ownership.evidence.trim()
+    || !Array.isArray(ownership.checkedPaths) || !ownership.checkedPaths.every((path) => typeof path === 'string' && path.trim())
+    || !reportedPaths.every((path) => ownership.checkedPaths.includes(path))) {
+    unresolvedSignals.push('final ownership review missing, failed, or incomplete')
+  }
+  const finalEvidenceComplete = hasExpectedRequirements(finalCorrectness?.items)
   if (finalEvidenceComplete) {
     c = { items: finalCorrectness.items, drift: finalCorrectness.drift ?? [] }
   } else {
     unresolvedSignals.push('final correctness/completeness evidence missing, empty, or incomplete')
     log('Final correctness evaluator returned missing, empty, or incomplete requirement evidence; preserving NEEDS-WORK')
   }
-  const initialOpen = findingsFrom(sk)
-  const reran = new Set(finalSk.map((result) => result.lens).filter((name) => KNOWN_LENS.has(name)))
-  const confirmed = findingsFrom(finalSk)
-  const carried = initialOpen.filter((finding) => !reran.has(finding.lens))
-  const carriedKeys = new Set(carried.map(findingKey))
-  openFindings = [...carried, ...confirmed.filter((finding) => !carriedKeys.has(findingKey(finding)))]
-  unconfirmed = carried
-  unsatisfiedReviews = unsatisfiedFrom([...sk.filter((result) => !reran.has(result?.lens)), ...finalSk])
-  if (unconfirmed.length) {
-    log(`${unconfirmed.length} initial finding(s) could not be re-checked inside the workflow total and remain OPEN`)
-  }
-} else {
-  openFindings = findingsFrom(sk) // no fix rounds ran → the init panel already reflects the final tree
-  unsatisfiedReviews = unsatisfiedFrom(sk)
-}
-
-// Intermediate rounds use changed-only Bun tests when possible. Once every write is finished, the
-// full declared gate set runs exactly once against the final tree; otherwise a quick green loop could
-// be mistaken for a final verdict, or a passing opening build could survive fixes that broke it.
-if (round > 0) {
+  const reran = new Set(finalSk.filter((result) => KNOWN_LENS.has(result?.lens)
+    && typeof result.satisfied === 'boolean' && Array.isArray(result.findings)
+    && result.findings.every(findingIsComplete)).map((result) => result.lens))
+  unconfirmed = findingsFrom(sk).filter((finding) => !reran.has(finding.lens))
+  sk = [...sk.filter((result) => !reran.has(result?.lens)), ...finalSk]
+  outOfScope.push(...outOfScopeFrom(finalSk))
+  // Contract gates are invalidated by writes just like test/build; keep their runtime/server
+  // instructions in this same reserved gate dispatch instead of trusting the opening result.
+  const finalGateBlock = [openingGateBlock, ...firedGates.map((gate) =>
+    `  - ${gate.name}: \`${gate.command}\`${gate.runtime ? ` (runtime: ${gate.runtime})` : ''}${gate.needsServer ? ` (start \`${gate.needsServer}\`, run the gate, then stop that process; inability to stop it is a failed gate)` : ''}`)].filter(Boolean).join('\n')
+  // oxlint-disable-next-line no-await-in-loop
   g = await dispatch(
-    openingGateList.length
-      ? `Read ${GATE_GUIDE} first. Run the FINAL gate set once from the repository root, each as a separate command:\n${openingGateBlock}\nA forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`
+    finalGateBlock
+      ? `Read ${GATE_GUIDE} first. Run the FINAL gate set for correction round ${round} from the repository root, each as a separate command:\n${finalGateBlock}\nDo not reuse opening or prior-round results. A forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`
       : 'This project declares no final gate commands. Return allGreen:true with an empty gates list and record that the final boundary had no declared command. Read-only.',
     { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: 'gates:final', model: 'haiku' }
   )
+  state = openItems(c, actionableFrom(sk), g)
 }
 
+const openFindings = [...new Map(findingsFrom(sk).map((finding) => [findingKey(finding), finding])).values()]
+const unsatisfiedReviews = unsatisfiedFrom(sk)
 const missing = (c?.items ?? []).filter((i) => i.status !== 'done')
 const drift = c?.drift ?? []
 const totalOpen = missing.length + openFindings.length + unsatisfiedReviews.length + unresolvedSignals.length
@@ -850,13 +904,13 @@ if (workflowCapped) {
   next = 'Review the working tree. The workflow never commits; the caller decides.'
 } else {
   let blockedSuffix = ''
-  if (blocked.length) blockedSuffix = ' (including the re-patch-capped items, which need manual root-cause work)'
+  if (blocked.length) blockedSuffix = ' (including blocked ownership, evidence, or re-patch items)'
   next = 'Address the listed gaps and findings' + blockedSuffix + ', then re-run ultra-verify.'
 }
 return {
   verdict,
   rounds: round,
-  capped: workflowCapped || (totalOpen > 0 && round >= MAX_ROUNDS),
+  capped: workflowCapped || (state.total > 0 && round >= MAX_ROUNDS),
   workflowSpawns,
   workflowSpawnCap: WORKFLOW_CAP,
   deferredDispatches,

@@ -1,6 +1,6 @@
 ---
 name: gauntlet
-description: "Use only for explicit $graph-powers:gauntlet on an approved structured plan. Supports --dry-run; not for planning, L1-L2, generic assurance or unbounded perfection."
+description: "Use only for $graph-powers:gauntlet objective/plan or --dry-run; excludes L1-L2/generic."
 ---
 
 # $graph-powers:gauntlet

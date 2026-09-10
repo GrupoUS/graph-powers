@@ -10,10 +10,11 @@
 
 ## Entry contract
 
-- Direct route: Phase A complete, with `<plan dir>/spec.md` GATE-1-approved and user-approved.
+- Direct route: Phase A complete, with `<plan dir>/spec.md` user-approved and GATE-1-approved when
+  the tier requires that gate (L4+; explicit Gauntlet L3 proceeds without GATE 1).
 - `ultra-plan` route: the exact Step 0 handoff blocks and chosen approach are the design authority;
   the generated plan still waits for `/plan`'s human gate.
-- Task tier is **L4+**. Only an explicit request to prepare a plan for Gauntlet admits L3 to Phase B;
+- Task tier is **L4+**. Only an explicit request to prepare or run Gauntlet admits L3 to Phase B;
   ordinary L3 still skips it. Tier ladder: `content/references/shared/020-complexity-routing.md`.
 - Preserve the authorized checkout; report a mismatch with `${git.workBranch}` instead of switching.
 
@@ -21,7 +22,8 @@
 
 - Plan at `<plan dir>/PLAN.md`, one directory per plan
   (`content/references/shared/007-path-conventions.md`).
-- Self-review PASS and user approved. At L5+, GATE 2 (evaluator Mode 1) also PASS before Phase C.
+- Self-review PASS and user approval covers Phase C. At L5+ and at every explicit Gauntlet L3+ plan,
+  GATE 2 (evaluator Mode 1) also PASS before Phase C.
 
 ## Loop contract
 
@@ -29,8 +31,10 @@
 
 - **trigger:** Phase A complete, tier L4+, or explicit Gauntlet planning at L3.
 - **goal (binary):** `PLAN.md` exists **AND** it carries every required section from Step 5
-  **AND** every task declares `Owns` and `Needs` **AND** Step 6 passes **AND** user approved. At L5+,
-  GATE 2 must also meet the calibration anchors (`content/skills/planning/references/loop-engineering.md § Calibration anchors`).
+  **AND** every task declares `Owns` and `Needs` **AND** explicit Gauntlet plans map every applicable
+  surface and producer/consumer edge **AND** Step 6 passes **AND** user approval covers execution.
+  At L5+ and explicit Gauntlet L3+, GATE 2 must also meet the calibration anchors
+  (`content/skills/planning/references/loop-engineering.md § Calibration anchors`).
 - **body:** map files and interfaces → write independently testable tasks → self-review → evaluator
   Mode 1 → correct.
 - **terminal:** goal PASS → Phase C. Any guard trips → escalate to user.
@@ -226,6 +230,18 @@ watchlist and rollback **verbatim**; without them verification degrades to a gen
 ## Execution graph
 <the DAG, then one row per edge naming what the destination reads from the source>
 
+## Requirement coverage (Gauntlet required; recommended otherwise)
+| Need | Surface (`database` / `backend` / `frontend`) | Applicable evidence | Task(s) and `Owns` | Producer → consumer payload/path | Acceptance evidence |
+|---|---|---|---|---|---|
+| N1 | backend | `<path:line>` | T1.1 (`<path>`) | `<producer>` → `<consumer>` (`<symbol/type>`) | T1.1 CHECK/EXPECT |
+
+For Gauntlet, include every applicable database, backend/API, and frontend/client row for each
+in-scope need. Mark a surface `N/A` only with repository evidence that it is absent or untouched; do
+not invent a layer. Every row must point to a task and its `Owns`, name the actual producer/consumer
+payload and path, and identify the acceptance evidence. A new producer with no named consumer is out
+of scope unless the requested observable behavior itself is that first consumer. Ordinary plans may
+omit this section; if they include it, keep the same evidence contract.
+
 ## Dispatch matrix          <Step 4>
 
 ## Phase 1 — <Name>  [SEQUENTIAL]
@@ -264,6 +280,11 @@ Fix inline once, then run the checklist once more:
 - [ ] Every `G*` block has a runnable `CHECK`, decisive `EXPECT` and `EVIDENCE: pending`; each task
       phase number has at least one matching gate number.
 - [ ] Every in-scope design requirement maps to a task; no task serves an out-of-scope row.
+- [ ] For explicit Gauntlet, `## Requirement coverage` maps every in-scope need to tasks, `Owns`,
+      actual producer/consumer paths and acceptance evidence; database, backend/API and
+      frontend/client appear only when Step 0 evidence makes them applicable, otherwise their `N/A`
+      row cites that evidence. An approved legacy plan may supply this same mapping through its
+      existing task/connection evidence; do not rewrite a green spec just to add the heading.
 - [ ] Names and signatures consumed later exactly match what earlier tasks produce.
 - [ ] Every required section is present and non-empty (`## Not yet specified` may say it is empty).
 - [ ] Every watchlist row has a proof command and an owner phase.
@@ -277,14 +298,15 @@ Fix inline once, then run the checklist once more:
 - [ ] Fan-out per phase ≤ `graphGuardrails.maxParallelWave`.
 - [ ] L6+: `## Risk` and an ADR present.
 
-## Step 7 — GATE 2 — evaluator Mode 1 (L5+)
+## Step 7 — GATE 2 — evaluator Mode 1 (L5+ and Gauntlet L3+)
 
 Dispatch `graph-powers:evaluator` in Mode 1 with the seven-section prompt from
 `content/references/execution-floor.md § 4`. It reads the design authority and plan,
 checks the Step 6 list, scores the calibration anchors, writes nothing, and returns the canonical
 Context Handoff.
 
-At L4, skip this gate unless the user asks for a second review. At L5+, **PASS** → Step 8;
+At ordinary L4, skip this gate unless the user asks for a second review. At L5+ and explicit
+Gauntlet L3+, **PASS** → Step 8;
 **FAIL** → revise inline, scored against `content/skills/planning/references/loop-engineering.md § Calibration anchors`;
 **BLOCKED** → surface to the user. **L6+:** run GATE 3 (evaluator Mode 3, architecture) between Step
 7 and Step 8.
@@ -299,9 +321,10 @@ change; never repeat an unchanged green review merely to accumulate rounds.
 
 ## Step 9 — Transition
 
-At L4, stop at the approved plan unless execution is already requested. Gauntlet requires an explicit
-opt-in for this plan; preparing it does not imply that opt-in, but an existing opt-in need not be
-requested again. At L5+, continue when Step 8's execution approval is covered:
+At ordinary L4, stop at the approved plan unless execution is already requested. Gauntlet requires an
+explicit opt-in for this plan; preparing it does not imply that opt-in, but an existing opt-in need
+not be requested again. At L5+ or explicit Gauntlet L3+, continue when Step 8's execution approval
+is covered:
 
 ```
 "Phase B complete. Plan ready at <plan dir>/PLAN.md. Invoking Phase C."

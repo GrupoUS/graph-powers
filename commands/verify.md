@@ -34,11 +34,11 @@ Run each applicable declared command in its declared order, capture exit code an
 
 ### 1.5 Full review batch
 
-In `full`, or an argument-less L3+/unknown-tier run, dispatch in parallel: evaluator always; security-reviewer for auth/API/schema; ui-ux-designer for web. Fold `chain.lenses` into those three roles and report a missing role. Skip this batch only for explicit `quick`, explicitly classified L1-L2, or `loop`; reviewers are read-only and return findings plus a clean-scope statement.
+In `full`, or an argument-less L3+/unknown-tier run, dispatch in parallel: evaluator always; security-reviewer for auth/API/schema, web or user input; ui-ux-designer for web. Fold `chain.lenses` into those three roles and report a missing role. Skip this batch only for explicit `quick`, explicitly classified L1-L2, or a `loop` successfully owned by `ultra-verify`; reviewers are read-only and return findings plus a clean-scope statement.
 
 ### 1.6 `loop`
 
-With `loop` and a plan path, invoke `Workflow({ name: 'graph-powers:ultra-verify', args: { planPath, config } })`. If unavailable, unresolved, or declined, run §§ 1–3 directly and report that route once; never retry it. The workflow owns the plan completeness, skeptic panel, bounded fix/regate loop. This command still owns floor, supplements, declaration status, rollback and reuse evidence.
+With `loop` and a plan path, invoke `Workflow({ name: 'graph-powers:ultra-verify', args: { planPath, config } })`. Only when unavailable, unresolved or declined, report it once and read `${CLAUDE_PLUGIN_ROOT}/references/verify-loop-fallback.md`. This command still owns floor, supplements, declaration status, rollback and reuse evidence.
 
 ## 2. Safety and scope
 

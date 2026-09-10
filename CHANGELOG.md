@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.20.2 — End-to-end Gauntlet and review closure
+
+Explicit Gauntlet accepts an objective or a plan, preserving canonical discovery, brainstorming,
+plan review and scoped approval before execution. Planning and review trace requirements through
+the affected frontend, backend and database boundaries; dry-run remains free of writes and spawns.
+
+Verification fallback retains independent review. Final correction uses fresh evidence and safe
+writer ordering, preserves configured caps, and reports unfinished work instead of a clean verdict.
+Frontend review follows detected web changes even without a configured frontend root. Client
+projections follow the canonical contracts; installation and publication remain separate actions.
+
 ## 1.20.0 — Persistent planning and verifiable resume
 
 Planning retains decision-changing research in existing spec/plan owners. Read-only `sdd.py status`

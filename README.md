@@ -217,11 +217,14 @@ is operator posture and is not removed.
 
 ### Gauntlet execution
 
-`/gauntlet <approved-plan-file-or-directory> [--dry-run]` is the opt-in, high-assurance execution
-profile for an already approved structured plan. It keeps coupled work sequential, permits bounded
+`/gauntlet <objective-or-plan-path> [--dry-run]` is the opt-in route from discovery and brainstorming
+through a reviewed structured plan to implementation and verification. It reuses valid planning
+evidence and existing scope approval; unresolved decisions return to planning before implementation.
+It keeps coupled work sequential, permits bounded
 parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
 read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
-the normal local route. The dry run validates and prints the schedule without acquiring a lease,
+the normal local route. The dry run describes the planning route, or validates a supplied plan and
+prints its schedule, without acquiring a lease,
 writing or spawning. Codex exposes the same command as the generated `$graph-powers:gauntlet` skill;
 Hermes translates the method but does not claim a `/gauntlet` slash-command surface.
 

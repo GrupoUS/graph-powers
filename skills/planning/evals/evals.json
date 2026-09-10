@@ -516,12 +516,12 @@
       "id": "gauntlet-neg-no-plan",
       "polarity": "negative",
       "prompt": "Rode /gauntlet agora, mas não vou fornecer caminho de plano nem confirmar que existe um plano estruturado aprovado.",
-      "expected_output": "Stop and route to /plan without loading the profile, writing, leasing or spawning.",
+      "expected_output": "Ask for an objective without assuming a plan, writing, leasing or spawning.",
       "assertions": [
         {
           "id": "J01",
-          "description": "Stops and routes to plan",
-          "check": "regex: (?is)(stop|pare|para|parar|interromp).*/plan|/plan.*(stop|pare|para|parar|interromp)",
+          "description": "Asks for an objective",
+          "check": "regex: (?is)(ask|solicit|pe[çc]).{0,80}(objective|objetivo)|(objective|objetivo).{0,80}(ask|solicit|pe[çc])",
           "critical": true
         },
         {
@@ -549,6 +549,42 @@
           "critical": true
         }
       ]
+    },
+    {
+      "id": "gauntlet-neg-approved-plan-missing-review-coverage",
+      "polarity": "negative",
+      "prompt": "Execute /gauntlet docs/plans/legacy/PLAN.md. O plano L4 é estruturalmente válido e aprovado, mas não há revisão Mode 1 atual e suas conexões backend→frontend não estão cobertas por matriz nem por evidência equivalente. O que acontece antes da lease?",
+      "expected_output": "Return to Phase B to establish the missing evaluator coverage/review before lease or product writers; do not rewrite an otherwise green spec merely for a matrix heading.",
+      "assertions": [
+        {
+          "id": "JV01",
+          "description": "Returns the gap to Phase B",
+          "check": "regex: (?is)(Phase B|Fase B).{0,140}(review|revis|coverage|cobert)|(review|revis|coverage|cobert).{0,140}(Phase B|Fase B)",
+          "critical": true
+        },
+        {
+          "id": "JV02",
+          "description": "Prevents lease and writers before the gap is resolved",
+          "check": "regex: (?is)(no|não|sem).{0,180}(lease|writer|escritor|write|escrev)",
+          "critical": true
+        },
+        {
+          "id": "JV03",
+          "description": "Allows legacy connection evidence without a cosmetic rewrite",
+          "check": "regex: (?is)(legacy|legado|existing|existente).{0,160}(connection|conex|evidence|evidên).*(not|não|sem).{0,100}(heading|cabeç|rewrite|reescrev)",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "Antes da lease, volte à Fase B para obter a revisão independente Mode 1 e cobrir a conexão backend→frontend por matriz ou evidência equivalente. Não há writer. Um plano legado verde não é reescrito só para criar um cabeçalho.",
+          "A ausência de revisão/cobertura bloqueia Phase C; valide a evidência existente quando ela cobrir a conexão, sem mudança cosmética no spec."
+        ],
+        "negative": [
+          "O plano está aprovado, então adquira a lease e deixe o evaluator revisar depois dos writers.",
+          "Reescreva toda a spec legado para adicionar a matriz mesmo quando as conexões já têm evidência."
+        ]
+      }
     },
     {
       "id": "gauntlet-neg-l1-l2",
@@ -1288,6 +1324,156 @@
           "O plano permanece na resposta com validação pendente, mas materializo PLAN.md durante --dry-run para validar e executo o CHECK agora.",
           "Keep the plan response-only. Disk validation is unavailable. Materialization waits for a non-dry run. Execute CHECK now.",
           "Keep the plan response-only and report proposed tasks, gate and lease. Disk validation is unavailable. Materialization waits for a non-dry run; this dry-run performs no writes or checks. I will execute CHECK now."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-pos-objective-pipeline",
+      "polarity": "positive",
+      "prompt": "Execute /gauntlet para o objetivo 'adicionar o relatório local aprovado'. Não forneço um caminho de plano. É um trabalho L4 e a aprovação desta sessão já cobre o design, o plano e a execução desse objetivo. Descreva a cadeia correta antes de qualquer writer.",
+      "expected_output": "The objective enters Step 0, Phase A and Phase B, receives the required evaluator plan review, reuses the covered approval, then validates before Phase C and closes through verify loop.",
+      "assertions": [
+        {
+          "id": "R01",
+          "description": "Runs the planning chain before Gauntlet execution",
+          "check": "regex: (?is)Step 0.*Phase A.*Phase B.*(evaluator|avaliador)",
+          "critical": true
+        },
+        {
+          "id": "R02",
+          "description": "Reuses approval that already covers the transition",
+          "check": "regex: (?is)(reuse|reutiliz|covered|cobert).{0,140}(approval|aprova)",
+          "critical": true
+        },
+        {
+          "id": "R03",
+          "description": "Validates the structured plan before Phase C",
+          "check": "regex: (?is)(validate|valida).{0,220}(Phase C|Fase C)",
+          "critical": true
+        },
+        {
+          "id": "R04",
+          "description": "Uses loop verification at close",
+          "check": "regex: (?is)/verify loop",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "Classifique e execute o Step 0, depois Phase A e Phase B. O plano L4 recebe a revisão independente do evaluator; como a aprovação desta sessão já cobre design, plano e execução, reutilize-a. Valide o PLAN.md antes da Fase C e feche com /verify loop <PLAN_FILE>.",
+          "A entrada por objetivo não pula planejamento: Step 0 → Phase A → Phase B → evaluator → aprovação já coberta → validação → Phase C → /verify loop."
+        ],
+        "negative": [
+          "Não há path, então não posso usar /gauntlet; só aceite planos já fornecidos.",
+          "O objetivo é L4: começo writers e peço aprovação de novo antes de validar o plano."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-neg-invalid-plan-path-not-objective",
+      "polarity": "negative",
+      "prompt": "Execute /gauntlet docs/plans/missing/PLAN.md. Esse caminho de plano não existe, mas a frase também poderia descrever um objetivo. O que acontece?",
+      "expected_output": "Stop on the invalid supplied plan path, request a valid path or plan repair, and never reinterpret it as an objective or create execution state.",
+      "assertions": [
+        {
+          "id": "S01",
+          "description": "Keeps the supplied path as the failing input",
+          "check": "regex: (?is)(missing|ausente|invalid|inválid).{0,120}(plan path|caminho.*plano|PLAN\\.md)",
+          "critical": true
+        },
+        {
+          "id": "S02",
+          "description": "Does not reinterpret a plan path as an objective",
+          "check": "regex: (?is)(never|não|nunca|sem).{0,100}(reinterpret|reinterpretar|objective|objetivo)",
+          "critical": true
+        },
+        {
+          "id": "S03",
+          "description": "Performs no lease, write or spawn",
+          "check": "regex: (?is)(no|não|sem).{0,220}(lease|write|escrev|spawn|dispar)",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "docs/plans/missing/PLAN.md é o caminho de plano fornecido e está ausente. Pare e solicite um PLAN.md válido ou o reparo via /plan; nunca o reinterprete como objetivo. Não crie lease, escrita ou spawn.",
+          "O path inválido permanece a entrada inválida, sem fallback para um objetivo e sem estado de execução."
+        ],
+        "negative": [
+          "Como o arquivo não existe, trate docs/plans/missing/PLAN.md como o objetivo e comece Phase A.",
+          "Escolha outro plano automaticamente e adquira o lease."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-pos-objective-dry-run",
+      "polarity": "positive",
+      "prompt": "Execute /gauntlet 'criar um relatório local' --dry-run. Não há PLAN.md ainda. O que é permitido mostrar e o que fica proibido?",
+      "expected_output": "Only describe the objective pipeline and approval/artifact boundary; do not investigate, plan, validate, write, lease, run checks or spawn.",
+      "assertions": [
+        {
+          "id": "T01",
+          "description": "Describes the complete proposed pipeline",
+          "check": "regex: (?is)Step 0.*Phase A.*Phase B.*(evaluator|avaliador).*(approval|aprova).*(Phase C|Fase C).*/verify loop",
+          "critical": true
+        },
+        {
+          "id": "T02",
+          "description": "Forbids planning and execution side effects for an objective dry-run",
+          "check": "regex: (?is)(no|não|sem).{0,300}(investig|plan|validate|valida|write|escrev|lease|CHECK|spawn|dispar)",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "Dry-run por objetivo só descreve Step 0 → Phase A → Phase B → evaluator → aprovação → Phase C → /verify loop e a fronteira de artefato. Não investiga, escreve, cria plano, valida, roda CHECK, adquire lease nem dispara agente.",
+          "Posso mostrar a sequência e onde a aprovação/PLAN.md seriam exigidos; não materializo nem executo nada neste dry-run."
+        ],
+        "negative": [
+          "Crie um PLAN.md temporário, valide-o e rode o primeiro CHECK para mostrar a simulação.",
+          "Sem plano, dispare um explorador para descobrir as tarefas antes de descrever o dry-run."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-pos-verify-loop-fallback",
+      "polarity": "positive",
+      "prompt": "No fechamento /gauntlet, ultra-verify está indisponível. O plano tem mudança de API e UI, e uma finding Important aparece na revisão. Descreva o fallback, sabendo que chain.maxFixRounds é o único limite final declarado.",
+      "expected_output": "Run the independent full review batch, route the material finding to its owner for at most the declared correction budget, re-gate and independently confirm; otherwise hold NEEDS-WORK or BLOCKED.",
+      "assertions": [
+        {
+          "id": "U01",
+          "description": "Keeps evaluator, security and UI review applicable",
+          "check": "regex: (?is)(evaluator|avaliador).*(security|seguran).*(ui|ux|interface)",
+          "critical": true
+        },
+        {
+          "id": "U02",
+          "description": "Uses only the declared final correction budget",
+          "check": "regex: (?is)chain\\.maxFixRounds.*(only|somente|apenas|únic)",
+          "critical": true
+        },
+        {
+          "id": "U03",
+          "description": "Requires fresh independent confirmation after correction",
+          "check": "regex: (?is)(fresh|novo).*(independent|independente).*(confirm|revis)",
+          "critical": true
+        },
+        {
+          "id": "U04",
+          "description": "Leaves exhausted work unverified",
+          "check": "regex: (?is)(NEEDS-WORK|BLOCKED).*(lease|eviden)",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "Registre a indisponibilidade e execute o batch independente: evaluator, security-reviewer pela API e ui-ux-designer pela UI. A finding Important volta apenas ao writer dono, usa somente chain.maxFixRounds, passa pelo re-gate e uma confirmação independente nova. Sem correção/revisor ou no limite, mantenha NEEDS-WORK ou BLOCKED com lease e evidência.",
+          "O fallback não aceita autoinspeção: mantém revisão independente e a correção limitada por chain.maxFixRounds."
+        ],
+        "negative": [
+          "Como ultra-verify falhou, aceite os testes do autor e declare VERIFIED sem revisão.",
+          "Continue corrigindo a finding Important até ficar perfeita, sem usar chain.maxFixRounds."
         ]
       }
     }

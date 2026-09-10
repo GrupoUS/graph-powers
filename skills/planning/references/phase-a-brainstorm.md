@@ -27,8 +27,8 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 
 ## Exit contract
 
-- **L3:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). GATE 1 (`graph-powers:project-planner`) PASS. User approved. Proceed to `phase-b-writing-plans.md`.
+- **L3 default:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
+- **L3 Gauntlet and L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md`). L4+ requires GATE 1 (`graph-powers:project-planner`) PASS; Gauntlet's required evaluator review occurs in Phase B. User approval must cover Phase B. Proceed to `phase-b-writing-plans.md`.
 
 ---
 
@@ -37,12 +37,12 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 > Phase A is a goal-gated loop. Model: `references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ in the authorized checkout.
-- **goal (binary):** spec file exists **AND** GATE 1 `graph-powers:project-planner` = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3: inline 3-section spec acknowledged by user — no file, no GATE 1.)*
+- **goal (binary):** spec file exists **AND** required GATE 1 `graph-powers:project-planner` = PASS **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3 default: inline 3-section spec acknowledged by user — no file, no GATE 1. Explicit Gauntlet L3 writes the spec and continues to Phase B.)*
 - **body:** inspect → clarify → compare approaches → present design → review → correct.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
   no design · no speculative feature or abstraction without a current requirement.
-- **terminal:** goal PASS → at L3, return to the requested implementation path; at L4+, continue to
-  Phase B. Any guard trips → escalate to user.
+- **terminal:** goal PASS → at default L3, return to the requested implementation path; at Gauntlet
+  L3 or L4+, continue to Phase B. Any guard trips → escalate to user.
 
 ---
 
@@ -53,7 +53,7 @@ Step 0 has already chosen the path:
 | Path | Planning depth | Output |
 |---|---|---|
 | **Spike** | `/research`; the answer is the deliverable | Evidence-backed recommendation; any artifact is throwaway |
-| **L3 bounded** | Existing flow, one domain | Short design in chat; no spec or plan file |
+| **L3 bounded** | Existing flow, one domain | Short design in chat; no spec or plan file, except explicit Gauntlet promotes it to the reviewed plan path |
 | **L4+ architectural** | New subsystem, cross-domain contract or structural change | Approved `spec.md`, then Phase B |
 
 Hidden complexity only moves upward: stop, state what changed, and reclassify. Do not downgrade a
@@ -160,6 +160,11 @@ Design for isolation: one purpose per unit, explicit interfaces, independently t
 Follow existing repository patterns and keep targeted improvements inside touched code only. No
 unrelated refactor and no new layer merely to make the diagram look cleaner.
 
+Before Phase B, state which of **database**, **backend/API**, and **frontend/client** are applicable
+from Step 0's repository evidence. For every applicable surface, name the producer → consumer path
+and the proof that will cover it. Mark an absent or untouched surface `N/A` with that evidence; do
+not invent a data, service, or UI layer just to fill a matrix.
+
 ## Step 6 — Write spec doc
 
 **Path:** `${paths.planDir}/YYYY-MM-DD-<kebab-case-slug>/spec.md` (today's ISO date, UTC). The plan that Phase B writes lands beside it as `PLAN.md`, so the whole effort is one directory.
@@ -227,7 +232,8 @@ Read `phase-b-writing-plans.md` next.
 For L3: (1) targeted repository inspection, with an explorer only for useful independent work · (2) one clarifying question
 only if it changes the design · (3) inline three-section spec (`Architecture`, `Data shape`,
 `Validation`) · (4) confirm approval covers this scope · (5) hand off to the requested implementation path. No file and no
-reviewer gate.
+reviewer gate, unless explicit Gauntlet promotes the approved design into Phase B for its structured
+plan and evaluator review.
 
 ## L6+ extra
 

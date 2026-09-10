@@ -23,8 +23,9 @@ transition; pause again only for a new decision, authority, or material scope ch
 `references/loop-engineering.md` is for a loop that needs a cap or reset, and `references/dispatch-matrix.md`
 and `references/layer-map.md` are for Phase B assignments/order.
 
-`/gauntlet` is opt-in, never default: it may run at L3+ after its profile and plan validate; read
-`references/gauntlet-loop.md` only then. Preserve its leases, independent critic, caps and evidence.
+`/gauntlet` is opt-in, never default: at L3+ it accepts either an objective or an approved plan. An
+objective enters Step 0 → Phase A → Phase B first; only a validated eligible plan loads
+`references/gauntlet-loop.md`. Preserve its leases, independent critic, configured caps and evidence.
 For a task marked `TDD: required`, read `references/execution/tdd-policy.md`; load the other
 execution prompts only for their dispatch/review event.
 
