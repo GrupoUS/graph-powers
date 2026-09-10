@@ -297,6 +297,26 @@ def session_context_lifecycle() -> None:
             return out.strip()
 
     installed_tag = tag(installed)
+    cursor_out, cursor_code = call_raw(
+        "session_context",
+        start,
+        installed,
+        hook_args=("hooks/session_context.py", "--graph-powers-client", "cursor"),
+    )
+    try:
+        cursor_body = json.loads(cursor_out)
+    except ValueError:
+        cursor_body = {}
+    check(
+        "explicit Cursor marker emits documented additional_context",
+        (cursor_code, set(cursor_body), isinstance(cursor_body.get("additional_context"), str)),
+        (0, {"additional_context"}, True),
+    )
+    check(
+        "explicit Cursor marker preserves the shared session context",
+        cursor_body.get("additional_context"),
+        installed_tag,
+    )
     check(
         "an installed linter is listed as a gate",
         "lint" in installed_tag.split("gates: ")[-1],

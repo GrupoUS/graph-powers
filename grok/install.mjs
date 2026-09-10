@@ -84,63 +84,215 @@ function tomlLiteral(value) {
   return JSON.stringify(String(value));
 }
 
+function configSyntaxConflict(text) {
+  // This editor only owns bare table/key lines, not the full TOML grammar. Refuse
+  // ambiguous structure; broader support needs a TOML parser with lossless edits.
+  let multiline = false;
+  const structure = text.replace(
+    /"""|'''|"(?:\\[^\r\n]|[^"\\\r\n])*"|'[^'\r\n]*'|#[^\r\n]*/g,
+    (token) => {
+      if (token === '"""' || token === "'''") multiline = true;
+      return token.startsWith("#") ? "" : "@";
+    },
+  );
+  const conflict =
+    "TOML structure cannot be safely edited; use bare tables/keys and single-line strings";
+  if (multiline || /["']/.test(structure)) return conflict;
+
+  const namespaces = new Set(["ui", "features", "subagents", "plugins", "marketplace"]);
+  const scalarKeys = new Set(["ui.permission_mode", "features.web_fetch", "subagents.enabled"]);
+  let table = "";
+  let arrayDepth = 0;
+  for (const line of structure.split(/\r?\n/)) {
+    let content = line.trim();
+    if (!content) continue;
+    if (arrayDepth === 0) {
+      if (content.startsWith("[")) {
+        const header = /^(\[\[?)([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)(\]\]?)$/.exec(content);
+        if (!header || header[1].length !== header[3].length) return conflict;
+        table = header[2];
+        const namespace = table.split(".")[0];
+        if (
+          namespaces.has(namespace) &&
+          !(table === namespace && header[1] === "[") &&
+          !((table === "subagents.models" || table === "subagents.toggle") && header[1] === "[") &&
+          !(table === "marketplace.sources" && header[1] === "[[")
+        ) {
+          return conflict;
+        }
+        continue;
+      }
+      const assignment = /^([A-Za-z0-9_-]+)[\t ]*=[\t ]*(.+)$/.exec(content);
+      if (!assignment) return conflict;
+      const [, key, value] = assignment;
+      if (!table && namespaces.has(key)) return conflict;
+      if (table === "marketplace" && key === "sources") return conflict;
+      if (namespaces.has(table.split(".")[0]) && value.includes("{")) return conflict;
+      if (scalarKeys.has(`${table}.${key}`) && value.includes("[")) return conflict;
+      content = value;
+    }
+    arrayDepth += (content.match(/\[/g) || []).length - (content.match(/\]/g) || []).length;
+    if (arrayDepth < 0) return conflict;
+  }
+  return arrayDepth === 0 ? null : conflict;
+}
+
 function tableSpan(text, table) {
-  const re = new RegExp(`^\\[${escapeRe(table)}\\]\\s*$`, "m");
+  const re = new RegExp(`^[\\t ]*\\[${escapeRe(table)}\\][\\t ]*(?:#.*)?\\r?$`, "m");
   const match = re.exec(text);
   if (!match) return null;
   const start = match.index + match[0].length;
   const rest = text.slice(start);
-  const next = rest.search(/^\s*\[/m);
+  const next = rest.search(/^[\t ]*(?:\[\[[^\]\r\n]+\]\]|\[[^\]\r\n]+\])[\t ]*(?:#.*)?\r?$/m);
   const end = next === -1 ? text.length : start + next;
   return { start, end };
 }
 
 function setTableKey(text, table, key, value) {
   const formatted = `${key} = ${tomlLiteral(value)}`;
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
   const span = tableSpan(text, table);
   if (!span) {
-    const block = `\n[${table}]\n${formatted}\n`;
-    return { text: `${text.trimEnd()}${block}`, changed: true };
+    const separator = text && !text.endsWith(newline) ? newline : "";
+    const blank = text ? newline : "";
+    return {
+      text: `${text}${separator}${blank}[${table}]${newline}${formatted}${newline}`,
+      changed: true,
+    };
   }
   const body = text.slice(span.start, span.end);
-  const keyRe = new RegExp(`^${escapeRe(key)}\\s*=\\s*.*$`, "m");
-  if (keyRe.test(body)) {
-    const nextBody = body.replace(keyRe, formatted);
+  const keyRe = new RegExp(`^([\\t ]*)${escapeRe(key)}[\\t ]*=.*?(\\r?)$`, "m");
+  const keyMatch = keyRe.exec(body);
+  if (keyMatch) {
+    const content = keyMatch[2] ? keyMatch[0].slice(0, -keyMatch[2].length) : keyMatch[0];
+    const comment = content.match(/([\t ]+#.*)$/)?.[1] ?? "";
+    const nextBody = body.replace(keyRe, `${keyMatch[1]}${formatted}${comment}${keyMatch[2]}`);
     if (nextBody === body) return { text, changed: false };
     return { text: text.slice(0, span.start) + nextBody + text.slice(span.end), changed: true };
   }
-  const insert = `\n${formatted}`;
+  const insert = `${body.endsWith(newline) ? "" : newline}${formatted}${newline}`;
   return {
-    text: `${text.slice(0, span.end).replace(/\s*$/, "")}${insert}\n${text.slice(span.end)}`,
+    text: `${text.slice(0, span.end)}${insert}${text.slice(span.end)}`,
     changed: true,
   };
 }
 
 function parseStringArray(raw) {
-  const inner = raw.replace(/^\s*\[/, "").replace(/\]\s*$/, "");
-  if (!inner.trim()) return [];
   const out = [];
-  const re = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'/g;
-  let match = re.exec(inner);
-  while (match) {
-    out.push((match[1] ?? match[2]).replace(/\\"/g, '"'));
-    match = re.exec(inner);
+  let index = 0;
+  let expectingValue = true;
+
+  const skipWhitespaceAndComments = () => {
+    while (index < raw.length) {
+      if (/\s/.test(raw[index])) {
+        index += 1;
+      } else if (raw[index] === "#") {
+        const nextLine = raw.indexOf("\n", index);
+        index = nextLine === -1 ? raw.length : nextLine + 1;
+      } else {
+        break;
+      }
+    }
+  };
+
+  skipWhitespaceAndComments();
+  if (raw[index] !== "[") return null;
+  index += 1;
+  while (true) {
+    skipWhitespaceAndComments();
+    if (raw[index] === "]") return out;
+    if (!expectingValue) {
+      if (raw[index] !== ",") return null;
+      index += 1;
+      expectingValue = true;
+      continue;
+    }
+    const quote = raw[index];
+    if (quote !== '"' && quote !== "'") return null;
+    const valueStart = index;
+    index += 1;
+    let escaped = false;
+    while (index < raw.length) {
+      const character = raw[index];
+      if (quote === '"' && escaped) escaped = false;
+      else if (quote === '"' && character === "\\") escaped = true;
+      else if (character === quote) break;
+      index += 1;
+    }
+    if (index >= raw.length) return null;
+    const encoded = raw.slice(valueStart, index + 1);
+    try {
+      out.push(quote === '"' ? JSON.parse(encoded) : encoded.slice(1, -1));
+    } catch {
+      return null;
+    }
+    index += 1;
+    expectingValue = false;
   }
-  return out;
+}
+
+function arrayValueSpan(body, key) {
+  const keyRe = new RegExp(`^([\\t ]*)${escapeRe(key)}[\\t ]*=[\\t ]*`, "m");
+  const keyMatch = keyRe.exec(body);
+  if (!keyMatch) return null;
+  const arrayStart = keyMatch.index + keyMatch[0].length;
+  if (body[arrayStart] !== "[") return { malformed: true };
+  let quote = null;
+  let escaped = false;
+  let depth = 0;
+  for (let i = arrayStart; i < body.length; i += 1) {
+    const character = body[i];
+    if (quote) {
+      if (quote === '"' && escaped) escaped = false;
+      else if (quote === '"' && character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === "#") {
+      const nextLine = body.indexOf("\n", i);
+      if (nextLine === -1) break;
+      i = nextLine;
+      continue;
+    }
+    if (character === "[") depth += 1;
+    if (character === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        const lineEnd = body.indexOf("\n", i);
+        const end = lineEnd === -1 ? body.length : lineEnd;
+        const trailing = body.slice(i + 1, end);
+        if (!/^[\t ]*(?:#.*)?\r?$/.test(trailing)) return { malformed: true };
+        return {
+          start: keyMatch.index,
+          end,
+          indent: keyMatch[1],
+          raw: body.slice(arrayStart, i + 1),
+          trailing,
+        };
+      }
+    }
+  }
+  return { malformed: true };
 }
 
 function removeStringFromArrayKey(text, table, key, item) {
   const span = tableSpan(text, table);
   if (!span) return { text, changed: false };
   const body = text.slice(span.start, span.end);
-  const keyRe = new RegExp(`^${escapeRe(key)}\\s*=\\s*(\\[[\\s\\S]*?\\])`, "m");
-  const match = keyRe.exec(body);
-  if (!match) return { text, changed: false };
-  const current = parseStringArray(match[1]);
+  const value = arrayValueSpan(body, key);
+  if (!value) return { text, changed: false };
+  if (value.malformed)
+    return { text, changed: false, error: `${table}.${key} cannot be safely read` };
+  const current = parseStringArray(value.raw);
+  if (!current) return { text, changed: false, error: `${table}.${key} cannot be safely read` };
   const next = current.filter((entry) => entry !== item);
   if (next.length === current.length) return { text, changed: false };
-  const formatted = `${key} = ${tomlLiteral(next)}`;
-  const nextBody = body.replace(keyRe, formatted);
+  const formatted = `${value.indent}${key} = ${tomlLiteral(next)}${value.trailing}`;
+  const nextBody = body.slice(0, value.start) + formatted + body.slice(value.end);
   return { text: text.slice(0, span.start) + nextBody + text.slice(span.end), changed: true };
 }
 
@@ -148,10 +300,12 @@ function mergeStringArrayKey(text, table, key, extra) {
   const span = tableSpan(text, table);
   if (!span) return setTableKey(text, table, key, extra);
   const body = text.slice(span.start, span.end);
-  const keyRe = new RegExp(`^${escapeRe(key)}\\s*=\\s*(\\[[\\s\\S]*?\\])`, "m");
-  const match = keyRe.exec(body);
-  if (!match) return setTableKey(text, table, key, extra);
-  const current = parseStringArray(match[1]);
+  const value = arrayValueSpan(body, key);
+  if (!value) return setTableKey(text, table, key, extra);
+  if (value.malformed)
+    return { text, changed: false, error: `${table}.${key} cannot be safely read` };
+  const current = parseStringArray(value.raw);
+  if (!current) return { text, changed: false, error: `${table}.${key} cannot be safely read` };
   const next = [...current];
   let changed = false;
   for (const item of extra) {
@@ -161,9 +315,19 @@ function mergeStringArrayKey(text, table, key, extra) {
     }
   }
   if (!changed) return { text, changed: false };
-  const formatted = `${key} = ${tomlLiteral(next)}`;
-  const nextBody = body.replace(keyRe, formatted);
+  const formatted = `${value.indent}${key} = ${tomlLiteral(next)}${value.trailing}`;
+  const nextBody = body.slice(0, value.start) + formatted + body.slice(value.end);
   return { text: text.slice(0, span.start) + nextBody + text.slice(span.end), changed: true };
+}
+
+function stringArrayValue(text, table, key) {
+  const span = tableSpan(text, table);
+  if (!span) return { values: [] };
+  const value = arrayValueSpan(text.slice(span.start, span.end), key);
+  if (!value) return { values: [] };
+  if (value.malformed) return { error: `${table}.${key} cannot be safely read` };
+  const values = parseStringArray(value.raw);
+  return values ? { values } : { error: `${table}.${key} cannot be safely read` };
 }
 
 function ensureMarketplaceSource(text, { name, git }) {
@@ -175,7 +339,17 @@ function ensureMarketplaceSource(text, { name, git }) {
 
 export function mergeGrokConfig(current, { autonomous, pluginRoot, forgetClone = false } = {}) {
   let text = typeof current === "string" ? current : "";
+  const original = text;
   const changed = [];
+  const conflicts = [];
+  const syntaxConflict = configSyntaxConflict(text);
+  if (syntaxConflict) return { next: original, changed, conflicts: [syntaxConflict] };
+
+  const disabled = stringArrayValue(text, "plugins", "disabled");
+  if (disabled.error) conflicts.push(disabled.error);
+  if (disabled.values?.includes("graph-powers")) {
+    conflicts.push("plugins.disabled contains graph-powers");
+  }
 
   if (autonomous) {
     const mode = setTableKey(text, "ui", "permission_mode", "always-approve");
@@ -191,16 +365,21 @@ export function mergeGrokConfig(current, { autonomous, pluginRoot, forgetClone =
   if (sub.changed) changed.push("subagents.enabled");
   text = sub.text;
 
-  const enabled = mergeStringArrayKey(text, "plugins", "enabled", ["graph-powers"]);
-  if (enabled.changed) changed.push("plugins.enabled");
-  text = enabled.text;
+  if (!conflicts.some((conflict) => conflict.startsWith("plugins.disabled"))) {
+    const enabled = mergeStringArrayKey(text, "plugins", "enabled", ["graph-powers"]);
+    if (enabled.error) conflicts.push(enabled.error);
+    if (enabled.changed) changed.push("plugins.enabled");
+    text = enabled.text;
+  }
 
   if (pluginRoot && forgetClone) {
     const paths = removeStringFromArrayKey(text, "plugins", "paths", pluginRoot);
+    if (paths.error) conflicts.push(paths.error);
     if (paths.changed) changed.push("plugins.paths");
     text = paths.text;
   } else if (pluginRoot) {
     const paths = mergeStringArrayKey(text, "plugins", "paths", [pluginRoot]);
+    if (paths.error) conflicts.push(paths.error);
     if (paths.changed) changed.push("plugins.paths");
     text = paths.text;
   }
@@ -209,8 +388,9 @@ export function mergeGrokConfig(current, { autonomous, pluginRoot, forgetClone =
   if (source.changed) changed.push("marketplace.sources");
   text = source.text;
 
+  if (conflicts.length) return { next: original, changed: [], conflicts };
   if (text.length && !text.endsWith("\n")) text += "\n";
-  return { next: text, changed };
+  return { next: text, changed, conflicts };
 }
 
 export function install({
@@ -228,6 +408,20 @@ export function install({
   const claudeMarketplace = readJson(join(pluginRoot, ".claude-plugin/marketplace.json"), {});
   const pluginManifest = buildPluginManifest(claudeManifest);
   const marketplace = buildMarketplace(claudeMarketplace);
+
+  const home = process.env.GROK_HOME || join(homedir(), ".grok");
+  const configFile = join(home, "config.toml");
+  const current = !emitOnly && existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
+  const { next, changed, conflicts } = mergeGrokConfig(current, {
+    autonomous,
+    pluginRoot,
+    forgetClone: !discoverClone,
+  });
+  if (conflicts.length) {
+    throw new Error(
+      `Grok config conflicts with ${autonomous ? "autonomous" : "guarded"} posture (${conflicts.join(", ")}); config.toml was not changed`,
+    );
+  }
 
   if (emit) {
     const manifestPath = join(pluginRoot, ".grok-plugin/plugin.json");
@@ -251,6 +445,7 @@ export function install({
       packageRoot: pluginRoot,
       projectDir: process.cwd(),
       autonomy: autonomous ? "autonomous" : "guarded",
+      requireGrokRuntime: autonomous,
       probe: true,
     });
     if (!proof.ok) {
@@ -259,15 +454,6 @@ export function install({
       );
     }
   }
-
-  const home = process.env.GROK_HOME || join(homedir(), ".grok");
-  const configFile = join(home, "config.toml");
-  const current = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
-  const { next, changed } = mergeGrokConfig(current, {
-    autonomous,
-    pluginRoot,
-    forgetClone: !discoverClone,
-  });
 
   if (changed.length) {
     if (dryRun) log(`(dry-run) would write ${configFile}: ${changed.join(", ")}`);

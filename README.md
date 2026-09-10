@@ -284,9 +284,10 @@ Each skill states what it needs; none is required for the guardrails.
 - Node 18+ (or Bun) — only to run the installer; nothing here has dependencies to fetch
 - Git
 
-There is no package to publish and none to install. The plugin is markdown, JSON and
-standard-library Python: a clone **is** the artefact, and a `git pull` **is** the update. A
-registry in between would add an account, a token and a release for every fix, and buy nothing.
+Distribution uses Git: the clone contains shared sources and client projections, including the
+generated, self-contained `hermes/package` subdirectory that Hermes installs. No separate npm
+registry is needed. The clone gate reports the source and Hermes budgets plus their actual total;
+the [verification contract](.claude/rules/verify-supplements.md) defines those limits.
 
 ### Claude Code
 
@@ -414,12 +415,22 @@ Grok marketplace installs the same repository through `.grok-plugin/plugin.json`
 (or the setup playbook Step 9h): it reads `grok plugin list --json`, verifies the exact reported path,
 manifest, sixteen guarded runners and their targets, and only then changes posture. Restart the
 session. Do not add user `hooks/*.json` beside plugin hooks. Under guarded posture the installer
-still wires discovery without writing always-approve. Git commit/push still ask; `rm -rf /` still
+still wires discovery without writing always-approve. Autonomous setup also requires the verified
+package to be enabled with its hooks discovered by Grok; file integrity alone is insufficient.
+An explicit disabled plugin or unresolved trust decision must be handled in the native client.
+Git commit/push still ask; `rm -rf /` still
 denies.
 
 ```bash
 node ~/.graph-powers/src/bin/graph-powers.mjs --target grok
 ```
+
+### Grok Bot
+
+Grok Bot has its own saved and packaged skills surface. Local Grok CLI installation does not
+install Graph Powers inside a Bot. The [client compatibility guide](docs/client-compatibility.md)
+records the official contracts, a procedure for preparing canonical methods as Bot skills, and
+the runtime limits for Grok Bot, Grok Build and Cursor. Bot hook enforcement remains **UNVERIFIED**.
 
 ### Zed and Oxc editors
 
@@ -717,7 +728,8 @@ manager family is still denied.
 Fifteen hook scripts, wired through sixteen registrations in
 [`hooks/hooks.json`](hooks/hooks.json), are discovered by Claude Code, Codex and Grok when the
 plugin is installed. Cursor loads the generated [`hooks/hooks-cursor.json`](hooks/hooks-cursor.json)
-(twelve registrations: PermissionRequest, Notification and SubagentStart do not exist there). Grok uses the
+(twelve registrations: PermissionRequest and Notification are unsupported; SubagentStart lacks the
+canonical hook's context-output contract). Grok uses the
 Claude file; `_config.py` adapts camelCase payloads and Grok tool names so the same gates run. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
 `PermissionRequest` to approve an escalation that the same classifier already allowed;
 `tool_approver` answers the same event for everything that is **not** a shell command. A

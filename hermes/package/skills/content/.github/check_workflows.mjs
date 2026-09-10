@@ -701,9 +701,12 @@ function coreVerifyResponse(context) {
   return cleanVerifyResponse(context);
 }
 
+function requirement(id, status, agent = "debugger") {
+  return { id, status, agent, evidence: "src/core.js:1", owns: ["src/core.js"] };
+}
+
 async function runVerifyLoopFixtures() {
   const problems = [];
-  const requirement = (id, status, agent = "debugger") => ({ id, status, agent, evidence: "src/core.js:1", owns: ["src/core.js"] });
   const review = (items) => ({ lens: "correctness", satisfied: items.every((item) => item.status === "done"), findings: [], items, drift: [], ownership: fixtureOwnership() });
   const cases = [
     ["independent plan inventory catches omitted requirement", (context) => {

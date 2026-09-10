@@ -1,12 +1,13 @@
 """What a clone must contain, checked against the checkout itself.
 
-There is no package step and no tarball: whatever `git clone` produces is what runs on somebody
-else's machine. So the assertions are about the tracked tree, not about an archive.
+The clone includes canonical sources and a generated, self-contained Hermes package. Each has
+its own byte budget; together they bound the complete tree, including untracked candidates.
 """
 
 import os
 import subprocess
 import sys
+from pathlib import PurePosixPath
 
 REQUIRED = [
     "bin/graph-powers.mjs", "bin/oxc-setup.mjs", "bin/audit-settings.mjs",
@@ -34,31 +35,53 @@ REQUIRED_DIRS = [
     "agents", "skills", "commands", "references", "templates", "examples", "workflows",
     "hermes", "codex/native-agents", "codex/native-command-skills",
 ]
-MAX_BYTES = 4 * 1024 * 1024
+MAX_SOURCE_BYTES = 4 * 1024 * 1024
+MAX_HERMES_BYTES = 2 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]
 missing += [d + "/" for d in REQUIRED_DIRS if not os.path.isdir(d) or not os.listdir(d)]
 
-tracked = subprocess.run(
-    ["git", "ls-files"], capture_output=True,
-    encoding="utf-8", errors="replace", check=False
-).stdout.splitlines()
+try:
+    inventory = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        capture_output=True, check=False,
+    )
+except OSError:
+    print("::error::cannot enumerate clone candidates: Git is unavailable")
+    sys.exit(1)
+if inventory.returncode != 0:
+    print(f"::error::cannot enumerate clone candidates: Git exited {inventory.returncode}")
+    sys.exit(1)
+candidates = sorted({os.fsdecode(name) for name in inventory.stdout.split(b"\0") if name})
 
 # Compiled Python is gitignored, but an ignore rule is not proof that nothing was committed before
 # the rule existed.
-junk = [f for f in tracked if "__pycache__" in f or f.endswith(".pyc")]
+junk = [f for f in candidates if "__pycache__" in f or f.endswith(".pyc")]
 
-size = sum(os.path.getsize(f) for f in tracked if os.path.exists(f))
+source_size = 0
+hermes_size = 0
+for name in candidates:
+    if os.path.exists(name):
+        if PurePosixPath("hermes/package") in PurePosixPath(name).parents:
+            hermes_size += os.path.getsize(name)
+        else:
+            source_size += os.path.getsize(name)
+total_size = source_size + hermes_size
 
 for m in missing:
     print(f"MISSING: {m}")
 for j in junk:
-    print(f"TRACKED JUNK: {j}")
-print(f"{len(tracked)} tracked files, {size // 1024} KB")
+    print(f"CANDIDATE JUNK: {j}")
+print(f"{len(candidates)} candidate files (tracked and untracked, excluding ignored untracked files)")
+print(f"Source: {source_size} bytes ({source_size / 1024:.2f} KiB) / {MAX_SOURCE_BYTES} bytes")
+print(f"Hermes package: {hermes_size} bytes ({hermes_size / 1024:.2f} KiB) / {MAX_HERMES_BYTES} bytes")
+print(f"Total: {total_size} bytes ({total_size / 1024:.2f} KiB) / {MAX_SOURCE_BYTES + MAX_HERMES_BYTES} bytes (source + Hermes)")
 
-if size > MAX_BYTES:
-    print("::error::the clone grew past 4 MB — check what got vendored back in")
+if source_size > MAX_SOURCE_BYTES:
+    print("::error::the source grew past 4 MiB — check what got vendored back in")
+if hermes_size > MAX_HERMES_BYTES:
+    print("::error::the Hermes package grew past 2 MiB — check its generated dependency closure")
 if missing:
     print("::error::a clone would not contain everything the installer needs")
 
-sys.exit(1 if missing or junk or size > MAX_BYTES else 0)
+sys.exit(1 if missing or junk or source_size > MAX_SOURCE_BYTES or hermes_size > MAX_HERMES_BYTES else 0)

@@ -382,6 +382,108 @@ def test_grok_inventory_and_posture_use_grok_home() -> None:
         assert body["posture"]["permissionMode"] == "ask", body
 
 
+def test_grok_runtime_proof_requires_active_exact_plugin_hooks() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-client-grok-runtime-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        package = copy_package(base / "grok-package")
+        version = json.loads((package / ".grok-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+        inventory = base / "grok-plugins.json"
+        inspect = base / "grok-inspect.json"
+        write_json(
+            inventory,
+            [{"status": "installed", "name": "graph-powers", "version": version, "path": str(package)}],
+        )
+        active_inspect = {
+                "externalCompat": {
+                    "cells": [{"vendor": "claude", "surface": "hooks", "enabled": True}]
+                },
+                "plugins": [
+                    {
+                        "name": "graph-powers",
+                        "path": str(package),
+                        "enabled": True,
+                        "provides": {"hooks": True},
+                    }
+                ],
+                "hooks": [
+                    {
+                        "event": "(plugin)",
+                        "hookType": "file",
+                        "target": str(package / "hooks/hooks.json"),
+                        "source": {
+                            "type": "plugin",
+                            "plugin_name": "graph-powers",
+                            "path": str(package),
+                        },
+                    }
+                ],
+            }
+        write_json(inspect, active_inspect)
+
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+        )
+        assert result.returncode == 0, body
+        assert body["runtime"]["active"] is True, body
+
+        write_json(
+            inspect,
+            {
+                "externalCompat": {
+                    "cells": [{"vendor": "claude", "surface": "hooks", "enabled": True}]
+                },
+                "plugins": [],
+                "hooks": [],
+            },
+        )
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+        )
+        assert result.returncode != 0, body
+        assert any("not active" in message for message in body["errors"]), body
+
+        project = base / "project"
+        project.mkdir()
+        bin_dir = base / "bin"
+        cwd_record = base / "inspect-cwd.txt"
+        bin_dir.mkdir()
+        grok = bin_dir / "grok"
+        grok.write_text(
+            "#!" + sys.executable + "\n"
+            "import os, sys\n"
+            f"open({str(cwd_record)!r}, 'w', encoding='utf-8').write(os.getcwd())\n"
+            f"print(open({str(inspect)!r}, encoding='utf-8').read())\n",
+            encoding="utf-8",
+        )
+        grok.chmod(grok.stat().st_mode | stat.S_IXUSR)
+        write_json(inspect, active_inspect)
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--project-dir",
+            str(project),
+            env_extra={"PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")},
+        )
+        assert result.returncode == 0, body
+        assert cwd_record.read_text(encoding="utf-8") == str(project), body
+
+
 def test_codex_home_distinguishes_blocked_from_inert_missing_paths() -> None:
     with tempfile.TemporaryDirectory(prefix="gp-codex-home-audit-") as raw:
         base = Path(raw)
@@ -683,6 +785,239 @@ def test_installer_refuses_stale_grok_clone_before_always_approve() -> None:
         assert "fail-open" in f"{result.stdout}{result.stderr}", (result.stdout, result.stderr)
 
 
+def test_installer_refuses_inactive_native_grok_before_trust() -> None:
+    bun = shutil.which("bun")
+    assert bun, "bun is required for the installer ordering regression"
+    with tempfile.TemporaryDirectory(prefix="gp-installer-grok-native-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        project = base / "project"
+        project.mkdir()
+        calls = base / "grok-calls.txt"
+        bin_dir = base / "bin"
+        bin_dir.mkdir()
+        version = json.loads((ROOT / ".grok-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+        inventory = [{"status": "installed", "name": "graph-powers", "version": version, "path": str(ROOT)}]
+        inspect = {
+            "externalCompat": {"cells": [{"vendor": "claude", "surface": "hooks", "enabled": True}]},
+            "plugins": [{"name": "graph-powers", "path": str(ROOT), "enabled": False, "provides": {"hooks": True}}],
+            "hooks": [],
+        }
+        grok = bin_dir / "grok"
+        grok.write_text(
+            "#!" + sys.executable + "\n"
+            "import json, os, sys\n"
+            f"calls = {str(calls)!r}\n"
+            "args = sys.argv[1:]\n"
+            "with open(calls, 'a', encoding='utf-8') as handle: handle.write(' '.join(args) + '\\n')\n"
+            "if args == ['--version']: print('grok 1.0.25')\n"
+            f"elif args == ['plugin', 'list', '--json']: print({json.dumps(json.dumps(inventory))})\n"
+            f"elif args == ['inspect', '--json']: print({json.dumps(json.dumps(inspect))})\n",
+            encoding="utf-8",
+        )
+        grok.chmod(grok.stat().st_mode | stat.S_IXUSR)
+        env = environment(home)
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [bun, str(INSTALLER), "--target", "grok", "--autonomy", "autonomous"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        assert result.returncode != 0, result.stdout
+        assert not (home / ".grok/config.toml").exists(), result.stdout
+        assert "plugin install graph-powers --trust" not in calls.read_text(encoding="utf-8"), calls.read_text(encoding="utf-8")
+        assert "not active" in f"{result.stdout}{result.stderr}", (result.stdout, result.stderr)
+
+
+def test_installer_only_bootstraps_after_a_valid_empty_grok_inventory() -> None:
+    bun = shutil.which("bun")
+    assert bun, "bun is required for the installer ordering regression"
+    cases = {
+        "invalid-json": "{ malformed",
+        "invalid-object": "{}",
+        "missing-name": "[{}]",
+        "null-name": '[{"name": null}]',
+        "empty-name": '[{"name": " "}]',
+        "disabled": json.dumps([{"name": "graph-powers", "status": "disabled"}]),
+        "error": json.dumps([{"name": "graph-powers", "status": "error"}]),
+        "missing-status": json.dumps([{"name": "graph-powers"}]),
+    }
+
+    def empty_inventory_grok(bin_dir: Path, calls: Path, *, fail_add: bool = False) -> None:
+        bin_dir.mkdir()
+        grok = bin_dir / "grok"
+        grok.write_text(
+            "#!" + sys.executable + "\n"
+            "import sys\n"
+            f"calls = {str(calls)!r}\n"
+            "args = sys.argv[1:]\n"
+            "with open(calls, 'a', encoding='utf-8') as handle: handle.write(' '.join(args) + '\\n')\n"
+            "if args == ['--version']: print('grok 1.0.25')\n"
+            "elif args == ['plugin', 'list', '--json']: print('[]')\n"
+            + (
+                "elif args[:3] == ['plugin', 'marketplace', 'add']: raise SystemExit(9)\n"
+                if fail_add
+                else ""
+            ),
+            encoding="utf-8",
+        )
+        grok.chmod(grok.stat().st_mode | stat.S_IXUSR)
+    with tempfile.TemporaryDirectory(prefix="gp-installer-grok-inventory-") as raw:
+        base = Path(raw)
+        for name, inventory_output in cases.items():
+            home = base / name / "home"
+            project = base / name / "project"
+            project.mkdir(parents=True)
+            calls = base / name / "grok-calls.txt"
+            bin_dir = base / name / "bin"
+            bin_dir.mkdir()
+            grok = bin_dir / "grok"
+            grok.write_text(
+                "#!" + sys.executable + "\n"
+                "import sys\n"
+                f"calls = {str(calls)!r}\n"
+                "args = sys.argv[1:]\n"
+                "with open(calls, 'a', encoding='utf-8') as handle: handle.write(' '.join(args) + '\\n')\n"
+                "if args == ['--version']: print('grok 1.0.25')\n"
+                f"elif args == ['plugin', 'list', '--json']: print({inventory_output!r})\n",
+                encoding="utf-8",
+            )
+            grok.chmod(grok.stat().st_mode | stat.S_IXUSR)
+            env = environment(home)
+            env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+            result = subprocess.run(
+                [bun, str(INSTALLER), "--target", "grok", "--autonomy", "autonomous"],
+                cwd=project,
+                env=env,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=120,
+            )
+            recorded = calls.read_text(encoding="utf-8")
+            assert result.returncode != 0, (name, result.stdout, result.stderr)
+            assert "plugin marketplace add" not in recorded, (name, recorded)
+            assert "plugin install graph-powers --trust" not in recorded, (name, recorded)
+            assert not (home / ".grok/config.toml").exists(), (name, result.stdout)
+
+        home = base / "empty" / "home"
+        project = base / "empty" / "project"
+        project.mkdir(parents=True)
+        calls = base / "empty" / "grok-calls.txt"
+        bin_dir = base / "empty" / "bin"
+        bin_dir.mkdir()
+        grok = bin_dir / "grok"
+        grok.write_text(
+            "#!" + sys.executable + "\n"
+            "import sys\n"
+            f"calls = {str(calls)!r}\n"
+            "args = sys.argv[1:]\n"
+            "with open(calls, 'a', encoding='utf-8') as handle: handle.write(' '.join(args) + '\\n')\n"
+            "if args == ['--version']: print('grok 1.0.25')\n"
+            "elif args == ['plugin', 'list', '--json']: print('[]')\n"
+            "elif args == ['inspect', '--json']: print('{\"externalCompat\": {\"cells\": [{\"vendor\": \"claude\", \"surface\": \"hooks\", \"enabled\": true}]}, \"plugins\": [{\"name\": \"graph-powers\", \"path\": \"" + str(ROOT).replace("\\\\", "\\\\\\\\") + "\", \"enabled\": true, \"provides\": {\"hooks\": true}}], \"hooks\": [{\"event\": \"(plugin)\", \"hookType\": \"file\", \"target\": \"" + str(ROOT / "hooks/hooks.json").replace("\\\\", "\\\\\\\\") + "\", \"source\": {\"type\": \"plugin\", \"plugin_name\": \"graph-powers\", \"path\": \"" + str(ROOT).replace("\\\\", "\\\\\\\\") + "\"}}]}')\n",
+            encoding="utf-8",
+        )
+        grok.chmod(grok.stat().st_mode | stat.S_IXUSR)
+        env = environment(home)
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [bun, str(INSTALLER), "--target", "grok", "--autonomy", "autonomous"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        recorded = calls.read_text(encoding="utf-8")
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert "plugin marketplace add" in recorded, recorded
+        assert "plugin install graph-powers --trust" in recorded, recorded
+
+        home = base / "guarded" / "home"
+        project = base / "guarded" / "project"
+        project.mkdir(parents=True)
+        calls = base / "guarded" / "grok-calls.txt"
+        bin_dir = base / "guarded" / "bin"
+        empty_inventory_grok(bin_dir, calls)
+        env = environment(home)
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [bun, str(INSTALLER), "--target", "grok", "--autonomy", "guarded"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        recorded = calls.read_text(encoding="utf-8")
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert "plugin marketplace add" not in recorded, recorded
+        assert "plugin install graph-powers --trust" not in recorded, recorded
+        assert (home / ".grok/config.toml").is_file(), result.stdout
+
+        home = base / "operator-disabled" / "home"
+        project = base / "operator-disabled" / "project"
+        project.mkdir(parents=True)
+        config = home / ".grok/config.toml"
+        config.parent.mkdir(parents=True)
+        original = '[plugins]\ndisabled = ["graph-powers"]\n'
+        config.write_text(original, encoding="utf-8")
+        calls = base / "operator-disabled" / "grok-calls.txt"
+        bin_dir = base / "operator-disabled" / "bin"
+        empty_inventory_grok(bin_dir, calls)
+        env = environment(home)
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [bun, str(INSTALLER), "--target", "grok", "--autonomy", "autonomous"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        recorded = calls.read_text(encoding="utf-8")
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        assert "plugin marketplace add" not in recorded, recorded
+        assert "plugin install graph-powers --trust" not in recorded, recorded
+        assert config.read_text(encoding="utf-8") == original, result.stdout
+
+        home = base / "add-failure" / "home"
+        project = base / "add-failure" / "project"
+        project.mkdir(parents=True)
+        calls = base / "add-failure" / "grok-calls.txt"
+        bin_dir = base / "add-failure" / "bin"
+        empty_inventory_grok(bin_dir, calls, fail_add=True)
+        env = environment(home)
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [bun, str(INSTALLER), "--target", "grok", "--autonomy", "autonomous"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=120,
+        )
+        recorded = calls.read_text(encoding="utf-8")
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        assert "plugin marketplace add" in recorded, recorded
+        assert "plugin install graph-powers --trust" not in recorded, recorded
+
+
 def test_standalone_cursor_installer_requires_verified_cache() -> None:
     bun = shutil.which("bun")
     assert bun, "bun is required for the standalone installer regression"
@@ -895,22 +1230,128 @@ def test_installer_validates_operations_before_side_effects() -> None:
         assert "before-u → after-up" in clean.stdout, clean.stdout
 
 
+def clone_fixture(base: Path) -> Path:
+    source = base / "source"
+    source.mkdir()
+    inventory = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT, capture_output=True, check=True,
+    )
+    # Only the existing layout is needed: literal payload sizes below define each boundary.
+    for name in set(inventory.stdout.split(b"\0")) - {b""}:
+        path = source / os.fsdecode(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    subprocess.run(["git", "init", "--quiet"], cwd=source, check=True)
+    subprocess.run(["git", "add", "--all"], cwd=source, check=True)
+    return source
+
+
+def run_clone_check(source: Path, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(ROOT / ".github/check_clone.py")], cwd=source, env=env,
+        capture_output=True, encoding="utf-8", errors="replace", check=False,
+    )
+
+
+def test_clone_budgets_count_untracked_candidates_and_exact_package_prefix() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-clone-budgets-") as raw:
+        source = clone_fixture(Path(raw))
+        payload = source / "source-payload.bin"
+        payload.write_bytes(b"s" * 4194304)
+        package_payload = source / "hermes/package/payload.bin"
+        package_payload.write_bytes(b"h" * 2097152)
+
+        result = run_clone_check(source)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert "Source: 4194304 bytes (4096.00 KiB) / 4194304 bytes" in result.stdout, result.stdout
+        assert "Hermes package: 2097152 bytes (2048.00 KiB) / 2097152 bytes" in result.stdout, result.stdout
+        assert "Total: 6291456 bytes (6144.00 KiB) / 6291456 bytes" in result.stdout, result.stdout
+
+        # A similarly named sibling belongs to source, never to the Hermes allocation.
+        package_payload.write_bytes(b"")
+        sibling = source / "hermes/package-extra.bin"
+        sibling.write_bytes(b"s")
+        result = run_clone_check(source)
+        assert result.returncode != 0, result.stdout
+        assert "source grew past 4 MiB" in result.stdout, result.stdout
+        sibling.unlink()
+
+        # Exceeding Hermes must fail even when the complete tree is below 4 MiB.
+        payload.write_bytes(b"")
+        package_payload.write_bytes(b"h" * 2097153)
+        result = run_clone_check(source)
+        assert result.returncode != 0, result.stdout
+        assert "Hermes package grew past 2 MiB" in result.stdout, result.stdout
+
+
+def test_clone_counts_tracked_ignored_files_and_rejects_compiled_python() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-clone-ignored-") as raw:
+        source = clone_fixture(Path(raw))
+        (source / ".gitignore").write_bytes(b"*.bin\n*.pyc\n")
+        (source / "local.bin").write_bytes(b"l" * 4194305)
+        result = run_clone_check(source)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert "Source: 12 bytes" in result.stdout, result.stdout
+
+        subprocess.run(["git", "add", "--force", "local.bin"], cwd=source, check=True)
+        result = run_clone_check(source)
+        assert result.returncode != 0, result.stdout
+        assert "source grew past 4 MiB" in result.stdout, result.stdout
+
+        (source / "local.bin").write_bytes(b"")
+        (source / "compiled.pyc").write_bytes(b"bytecode")
+        subprocess.run(["git", "add", "--force", "compiled.pyc"], cwd=source, check=True)
+        result = run_clone_check(source)
+        assert result.returncode != 0, result.stdout
+        assert "JUNK: compiled.pyc" in result.stdout, result.stdout
+
+
+def test_clone_rejects_failed_or_unavailable_git_inventory() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-clone-inventory-") as raw:
+        source = clone_fixture(Path(raw))
+        (source / ".git").rename(source.parent / "git-metadata")
+        result = run_clone_check(source)
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        assert "cannot enumerate clone candidates" in result.stdout, result.stdout
+
+        result = run_clone_check(source, env={**os.environ, "PATH": ""})
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        assert "cannot enumerate clone candidates" in result.stdout, result.stdout
+
+
+def test_clone_rejects_missing_required_file() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-clone-missing-") as raw:
+        source = clone_fixture(Path(raw))
+        (source / "README.md").unlink()
+        result = run_clone_check(source)
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        assert "MISSING: README.md" in result.stdout, result.stdout
+
+
 def main() -> int:
     tests = [
         test_claude_uses_the_exact_scoped_install,
         test_cursor_rejects_corrupt_and_ambiguous_cache_entries,
         test_grok_inventory_and_posture_use_grok_home,
+        test_grok_runtime_proof_requires_active_exact_plugin_hooks,
         test_codex_home_distinguishes_blocked_from_inert_missing_paths,
         test_codex_references_follow_the_active_home,
         test_incomplete_codex_clone_install_is_repaired,
         test_codex_installer_preserves_adopted_rules,
         test_installer_refuses_stale_cursor_before_unrestricted,
         test_installer_refuses_stale_grok_clone_before_always_approve,
+        test_installer_refuses_inactive_native_grok_before_trust,
+        test_installer_only_bootstraps_after_a_valid_empty_grok_inventory,
         test_standalone_cursor_installer_requires_verified_cache,
         test_standalone_grok_installer_rejects_stale_clone,
         test_auto_update_worker_never_replaces_grok_cache,
         test_installer_refuses_stale_claude_before_bypass,
         test_installer_validates_operations_before_side_effects,
+        test_clone_budgets_count_untracked_candidates_and_exact_package_prefix,
+        test_clone_counts_tracked_ignored_files_and_rejects_compiled_python,
+        test_clone_rejects_failed_or_unavailable_git_inventory,
+        test_clone_rejects_missing_required_file,
     ]
     for test in tests:
         test()

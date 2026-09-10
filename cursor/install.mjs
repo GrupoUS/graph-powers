@@ -13,10 +13,11 @@
  *   ~/.cursor/permissions.json   <- autonomy.level               (IDE Run Mode / Auto-review)
  *   ~/.cursor/cli-config.json    <- the same posture for `cursor-agent`
  *
- * Cursor does not support PermissionRequest, Notification or SubagentStart. Those registrations
- * are skipped, not rewritten: inventing a Cursor event for them would be a second owner for a
- * decision that already has one. preToolUse still runs the git gates and smart_bash_approver, which is
- * the half that stops a confirmation flood.
+ * Cursor does not support PermissionRequest or Notification. It supports SubagentStart, but that
+ * event can only return a permission decision or user message, never additional_context. Its
+ * canonical `subagent_context.py` registration is therefore omitted rather than adapted into a
+ * no-op. preToolUse still runs the git gates and smart_bash_approver, which is the half that stops
+ * a confirmation flood.
  *
  * User files are merged, never replaced. A permission list is somebody's decision. A standalone
  * autonomous run first calls the shared package verifier against Cursor's exact marketplace cache;
@@ -48,6 +49,7 @@ const SKIP_EVENTS = new Set(["PermissionRequest", "Notification", "SubagentStart
 const CURSOR_CLIENT_MARKER = "--graph-powers-client cursor";
 const CURSOR_CLIENT_MARKER_PREFIX = "--graph-powers-client";
 const STOP_VERIFIER_SCRIPT = "hooks/stop_verify.py";
+const SESSION_CONTEXT_SCRIPT = "hooks/session_context.py";
 
 const MATCHER_MAP = {
   Bash: "Shell",
@@ -76,6 +78,14 @@ function isCanonicalStopVerifier(command) {
   return (
     command.startsWith("python3 -X utf8 -c ") &&
     command.endsWith(`"${STOP_VERIFIER_SCRIPT}"`) &&
+    !command.includes(CURSOR_CLIENT_MARKER_PREFIX)
+  );
+}
+
+function isCanonicalSessionContext(command) {
+  return (
+    command.startsWith("python3 -X utf8 -c ") &&
+    command.endsWith(`"${SESSION_CONTEXT_SCRIPT}"`) &&
     !command.includes(CURSOR_CLIENT_MARKER_PREFIX)
   );
 }
@@ -111,8 +121,16 @@ export function buildCursorHooks(hookManifest) {
           throw new Error("Cursor Stop hook must invoke hooks/stop_verify.py canonically");
         }
         const isStopVerifier = event === "Stop";
+        const isSessionContext =
+          event === "SessionStart" && command.includes(SESSION_CONTEXT_SCRIPT);
+        if (isSessionContext && !isCanonicalSessionContext(command)) {
+          throw new Error(
+            "Cursor SessionStart hook must invoke hooks/session_context.py canonically",
+          );
+        }
         const entry = {
-          command: isStopVerifier ? `${command} ${CURSOR_CLIENT_MARKER}` : command,
+          command:
+            isStopVerifier || isSessionContext ? `${command} ${CURSOR_CLIENT_MARKER}` : command,
         };
         if (matcher) entry.matcher = matcher;
         if (hook.timeout) entry.timeout = hook.timeout;
@@ -195,7 +213,11 @@ export function mergePermissions(current, { autonomous }) {
     }
   }
   next.terminalAllowlist = [...terminal];
-  const allow = new Set(next.autoRun?.allow_instructions ?? []);
+  const currentAutoRun =
+    next.autoRun && typeof next.autoRun === "object" && !Array.isArray(next.autoRun)
+      ? next.autoRun
+      : {};
+  const allow = new Set(currentAutoRun.allow_instructions ?? []);
   let autoRunTouched = false;
   for (const entry of wanted.autoRun.allow_instructions) {
     if (!allow.has(entry)) {
@@ -203,7 +225,7 @@ export function mergePermissions(current, { autonomous }) {
       autoRunTouched = true;
     }
   }
-  const block = new Set(next.autoRun?.block_instructions ?? []);
+  const block = new Set(currentAutoRun.block_instructions ?? []);
   for (const entry of wanted.autoRun.block_instructions) {
     if (!block.has(entry)) {
       block.add(entry);
@@ -211,7 +233,11 @@ export function mergePermissions(current, { autonomous }) {
     }
   }
   if (autoRunTouched) {
-    next.autoRun = { allow_instructions: [...allow], block_instructions: [...block] };
+    next.autoRun = {
+      ...currentAutoRun,
+      allow_instructions: [...allow],
+      block_instructions: [...block],
+    };
     changed.push("autoRun");
   }
   return { next, changed: [...new Set(changed)] };
@@ -277,7 +303,8 @@ export function install({
       writeFile(manifestPath, `${JSON.stringify(pluginManifest, null, 2)}\n`);
       written.push(hooksPath, manifestPath);
     }
-    if (skipped.length) log(`cursor skips unsupported events: ${skipped.join(", ")}`);
+    if (skipped.length)
+      log(`cursor omits unsupported or non-context events: ${skipped.join(", ")}`);
   }
 
   if (emitOnly) return { written, skipped, permChanged: [], cliChanged: [] };

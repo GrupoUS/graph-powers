@@ -10,9 +10,10 @@ Inspecione fontes e produza o plano completo na resposta. Se uma ambiguidade mud
 Ao terminar o plano, peça aprovação e pare. Silêncio não é aprovação. Aprovar o plano só autoriza o escopo de desenvolvimento explicitado; instalação/ativação em perfil real, commit, push, PR, publicação, deploy, alteração de credenciais e restart exigem autorização própria.
 
 ## 2. Codebase Findings
+`<HERMES_HOME>` representa o diretório de dados Hermes da máquina inspecionada; resolva o caminho local antes de usá-lo. A normalização desse marcador não altera a revisão nem revalida os resultados históricos.
 Fonte G: https://github.com/GrupoUS/graph-powers/tree/b24f390a24c9229d24c17924e165ba6fd1512928 . Preserve esse SHA completo. Descubra o checkout local; não suponha `/workspace` nem troque a revisão silenciosamente.
-Fonte H: `/Users/mauricio/.hermes/hermes-agent`, HEAD observado `22488b8c62d3c92f25149053ae8df68fb0afcb35`. Reconfirme HEAD/status e regras aplicáveis antes de planejar mudanças.
-[EVIDENCE] `/Users/mauricio/.hermes/reports/graph-powers-install-blocked.json` e receipt indicado nele: instalação nativa com `--ref` e `--no-enable` saiu 1, DANGEROUS, 518 ocorrências; 31 CRITICAL, 11 HIGH, 195 MEDIUM, 281 LOW. São achados estáticos, não 518 vulnerabilidades demonstradas (confidence 5/5).
+Fonte H: `<HERMES_HOME>/hermes-agent`, HEAD observado `22488b8c62d3c92f25149053ae8df68fb0afcb35`. Reconfirme HEAD/status e regras aplicáveis antes de planejar mudanças.
+[EVIDENCE] `<HERMES_HOME>/reports/graph-powers-install-blocked.json` e receipt indicado nele: instalação nativa com `--ref` e `--no-enable` saiu 1, DANGEROUS, 518 ocorrências; 31 CRITICAL, 11 HIGH, 195 MEDIUM, 281 LOW. São achados estáticos, não 518 vulnerabilidades demonstradas (confidence 5/5).
 [REPO] G `__init__.py:38-95`: descobre skills, documentos de comando e contratos de agente; chama apenas `ctx.register_skill`. `plugin.yaml:1-21`: versão 1.19.3, sem tools/hooks/capabilities declarados (confidence 5/5).
 Contrato: [REPO] G `AGENT_SETUP.md:333-344` exige prova do pacote instalado, Doctor e carga em sessão nova; hooks Graph Powers = `NOT ENFORCED` (confidence 5/5).
 [REPO] H `hermes_cli/plugins_cmd.py:625-654`: clone pinado, scan do alvo e só então troca/metadata. `tools/plugin_guard.py:124-159`: community, scan estático e DANGEROUS bloqueado mesmo com force (confidence 5/5).

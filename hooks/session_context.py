@@ -12,6 +12,10 @@ of posture, not the file: see `execution_floor()` for why that half is
 mirrored and the other half is not.
 
 Trigger: SessionStart (startup | resume | compact)
+
+Cursor's SessionStart hook expects `additional_context` at the top level. Its generated adapter
+passes the exact client marker below; Claude and Codex retain their shared hookSpecificOutput
+envelope. The payload itself is never used to guess the client.
 """
 
 import json
@@ -153,6 +157,12 @@ def get_project_dir(payload: dict[str, object] | None = None) -> str:
     return str(gp.project_dir(payload))
 
 
+def is_cursor_client() -> bool:
+    """Accept only the exact marker emitted for Cursor's generated SessionStart command."""
+    marker = ["--graph-powers-client", "cursor"]
+    return sys.argv[1:] == ["hooks/session_context.py", *marker]
+
+
 def load_project_config(project_dir: str) -> dict[str, object]:
     return gp.load(Path(project_dir))
 
@@ -229,12 +239,15 @@ def main() -> None:
             "references/shared/115-code-graph.md; none uses text only."
         )
 
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "SessionStart",
-            "additionalContext": additional_context,
+    if is_cursor_client():
+        output = {"additional_context": additional_context}
+    else:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": additional_context,
+            }
         }
-    }
     print(json.dumps(output))
 
 

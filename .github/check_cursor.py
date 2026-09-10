@@ -8,9 +8,11 @@ inside a single tree. The generator is `cursor/install.mjs`; this gate re-runs i
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ CLIENT_MARKER = "--graph-powers-client cursor"
 CLIENT_MARKER_PREFIX = "--graph-powers-client"
 CLIENT_MARKER_TOKENS = CLIENT_MARKER.split()
 STOP_SCRIPT = "hooks/stop_verify.py"
+SESSION_CONTEXT_SCRIPT = "hooks/session_context.py"
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -51,26 +54,59 @@ def is_cursor_stop_command(command: str) -> bool:
     )
 
 
+def is_cursor_session_context_command(command: str) -> bool:
+    tokens = shell_tokens(command)
+    if tokens is None or len(tokens) < 3:
+        return False
+    marker_pairs = sum(
+        tokens[index : index + 2] == CLIENT_MARKER_TOKENS
+        for index in range(len(tokens) - 1)
+    )
+    return (
+        tokens[-2:] == CLIENT_MARKER_TOKENS
+        and marker_pairs == 1
+        and tokens.count(SESSION_CONTEXT_SCRIPT) == 1
+        and tokens[-3] == SESSION_CONTEXT_SCRIPT
+    )
+
+
 def run_negative_generator_probes() -> bool:
     probe = subprocess.run(
         [
             "bun",
             "-e",
             r'''
-import { buildCursorHooks } from "./cursor/install.mjs";
+import { buildCursorHooks, mergePermissions } from "./cursor/install.mjs";
 const cases = [
-  ["malicious-marker", "python3 -X utf8 -c \"pass\" \"hooks/stop_verify.py\" --graph-powers-client cursor-malicious"],
-  ["fake-stop", "echo stop_verify.py"],
+  ["malicious-stop-marker", "Stop", "python3 -X utf8 -c \"pass\" \"hooks/stop_verify.py\" --graph-powers-client cursor-malicious"],
+  ["fake-stop", "Stop", "echo stop_verify.py"],
+  ["malicious-session-marker", "SessionStart", "python3 -X utf8 -c \"pass\" \"hooks/session_context.py\" --graph-powers-client cursor-malicious"],
+  ["fake-session-context", "SessionStart", "echo hooks/session_context.py"],
 ];
-const rejected = cases.map(([name, command]) => {
+const rejected = cases.map(([name, event, command]) => {
   try {
-    buildCursorHooks({ hooks: { Stop: [{ hooks: [{ type: "command", command }] }] } });
+    buildCursorHooks({ hooks: { [event]: [{ hooks: [{ type: "command", command }] }] } });
     return { name, rejected: false };
   } catch {
     return { name, rejected: true };
   }
 });
-process.stdout.write(JSON.stringify(rejected));
+const permissions = mergePermissions({
+  autoRun: {
+    allow_instructions: [],
+    block_instructions: [],
+    future_cursor_field: "preserve me",
+  },
+}, { autonomous: true });
+const repeated = mergePermissions(permissions.next, { autonomous: true });
+const guarded = { autoRun: { future_cursor_field: "leave untouched" } };
+const guardedResult = mergePermissions(guarded, { autonomous: false });
+process.stdout.write(JSON.stringify({
+  rejected,
+  preservesAutoRunFields: permissions.next.autoRun.future_cursor_field === "preserve me",
+  idempotent: repeated.changed.length === 0,
+  guardedUnchanged: guardedResult.next === guarded && guardedResult.changed.length === 0,
+}));
 ''',
         ],
         cwd=ROOT,
@@ -82,11 +118,21 @@ process.stdout.write(JSON.stringify(rejected));
         print(probe.stderr)
         print("::error::Cursor generator negative probe could not run")
         return False
-    rejected = json.loads(probe.stdout)
-    if {case.get("name") for case in rejected} != {"malicious-marker", "fake-stop"} or not all(
-        case.get("rejected") is True for case in rejected
-    ):
-        print("::error::Cursor generator must reject malicious marker and fake Stop commands")
+    result = json.loads(probe.stdout)
+    rejected = result.get("rejected", [])
+    if {case.get("name") for case in rejected} != {
+        "malicious-stop-marker",
+        "fake-stop",
+        "malicious-session-marker",
+        "fake-session-context",
+    } or not all(case.get("rejected") is True for case in rejected):
+        print("::error::Cursor generator must reject malformed Stop and SessionStart context commands")
+        return False
+    if result.get("preservesAutoRunFields") is not True:
+        print("::error::Cursor permission merge must preserve unknown autoRun properties")
+        return False
+    if result.get("idempotent") is not True or result.get("guardedUnchanged") is not True:
+        print("::error::Cursor permission merge must remain idempotent and leave guarded mode unchanged")
         return False
     return True
 
@@ -126,21 +172,31 @@ def main() -> int:
         for tokens in tokenized
         if tokens is not None
     )
-    if any(tokens is None for tokens in tokenized) or marker_count != 1 or marker_pair_count != 1:
+    if any(tokens is None for tokens in tokenized) or marker_count != 2 or marker_pair_count != 2:
         print(
-            "::error::Cursor client marker must occur exactly once, with the exact cursor value"
+            "::error::Cursor client marker must occur exactly on the generated Stop and SessionStart context hooks"
         )
         return 1
     if len(tracked_stop) != 1 or not is_cursor_stop_command(tracked_stop[0]["command"]):
         print("::error::Cursor client marker must only appear on the generated stop verifier")
         return 1
     stop_command = tracked_stop[0]["command"]
+    tracked_session = tracked.get("hooks", {}).get("sessionStart", [])
+    context_commands = [
+        entry["command"]
+        for entry in tracked_session
+        if SESSION_CONTEXT_SCRIPT in entry.get("command", "")
+    ]
+    if len(context_commands) != 1 or not is_cursor_session_context_command(context_commands[0]):
+        print("::error::Cursor session context must carry exactly the generated client marker")
+        return 1
+    context_command = context_commands[0]
     if any(
         CLIENT_MARKER_TOKENS[0] in tokens
         for command, tokens in zip(tracked_commands, tokenized, strict=True)
-        if command != stop_command and tokens is not None
+        if command not in {stop_command, context_command} and tokens is not None
     ):
-        print("::error::Cursor client marker must only appear on the generated stop verifier")
+        print("::error::Cursor client marker must only appear on generated Stop and session context hooks")
         return 1
 
     versions = {
@@ -202,7 +258,7 @@ process.stdout.write(JSON.stringify({
 
     skipped = set(data["skipped"])
     if skipped != {"PermissionRequest", "Notification", "SubagentStart"}:
-        print(f"::error::unexpected skipped Cursor events: {sorted(skipped)}")
+        print(f"::error::unexpected omitted Cursor events: {sorted(skipped)}")
         return 1
 
     commands = [
@@ -230,6 +286,48 @@ process.stdout.write(JSON.stringify({
         print("::error::smart_bash_approver is missing from Cursor preToolUse")
         return 1
 
+    with tempfile.TemporaryDirectory(prefix="gp-cursor-session-") as raw:
+        project = Path(raw)
+        home = project / "home"
+        home.mkdir()
+        (project / ".graph-powers").mkdir()
+        (project / ".graph-powers" / "config.json").write_text(
+            json.dumps({"project": {"name": "cursor-session"}}), encoding="utf-8"
+        )
+        result = subprocess.run(
+            context_command,
+            shell=True,
+            cwd=ROOT,
+            input=json.dumps({"cwd": str(project), "source": "startup"}),
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            check=False,
+            env={
+                **{
+                    key: value
+                    for key, value in os.environ.items()
+                    if key not in {"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", "GROK_HOME", "CODEX_HOME"}
+                },
+                "HOME": str(home),
+                "USERPROFILE": str(home),
+            },
+        )
+    try:
+        context_output = json.loads(result.stdout)
+        context_valid = (
+            result.returncode == 0
+            and set(context_output) == {"additional_context"}
+            and isinstance(context_output.get("additional_context"), str)
+            and "[CURSOR-SESSION]" in context_output["additional_context"]
+        )
+    except (KeyError, TypeError, ValueError):
+        context_valid = False
+    if not context_valid:
+        print("::error::generated Cursor SessionStart command must emit documented additional_context")
+        return 1
+
     stop = tracked["hooks"].get("stop", [])
     if len(stop) != 1 or "stop_verify.py" not in stop[0].get("command", ""):
         print("::error::Cursor stop must contain exactly the generated stop_verify registration")
@@ -248,7 +346,8 @@ process.stdout.write(JSON.stringify({
         return 1
 
     print(
-        "cursor artefacts match emit; PermissionRequest, Notification and SubagentStart skipped; "
+        "cursor artefacts match emit; PermissionRequest and Notification skipped; SubagentStart "
+        "omitted because it cannot inject additional_context; "
         f"{len(commands)} registrations; bounded Stop follow-ups; no plugin-root leak"
     )
     return 0

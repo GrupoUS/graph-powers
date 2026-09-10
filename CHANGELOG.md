@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.20.3 — Grok activation proof and native Cursor context
+
+Grok autonomous setup requires active discovery of the verified plugin and its hooks before
+changing approval posture. Disabled plugins and unresolved trust are explicit blockers; guarded
+setup preserves the operator's posture. Invalid inventories never trigger installation or trust.
+TOML merge regression coverage includes commented tables, Windows paths and repeated installation;
+unsupported structures are refused before any configuration write.
+
+Cursor receives SessionStart context in its native response format and retains custom `autoRun`
+fields during permission merges. The SubagentStart omission now names the context-output limitation.
+Client checks are part of the declared verification inventory. Official-source compatibility notes
+separate Grok Build from Grok Bot and describe preparation through Bot's supported skill surface;
+Bot installation and runtime enforcement remain unverified.
+
+Historical reports use portable locations and distinguish failed research URLs from live file
+dependencies. Clone validation now budgets the source and the existing self-contained Hermes
+distribution separately, reports the complete candidate size, and rejects inventory failures.
+The aggregate ceiling is explicitly revised from 4 MiB to 6 MiB; no payload is removed or hidden.
+
 ## 1.20.2 — End-to-end Gauntlet and review closure
 
 Explicit Gauntlet accepts an objective or a plan, preserving canonical discovery, brainstorming,

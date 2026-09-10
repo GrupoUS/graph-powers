@@ -42,6 +42,7 @@ export function verifyHookClient({
   packageRoot = null,
   expectedVersion = null,
   checkPosture = false,
+  requireGrokRuntime = false,
   probe = true,
   env = process.env,
 } = {}) {
@@ -65,6 +66,7 @@ export function verifyHookClient({
   if (packageRoot) args.push("--package-root", packageRoot);
   if (expectedVersion) args.push("--expected-version", expectedVersion);
   if (checkPosture) args.push("--check-posture");
+  if (requireGrokRuntime) args.push("--require-grok-runtime");
   if (probe) args.push("--probe-guardrail");
   const invocation = pythonInvocation({ cwd: projectDir, env, args });
   const run = spawnSync(invocation.command, invocation.args, {

@@ -444,7 +444,7 @@ jobs:
       - name: Grok artefacts match the Claude source
         run: python3 .github/check_grok.py
 
-      - name: Grok installer writes config.toml, merge never clobbers
+      - name: Grok autonomous install requires active discovery; guarded merge preserves config
         run: |
           fakehome=$(mktemp -d)
           mkdir -p "$fakehome/.grok"
@@ -458,26 +458,30 @@ jobs:
           name = "other"
           git = "https://example.invalid/other.git"
           TOML
-          HOME="$fakehome" bun grok/install.mjs --plugin "$PWD"
+          if HOME="$fakehome" bun grok/install.mjs --plugin "$PWD"; then
+            echo "::error::autonomous Grok install accepted an inactive plugin"
+            exit 1
+          fi
           python3 - "$fakehome" <<'PY'
           import os, sys
           home = sys.argv[1]
           text = open(os.path.join(home, ".grok/config.toml"), encoding="utf-8").read()
-          assert 'permission_mode = "always-approve"' in text, text
+          assert 'permission_mode = "ask"' in text, text
           assert 'theme = "dark"' in text, "operator ui keys were dropped"
           assert text.count("[ui]") == 1, "duplicate [ui] tables"
           assert 'name = "other"' in text, "operator marketplace source was dropped"
-          assert 'name = "graph-powers"' in text, text
+          assert 'name = "graph-powers"' not in text, text
           assert "git commit" not in text, "must not TOML-deny git commit"
-          print("autonomous install upgraded ask without dropping operator keys")
+          print("inactive autonomous install preserved operator config")
           PY
-          HOME="$fakehome" bun grok/install.mjs --plugin "$PWD"
+          HOME="$fakehome" bun grok/install.mjs --plugin "$PWD" --guarded
           python3 - "$fakehome" <<'PY'
           import os, sys
           home = sys.argv[1]
           text = open(os.path.join(home, ".grok/config.toml"), encoding="utf-8").read()
-          assert text.count('name = "graph-powers"') == 1, "second install duplicated the marketplace source"
-          print("second install is idempotent")
+          assert text.count('name = "graph-powers"') == 1, "guarded install duplicated the marketplace source"
+          assert 'permission_mode = "always-approve"' not in text, text
+          print("guarded install wires discovery without changing approval posture")
           PY
           empty=$(mktemp -d)
           HOME="$empty" bun grok/install.mjs --plugin "$PWD" --guarded
@@ -498,11 +502,18 @@ jobs:
           fakehome=$(mktemp -d)
           git -C "$project" init -q
           cd "$project"
+          if HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target grok --skip-marketplace --autonomy autonomous; then
+            echo "::error::autonomous clone fallback accepted inactive Grok discovery"
+            exit 1
+          fi
+          test ! -f "$fakehome/.grok/config.toml" \
+            || { echo "::error::inactive autonomous fallback changed Grok posture"; exit 1; }
           HOME="$fakehome" bun "${{ github.workspace }}/bin/graph-powers.mjs" \
-            --target grok --skip-marketplace --autonomy autonomous
+            --target grok --skip-marketplace --autonomy guarded
           HOME="$fakehome" python3 "${{ github.workspace }}/bin/verify-hook-clients.py" \
             --client grok --package-root "${{ github.workspace }}" --plugin-root "${{ github.workspace }}" \
-            --project-dir "$project" --check-posture --autonomy autonomous
+            --project-dir "$project" --check-posture --autonomy guarded
 
   hook-benchmark-windows:
     runs-on: windows-latest
@@ -610,10 +621,17 @@ jobs:
           echo "── grok from the same clone ──"
           grokhome=$(mktemp -d)
           cd "$project"
+          if HOME="$grokhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
+            --target grok --skip-marketplace > /dev/null; then
+            echo "::error::fresh Grok clone accepted inactive discovery"
+            exit 1
+          fi
+          test ! -f "$grokhome/.grok/config.toml" \
+            || { echo "::error::inactive Grok clone changed approval posture"; exit 1; }
           HOME="$grokhome" bun "$clone/graph-powers/bin/graph-powers.mjs" \
-            --target grok --skip-marketplace > /dev/null
+            --target grok --skip-marketplace --autonomy guarded > /dev/null
           test -f "$grokhome/.grok/config.toml" \
             || { echo "::error::a fresh clone did not write Grok config.toml"; exit 1; }
           HOME="$grokhome" python3 "$clone/graph-powers/bin/verify-hook-clients.py" \
             --client grok --package-root "$clone/graph-powers" --plugin-root "$clone/graph-powers" \
-            --project-dir "$project" --check-posture --autonomy autonomous
+            --project-dir "$project" --check-posture --autonomy guarded

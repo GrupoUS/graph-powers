@@ -449,7 +449,13 @@ function claude(args, { capture = false } = {}) {
 /** Ask the one portable verifier which exact package a client will execute. */
 function verifyHookClient(
   client,
-  { packageRoot = null, expectedVersion = null, checkPosture = false, probe = true } = {},
+  {
+    packageRoot = null,
+    expectedVersion = null,
+    checkPosture = false,
+    requireGrokRuntime = false,
+    probe = true,
+  } = {},
 ) {
   return runHookVerifier({
     client,
@@ -460,6 +466,7 @@ function verifyHookClient(
     packageRoot,
     expectedVersion,
     checkPosture,
+    requireGrokRuntime,
     probe,
   });
 }
@@ -1257,30 +1264,61 @@ if (wantGrok) {
   try {
     let nativeInstall = false;
     let proof = null;
+    let runtimeProof = null;
     if (!dryRun && grokVersion) {
-      proof = verifyHookClient("grok", { probe: true });
-      nativeInstall = proof.ok;
+      proof = verifyHookClient("grok", {
+        probe: true,
+      });
+      if (proof.ok && autonomyLevel === "autonomous") {
+        runtimeProof = verifyHookClient("grok", { requireGrokRuntime: true, probe: true });
+      }
+      nativeInstall = proof.ok && (!runtimeProof || runtimeProof.ok);
+      if (proof.body?.present && !proof.ok) requireHookProof("Grok", proof);
+      if (runtimeProof && !runtimeProof.ok) requireHookProof("Grok", runtimeProof);
     }
 
-    if (grokVersion && !has("--skip-marketplace") && !nativeInstall) {
+    const grokAbsenceConfirmed = proof?.body?.discovery === "absent";
+    const nativeBootstrap =
+      grokVersion &&
+      !has("--skip-marketplace") &&
+      !nativeInstall &&
+      grokAbsenceConfirmed &&
+      autonomyLevel === "autonomous";
+    if (nativeBootstrap) {
+      installGrok({
+        pluginRoot: PLUGIN_ROOT,
+        dryRun: true,
+        emit: false,
+        autonomous: true,
+        discoverClone: false,
+        verified: true,
+      });
       const add = grok(["plugin", "marketplace", "add", source], { capture: true });
       const addOut = `${add.stdout}${add.stderr}`;
-      if (add.status === 0 || /already/i.test(addOut)) ok("Grok marketplace registered");
-      else warn(`Grok marketplace add failed. ${addOut.trim()}`);
-
-      const inst = grok(["plugin", "install", PLUGIN, "--trust"], { capture: true });
-      const instOut = `${inst.stdout}${inst.stderr}`;
-      if (inst.status === 0 || /already/i.test(instOut)) {
-        ok("Grok plugin installed (--trust)");
-        if (!dryRun) {
-          proof = verifyHookClient("grok", { probe: true });
-          nativeInstall = proof.ok;
+      if (add.status === 0 || /already/i.test(addOut)) {
+        ok("Grok marketplace registered");
+        const inst = grok(["plugin", "install", PLUGIN, "--trust"], { capture: true });
+        const instOut = `${inst.stdout}${inst.stderr}`;
+        if (inst.status === 0 || /already/i.test(instOut)) {
+          ok("Grok plugin installed (--trust)");
+          if (!dryRun) {
+            proof = verifyHookClient("grok", { probe: true });
+            runtimeProof =
+              proof.ok && autonomyLevel === "autonomous"
+                ? verifyHookClient("grok", { requireGrokRuntime: true, probe: true })
+                : null;
+            nativeInstall = proof.ok && (!runtimeProof || runtimeProof.ok);
+          }
+        } else {
+          warn(`Grok plugin install failed. ${instOut.trim()}`);
         }
       } else {
-        warn(`Grok plugin install failed. ${instOut.trim()}`);
+        warn(`Grok marketplace add failed. ${addOut.trim()}`);
       }
     } else if (grokVersion && has("--skip-marketplace")) {
       info("Grok marketplace skipped by --skip-marketplace");
+    } else if (grokVersion && !dryRun && !nativeInstall && !grokAbsenceConfirmed) {
+      requireHookProof("Grok", proof);
     }
 
     if (dryRun) {
@@ -1288,10 +1326,15 @@ if (wantGrok) {
         "dry-run: Grok package was not changed or certified; a real run proves its exact path first",
       );
     } else if (nativeInstall) {
-      requireHookProof("Grok", proof);
+      requireHookProof("Grok", runtimeProof ?? proof);
     } else {
+      if (runtimeProof && !runtimeProof.ok) requireHookProof("Grok", runtimeProof);
       if (proof?.body?.present) requireHookProof("Grok", proof);
-      proof = verifyHookClient("grok", { packageRoot: PLUGIN_ROOT, probe: true });
+      proof = verifyHookClient("grok", {
+        packageRoot: PLUGIN_ROOT,
+        requireGrokRuntime: autonomyLevel === "autonomous",
+        probe: true,
+      });
       requireHookProof("Grok clone", proof);
     }
 

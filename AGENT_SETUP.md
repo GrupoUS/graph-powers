@@ -356,8 +356,9 @@ Use the existing native package or one supported clone path; preserve `GROK_HOME
 
 If a native package exists, use Grok's supported install/update path when needed and run the version
 and guardrail check below **before** applying posture. The wrapper reuses a valid native package;
-it does not guarantee an upgrade. For a clone route without native registration, run the installer
-line first, then the same check: the wrapper validates the chosen source before configuring posture.
+it does not guarantee an upgrade. For a clone route without native registration, first run the
+installer line with `<MODE>` set to `guarded`, then the same package check. Request autonomous
+posture only after the native client reports that exact package and its hooks as active.
 
 ```bash
 python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client grok --project-dir . --expected-version <VERSION> --probe-guardrail
@@ -365,8 +366,16 @@ bun "<PLUGIN>/bin/graph-powers.mjs" --target grok --autonomy <MODE>
 ```
 
 The installer validates the selected package before permissive posture and keeps discovery wired
-under guarded policy. Hooks remain in the canonical `hooks/hooks.json`; do not create a second
-list. Restart Grok after installation/update; the background updater does not replace its cache.
+under guarded policy. Autonomous setup additionally requires that exact package and its hook
+declaration to be active in Grok discovery. File integrity alone cannot establish trust or enablement.
+Preserve explicit disabled settings and resolve trust through the native client; do not automate
+trust to make a verification pass. Hooks remain in the canonical `hooks/hooks.json`; do not create
+a second list. Restart Grok after installation/update; the background updater does not replace its cache.
+
+For Grok Bot, use the [client compatibility procedure](docs/client-compatibility.md#grok-bot).
+Confirm the Bot workspace and supported skills surface first. The local `--target grok` route
+configures Grok Build only; it neither installs a Bot skill nor creates a routine. Do not report
+Bot hooks or native runtime parity as verified from CLI package evidence.
 
 ### 9i — Hermes
 

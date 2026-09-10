@@ -719,7 +719,7 @@ def verify_cursor(args: argparse.Namespace, python_proof: dict[str, Any]) -> dic
     return finish(selected)
 
 
-def run_inventory(command: list[str]) -> tuple[Any | None, str | None]:
+def run_inventory(command: list[str], *, cwd: Path | None = None) -> tuple[Any | None, str | None]:
     if not shutil.which(command[0]):
         return None, f"{command[0]} is not on PATH"
     try:
@@ -730,6 +730,7 @@ def run_inventory(command: list[str]) -> tuple[Any | None, str | None]:
             errors="replace",
             check=False,
             timeout=30,
+            cwd=cwd,
         )
     except Exception as exc:
         return None, f"{' '.join(command)} failed: {exc}"
@@ -1037,21 +1038,21 @@ def verify_codex(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict
     return finish(result)
 
 
-def grok_entries(document: Any) -> list[dict[str, Any]]:
-    values = (
-        document
-        if isinstance(document, list)
-        else document.get("installed", [])
-        if isinstance(document, dict)
-        else []
-    )
-    return [
-        entry
+def grok_inventory_entries(document: Any) -> tuple[list[dict[str, Any]] | None, str | None]:
+    if isinstance(document, list):
+        values = document
+    elif isinstance(document, dict) and isinstance(document.get("installed"), list):
+        values = document["installed"]
+    else:
+        return None, "Grok plugin inventory has an unsupported shape"
+    if not all(isinstance(entry, dict) for entry in values):
+        return None, "Grok plugin inventory contains a non-object entry"
+    if not all(
+        isinstance(entry.get("name"), str) and entry["name"].strip()
         for entry in values
-        if isinstance(entry, dict)
-        and entry.get("name") == PLUGIN
-        and entry.get("status") == "installed"
-    ]
+    ):
+        return None, "Grok plugin inventory contains an entry without a valid name"
+    return values, None
 
 
 def toml_table_value(text: str, table: str, key: str) -> str | None:
@@ -1088,6 +1089,92 @@ def grok_posture(result: dict[str, Any], args: argparse.Namespace) -> None:
         fail(result, "Grok autonomous posture requires permission_mode = always-approve")
 
 
+def grok_runtime_document(args: argparse.Namespace) -> tuple[Any | None, str | None]:
+    if args.grok_inspect_file:
+        return read_json(args.grok_inspect_file)
+    return run_inventory(["grok", "inspect", "--json"], cwd=args.project_dir)
+
+
+def grok_runtime_active(result: dict[str, Any], args: argparse.Namespace) -> None:
+    """Prove Grok loaded this exact package declaration; it does not execute hooks."""
+    document, inspect_error = grok_runtime_document(args)
+    runtime: dict[str, Any] = {
+        "checked": True,
+        "active": False,
+        "discovery": "plugin declaration loaded; hook execution remains runtime-managed by Grok",
+    }
+    result["runtime"] = runtime
+    if inspect_error:
+        fail(result, f"Grok runtime inspect is unavailable: {inspect_error}")
+        return
+    if not isinstance(document, dict):
+        fail(result, "Grok runtime inspect is not an object")
+        return
+    plugins = document.get("plugins")
+    hooks = document.get("hooks")
+    external_compat = document.get("externalCompat")
+    root_value = result.get("root")
+    if not isinstance(root_value, str):
+        fail(result, "Grok runtime inspect cannot match a package without its exact root")
+        return
+    root = resolved(root_value)
+    if not isinstance(plugins, list) or not isinstance(hooks, list):
+        fail(result, "Grok runtime inspect does not expose plugins and hooks")
+        return
+    cells = external_compat.get("cells") if isinstance(external_compat, dict) else None
+    compatibility_enabled = isinstance(cells, list) and any(
+        isinstance(cell, dict)
+        and cell.get("vendor") == "claude"
+        and cell.get("surface") == "hooks"
+        and cell.get("enabled") is True
+        for cell in cells
+    )
+    runtime["compatibilityHooks"] = compatibility_enabled
+    if not compatibility_enabled:
+        fail(result, "Grok runtime inspect does not report Claude-compatible hooks as enabled")
+        return
+    matching_plugins = [
+        plugin
+        for plugin in plugins
+        if isinstance(plugin, dict)
+        and plugin.get("name") == PLUGIN
+        and isinstance(plugin.get("path"), str)
+        and resolved(plugin["path"]) == root
+    ]
+    if len(matching_plugins) != 1:
+        fail(result, "Grok Graph Powers plugin is not active at the exact installed path")
+        return
+    plugin = matching_plugins[0]
+    provides = plugin.get("provides")
+    if plugin.get("enabled") is not True:
+        fail(result, "Grok Graph Powers plugin is not active (enabled is not true)")
+        return
+    if plugin.get("trusted") is False:
+        fail(result, "Grok Graph Powers plugin is not trusted")
+        return
+    if not isinstance(provides, dict) or provides.get("hooks") is not True:
+        fail(result, "Grok Graph Powers plugin is active without hook capability")
+        return
+    expected_target = root / "hooks/hooks.json"
+    active_hook = any(
+        isinstance(hook, dict)
+        and hook.get("event") == "(plugin)"
+        and hook.get("hookType") == "file"
+        and isinstance(hook.get("target"), str)
+        and resolved(hook["target"]) == expected_target
+        and isinstance(hook.get("source"), dict)
+        and hook["source"].get("type") == "plugin"
+        and hook["source"].get("plugin_name") == PLUGIN
+        and isinstance(hook["source"].get("path"), str)
+        and resolved(hook["source"]["path"]) == root
+        for hook in hooks
+    )
+    if not active_hook:
+        fail(result, "Grok Graph Powers hooks are not active at the exact installed path")
+        return
+    runtime["active"] = True
+
+
 def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[str, Any]:
     if args.package_root:
         package = inspect_package(
@@ -1102,19 +1189,31 @@ def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[
         document, inventory_error = inventory(args, ["grok", "plugin", "list", "--json"])
         result = base_result("grok")
         result["route"] = "native"
+        result["discovery"] = "unknown"
         if inventory_error:
-            result["present"] = False
+            result["present"] = None
             fail(result, f"Grok plugin inventory is unavailable: {inventory_error}")
             return finish(result)
-        entries = grok_entries(document)
-        if not entries:
+        entries, shape_error = grok_inventory_entries(document)
+        if shape_error:
+            result["present"] = None
+            fail(result, shape_error)
+            return finish(result)
+        named_entries = [entry for entry in entries if entry.get("name") == PLUGIN]
+        if not named_entries:
             result["present"] = False
+            result["discovery"] = "absent"
             fail(result, "Grok Graph Powers plugin is not installed")
             return finish(result)
-        if len(entries) != 1:
-            fail(result, f"Grok plugin inventory is ambiguous: {len(entries)} installed entries")
+        result["present"] = True
+        result["discovery"] = "present"
+        if len(named_entries) != 1:
+            fail(result, f"Grok plugin inventory is ambiguous: {len(named_entries)} Graph Powers entries")
             return finish(result)
-        entry = entries[0]
+        entry = named_entries[0]
+        if entry.get("status") != "installed":
+            fail(result, f"Grok Graph Powers plugin has status {entry.get('status')!r}, not installed")
+            return finish(result)
         root_value = entry.get("path")
         if not isinstance(root_value, str) or not root_value:
             fail(result, "Grok plugin inventory does not expose the installed path")
@@ -1133,6 +1232,8 @@ def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[
         package["inventoryPath"] = str(resolved(root_value))
     if args.check_posture:
         grok_posture(package, args)
+    if args.require_grok_runtime:
+        grok_runtime_active(package, args)
     if args.probe_guardrail and package.get("root"):
         probe_guardrail(package, resolved(package["root"]))
     return finish(package)
@@ -1277,6 +1378,8 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--hermes-proof", choices=("static", "runtime"), default="static")
     cli.add_argument("--expected-version")
     cli.add_argument("--check-posture", action="store_true")
+    cli.add_argument("--require-grok-runtime", action="store_true")
+    cli.add_argument("--grok-inspect-file", type=resolved)
     cli.add_argument("--autonomy", choices=("auto", "autonomous", "guarded"), default="auto")
     cli.add_argument("--probe-guardrail", action="store_true")
     cli.add_argument("--json", action="store_true")

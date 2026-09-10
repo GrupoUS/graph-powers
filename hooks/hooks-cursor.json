@@ -47,7 +47,7 @@
         "timeout": 10
       },
       {
-        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/session_context.py\"",
+        "command": "python3 -X utf8 -c \"import os,runpy,sys;p=sys.argv[1];runpy.run_path(p,run_name='__main__') if os.path.isfile(p) else None\" \"hooks/session_context.py\" --graph-powers-client cursor",
         "timeout": 10
       }
     ],

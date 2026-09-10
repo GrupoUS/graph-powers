@@ -12,15 +12,17 @@ Entregável complementar: [OpenAI Codex Planning Prompt](PROMPT-CODEX.md). Ele c
 
 ## Escopo e evidências
 
+Nota de portabilidade: `<HERMES_HOME>` representa o diretório de dados Hermes da máquina inspecionada. Os caminhos foram normalizados posteriormente; revisões, comandos e resultados abaixo continuam sendo registros da inspeção original, não execuções novas.
+
 Público: Maurício, autor do Graph Powers. Decisão esperada: aprovar um plano de adaptação, não instalar ou ativar o pacote.
 
 | Fonte | Revisão ou localização |
 |---|---|
 | Graph Powers, fonte G | [`b24f390a24c9229d24c17924e165ba6fd1512928`](https://github.com/GrupoUS/graph-powers/tree/b24f390a24c9229d24c17924e165ba6fd1512928), manifest 1.19.3 |
-| Hermes, fonte H | `/Users/mauricio/.hermes/hermes-agent`, HEAD `22488b8c62d3c92f25149053ae8df68fb0afcb35`; working tree sem alterações nos dois checks desta inspeção |
-| Bloqueio anterior | `/Users/mauricio/.hermes/reports/graph-powers-install-blocked.json` |
-| Receipt anterior | `/Users/mauricio/.hermes/cache/exec/stdout-5e80e8f13d96.txt` |
-| Backup anterior | `/Users/mauricio/.hermes/backups/graph-powers-s7n68rw9` |
+| Hermes, fonte H | `<HERMES_HOME>/hermes-agent`, HEAD `22488b8c62d3c92f25149053ae8df68fb0afcb35`; working tree sem alterações nos dois checks desta inspeção |
+| Bloqueio anterior | `<HERMES_HOME>/reports/graph-powers-install-blocked.json` |
+| Receipt anterior | `<HERMES_HOME>/cache/exec/stdout-5e80e8f13d96.txt` |
+| Backup anterior | `<HERMES_HOME>/backups/graph-powers-s7n68rw9` |
 | Contrato oficial consultado | [Plugins do Hermes](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins#install-time-security-scanning) |
 
 As referências G abaixo usam o commit fixo; as H apontam para arquivos do checkout local nessa revisão. A inspeção foi estática e somente leitura. Não importei nem executei o plugin, não repeti a instalação e não alterei repos, configurações ou perfis operacionais. Arquivos de planejamento e validação ficam nesta pasta de relatório.
@@ -145,14 +147,14 @@ Rollback futuro: desfazer somente o diff aprovado e preservar trabalho alheio. P
 | Ação efetivamente executada | Resultado |
 |---|---|
 | Leitura do receipt da tentativa anterior `hermes plugins install GrupoUS/graph-powers --ref b24f390a24c9229d24c17924e165ba6fd1512928 --no-enable` | O receipt preserva exit 1 e DANGEROUS/518. A instalação não foi repetida. |
-| `git -C /Users/mauricio/.hermes/hermes-agent rev-parse HEAD` | Exit 0, revisão H indicada acima. |
-| `git -C /Users/mauricio/.hermes/hermes-agent status --short` | Exit 0 e saída vazia nos dois checks. |
+| `git -C <HERMES_HOME>/hermes-agent rev-parse HEAD` | Exit 0, revisão H indicada acima. |
+| `git -C <HERMES_HOME>/hermes-agent status --short` | Exit 0 e saída vazia nos dois checks. |
 | GETs `curl -fsSL --max-time 25 https://raw.githubusercontent.com/GrupoUS/graph-powers/<SHA>/<arquivo>` | Exit 0 para as fontes usadas; downloads tratados como texto, sem execução. |
 | GET da árvore GitHub `/repos/GrupoUS/graph-powers/git/trees/<SHA>?recursive=1` | Exit 0; `truncated: false`; localizou os caminhos corretos de testes e adaptador. |
 | Python 3, `ast.literal_eval` do receipt + contagem por regex | Exit 0; 518 registros, severidades/categorias reconciliadas; entrypoint com dois LOW. |
 | Python 3, comparação de bytes de config e existência de destinos/metadata | Exit 0; os sete perfis corresponderam à baseline descrita acima. Nenhum valor de configuração foi exposto. |
-| Validação estrutural do prompt e auditoria editorial | Exit 0: `PASS tier=complex lines=96/250`; auditoria estrita do relatório, prompt e prosa extraída: `files=3 errors=0 warnings=0 ok=true`. [Comandos e integridade](validacao/RESULTADOS.md). |
+| Validação estrutural do prompt e auditoria editorial | Exit 0: `PASS tier=complex lines=96/250`; auditoria estrita do relatório, prompt e prosa extraída: `files=3 errors=0 warnings=0 ok=true`. O registro `RESULTADOS.md` pertence aos artefatos locais da inspeção original e não está incluído neste repositório. |
 
-Ocorrências de pesquisa: duas URLs inicialmente presumidas retornaram HTTP 404 (`.github/check_hermes.py` e `hermes/skills/doctor/SKILL.md`). A árvore pinada revelou `.github/test_hermes.py` e `hermes/skills/graph-engineering/SKILL.md`. Uma leitura da CI falhou com erro TLS/exit 35 e passou no retry. Uma busca local retornou `Operation not permitted`; a busca mais específica passou. Nenhum desses erros foi apresentado como evidência de código ausente ou falha do plugin.
+Ocorrências de pesquisa: duas URLs inicialmente presumidas retornaram HTTP 404 (`https://raw.githubusercontent.com/GrupoUS/graph-powers/b24f390a24c9229d24c17924e165ba6fd1512928/.github/check_hermes.py` e `https://raw.githubusercontent.com/GrupoUS/graph-powers/b24f390a24c9229d24c17924e165ba6fd1512928/hermes/skills/doctor/SKILL.md`). A árvore pinada revelou `.github/test_hermes.py` e `hermes/skills/graph-engineering/SKILL.md`. Uma leitura da CI falhou com erro TLS/exit 35 e passou no retry. Uma busca local retornou `Operation not permitted`; a busca mais específica passou. Nenhum desses erros foi apresentado como evidência de código ausente ou falha do plugin.
 
 Limites: não houve nova execução do scanner, dos testes do plugin, do Doctor ou de carga nativa. A análise não auditou todas as dependências/scripts, não mediu compatibilidade em outros sistemas e não validou um pacote corrigido, que ainda não existe nesta entrega. O bloqueador operacional permanece o veredito perigoso da revisão analisada. O próximo passo autorizado pelo prompt é produzir/revisar o plano, não realizar a instalação.
