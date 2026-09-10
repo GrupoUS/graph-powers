@@ -2,6 +2,19 @@
 
 # learning.md — round history for `graph-powers:debugger`
 
+## Round 5 — 2026-09-10 · editor-independent debug diagnostics
+
+**Hypothesis:** loading Oxc only after JS/TS changes leaves clean-tree incidents dependent on
+editor diagnostics; the shared policy lacks an explicit CLI collection and repair contract.
+
+**Change:** command and skill load the shared Oxc policy by diagnostic scope before edits. That
+single owner defines non-mutating collection, scoped fixes, rechecks and final declared tests.
+
+**Measurement:** `python3 .github/check_oxc_policy.py` failed with 8 missing-contract findings
+before the instruction change, then exited 0. `quick_validate.py skills/debugger` exited 0.
+
+**Verdict:** structural regression covered; this is not a live host-project execution proof.
+
 ## Round 1 — 2026-08-24 · turbo `--dry=json` EPIPE abort
 
 **Hypothesis:** agents invent `turbo run test --dry=json` to inspect the graph; documenting the

@@ -31,10 +31,10 @@ pool/WebSocket driver supports them. Fix that boundary before considering indepe
 
 ## JS/TS gate resolver
 
-JS/TS changes load
-`content/references/shared/130-typescript7-oxc-gates.md`. Use
-`content/skills/debugger/scripts/turbo_dry_json.py`, never captured `turbo --dry=json`; rationale is in
-`content/skills/debugger/references/turbo-dry-json-epipe.md`. Load anti-patterns for the relevant symptom, not wholesale.
+For JS/TS or Oxfmt-supported diagnostic scope, load
+`content/references/shared/130-typescript7-oxc-gates.md` before edits.
+Use `content/skills/debugger/scripts/turbo_dry_json.py`, not captured `turbo --dry=json`
+(`content/skills/debugger/references/turbo-dry-json-epipe.md`).
 
 ## Step 0 — Classify & route
 Choose the pack below; read nearest AGENTS.md, config and matching rules. Resolve declared gates

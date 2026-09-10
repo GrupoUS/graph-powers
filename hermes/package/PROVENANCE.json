@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "25bd19b07eac5ad37c2bf108183e805db9948a9b",
-    "version": "1.20.3",
+    "base_revision": "70146bd377bc8814e25d49b07e7d25705159e2f9",
+    "version": "1.20.4",
     "dirty": true
   },
   "registrations": [
@@ -239,8 +239,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "ef58c8010a3461d0957d73d17d09de449c74ad718d1f051f99217b213840fc88",
-      "base_sha256": "5c1a79221aef533dca4ae8cd8bd65e686d3c6939cef39f0977cc080fb0962444",
+      "sha256": "31b4a86e0ff9e77148233037a1ee62b27a9106e92f4af1d570305d5fef9c3d03",
+      "base_sha256": "ef58c8010a3461d0957d73d17d09de449c74ad718d1f051f99217b213840fc88",
       "dirty": true
     },
     {
@@ -252,8 +252,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "d579247946a3b35954d9e2f82561043dc20a6293b4f7abb8e081867b05b6be3b",
-      "base_sha256": "c7d965de825c513a516b7946a0e92af6e36f993ddefe3868b9e8105599619a0f",
-      "dirty": true
+      "base_sha256": "d579247946a3b35954d9e2f82561043dc20a6293b4f7abb8e081867b05b6be3b",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -359,9 +359,9 @@
     },
     {
       "path": "commands/debug.md",
-      "sha256": "52f4bdbe4db81403c581009b666384e2691a1b04c3dce8ce5f8ab74b78188599",
+      "sha256": "80a25f57752633691002c4bf500eef4b00207b76da1e929d332ce763e9dfd496",
       "base_sha256": "52f4bdbe4db81403c581009b666384e2691a1b04c3dce8ce5f8ab74b78188599",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/design.md",
@@ -432,8 +432,8 @@
     {
       "path": "docs/client-compatibility.md",
       "sha256": "f0a759e274732b68b78844c579a90f7deb7d6253e17df40a7cfdb727052f7de1",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "f0a759e274732b68b78844c579a90f7deb7d6253e17df40a7cfdb727052f7de1",
+      "dirty": false
     },
     {
       "path": "hermes/install.mjs",
@@ -671,9 +671,9 @@
     },
     {
       "path": "references/shared/130-typescript7-oxc-gates.md",
-      "sha256": "b9c9c57e2905cc164c994b60971db727f07140a372d037d0b1ccbda4efcbe88c",
+      "sha256": "8281ac6f84306d45f31a208e6591bc208ebb22012de15a34c4ae53ba74de08bc",
       "base_sha256": "b9c9c57e2905cc164c994b60971db727f07140a372d037d0b1ccbda4efcbe88c",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/130-workflow-authoring.md",
@@ -725,9 +725,9 @@
     },
     {
       "path": "skills/debugger/SKILL.md",
-      "sha256": "9af596c718ed0801213a572d0c7c52f145b7bb03c99003369eea4bf8d4815b33",
+      "sha256": "be5f7e64ee5d6b0fedeee47b6849544cdcd1236af5702608a85994f454bb5597",
       "base_sha256": "9af596c718ed0801213a572d0c7c52f145b7bb03c99003369eea4bf8d4815b33",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/debugger/evals/evals.json",
@@ -737,9 +737,9 @@
     },
     {
       "path": "skills/debugger/learning.md",
-      "sha256": "12fc236ceec6a205287d64cceb8d01460072b2ccda4cf6692bdebc2391afda95",
+      "sha256": "325612921c16cfe8b821334477356fbe383bcdbe041406f27c228d5c8dc6043d",
       "base_sha256": "12fc236ceec6a205287d64cceb8d01460072b2ccda4cf6692bdebc2391afda95",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/debugger/references/anti-patterns.md",
@@ -1243,7 +1243,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "13828b8d1ee97f7695bbbf823915fdaf9f6376b755d7c6c17eda5b0772dd58dd",
+      "sha256": "07d044a7930d066fa04cee70f259a46b856d82210ea2a13a0cb5535d8ec84ad9",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1483,7 +1483,7 @@
     },
     {
       "path": "skills/content/commands/debug.md",
-      "sha256": "1e66c2c5e482cd45eb84f573d5cec0e94b3b6626db98f0e07470248d5eee30fe",
+      "sha256": "876edc1d8c293cedbb1ad780c7e59ba0534fb3ba27b94dad33d2b0e7251d0e7b",
       "sources": [
         "commands/debug.md"
       ],
@@ -1883,7 +1883,7 @@
     },
     {
       "path": "skills/content/references/shared/130-typescript7-oxc-gates.md",
-      "sha256": "50b16e998dabe78f368d26705dc1f9e49ac8cbb9d50c30e00eb82fef2699bf10",
+      "sha256": "c79df472de4df1d45b4430d717d34b2a17e2310f5ad0b31e62ab495edc66c9a2",
       "sources": [
         "references/shared/130-typescript7-oxc-gates.md"
       ],
@@ -1955,7 +1955,7 @@
     },
     {
       "path": "skills/content/skills/debugger/SKILL.md",
-      "sha256": "e04b084caa0a3fc96cd178264afbba522ba9f2340015a96b7275d6d2f491582f",
+      "sha256": "5398e27095be028609c862c365c3db876188e7458c146d5812135b916e21ea8b",
       "sources": [
         "skills/debugger/SKILL.md"
       ],
@@ -1971,7 +1971,7 @@
     },
     {
       "path": "skills/content/skills/debugger/learning.md",
-      "sha256": "075598192f221a2043938e59ce3a87961e50ee3e3cc61a1db506b5d0a79df98c",
+      "sha256": "6ca6df7c79cb57110ec8e38da53652389a694839c848c4637f05c8e26cd4fa3e",
       "sources": [
         "skills/debugger/learning.md"
       ],
@@ -2611,7 +2611,7 @@
     },
     {
       "path": "skills/debug.md",
-      "sha256": "1e66c2c5e482cd45eb84f573d5cec0e94b3b6626db98f0e07470248d5eee30fe",
+      "sha256": "876edc1d8c293cedbb1ad780c7e59ba0534fb3ba27b94dad33d2b0e7251d0e7b",
       "sources": [
         "commands/debug.md"
       ],
@@ -2619,7 +2619,7 @@
     },
     {
       "path": "skills/debugger.md",
-      "sha256": "e04b084caa0a3fc96cd178264afbba522ba9f2340015a96b7275d6d2f491582f",
+      "sha256": "5398e27095be028609c862c365c3db876188e7458c146d5812135b916e21ea8b",
       "sources": [
         "skills/debugger/SKILL.md"
       ],

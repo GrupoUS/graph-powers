@@ -24,7 +24,7 @@ Read `.graph-powers/config.json`. Load `Skill("debugger")` for Steps 0–6, root
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md` to resolve declared gates.
 
-Only when JS/TS changed, read and apply `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`.
+Only for JS/TS or Oxfmt-supported diagnostic scope, before any edit, read and apply `${CLAUDE_PLUGIN_ROOT}/references/shared/130-typescript7-oxc-gates.md`.
 
 Use `/prime` only for the affected frontend, backend, or fullstack context.
 

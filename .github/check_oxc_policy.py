@@ -236,6 +236,27 @@ def check_extensions(relative: str, problems: list[str]) -> None:
         problems.append(f"{relative} must recommend only oxc.oxc-vscode")
 
 
+def check_debug_cli_contract(problems: list[str]) -> None:
+    """Keep CLI diagnosis reachable before the first edit, without an editor."""
+    for relative in ("commands/debug.md", "skills/debugger/SKILL.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        if "JS/TS or Oxfmt-supported diagnostic scope" not in text:
+            problems.append(f"{relative} must load Oxc for diagnostic scope before edits")
+    relative = "references/shared/130-typescript7-oxc-gates.md"
+    text = (ROOT / relative).read_text(encoding="utf-8")
+    for required in (
+        "## Editor-independent debug diagnostics",
+        "oxlint --threads 1",
+        "oxfmt --check",
+        "oxfmt --write",
+        "stdout/stderr and exit status",
+        "full declared test suite",
+        "UNAVAILABLE",
+    ):
+        if required not in text:
+            problems.append(f"{relative} missing debug contract: {required}")
+
+
 def main() -> int:
     problems: list[str] = []
     try:
@@ -258,6 +279,7 @@ def main() -> int:
         for relative in ("templates/vscode/extensions.json", ".vscode/extensions.json"):
             check_extensions(relative, problems)
         check_active_retired_references(problems)
+        check_debug_cli_contract(problems)
 
     except (OSError, ValueError, json.JSONDecodeError) as error:
         problems.append(str(error))

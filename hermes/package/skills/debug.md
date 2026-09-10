@@ -26,7 +26,7 @@ Read `.graph-powers/config.json`. Load `skill_view("graph-powers:debugger")` for
 
 Read `content/references/shared/010-quality-gates.md` to resolve declared gates.
 
-Only when JS/TS changed, read and apply `content/references/shared/130-typescript7-oxc-gates.md`.
+Only for JS/TS or Oxfmt-supported diagnostic scope, before any edit, read and apply `content/references/shared/130-typescript7-oxc-gates.md`.
 
 Use `/prime` only for the affected frontend, backend, or fullstack context.
 

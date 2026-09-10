@@ -43,6 +43,30 @@ oxlint --type-aware --type-check --threads 1
 It may run at `/verify`, commit or CI. It must receive the project's declared configuration and
 never a whole-tree fallback from an interactive hook.
 
+## Editor-independent debug diagnostics
+
+On `/debug`, collect CLI diagnostics before fixing, even with a clean diff. No Zed or LSP is
+required; fail-open hooks are not proof.
+
+1. Resolve scope from the request (project-wide unless narrowed), local binaries and declared
+   scripts. Inspect scripts for writes/typed analysis; preserve editor config, ignores and nested
+   config policy. Resolve flags via local `--help`; never fetch/install tools.
+2. Run non-type-aware `oxlint --threads 1` on scoped JS/TS and `oxfmt --check` on supported scoped
+   files, including JSON/JSONC/CSS. Resolve executable, config flags and literal paths for these
+   command shapes. Run separately with timeouts: lint failure must not skip formatting or tests.
+   Capture commands, scope, stdout/stderr and exit status, including exit-0 warnings.
+3. Diagnose lint, format, parse/config and test failures separately. Fix in-scope causes; use
+   `oxfmt --write` only on identified files, review the diff, then recheck. No whole-tree autofix
+   or rule suppression. Preserve unrelated work; report out-of-scope findings. Rerun affected
+   lint/format checks and focused tests after fixes; retain the debugger's recovery limits.
+4. Finally recheck the initial scope and run the full declared test suite once, plus applicable
+   declared type-check/lint/format/build gates. Reuse valid equivalent evidence. New failures
+   re-enter diagnosis. Declared typed Oxlint belongs to final `/verify`, never the repair loop.
+5. Report Oxlint, Oxfmt and tests separately with evidence and remaining findings. Missing tools:
+   `UNAVAILABLE`; unsupported files: `NOT APPLICABLE`; absent gates: `NOT DECLARED`; timeout/config
+   errors: `BLOCKED`. Give unblock actions, never a false PASS. Type/framework diagnostics need
+   their declared CLI checks; Oxlint/Oxfmt alone do not prove parity with every Zed provider.
+
 ## Hook boundary
 
 - PostToolUse runs one local `oxfmt --write` operation for the edited JS/TS/JSON file only. It has a

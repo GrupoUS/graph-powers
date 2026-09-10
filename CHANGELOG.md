@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.20.4 — Editor-independent debug diagnostics
+
+`/debug` collects local Oxlint and Oxfmt CLI diagnostics before edits, including clean-tree
+incidents, without requiring Zed. Findings enter scoped repair and recheck loops; the final
+boundary runs the full declared test suite and applicable gates. Missing tools and unsupported
+providers remain explicit rather than passing silently. Typed lint stays final-only.
+
 ## 1.20.3 — Grok activation proof and native Cursor context
 
 Grok autonomous setup requires active discovery of the verified plugin and its hooks before
