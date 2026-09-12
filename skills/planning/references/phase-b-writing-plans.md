@@ -309,6 +309,19 @@ Gauntlet L3+, **PASS** → Step 8;
 **BLOCKED** → surface to the user. **L6+:** run GATE 3 (evaluator Mode 3, architecture) between Step
 7 and Step 8.
 
+An explicit Gauntlet plan binds that verdict to its bytes before Step 8 — **PASS** → `APPROVED`,
+**FAIL** → `REVISION_REQUIRED`, **BLOCKED** is not bound:
+
+```bash
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" review-bind <PLAN_FILE> --verdict <APPROVED|REVISION_REQUIRED> --inspector <review role> --builder <writer role> [--model-requested <id> --model-observed <id>]
+```
+
+Every id is bounded: letters, digits, `.`, `_`, `:` and `-` only, so a bracketed runtime name such
+as `claude-opus-5[1m]` is refused rather than logged; replace every other character with `-`
+before passing the id. A differing requested/observed pair is
+recorded as `fallback=true`, never hidden. A later edit to the plan invalidates that bind and
+requires a new round.
+
 ## Step 8 — User approval
 
 > "Plan saved at `<plan dir>/PLAN.md` and its required review passed. Approve execution, or stop at the plan?"

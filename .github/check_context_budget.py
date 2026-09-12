@@ -162,8 +162,14 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 # Measured after the lean-source pass: floor 46,243 B, ceiling 187,494 B,
 # largest command 11,526 B. Keep a small editing margin without changing the
 # measurement algorithm. These caps are ceilings, never targets.
-FLOOR_CEILING = 50_000
-CEILING_CEILING = 200_000
+# 1.20.5 bought +500/+5,000: the `issue-improve` adapter (325 B floor, its skill 7,379 B
+# ceiling) landed on a set already at 49,995 B floor, so no new command fit under 50,000.
+# 1.20.6 bought +1,000/+3,000: the review-only contract in `/gauntlet` — two more sdd.py commands
+# and their stop rule — plus the `Review binding` section of the Gauntlet profile; measured:
+# floor 50,320 → 50,938 B, ceiling 204,782 → 207,576 B after the final review. 51,000 would leave
+# 62 B, below the editing margin the header keeps.
+FLOOR_CEILING = 51_500
+CEILING_CEILING = 208_000
 WORST_FLOOR = 15_000
 
 

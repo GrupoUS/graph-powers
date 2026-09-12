@@ -1,0 +1,26 @@
+SYNTHETIC RESPONSE TRACE — no commands in this fixture were executed.
+Issue #20 — Widget retry; OPEN. Sanitized R1: retain one result on retry.
+Step 0: verified fixture src/widget.py:8 and tests/test_widget.py:4; reuse existing handler.
+frontend: N/A (CLI project); backend: widget handler; database: N/A (no storage).
+chain.riskSurfaces resolved from host: none. Phase A: one scoped design. Phase B: one sprint, one atomic task. Plan review: PASS (fixture).
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate "docs/plans/fixture/PLAN.md" --profile gauntlet --max-tasks 12
+VALIDATE exit 0 (fixture trace).
+TARGET: https://github.example/acme/widgets/issues/20
+PAYLOAD:
+<!-- graph-powers:issue-improve -->
+Goal: R1 returns one result across retries. Evidence: src/widget.py:8 (fixture).
+Sprint 1: repair and prove retry behavior.
+- [ ] **T1.1** — R1 reuse the existing retry key.
+  Owns: src/widget.py, tests/test_widget.py
+  Needs: none
+  Acceptance: two retries return one result.
+  Agent: graph-powers:debugger · Skill: graph-powers:debugger · Effort: design
+  TDD: required
+  CHECK: python3 -m unittest tests.test_widget
+  EXPECT: OK
+  EVIDENCE: pending
+  Steps:
+    1. Reproduce duplicate results with the existing retry input.
+    2. Reuse the handler's retry key and rerun the focused check.
+APPROVAL: pending for this final payload.
+STOP: plan prepared; host edits=0; publication=0

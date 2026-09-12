@@ -24,7 +24,7 @@
  *   <codex-home>/agents/<name>.toml     <- same, via --out <codex-home>/agents
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -92,8 +92,17 @@ export function buildNativeCommandSkills(pluginRoot) {
   const files = {};
   const commandFiles = listMarkdown(join(pluginRoot, "commands"));
   const commandNames = commandFiles.map((file) => basename(file, ".md"));
+  const skillsRoot = join(pluginRoot, "skills");
+  const canonicalNames = existsSync(skillsRoot)
+    ? readdirSync(skillsRoot).filter((name) => statSync(join(skillsRoot, name)).isDirectory())
+    : [];
   for (const file of commandFiles) {
     const name = basename(file, ".md");
+    if (
+      canonicalNames.includes(name) &&
+      readdirSync(join(skillsRoot, name)).includes("SKILL.md") &&
+      statSync(join(skillsRoot, name, "SKILL.md")).isFile()
+    ) continue;
     const { data } = parseFrontmatter(readFileSync(join(pluginRoot, "commands", file), "utf8"));
     if (!data.description) continue;
     const description = rewriteCodexCommandRefs(String(data.description), commandNames, ":");

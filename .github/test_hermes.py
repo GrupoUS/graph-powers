@@ -200,6 +200,26 @@ class HermesStaticTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         self.assertIn("definitely-missing", result.stdout)
 
+    def test_wiring_canonical_pair_only_and_case_collisions(self):
+        for name in ("verify", "debug", "perf", "demo"):
+            self.put(f"commands/{name}.md", "# Fixture\n")
+
+        def collisions():
+            result = subprocess.run(
+                [sys.executable, str(ROOT / ".github/check_wiring.py")], cwd=self.root,
+                capture_output=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(result.stderr, "")
+            return result.stdout
+
+        self.assertNotIn("Hermes registration", collisions())
+        self.put("hermes/skills/demo/SKILL.md", "# Unrelated duplicate\n")
+        self.assertIn("Hermes registration `demo` collides", collisions())
+        (self.root / "hermes/skills/demo/SKILL.md").unlink()
+        (self.root / "commands/demo.md").unlink()
+        self.put("commands/Demo.md", "# Wrong case\n")
+        self.assertIn("Hermes registration `Demo` collides", collisions())
+
     def test_wiring_preserves_source_role_classification_for_generated_agents(self):
         for command in ("verify", "debug", "perf"):
             self.put(f"commands/{command}.md", "# Fixture\n")

@@ -14,6 +14,7 @@
 | Audit report | `docs/AUDIT-REPORT-YYYY-MM-DD.md` |
 | Phase tracker | `.graph-powers/logs/progress.md` — appended by `/implement` when a phase completes |
 | Task-review ledger | `.graph-powers/logs/sdd/<plan-slug>/task-reviews.md` — every pass, retry and block |
+| Plan-review bind | `.graph-powers/logs/sdd/<plan-slug>/plan-review.json` — last round, bound to the plan SHA-256 — and `.graph-powers/logs/sdd/<plan-slug>/PLAN-REVIEW-LOG.md`, append-only, one line per round; both written by `content/skills/planning/scripts/sdd.py review-bind` |
 
 `${paths.planDir}` defaults to `docs/plans`; create folders only on authorized writes.
 

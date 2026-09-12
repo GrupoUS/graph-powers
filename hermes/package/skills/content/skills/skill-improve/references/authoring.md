@@ -27,7 +27,8 @@ the folder/name match; use one canonical owner for a contract.
 For a changed trigger or rule, capture a failing/baseline case, make the smallest edit, then run
 `content/skills/skill-improve/scripts/quick_validate.py <skill-path>`. Add or update only the focused semantic assertions needed for the
 changed contract. A broad set is for `--all`, observed collision, or an explicit request; fixture
-assertions are not a fresh model evaluation.
+assertions are not a fresh model evaluation. Its failing rules, warnings and the conventions it
+does not check are listed in `content/skills/skill-improve/references/anthropic-best-practices-summary.md`.
 
 ### 5c. Draft assertions while the runs complete
 
@@ -51,7 +52,10 @@ B only when a second claimant, call site, resolver or registration edge is evide
 
 ## Step 7 — Optimise the description
 Front-load the trigger and meaningful exclusion. Test overlap against neighbours only when it is
-plausible, not as a mandatory inventory.
+plausible, not as a mandatory inventory. Keep the description short and the trigger narrow: the
+listing truncates one entry at 1,536 characters (`content/.github/check_listing_budget.py`) and a long,
+broad trigger list is matched against everything, so selection degrades; OpenAI reports the same
+effect for Codex skills ("Rethinking skills and prompts for GPT-6 Astra", developers.openai.com).
 
 ## Degrees of freedom
 Do not prescribe a format when user language, repository conventions, or the domain already decides

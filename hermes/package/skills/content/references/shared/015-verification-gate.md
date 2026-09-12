@@ -22,6 +22,7 @@ Skipping a step is asserting, not verifying.
 | Regression test works | red-green: fails with the fix reverted, passes with it | passes once |
 | Agent completed | the diff shows the change | the agent's report |
 | Requirements met | line-by-line checklist against the plan | tests passing |
+| Task-scoped done | the task's declared CHECK, decisive exit | a global claim; that needs the full suite |
 
 | Excuse | Reality |
 |---|---|
@@ -29,7 +30,7 @@ Skipping a step is asserting, not verifying.
 | "I'm confident" | Confidence is not evidence. |
 | "Linter passed" | Linter ≠ compiler. |
 | "The agent said success" | Verify independently. |
-| "A partial check is enough" | Partial proves nothing. |
+| "A partial check is enough" | Proves only what it measures. |
 
 Apply at:
 - Tail of any command that mutates code (`/implement`, `/debug` fix mode, `/design` Phase 2, `/perf fix`, `/evolve`).
@@ -37,4 +38,4 @@ Apply at:
 - Per-phase tail inside `/implement` Mode B and `/debug` fix mode when the prior result no longer
   covers the phase.
 
-Anti-pattern: marking a task complete after only inspecting code; running `bun run type-check` then forgetting to check exit code; assuming a fix worked because the diff "looks right".
+Anti-pattern: complete after inspecting code only; a type-check whose exit code nobody read; a diff that "looks right".

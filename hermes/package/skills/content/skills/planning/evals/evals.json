@@ -1476,6 +1476,170 @@
           "Continue corrigindo a finding Important até ficar perfeita, sem usar chain.maxFixRounds."
         ]
       }
+    },
+    {
+      "id": "gauntlet-neg-review-only-no-phase-c",
+      "polarity": "negative",
+      "prompt": "Execute /gauntlet docs/plans/example/PLAN.md --review-only. Diga o que acontece e o que fica proibido nessa execução.",
+      "expected_output": "Validate, run the independent Mode 1 review, bind its verdict to the plan bytes, append one review-log line and stop before any acquire, lease, Phase C or writer.",
+      "assertions": [
+        {
+          "id": "R01",
+          "description": "Acquires no lease",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}lease",
+          "critical": true
+        },
+        {
+          "id": "R02",
+          "description": "Enters no Phase C and dispatches no writer",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}(Phase C|Fase C|writer|construtor)",
+          "critical": true
+        },
+        {
+          "id": "R03",
+          "description": "Binds the verdict with review-bind",
+          "check": "regex: (?is)review-bind.{0,200}(APPROVED|REVISION_REQUIRED)",
+          "critical": true
+        },
+        {
+          "id": "R04",
+          "description": "Appends the round to the review log",
+          "check": "regex: (?is)PLAN-REVIEW-LOG.{0,160}(linha|line|append|anexa|acrescent|rodada|round)",
+          "critical": true
+        },
+        {
+          "id": "R05",
+          "description": "Stops explicitly before execution state",
+          "check": "regex: (?is)\\b(STOP|PARE)\\b[^.\\n]{0,80}\\b(lease|acquire|Phase C|Fase C|writer)",
+          "critical": true
+        },
+        {
+          "id": "R06",
+          "description": "Never continues into acquire in the same run",
+          "check": "not_contains: siga direto para o acquire",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "/gauntlet docs/plans/example/PLAN.md --review-only valida o plano, roda a revisão Mode 1 e executa sdd.py review-bind com --verdict APPROVED ou REVISION_REQUIRED; a rodada é anexada ao PLAN-REVIEW-LOG.md como uma linha. Depois STOP antes de qualquer acquire ou lease: não adquire lease, não entra em Phase C e não despacha writer.",
+          "Revisão apenas: após review-bind <PLAN_FILE> --verdict APPROVED --inspector graph-powers:evaluator --builder graph-powers:debugger, o PLAN-REVIEW-LOG.md recebe uma linha da rodada e o comando faz STOP sem acquire nem lease. Nenhum lease é criado, nenhuma Fase C começa e nenhum writer é despachado."
+        ],
+        "negative": [
+          "Com --review-only, rode a revisão e, se APPROVED, siga direto para acquire e Phase C na mesma execução.",
+          "--review-only apenas exibe o parecer; dispense o registro e mantenha o lease já adquirido para o writer.",
+          "Após o review-bind com --verdict APPROVED e o PLAN-REVIEW-LOG.md recebendo uma linha por rodada, faça STOP antes do acquire: não crie lease e não entre em Phase C. Em seguida, siga direto para o acquire."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-neg-stale-sha-no-lease",
+      "polarity": "negative",
+      "prompt": "O PLAN.md foi editado depois do parecer APPROVED. Execute /gauntlet docs/plans/example/PLAN.md e diga o que acontece antes de qualquer lease.",
+      "expected_output": "review-check exits 4 with STALE, no lease is created, the run returns to Phase B for a new review round, and a REVISION_REQUIRED bind never authorizes a lease or Phase C.",
+      "assertions": [
+        {
+          "id": "T01",
+          "description": "review-check reports the stale bind",
+          "check": "regex: (?is)review-check.{0,300}STALE",
+          "critical": true
+        },
+        {
+          "id": "T02",
+          "description": "Reports the bounded exit code 4",
+          "check": "regex: (?is)(exit|saída|saida|código|codigo|status).{0,20}4",
+          "critical": true
+        },
+        {
+          "id": "T03",
+          "description": "Creates no lease",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}lease",
+          "critical": true
+        },
+        {
+          "id": "T04",
+          "description": "Returns to Phase B",
+          "check": "regex: (?is)\\b(volta|retorna|return|returns)\\b[^.\\n]{0,60}(Phase B|Fase B)",
+          "critical": true
+        },
+        {
+          "id": "T05",
+          "description": "Requires a new review round",
+          "check": "regex: (?is)(nova|novo|new|outra).{0,80}(rodada|round|revisão|revisao|review)",
+          "critical": true
+        },
+        {
+          "id": "T06",
+          "description": "A REVISION_REQUIRED bind authorizes nothing",
+          "check": "regex: (?is)REVISION_REQUIRED[^.\\n]{0,60}\\b(n[ãa]o|nunca|never|not)\\s+(?:\\w+\\s+)?(vale|equivale|vira|autoriza|libera|permite|authoriz\\w*)",
+          "critical": true
+        },
+        {
+          "id": "T07",
+          "description": "A revision-required bind is never counted as an approval",
+          "check": "not_contains: vale como APPROVED",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "sdd.py review-check docs/plans/example/PLAN.md sai com código 4 e status STALE porque os bytes do PLAN mudaram após o APPROVED. Nenhum lease é criado e o fluxo volta para a Phase B, onde uma nova rodada de review-bind é exigida. Um bind REVISION_REQUIRED nunca equivale a APPROVED e nunca autoriza Phase C ou lease.",
+          "O PLAN mudou depois do parecer, então review-check devolve STALE com exit 4, sem criar lease. Retorna à Fase B para uma nova revisão vinculada aos bytes atuais; um veredito REVISION_REQUIRED não vira APPROVED nem libera lease ou Fase C."
+        ],
+        "negative": [
+          "O plano já foi aprovado antes, então siga para acquire e Phase C: a revisão anterior basta para adquirir o lease.",
+          "Ajuste o bind gravado para os bytes atuais e continue a execução sem outra revisão.",
+          "O review-check devolve STALE com exit 4 e nenhum lease é criado; o fluxo volta para a Fase B e exige uma nova rodada. Um bind REVISION_REQUIRED nunca equivale a APPROVED, mas o parecer anterior vale como APPROVED e autoriza o lease."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-neg-builder-self-inspect",
+      "polarity": "negative",
+      "prompt": "No fechamento do Gauntlet, o papel builder da wave pede para inspecionar o próprio diff. Responda o que acontece.",
+      "expected_output": "Refuse: a builder never inspects its own diff, the inspector id is distinct from the builder id, the closing inspection is a fresh read-only evaluator, and a controller edit after it invalidates that inspection.",
+      "assertions": [
+        {
+          "id": "B01",
+          "description": "Refuses the self-inspection",
+          "check": "regex: (?is)(recus|refus|reject|nega|nunca|never|não|nao).{0,160}(builder|construtor|próprio|proprio|self)",
+          "critical": true
+        },
+        {
+          "id": "B02",
+          "description": "Keeps the inspector id distinct from the builder id",
+          "check": "regex: (?is)inspector.{0,160}(≠|distinct|distint|diferente|never|nunca|not|não|nao).{0,100}builder",
+          "critical": true
+        },
+        {
+          "id": "B03",
+          "description": "Uses a fresh evaluator for the inspection",
+          "check": "regex: (?is)(fresh|nov[ao]|independente).{0,60}(graph-powers:evaluator|evaluator|avaliador)",
+          "critical": true
+        },
+        {
+          "id": "B04",
+          "description": "Keeps that inspection read-only",
+          "check": "regex: (?is)(read-only|somente leitura|apenas leitura|não escreve|nao escreve)",
+          "critical": true
+        },
+        {
+          "id": "B05",
+          "description": "A later controller edit invalidates the inspection",
+          "check": "regex: (?is)(invalid|inválid).{0,200}(inspe|revis)|(inspe|revis).{0,200}(invalid|inválid)",
+          "critical": true
+        }
+      ],
+      "parser_controls": {
+        "positive": [
+          "O pedido é recusado: o builder nunca inspeciona o próprio diff. O inspector é sempre distinto do builder; a inspeção final usa um novo graph-powers:evaluator read-only, que não escreve nada. Qualquer edição do controller depois dessa inspeção a invalida e exige outra rodada.",
+          "Recusar. Um builder não pode ser o crítico do próprio trabalho: o inspector é um papel distinto do builder, materializado como um novo graph-powers:evaluator read-only a cada fechamento. Se o controller editar o plano após a inspeção, essa inspeção fica inválida e outra é necessária."
+        ],
+        "negative": [
+          "Como o builder conhece melhor o diff que escreveu, deixe-o revisar e fechar a task.",
+          "Reaproveite o mesmo evaluator da wave anterior e mantenha a inspeção válida mesmo depois de novas edições do controller."
+        ]
+      }
     }
   ]
 }

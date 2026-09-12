@@ -40,7 +40,9 @@ python -X utf8 "content/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --ma
 ```
 
 Default omits profile flags. Gauntlet adds `--profile gauntlet` to validate/acquire/status;
-Acceptance and bundled-Skill checks repeat before lease.
+Acceptance and bundled-Skill checks repeat before lease. Gauntlet `acquire` also refuses a `STALE`,
+`REVISION_REQUIRED` or `UNREVIEWED` plan review with exit `4` and no lease, returning to Phase B for
+a new `review-bind`.
 
 `acquire` atomically creates `.graph-powers/logs/write-lease.json`: run ID and paths for
 `writeLease`, relative PLAN_FILE, progress/review/dispatch ledgers. One create wins; another plan's

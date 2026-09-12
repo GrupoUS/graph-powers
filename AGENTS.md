@@ -19,7 +19,9 @@ owner; do not add product, domain, branch, provider, or secret-specific content 
 
 ## Working rules
 
-- Read `.graph-powers/config.json` and the applicable `AGENTS.md` before editing.
+- Before editing, read `.graph-powers/config.json` and the `AGENTS.md` nearest the files you touch;
+  load only the shared-context fragments the task needs — the safety and execution floors always
+  apply.
 - Keep changes scoped, preserve dirty user work, and do not commit, push, publish, or alter data
   without explicit approval for that action and scope.
 - Reuse existing patterns and run the smallest applicable declared check. Evidence can be reused

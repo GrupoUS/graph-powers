@@ -1,0 +1,5 @@
+SYNTHETIC RESPONSE TRACE — no commands in this fixture were executed.
+gh issue view https://github.example/acme/widgets/issues/404 --repo github.example/acme/widgets --json number,title,body,state,labels,author,url,createdAt,closedAt,comments
+exit 1 (fixture)
+BLOCKED: HTTP 404. Need the canonical URL or pasted content; a draft from pasted content cannot choose a publication target.
+requirements=0; payload=none; publication=0

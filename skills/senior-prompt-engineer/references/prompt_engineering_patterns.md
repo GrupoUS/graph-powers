@@ -3,15 +3,19 @@
 > Patterns for building Claude API / LLM features INSIDE the product (not Claude Code subagent design — see `agentic_system_design.md` for that).
 > Use when a host project gains an AI feature: text generation, RAG over docs, structured output extraction, eval-driven iteration.
 
-References:
-- Anthropic prompt design: https://docs.claude.com/en/docs/build-with-claude/prompt-engineering
+References (every number or "X beats Y" line below names one of these; an unsourced claim is a hypothesis for §6, not a rule):
+- Prompting best practices (the living reference; the older per-technique pages redirect here): https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+- Thinking: https://platform.claude.com/docs/en/build-with-claude/thinking
+- Structured outputs: https://platform.claude.com/docs/en/build-with-claude/structured-outputs
+- Prompt caching: https://platform.claude.com/docs/en/build-with-claude/prompt-caching · pricing: https://platform.claude.com/docs/en/pricing
+- Claude Fable 5.1 migration guide (forced tool choice): https://platform.claude.com/docs/en/models/fable-5-1/migration-guide
 - Claude API: `claude-api` skill (auto-triggers on `@anthropic-ai/sdk` imports)
 
 ---
 
 ## 1. Pattern: XML-tagged structured input
 
-Claude follows XML tags reliably. Use them to delimit roles, context, and instructions when a prompt has ≥2 distinct parts.
+The best-practices guide ("Structure prompts with XML tags") says tags help Claude parse a prompt that mixes instructions, context, examples and inputs; use them when a prompt has ≥2 distinct parts.
 
 ```xml
 <role>You are a {role specific to the host product}.</role>
@@ -20,7 +24,7 @@ Claude follows XML tags reliably. Use them to delimit roles, context, and instru
 {tone rules · forbidden patterns · required phrases — sourced from the host project's brand/voice skill}
 </voice_constraints>
 
-<task>{One sentence describing what to produce.}</task>
+<task>{The job, why it matters, and the condition that means done — one line each. Completion defined up front is what lets the model finish instead of stopping to ask.}</task>
 
 <input>
 {json_dump(input_data)}
@@ -31,13 +35,13 @@ Claude follows XML tags reliably. Use them to delimit roles, context, and instru
 </output_format>
 ```
 
-**Why:** sectioned prompts beat blob prompts on adherence. Tag names don't matter (`<role>` ≡ `<persona>`); consistency does.
+**Why:** the guide reports that wrapping each kind of content in its own tag reduces misinterpretation; it asks for consistent, descriptive names (`<role>` ≡ `<persona>`) rather than a fixed set. Measure adherence with §6 before generalising.
 
 ---
 
 ## 2. Pattern: Few-shot before zero-shot
 
-When a task has subjective output (copy, classification with edge cases, format extraction), 2-3 worked examples beat instructions alone.
+When a task has subjective output (copy, classification with edge cases, format extraction), add worked examples: the guide ("Use examples effectively") says "Include 3–5 examples for best results", well-crafted and diverse. Confirm the gain with §6.
 
 ```xml
 <examples>
@@ -58,9 +62,9 @@ Examples should span the **decision boundary** (one easy case, one hard case, on
 
 ---
 
-## 3. Pattern: Chain-of-thought scaffold
+## 3. Pattern: Chain-of-thought scaffold (opt-in)
 
-For multi-step reasoning (debugging output, explaining tradeoffs, applying domain rules):
+Opt-in, not the default: the guide ("Thinking and reasoning") keeps manual chain-of-thought as a fallback for when thinking is off, and on Claude Opus 5 prefers thinking on at a lower effort instead. Use the scaffold for a multi-criteria judgement (gating an output, explaining a trade-off, applying domain rules) only when thinking is off. The default is a done condition in `<task>` (§1) plus a schema (§4); with thinking on — already on with no configuration on Claude Opus 5, Sonnet 5 and Fable 5.1 — skip the scaffold:
 
 ```xml
 <task>Decide whether this output passes the gate.</task>
@@ -79,42 +83,33 @@ Return JSON: { "criteria": [...], "violations": [...], "verdict": "...", "edits"
 </output_format>
 ```
 
-Explicit numbered steps outperform "think step by step" alone — they constrain the shape of reasoning.
+The guide asks for sequential, numbered steps only when order or completeness matters ("Be clear and direct"); here they fix the output shape a parser reads, not the model's reasoning.
 
-**Caveat:** for Claude 4+ models, "ultrathink" extended thinking often replaces hand-rolled CoT. Choose one or the other; don't stack.
+**Caveat:** the guide says to prefer general instructions over prescriptive steps — "think thoroughly" often beats a hand-written step-by-step plan — and keeps manual CoT as a fallback for thinking-off only. Never stack the scaffold on top of thinking (`thinking: {"type": "adaptive"}`); keep numbered steps only as an output contract. `ultrathink` is a Claude Code keyword, not an API parameter.
 
 ---
 
 ## 4. Pattern: Structured output via JSON schema
 
-Use Claude's tool-use API to enforce schemas instead of asking for "JSON in a code block".
+Use structured outputs instead of asking for "JSON in a code block": `output_config.format` constrains the response to a JSON schema, and `strict: true` on a tool constrains `tool_use.input`.
 
 ```python
-tools = [{
-  "name": "submit_result",
-  "description": "Submit the structured result",
-  "input_schema": {
+response = client.messages.create(
+  model="claude-opus-5",
+  max_tokens=16000,
+  messages=[...],
+  output_config={"format": {"type": "json_schema", "schema": {
     "type": "object",
     "properties": {
-      "items": {
-        "type": "array",
-        "items": { "type": "string", "maxLength": 90 },
-        "minItems": 3, "maxItems": 3
-      }
+      "items": {"type": "array", "items": {"type": "string", "maxLength": 90}, "minItems": 3, "maxItems": 3}
     },
-    "required": ["items"]
-  }
-}]
-
-response = client.messages.create(
-  model="claude-opus-4-7",
-  tools=tools,
-  tool_choice={"type": "tool", "name": "submit_result"},
-  messages=[...]
+    "required": ["items"],
+    "additionalProperties": False
+  }}}
 )
 ```
 
-**Why:** the API rejects malformed output before it reaches your app. No regex parsing, no JSON-in-markdown extraction.
+**Why:** the structured-outputs guide states the response is valid JSON matching the schema, in the text content block, so no regex and no JSON-in-markdown extraction; `strict: true` guarantees schema validation on tool names and inputs. Limits: forced `tool_choice` (`any`/`tool`) is not a schema guarantee, and on Claude Fable 5.1 it returns 400 `tool_choice: type "tool" and "any" are not supported for this model` (migration guide: leave `tool_choice` at `auto`, name the tool in the instruction, set `strict: true`) — prefer `output_config.format` or `strict: true`; `client.messages.parse()` with a Pydantic or Zod model is the SDK shortcut.
 
 ---
 
@@ -124,7 +119,7 @@ When prompts include large stable blocks (manuals, brand guides, schema docs), u
 
 ```python
 client.messages.create(
-  model="claude-opus-4-7",
+  model="claude-opus-5",
   system=[
     {
       "type": "text",
@@ -136,7 +131,7 @@ client.messages.create(
 )
 ```
 
-**Cost:** cache hits ~10× cheaper, ~2× faster. TTL 5 min (refresh on every hit).
+**Cost (prompt-caching guide and pricing page):** cache reads bill at 0.1× the base input rate (0.025× on Claude Fable 5.1 and Claude Mythos 5.1); writes at 1.25× for the default 5-minute lifetime and 2× for `ttl: "1h"`; "the cache is refreshed for no additional cost each time the cached content is used". Verify hits with `usage.cache_read_input_tokens`. The minimum cacheable prefix is model-dependent (512 tokens on Claude Opus 5 and Fable 5.1, up to 4,096 on Claude Opus 4.6 and Haiku 4.5); shorter prefixes silently do not cache.
 
 **Typical use cases:** brand/voice manuals for copy generators, doc corpus for RAG retrievers, schema reference for extraction.
 
@@ -169,11 +164,13 @@ See `llm_evaluation_frameworks.md` for the full eval pattern + repo conventions 
 | Anti-pattern | Why bad | Fix |
 |---|---|---|
 | "Be creative" / "Use your best judgment" | Underspecified → high variance | Specify decision criteria explicitly |
-| Stacking 8 instructions in one paragraph | Claude follows last instruction strongest | Use numbered list or XML sections |
-| Asking for JSON without schema | Free-form output, brittle parsing | Use tool-use with `input_schema` |
+| Stacking 8 instructions in one paragraph | Adherence drops in an unstructured block; the guide asks for numbered steps when order or completeness matters | Use numbered list or XML sections |
+| Asking for JSON without schema | Free-form output, brittle parsing | Use `output_config.format` or `strict: true` (§4) |
 | Prompt-injecting user content | Untrusted text bypasses guardrails | Wrap user input in `<user_input>…</user_input>` and instruct Claude to treat it as data |
 | Tweaking prompts without an eval | Drift; "improvements" regress on edge cases | Build minimal eval first |
-| Hand-rolled CoT + extended thinking | Conflicting reasoning channels | Pick one |
+| Hand-rolled CoT + extended thinking | Conflicting reasoning channels | Keep thinking; keep numbered steps only as an output contract (§3) |
+| "Double-check your answer" as a ritual | Tokens, not evidence; a self-review is not an eval | Gate the output with a schema (§4) and score it with the harness (§6) |
+| The whole corpus in every prompt | Cost, and nothing marks what matters | Retrieve or cache the stable part (§5); name the job and the done condition (§1) |
 
 ---
 

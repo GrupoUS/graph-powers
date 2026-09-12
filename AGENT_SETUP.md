@@ -31,6 +31,51 @@ Skip irrelevant branches. Stop after that proof; do not add audits or optional i
 - Prefer existing CLIs and native installations. Do not install another copy of a client to make
   a command work. When syntax differs, inspect that installed CLI's help once before proceeding.
 
+## Update mode — an installed project after a plugin update
+
+The plugin's bytes update on their own (`README.md` § Maintenance); the project's instruction
+layer does not. The delimited block in `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/rules/`,
+`.graph-powers/config.json` and client posture were written against one plugin version, and a
+later version can change what each of them should say. Run this mode when the user asks to re-read
+the plugin and update the project, or when the version a client reports is older than `<VERSION>`:
+
+```bash
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir . --expected-version <VERSION>
+```
+
+1. Read `<PLUGIN>/CHANGELOG.md` from the reported version to `<VERSION>`; each entry names what
+   moved. Map every entry to a project surface in the table below; an entry that touches none of
+   them needs no project action.
+2. Run Step 0 as written: backup, clients, working tree. A dirty tree with unrelated changes is
+   preserved, never reset.
+3. Re-run the installer's project half for each installed client (the Step 9 lines with
+   `--target <CLIENT>`): it rewrites the delimited block in `AGENTS.md`, refreshes posture and
+   permissions additively, and, on the routes that keep `.graph-powers/installed.json`, records
+   the new version. Do not hand-edit the block.
+4. Re-run Steps 3–8 in improve-in-place mode, touching only what the changelog mapping named:
+   merge new `schema/config.schema.json` keys into `.graph-powers/config.json` without repeating
+   global defaults (Step 3); compare the root pair with the current `templates/AGENTS.md` and
+   `templates/CLAUDE.md` for structure only (Step 4a); compare each project rule three ways —
+   template before, template now, the project's copy — keeping every project decision and
+   replacing only generic process with a pointer to its plugin owner (Step 5); refresh authority
+   links (Step 6), shadowing (Step 7) and the settings audit (Step 8).
+5. Finish with Step 10 at `<VERSION>` and report a drift table: surface · reported → target ·
+   action (rewritten by the installer / merged / kept / no change) · preserved project decision.
+   A surface you could not verify is reported as such, never as current.
+
+| Surface | Owner of the change | How it reaches the project |
+|---|---|---|
+| Delimited Graph Powers block in `AGENTS.md`; posture, permissions, hooks | installer, `--target <CLIENT>` | rewritten in step 3 |
+| Root pair structure (`templates/AGENTS.md`, `templates/CLAUDE.md`) | Step 4a | compared; project text kept |
+| `.claude/rules/*` (`templates/rules/`) | Step 5 | three-way compare; project decisions win |
+| `.graph-powers/config.json` keys (`schema/config.schema.json`) | Step 3 | new keys merged; values preserved |
+| Product authorities (`DESIGN.md`, `PRODUCT.md`, `REVIEW.md` specifications) | Step 6 | gaps reported, not redesigned |
+| Skills, agents, commands, references, workflows | the plugin itself | nothing to copy: projects read them from the installed plugin |
+
+Never delete a project rule in this mode without the Step 5 approval and diff, and never rewrite a
+customized section to match a template. The result is a fresh setup on this version minus
+everything the project had already decided.
+
 ## Step 0 — Establish source, target and current state
 
 1. Read the target's `AGENTS.md`, `CLAUDE.md`, existing config and working-tree status.

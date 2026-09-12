@@ -1,0 +1,9 @@
+SYNTHETIC RESPONSE TRACE — no commands in this fixture were executed.
+The plan review and validation are complete in the supplied fixture; the final comment changed.
+TARGET: https://github.example/acme/widgets/issues/20
+PAYLOAD:
+<!-- graph-powers:issue-improve -->
+R1: correct the help label. Owns: cli/help.txt. CHECK: python3 cli/main.py --help. EXPECT: corrected label.
+APPROVAL: pending for changed target/payload. Please approve this exact final target and payload.
+Preview: python3 "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/issue_comment.py" --issue-url "https://github.example/acme/widgets/issues/20" --body-file "reviewed-draft.md"
+STOP: Phase C=0; lease=0; host edits=0; publication=0

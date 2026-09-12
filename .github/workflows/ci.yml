@@ -91,6 +91,9 @@ jobs:
       - name: Skill eval runner contract
         run: python3 skills/skill-improve/scripts/test_run_evals.py
 
+      - name: Issue plan comment CLI (mocked gh)
+        run: python3 skills/issue-improve/scripts/test_issue_comment.py
+
       - name: Skill trigger-eval capture contract
         run: python3 skills/skill-improve/scripts/test_capture_trigger_evals.py
 

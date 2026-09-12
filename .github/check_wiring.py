@@ -216,17 +216,20 @@ def hermes_registration_collisions() -> list[str]:
     problems: list[str] = []
 
     def add(name: str, path: str) -> None:
-        previous = owners.get(name)
+        previous = owners.get(name.casefold())
         if previous is not None:
             problems.append(f"Hermes registration `{name}` collides between {previous} and {path}")
         else:
-            owners[name] = path
+            owners[name.casefold()] = path
 
     for path in glob.glob("hermes/skills/*/SKILL.md") + glob.glob("skills/*/SKILL.md"):
         add(os.path.basename(os.path.dirname(path)), path)
     for path in glob.glob("commands/*.md"):
         if os.path.basename(path).upper() != "AGENTS.MD":
-            add(os.path.basename(path)[:-3], path)
+            name = os.path.basename(path)[:-3]
+            if owners.get(name.casefold()) == os.path.join("skills", name, "SKILL.md"):
+                continue
+            add(name, path)
     for path in glob.glob("agents/*.md"):
         if os.path.basename(path).upper() != "AGENTS.MD":
             add("agent-" + os.path.basename(path)[:-3], path)

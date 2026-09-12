@@ -42,14 +42,14 @@ def planned_registrations(root: Path | None = None) -> list[tuple[str, Path, str
     names: dict[str, Path] = {}
 
     def add(name: str, path: Path, fallback: str) -> None:
-        previous = names.get(name)
+        previous = names.get(name.casefold())
         if previous is not None:
             raise ValueError(
                 f"Hermes registration collision for '{name}': {previous} and {path}"
             )
         if not path.is_file():
             raise FileNotFoundError(f"Hermes registration source is missing: {path}")
-        names[name] = path
+        names[name.casefold()] = path
         planned.append((name, path, _frontmatter_description(path, fallback)))
 
     hermes_skills = base / "hermes" / "skills"
@@ -70,6 +70,9 @@ def planned_registrations(root: Path | None = None) -> list[tuple[str, Path, str
     if commands_root.is_dir():
         for command in sorted(commands_root.glob("*.md")):
             if command.name.upper() == "AGENTS.MD":
+                continue
+            canonical = names.get(command.stem.casefold())
+            if canonical is not None and canonical.relative_to(base).as_posix() == f"skills/{command.stem}/SKILL.md":
                 continue
             add(command.stem, command, command.stem)
 

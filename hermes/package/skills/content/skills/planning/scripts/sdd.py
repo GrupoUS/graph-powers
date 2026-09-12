@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plan workspaces, task briefs, review packages, bounded dispatches and plan validation.
 
-One script, nine subcommands, one location rule — so a brief and the package that reviews it can
+One script, eleven subcommands, one location rule — so a brief and the package that reviews it can
 never land in different directories:
 
     python -X utf8 sdd.py workspace PLAN_FILE                  -> prints the plan's workspace
@@ -11,6 +11,8 @@ never land in different directories:
     python -X utf8 sdd.py status    PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py release   PLAN_FILE                 -> remove only that plan's lease
+    python -X utf8 sdd.py review-bind  PLAN_FILE --verdict V --inspector ID --builder ID
+    python -X utf8 sdd.py review-check PLAN_FILE                -> is the bound review still current
     python -X utf8 sdd.py dispatch reserve PLAN_FILE --key KEY --kind KIND --role ROLE --max-spawns N
     python -X utf8 sdd.py consult reserve PLAN_FILE --request-json JSON
     python -X utf8 sdd.py consult record  PLAN_FILE --result-json JSON
@@ -48,12 +50,14 @@ writing. A lease conflict returns its JSON with exit 4.
 
 Exit codes, as upstream: 0 done · 2 usage or bad input · 3 task not found. Bounded dispatch or
 consultation states `USER_REQUIRED` and `BLOCKED` return 4 with their JSON result on stdout; all
-other failures are one line on stderr.
+other failures are one line on stderr. A plan review that is `STALE`, `REVISION_REQUIRED` or
+`UNREVIEWED` returns 4 the same way, from `review-check` and from `acquire --profile gauntlet`.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -98,6 +102,19 @@ NEED_REF = re.compile(
     r"(?P<id>T[0-9]+(?:\.[0-9]+)*[A-Za-z]?)\s*\(\s*reads\s*:\s*(?P<reads>[^()]*?\S)\s*\)",
     re.IGNORECASE,
 )
+
+# The review scope hash ignores exactly what Phase C may rewrite under an open lease, and nothing
+# else. Inside one structured task or gate block: the FIRST `EVIDENCE:` field line, the wrapped
+# continuation of its value — the non-blank lines after it that are indented deeper than the block
+# header, are not themselves fields, and stop at the next field or Steps line — and the block
+# header's own checkbox. A second `EVIDENCE:` field, a Steps entry merely shaped like one, and
+# every byte outside a block (prose, a heading, a fenced sample, spacing) all still count. The
+# carve-out is real and bounded: whatever the controller writes as that evidence value, wrapped
+# lines included, the resume path does not read. The raw hash still gates every first `acquire`,
+# and `review-check` still reports such a plan `STALE`, so the trust is scoped to a controller
+# that already holds this plan's lease.
+REVIEW_CHECKBOX = re.compile(r"^([ \t]*[-*][ \t]+\[)[xX](\])")
+REVIEW_VERDICTS = ("APPROVED", "REVISION_REQUIRED")
 
 AGENT_ID = re.compile(r"^graph-powers:(?P<slug>[a-z0-9][a-z0-9-]*)$")
 SKILL_ID = re.compile(r"^(?:graph-powers:)?(?P<slug>[a-z0-9][a-z0-9-]*)$")
@@ -345,6 +362,20 @@ def _write_text_no_symlink(target: Path, text: str, *, exclusive: bool = False) 
     except OSError as error:
         fail(f"cannot write SDD state {target.as_posix()}: {error}", 2)
     with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
+def _append_text_no_symlink(target: Path, text: str) -> None:
+    """Append one complete record without following a symlink and without truncating the log."""
+    if target.is_symlink():
+        fail(f"refusing symlink SDD output: {target.as_posix()}", 2)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(target, flags, 0o600)
+    except OSError as error:
+        fail(f"cannot append SDD state {target.as_posix()}: {error}", 2)
+    with os.fdopen(descriptor, "a", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
 
 
@@ -1508,7 +1539,273 @@ def reserve_dispatch(
         }, 0
 
 
-def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, Any]:
+def review_plan_file(raw: str) -> Path:
+    """Resolve a plan for review: a symlink could be repointed after its bytes were approved."""
+    if Path(raw).is_symlink():
+        fail(f"refusing symlink plan file: {Path(raw).as_posix()}", 2)
+    return plan_file(raw)
+
+
+def _review_identity(value: str, name: str) -> str:
+    if not IDENTITY.fullmatch(value):
+        fail(f"{name} must be a bounded identity: {value}", 2)
+    return value
+
+
+def _evidence_lines(
+    block: tuple[int, str, list[tuple[int, str]]],
+    pattern: re.Pattern[str],
+    *,
+    steps_aware: bool,
+) -> set[int]:
+    """Locate one block's first EVIDENCE field and the wrapped rest of its value.
+
+    The walk mirrors `_parse_task` and `_parse_gate` line for line — the indent guard, the Steps
+    state and the way a duplicate field leaves that state untouched — because sharing it would
+    mean threading their `fields` dict through this helper, a larger change than the rule it
+    shares. Any divergence here would let the validator and the review hash read one plan two ways.
+    """
+    header = pattern.match(block[2][0][1])
+    assert header is not None
+    indent = len(header.group("indent"))
+    seen: set[str] = set()
+    exempt: set[int] = set()
+    collecting = False
+    in_steps = False
+    steps_indent: int | None = None
+    for number, line in block[2][1:]:
+        field = FIELD.match(line)
+        if (
+            steps_aware
+            and in_steps
+            and line.strip()
+            and (field is None or steps_indent is None or len(field.group("indent")) > steps_indent)
+        ):
+            collecting = False
+            continue
+        if field and len(field.group("indent")) > indent:
+            name = field.group("name").lower()
+            collecting = False
+            if name in seen and name != "steps":
+                continue
+            if steps_aware and name == "steps":
+                seen.add(name)
+                in_steps = True
+                steps_indent = len(field.group("indent"))
+                continue
+            seen.add(name)
+            in_steps = False
+            steps_indent = None
+            if name == "evidence":
+                exempt.add(number)
+                collecting = True
+            continue
+        if steps_aware and in_steps and line.strip():
+            collecting = False
+            continue
+        if collecting and line.strip() and len(line) - len(line.lstrip()) > indent:
+            exempt.add(number)
+            continue
+        collecting = False
+    return exempt
+
+
+def _scope_text(text: str) -> str:
+    """Rebuild the plan without the two fields Phase C owns, located through the task grammar."""
+    # `splitlines` is the validator's own rule (`validate_plan`), and it breaks on more than \n:
+    # \r, \x0b, \x0c, \x1c-\x1e, \x85, \u2028 and \u2029. Splitting any other way would let text
+    # the validator reads as its own line hide inside one exempt line here. `keepends` keeps the
+    # separator each line actually used, so the rebuild is byte-for-byte lossless.
+    lines = text.splitlines()
+    original = text.splitlines(keepends=True)
+    visible = _visible_plan_lines(lines)
+    blocks, _ = _task_blocks(visible)
+    gate_blocks, _ = _gate_blocks(visible)
+    evidence: set[int] = set()
+    headers: set[int] = set()
+    for block in blocks:
+        headers.add(block[0])
+        evidence |= _evidence_lines(block, STRUCTURED_TASK, steps_aware=True)
+    for block in gate_blocks:
+        headers.add(block[0])
+        evidence |= _evidence_lines(block, STRUCTURED_GATE, steps_aware=False)
+    kept = [
+        REVIEW_CHECKBOX.sub(r"\1 \2", line) if number in headers else line
+        for number, line in enumerate(original, 1)
+        if number not in evidence
+    ]
+    return "".join(kept)
+
+
+def _plan_digest(plan: Path) -> tuple[str, str]:
+    """Hash the plan bytes, and the same bytes without the two fields Phase C owns."""
+    if plan.is_symlink():
+        fail(f"refusing symlink plan file: {plan.as_posix()}", 2)
+    try:
+        descriptor = os.open(plan, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as error:
+        fail(f"cannot read plan file {plan.as_posix()}: {error}", 2)
+    with os.fdopen(descriptor, "rb") as handle:
+        raw = handle.read()
+    # surrogateescape both ways: a plan that is not valid UTF-8 still hashes deterministically.
+    scope = _scope_text(raw.decode("utf-8", errors="surrogateescape"))
+    return (
+        hashlib.sha256(raw).hexdigest(),
+        hashlib.sha256(scope.encode("utf-8", errors="surrogateescape")).hexdigest(),
+    )
+
+
+def _read_review_record(directory: Path) -> dict[str, Any] | None:
+    """Read the last bound review without creating the directory, the file or a lock."""
+    record_path = directory / "plan-review.json"
+    if record_path.is_symlink():
+        fail(f"refusing symlink plan review ledger: {record_path.as_posix()}", 2)
+    if not record_path.exists():
+        return None
+    try:
+        value = json.loads(record_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        fail(f"cannot read plan review ledger {record_path.as_posix()}: {error}", 2)
+    if (
+        not isinstance(value, dict)
+        or value.get("version") != 1
+        or not isinstance(value.get("round"), int)
+        or value.get("verdict") not in REVIEW_VERDICTS
+        or not isinstance(value.get("sha256"), str)
+        or not isinstance(value.get("scopeSha256"), str)
+    ):
+        fail(f"invalid plan review ledger: {record_path.as_posix()}", 2)
+    return value
+
+
+def _review_state(plan: Path, *, scope_only: bool = False) -> tuple[dict[str, Any], int]:
+    """Compare the plan on disk with its bound review, creating nothing, and rule on the result."""
+    root = repo_root(plan)
+    relative_plan = _relative_plan(plan, root)
+    sha256, scope_sha256 = _plan_digest(plan)
+    directory = _existing_secure_directory(root, ".graph-powers", "logs", "sdd", plan_slug(plan))
+    record = _read_review_record(directory) if directory is not None else None
+    output: dict[str, Any] = {
+        "planFile": relative_plan,
+        "status": "UNREVIEWED",
+        "comparison": "scope" if scope_only else "raw",
+        "sha256": sha256,
+        "scopeSha256": scope_sha256,
+        "round": None,
+        "verdict": None,
+        "boundSha256": None,
+        "boundScopeSha256": None,
+    }
+    if record is None or record.get("planFile") != relative_plan:
+        return output, BOUNDED_EXIT
+    output.update(
+        {
+            "round": record["round"],
+            "verdict": record["verdict"],
+            "boundSha256": record["sha256"],
+            "boundScopeSha256": record["scopeSha256"],
+            "inspector": record.get("inspector"),
+            "builder": record.get("builder"),
+            "recordedAt": record.get("recordedAt"),
+        }
+    )
+    if record["verdict"] != "APPROVED":
+        output["status"] = record["verdict"]
+        return output, BOUNDED_EXIT
+    if (record["scopeSha256"] if scope_only else record["sha256"]) != (
+        scope_sha256 if scope_only else sha256
+    ):
+        output["status"] = "STALE"
+        return output, BOUNDED_EXIT
+    output["status"] = "APPROVED"
+    return output, 0
+
+
+def review_check(plan: Path) -> tuple[dict[str, Any], int]:
+    """Report whether the bound review still matches the plan bytes. Writes nothing, ever."""
+    return _review_state(plan)
+
+
+def review_bind(
+    plan: Path,
+    verdict: str,
+    inspector: str,
+    builder: str,
+    *,
+    model_requested: str | None = None,
+    model_observed: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Bind one Mode 1 verdict to the current plan bytes and append that round to the log."""
+    if verdict not in REVIEW_VERDICTS:
+        fail(f"verdict must be one of {', '.join(REVIEW_VERDICTS)}", 2)
+    inspector = _review_identity(inspector, "inspector")
+    builder = _review_identity(builder, "builder")
+    if inspector.casefold() == builder.casefold():
+        fail(f"inspector must differ from builder: {inspector}", 2)
+    if inspector.casefold() == "main":
+        fail("inspector must be a bounded review role, never main", 2)
+    requested = _review_identity(model_requested, "model-requested") if model_requested else None
+    observed = _review_identity(model_observed, "model-observed") if model_observed else None
+    root = repo_root(plan)
+    relative_plan = _relative_plan(plan, root)
+    if any(
+        character.isspace() or character == "=" or not character.isprintable()
+        for character in relative_plan
+    ):
+        fail(f"invalid review plan path: {relative_plan!r}", 2)
+    sha256, scope_sha256 = _plan_digest(plan)
+    record: dict[str, Any] = {
+        "version": 1,
+        "planFile": relative_plan,
+        "round": 1,
+        "verdict": verdict,
+        "sha256": sha256,
+        "scopeSha256": scope_sha256,
+        "inspector": inspector,
+        "builder": builder,
+        "modelRequested": requested,
+        "modelObserved": observed,
+        "fallback": bool(requested and observed and requested != observed),
+        "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    directory = workspace(plan)
+    with _ledger_lock(directory, "plan-review", "plan review"):
+        previous = _read_review_record(directory)
+        if previous is not None and previous.get("planFile") == relative_plan:
+            record["round"] = previous["round"] + 1
+        _append_text_no_symlink(
+            directory / "PLAN-REVIEW-LOG.md",
+            f"{record['recordedAt']} round={record['round']} verdict={verdict}"
+            f" sha256={sha256} plan={relative_plan}"
+            f" inspector={inspector} builder={builder}"
+            f" model.requested={requested or 'none'} model.observed={observed or 'none'}"
+            f" fallback={'true' if record['fallback'] else 'false'}\n",
+        )
+        _write_json_ledger(directory / "plan-review.json", record, "plan review")
+    return record, 0
+
+
+def _gauntlet_review_gate(
+    plan: Path,
+    root: Path,
+    relative_plan: str,
+    paths: list[str],
+) -> tuple[dict[str, Any], int] | None:
+    """Refuse a plan whose review no longer holds, before a lease exists to defend it."""
+    logs = _existing_secure_directory(root, ".graph-powers", "logs")
+    resume = False
+    if logs is not None:
+        lease_path = logs / "write-lease.json"
+        if lease_path.is_symlink():
+            fail(f"refusing symlink write lease: {lease_path.as_posix()}", 2)
+        if lease_path.exists():
+            existing = _read_lease(lease_path)
+            resume = existing.get("plan") == relative_plan and existing.get("paths") == paths
+    output, code = _review_state(plan, scope_only=resume)
+    return None if code == 0 else (output, code)
+
+
+def acquire(plan: Path, max_tasks: int, profile: str = "default") -> tuple[dict[str, Any], int]:
     """Validate the plan and create its write lease with an atomic create-if-absent."""
     normalized, errors = validate_plan(plan, max_tasks, profile)
     if errors:
@@ -1516,9 +1813,13 @@ def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, A
     assert normalized is not None
     root = repo_root(plan)
     relative_plan = _relative_plan(plan, root)
+    paths = _lease_paths(plan, relative_plan, normalized["writeLease"])
+    if profile == "gauntlet":
+        refused = _gauntlet_review_gate(plan, root, relative_plan, paths)
+        if refused is not None:
+            return refused
     logs = _secure_directory(root, ".graph-powers", "logs")
     lease_path = logs / "write-lease.json"
-    paths = _lease_paths(plan, relative_plan, normalized["writeLease"])
     payload = {"plan": relative_plan, "paths": paths, "runId": secrets.token_hex(12)}
     encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     try:
@@ -1529,7 +1830,7 @@ def acquire(plan: Path, max_tasks: int, profile: str = "default") -> dict[str, A
             fail(
                 f"write lease conflict: {existing['plan']} already owns {lease_path.as_posix()}", 2
             )
-    return normalized
+    return normalized, 0
 
 
 def release(plan: Path) -> None:
@@ -1676,6 +1977,19 @@ def main(argv: list[str] | None = None) -> int:
     p_release = sub.add_parser("release", help="release only the write lease owned by this plan")
     p_release.add_argument("plan")
 
+    p_bind = sub.add_parser("review-bind", help="bind one plan review verdict to the plan bytes")
+    p_bind.add_argument("plan")
+    p_bind.add_argument("--verdict", choices=REVIEW_VERDICTS, required=True)
+    p_bind.add_argument("--inspector", required=True)
+    p_bind.add_argument("--builder", required=True)
+    p_bind.add_argument("--model-requested")
+    p_bind.add_argument("--model-observed")
+
+    p_review = sub.add_parser(
+        "review-check", help="report whether the bound review still matches the plan"
+    )
+    p_review.add_argument("plan")
+
     p_dispatch = sub.add_parser("dispatch", help="reserve one bounded Phase C agent dispatch")
     dispatch_sub = p_dispatch.add_subparsers(dest="dispatch_action", required=True)
     p_dispatch_reserve = dispatch_sub.add_parser(
@@ -1708,6 +2022,21 @@ def main(argv: list[str] | None = None) -> int:
             fail(f"cannot read plan status: {error}", 2)
         print(json.dumps(output, ensure_ascii=False, indent=2))
         return code
+    if args.command in {"review-bind", "review-check"}:
+        reviewed = review_plan_file(args.plan)
+        if args.command == "review-bind":
+            output, code = review_bind(
+                reviewed,
+                args.verdict,
+                args.inspector,
+                args.builder,
+                model_requested=args.model_requested,
+                model_observed=args.model_observed,
+            )
+        else:
+            output, code = review_check(reviewed)
+        print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=False))
+        return code
     plan = plan_file(args.plan)
     if args.command == "workspace":
         print(workspace(plan).as_posix())
@@ -1720,8 +2049,9 @@ def main(argv: list[str] | None = None) -> int:
         assert normalized is not None
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
     elif args.command == "acquire":
-        normalized = acquire(plan, args.max_tasks, args.profile)
+        normalized, code = acquire(plan, args.max_tasks, args.profile)
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
+        return code
     elif args.command == "release":
         release(plan)
     elif args.command == "dispatch":

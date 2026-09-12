@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "70146bd377bc8814e25d49b07e7d25705159e2f9",
-    "version": "1.20.4",
+    "base_revision": "4c058cbe7e9e39730529f0b1852a0b753866ad11",
+    "version": "1.20.6",
     "dirty": true
   },
   "registrations": [
@@ -146,6 +146,12 @@
       "source": "skills/intent-layer/SKILL.md"
     },
     {
+      "name": "issue-improve",
+      "path": "skills/issue-improve.md",
+      "description": "Use to improve a GitHub issue into a concise plan comment. Not for implementing the issue.",
+      "source": "skills/issue-improve/SKILL.md"
+    },
+    {
       "name": "landing-page-design",
       "path": "skills/landing-page-design.md",
       "description": "Use when the surface is a landing or marketing page — building one, restructuring its sections, writing or rewriting the hero, headline or CTA, deciding whether a campaign page is indexed, or auditing one for filler and missing ship items. Trigger on: landing page, marketing page, campaign page, sales page, waitlist page, hero, headline, above the fold, CTA, conversion copy, FAQ section, noindex. Loaded by /design, only for a landing or marketing surface. Not for an app screen (designer), a motion value (animate), a lever inside the product (uxmaster) or a form that errors (/debug).",
@@ -239,9 +245,15 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "31b4a86e0ff9e77148233037a1ee62b27a9106e92f4af1d570305d5fef9c3d03",
-      "base_sha256": "ef58c8010a3461d0957d73d17d09de449c74ad718d1f051f99217b213840fc88",
+      "sha256": "a8f369906258de21009124660f98c6c4fb51840e40b71e9f0cfdf4386821a006",
+      "base_sha256": "31b4a86e0ff9e77148233037a1ee62b27a9106e92f4af1d570305d5fef9c3d03",
       "dirty": true
+    },
+    {
+      "path": ".github/check_listing_budget.py",
+      "sha256": "94ed27afb4c803d8566145b2eebc8e4d828d79fd8b979fa48a6a4981b66bcc70",
+      "base_sha256": "94ed27afb4c803d8566145b2eebc8e4d828d79fd8b979fa48a6a4981b66bcc70",
+      "dirty": false
     },
     {
       "path": ".github/check_workflows.mjs",
@@ -251,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "d579247946a3b35954d9e2f82561043dc20a6293b4f7abb8e081867b05b6be3b",
+      "sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
       "base_sha256": "d579247946a3b35954d9e2f82561043dc20a6293b4f7abb8e081867b05b6be3b",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -263,9 +275,9 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
+      "sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
       "base_sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "agents/debugger.md",
@@ -360,8 +372,8 @@
     {
       "path": "commands/debug.md",
       "sha256": "80a25f57752633691002c4bf500eef4b00207b76da1e929d332ce763e9dfd496",
-      "base_sha256": "52f4bdbe4db81403c581009b666384e2691a1b04c3dce8ce5f8ab74b78188599",
-      "dirty": true
+      "base_sha256": "80a25f57752633691002c4bf500eef4b00207b76da1e929d332ce763e9dfd496",
+      "dirty": false
     },
     {
       "path": "commands/design.md",
@@ -377,9 +389,9 @@
     },
     {
       "path": "commands/gauntlet.md",
-      "sha256": "01a6afd0813ba4104a6966d734b782cd7404225eb95fbe748f28d7c107e2e4ea",
+      "sha256": "021dc08c6c239cdfb0b7957ad7eb74931b13109ef36f6fa1236fe2a2a73ee9cd",
       "base_sha256": "01a6afd0813ba4104a6966d734b782cd7404225eb95fbe748f28d7c107e2e4ea",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/implement.md",
@@ -437,9 +449,9 @@
     },
     {
       "path": "hermes/install.mjs",
-      "sha256": "63b4b4cdaac5bd6d33257167e3d899473e92e351665ac74d94cd77ddb3bd0096",
+      "sha256": "26c2481c6085d23a986c561985447a539c6322954014e1d9b31de82687b0227e",
       "base_sha256": "63b4b4cdaac5bd6d33257167e3d899473e92e351665ac74d94cd77ddb3bd0096",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "hermes/package_builder.py",
@@ -563,9 +575,9 @@
     },
     {
       "path": "references/shared/007-path-conventions.md",
-      "sha256": "96fd415d2f78e162f900adadc10da6621f2e3b26c5b1777ea3c033089638af9b",
+      "sha256": "08d96283a0a468b0a660e7ca4036aa0c2ded6f80d3805c72b2fc1af2490a5114",
       "base_sha256": "96fd415d2f78e162f900adadc10da6621f2e3b26c5b1777ea3c033089638af9b",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/010-quality-gates.md",
@@ -575,9 +587,9 @@
     },
     {
       "path": "references/shared/015-verification-gate.md",
-      "sha256": "131907048bac2eaec36eabdf017af113c6e1af86599b78a182e1ff6fc1bb6f45",
+      "sha256": "5055ad45076f6d342f140a495d155a85d07e454ba860371a52558dfa5262a98e",
       "base_sha256": "131907048bac2eaec36eabdf017af113c6e1af86599b78a182e1ff6fc1bb6f45",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/020-complexity-routing.md",
@@ -623,9 +635,9 @@
     },
     {
       "path": "references/shared/060-skill-domain-matrix.md",
-      "sha256": "19462f368bc04c9d9542cff1df2ccee7fa7fead32d22f28c2beb5eb6c7bd5d76",
+      "sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
       "base_sha256": "19462f368bc04c9d9542cff1df2ccee7fa7fead32d22f28c2beb5eb6c7bd5d76",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/070-parallel-agent-spawn.md",
@@ -659,9 +671,9 @@
     },
     {
       "path": "references/shared/120-skill-invocation-order.md",
-      "sha256": "a04dd8db9df389174493e46d4034ad3bd64b954d47af91137d03e781a26f2e80",
+      "sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
       "base_sha256": "a04dd8db9df389174493e46d4034ad3bd64b954d47af91137d03e781a26f2e80",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/125-change-set.md",
@@ -672,8 +684,8 @@
     {
       "path": "references/shared/130-typescript7-oxc-gates.md",
       "sha256": "8281ac6f84306d45f31a208e6591bc208ebb22012de15a34c4ae53ba74de08bc",
-      "base_sha256": "b9c9c57e2905cc164c994b60971db727f07140a372d037d0b1ccbda4efcbe88c",
-      "dirty": true
+      "base_sha256": "8281ac6f84306d45f31a208e6591bc208ebb22012de15a34c4ae53ba74de08bc",
+      "dirty": false
     },
     {
       "path": "references/shared/130-workflow-authoring.md",
@@ -726,8 +738,8 @@
     {
       "path": "skills/debugger/SKILL.md",
       "sha256": "be5f7e64ee5d6b0fedeee47b6849544cdcd1236af5702608a85994f454bb5597",
-      "base_sha256": "9af596c718ed0801213a572d0c7c52f145b7bb03c99003369eea4bf8d4815b33",
-      "dirty": true
+      "base_sha256": "be5f7e64ee5d6b0fedeee47b6849544cdcd1236af5702608a85994f454bb5597",
+      "dirty": false
     },
     {
       "path": "skills/debugger/evals/evals.json",
@@ -738,8 +750,8 @@
     {
       "path": "skills/debugger/learning.md",
       "sha256": "325612921c16cfe8b821334477356fbe383bcdbe041406f27c228d5c8dc6043d",
-      "base_sha256": "12fc236ceec6a205287d64cceb8d01460072b2ccda4cf6692bdebc2391afda95",
-      "dirty": true
+      "base_sha256": "325612921c16cfe8b821334477356fbe383bcdbe041406f27c228d5c8dc6043d",
+      "dirty": false
     },
     {
       "path": "skills/debugger/references/anti-patterns.md",
@@ -868,6 +880,36 @@
       "dirty": false
     },
     {
+      "path": "skills/issue-improve/SKILL.md",
+      "sha256": "56ea97d4efae55ea7666ca3a5ded91ad09d5a7fd39b284d9dcfab0701a8d4882",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/evals/evals.json",
+      "sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/learning.md",
+      "sha256": "1f42bf6ead254d0704584baa274af3eb94fd24744715d3370646247194edc4d4",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/scripts/issue_comment.py",
+      "sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/scripts/test_issue_comment.py",
+      "sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
       "path": "skills/landing-page-design/SKILL.md",
       "sha256": "e1f027c1b3f51727182209ab6250a99dac0b81e27f39f979d7994a9c8cc2f8df",
       "base_sha256": "e1f027c1b3f51727182209ab6250a99dac0b81e27f39f979d7994a9c8cc2f8df",
@@ -923,9 +965,9 @@
     },
     {
       "path": "skills/planning/evals/evals.json",
-      "sha256": "bead10648aed68b23507b7826dbbc4918156e93fd5aaa32f9bb30667c8574f01",
+      "sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
       "base_sha256": "bead10648aed68b23507b7826dbbc4918156e93fd5aaa32f9bb30667c8574f01",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -971,9 +1013,9 @@
     },
     {
       "path": "skills/planning/references/gauntlet-loop.md",
-      "sha256": "4e3e6d5e0942bfa5c7d675780f76c1f598a78c18dda332ee1279de3fe582c18d",
+      "sha256": "a01a51bdeee4c1a98a279feee2bbebcf1bf27839a1629b01e0a7d880d3127e9d",
       "base_sha256": "4e3e6d5e0942bfa5c7d675780f76c1f598a78c18dda332ee1279de3fe582c18d",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/issue-triage.md",
@@ -1001,15 +1043,15 @@
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "bb5f8b65bb9c0034b2a57c666d46e6a76181ab91670d1b81efdea3b1e9d1a0e4",
+      "sha256": "9ce445502b7dc5fc7bed447f5235e6734bbe8cc116f77b58b3c321059a5f3b5b",
       "base_sha256": "bb5f8b65bb9c0034b2a57c666d46e6a76181ab91670d1b81efdea3b1e9d1a0e4",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "832347c05846ba8a45ea0bdf8166877fb6d3e4e812ec6b3d1beb8b0f423250b6",
+      "sha256": "eb0f4cb40d080067a199dc79830984b5b08d04bee7224c8d46e2f122dbb13e28",
       "base_sha256": "832347c05846ba8a45ea0bdf8166877fb6d3e4e812ec6b3d1beb8b0f423250b6",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1025,9 +1067,9 @@
     },
     {
       "path": "skills/planning/scripts/sdd.py",
-      "sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
+      "sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
       "base_sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/senior-architect/SKILL.md",
@@ -1085,9 +1127,9 @@
     },
     {
       "path": "skills/senior-prompt-engineer/references/prompt_engineering_patterns.md",
-      "sha256": "a00493107e5ca1ecd780ce91505826be10dc1b3202dbd33a82f57fadc084be04",
+      "sha256": "5f4bf8a362cdc79a96b66c6da84f9f01dadcb15038773383110749f6a976245e",
       "base_sha256": "a00493107e5ca1ecd780ce91505826be10dc1b3202dbd33a82f57fadc084be04",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/skill-improve/LICENSE-CC-BY-4.0.txt",
@@ -1120,10 +1162,16 @@
       "dirty": false
     },
     {
+      "path": "skills/skill-improve/references/anthropic-best-practices-summary.md",
+      "sha256": "0f6b17438ae6e30095766d0ae59c9ce59de58807f6becdb744fa1e010bd1001c",
+      "base_sha256": "ee77b33613cfe450d8f19663584af7be8e7921bf76928a11c5b94ba0eb9cc0ae",
+      "dirty": true
+    },
+    {
       "path": "skills/skill-improve/references/authoring.md",
-      "sha256": "7d7471cc35eaf46e66dfc12fc7fb80d696ff83eb96948941cefbedae67c9b5f1",
+      "sha256": "838c17726007cbf7bb0e816deae5debba5831123f004518d527b35f80a5ae1f3",
       "base_sha256": "7d7471cc35eaf46e66dfc12fc7fb80d696ff83eb96948941cefbedae67c9b5f1",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/skill-improve/references/harness-wiring-audit.md",
@@ -1211,9 +1259,9 @@
     },
     {
       "path": "workflows/ultra-verify.js",
-      "sha256": "13e47c87bbb178a5564e7f34a4ab98b9e20b5c466c32401e7a41230181cdfc1c",
+      "sha256": "790bc5b7113dc45a609c9b436b5fd43c591934c563fc0f0fe0a1bc30c6c417aa",
       "base_sha256": "13e47c87bbb178a5564e7f34a4ab98b9e20b5c466c32401e7a41230181cdfc1c",
-      "dirty": false
+      "dirty": true
     }
   ],
   "files": [
@@ -1227,7 +1275,7 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
+      "sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
       "sources": [
         "NOTICE"
       ],
@@ -1243,7 +1291,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "07d044a7930d066fa04cee70f259a46b856d82210ea2a13a0cb5535d8ec84ad9",
+      "sha256": "d6b305dfc969b78c8c4043b9ed48c225bef1c70fd32737a6d24a81fc2017cabe",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1354,6 +1402,14 @@
       "kind": "registration"
     },
     {
+      "path": "skills/content/.github/check_listing_budget.py",
+      "sha256": "94ed27afb4c803d8566145b2eebc8e4d828d79fd8b979fa48a6a4981b66bcc70",
+      "sources": [
+        ".github/check_listing_budget.py"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/.github/check_workflows.mjs",
       "sha256": "56d59fda866f74079aa09b9b9f3bceee556cfd1ef4f523d0671ba26168973f9b",
       "sources": [
@@ -1363,7 +1419,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "6f6d353c29b3d9c8b17ba425d56e3c1b431760a400cca13566660c5198f38cf7",
+      "sha256": "02113d05b400ff0554239537e8aec205027a2e2ff9a5055b130523c7c6021534",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1507,7 +1563,7 @@
     },
     {
       "path": "skills/content/commands/gauntlet.md",
-      "sha256": "986a26a147232786f67dd9d39c6464e70a41025087b195e654800d9e38aeec15",
+      "sha256": "9d67c7ef904e2f83e043e78a6cfdb5e0648f129d48365776f89a4296230aadb2",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -1739,7 +1795,7 @@
     },
     {
       "path": "skills/content/references/shared/007-path-conventions.md",
-      "sha256": "375d3a0dfdf80b21763c3ef1220aa8b4f00132606b8d4de2f85f4033443dee2e",
+      "sha256": "54523e1493efeb741bf46e4b33427b2a8fa0668f28ff3139039a190e29f0990a",
       "sources": [
         "references/shared/007-path-conventions.md"
       ],
@@ -1755,7 +1811,7 @@
     },
     {
       "path": "skills/content/references/shared/015-verification-gate.md",
-      "sha256": "cc81fff50293f3a151bfe7cd052ed41c6dbb174479d48f372d5084b7d7f29a92",
+      "sha256": "443d3296f661f981e55654a83ef93e2d8c4c94008a59dfda0e34b1c1d282dcc0",
       "sources": [
         "references/shared/015-verification-gate.md"
       ],
@@ -1819,7 +1875,7 @@
     },
     {
       "path": "skills/content/references/shared/060-skill-domain-matrix.md",
-      "sha256": "f24335851d364feb6699e934233d27e7bfd31200e47d8a2a168433ebaf8ab730",
+      "sha256": "cdaa863adda032ffe07622b72aed438f4290bd04e02073d54b7956bbc36b4234",
       "sources": [
         "references/shared/060-skill-domain-matrix.md"
       ],
@@ -1867,7 +1923,7 @@
     },
     {
       "path": "skills/content/references/shared/120-skill-invocation-order.md",
-      "sha256": "8631302dd996f6bae396ad2cd437a1ed9f82dded3a8a00b46e94a8aef08fdebe",
+      "sha256": "1def040a34fb8a4a00169f8cf23052f22d96ad981e507dd42b82ebae14beb9d5",
       "sources": [
         "references/shared/120-skill-invocation-order.md"
       ],
@@ -2146,6 +2202,46 @@
       "kind": "content"
     },
     {
+      "path": "skills/content/skills/issue-improve/SKILL.md",
+      "sha256": "eba57af585f5f3e00c9e20499ef493b11a5444fe22304e9609021463b6f019a7",
+      "sources": [
+        "skills/issue-improve/SKILL.md"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/issue-improve/evals/evals.json",
+      "sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
+      "sources": [
+        "skills/issue-improve/evals/evals.json"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/issue-improve/learning.md",
+      "sha256": "212d53be8e7fc80e195e39cfcdd6a949db3af80e14090f1e6de3092587847ad6",
+      "sources": [
+        "skills/issue-improve/learning.md"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/issue-improve/scripts/issue_comment.py",
+      "sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
+      "sources": [
+        "skills/issue-improve/scripts/issue_comment.py"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/issue-improve/scripts/test_issue_comment.py",
+      "sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
+      "sources": [
+        "skills/issue-improve/scripts/test_issue_comment.py"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/skills/landing-page-design/SKILL.md",
       "sha256": "5821dbc7a2bd850caad48a6f548865dadaba2fbb381372af4d09e3bcc9af1e23",
       "sources": [
@@ -2219,7 +2315,7 @@
     },
     {
       "path": "skills/content/skills/planning/evals/evals.json",
-      "sha256": "bead10648aed68b23507b7826dbbc4918156e93fd5aaa32f9bb30667c8574f01",
+      "sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
       "sources": [
         "skills/planning/evals/evals.json"
       ],
@@ -2283,7 +2379,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/gauntlet-loop.md",
-      "sha256": "5bc3a7c55452b6c559776ccacc80143486b08a75de2d5c593555446ef6157bb6",
+      "sha256": "d11a36690e8d512b0fae11641667708ec70a360e1ec8becf44e791ce4538547d",
       "sources": [
         "skills/planning/references/gauntlet-loop.md"
       ],
@@ -2323,7 +2419,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "09571e3a57afb2ac991a072394d59416d997538283258762fd6e6c2370bceaee",
+      "sha256": "363b417504079e044197cea0d2cb7c14ef0bb1351a64a332c2161f9f4fa22e31",
       "sources": [
         "skills/planning/references/phase-b-writing-plans.md"
       ],
@@ -2331,7 +2427,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "38d5ee4dbfa49aaff12fa07a397b62b08d907d80ae1be162deb17d69496883d7",
+      "sha256": "716ab70d8a51b8f9b0eea5964bfd02873532df11f1125944a3c79b1b3a5da857",
       "sources": [
         "skills/planning/references/phase-c-executing-plans.md"
       ],
@@ -2355,7 +2451,7 @@
     },
     {
       "path": "skills/content/skills/planning/scripts/sdd.py",
-      "sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
+      "sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
       "sources": [
         "skills/planning/scripts/sdd.py"
       ],
@@ -2435,7 +2531,7 @@
     },
     {
       "path": "skills/content/skills/senior-prompt-engineer/references/prompt_engineering_patterns.md",
-      "sha256": "e7c580a07b87e5b2a15050f00623c86d1cad0775eb0731fe2a438dcf7b93645c",
+      "sha256": "d68f79382303e762aab408c69a8ab5726d30047f3aa565fe32039e8352427b4d",
       "sources": [
         "skills/senior-prompt-engineer/references/prompt_engineering_patterns.md"
       ],
@@ -2482,8 +2578,16 @@
       "kind": "content"
     },
     {
+      "path": "skills/content/skills/skill-improve/references/anthropic-best-practices-summary.md",
+      "sha256": "a8e1e2092387df3084f480fa904ce552762c73dc296f72e8222db9cf972c0ede",
+      "sources": [
+        "skills/skill-improve/references/anthropic-best-practices-summary.md"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/skills/skill-improve/references/authoring.md",
-      "sha256": "1b17a626cc9aad22af118fb4c9ce402f2db02c538ee0dfd5882418c43956c66e",
+      "sha256": "e66e59e043db7ada7a81b5b0d614c75fdf5a76059e5a73473c8a4b461dc43a74",
       "sources": [
         "skills/skill-improve/references/authoring.md"
       ],
@@ -2603,7 +2707,7 @@
     },
     {
       "path": "skills/content/workflows/ultra-verify.js",
-      "sha256": "13e47c87bbb178a5564e7f34a4ab98b9e20b5c466c32401e7a41230181cdfc1c",
+      "sha256": "790bc5b7113dc45a609c9b436b5fd43c591934c563fc0f0fe0a1bc30c6c417aa",
       "sources": [
         "workflows/ultra-verify.js"
       ],
@@ -2659,7 +2763,7 @@
     },
     {
       "path": "skills/gauntlet.md",
-      "sha256": "986a26a147232786f67dd9d39c6464e70a41025087b195e654800d9e38aeec15",
+      "sha256": "9d67c7ef904e2f83e043e78a6cfdb5e0648f129d48365776f89a4296230aadb2",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -2686,6 +2790,14 @@
       "sha256": "ae1ee51aee33183b75ec4e3c035187ec4ac2fa633ea1510b20b37ff82b08999f",
       "sources": [
         "skills/intent-layer/SKILL.md"
+      ],
+      "kind": "registration"
+    },
+    {
+      "path": "skills/issue-improve.md",
+      "sha256": "eba57af585f5f3e00c9e20499ef493b11a5444fe22304e9609021463b6f019a7",
+      "sources": [
+        "skills/issue-improve/SKILL.md"
       ],
       "kind": "registration"
     },
@@ -3265,6 +3377,12 @@
       {
         "from": "commands/evolve.md",
         "reference": "evals/evals.json",
+        "to": "skills/issue-improve/evals/evals.json",
+        "kind": "selected-skill-evals"
+      },
+      {
+        "from": "commands/evolve.md",
+        "reference": "evals/evals.json",
         "to": "skills/landing-page-design/evals/evals.json",
         "kind": "selected-skill-evals"
       },
@@ -3722,6 +3840,12 @@
         "from": "references/shared/007-path-conventions.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-a-brainstorm.md#step-3--consolidate-research-findings",
         "to": "skills/planning/references/phase-a-brainstorm.md",
+        "kind": "reference"
+      },
+      {
+        "from": "references/shared/007-path-conventions.md",
+        "reference": "sdd.py",
+        "to": "skills/planning/scripts/sdd.py",
         "kind": "reference"
       },
       {
@@ -4253,6 +4377,84 @@
         "kind": "reference"
       },
       {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md",
+        "to": "references/shared/000-config-loader.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md",
+        "to": "references/shared/007-path-conventions.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/issue_comment.py",
+        "to": "skills/issue-improve/scripts/issue_comment.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md",
+        "to": "skills/planning/references/issue-triage.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-a-brainstorm.md",
+        "to": "skills/planning/references/phase-a-brainstorm.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-b-writing-plans.md",
+        "to": "skills/planning/references/phase-b-writing-plans.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/step-0-inventory.md",
+        "to": "skills/planning/references/step-0-inventory.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
+        "to": "skills/planning/scripts/sdd.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/quick_validate.py",
+        "to": "skills/skill-improve/scripts/quick_validate.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/run_evals.py",
+        "to": "skills/skill-improve/scripts/run_evals.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "evals/evals.json",
+        "to": "skills/issue-improve/evals/evals.json",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "learning.md",
+        "to": "skills/issue-improve/learning.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "scripts/test_issue_comment.py",
+        "to": "skills/issue-improve/scripts/test_issue_comment.py",
+        "kind": "reference"
+      },
+      {
         "from": "skills/landing-page-design/SKILL.md",
         "reference": "references/house-canon.md",
         "to": "skills/landing-page-design/references/house-canon.md",
@@ -4458,6 +4660,12 @@
       },
       {
         "from": "skills/planning/references/gauntlet-loop.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md",
+        "to": "references/shared/030-agent-assignment-matrix.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/gauntlet-loop.md",
         "reference": "commands/verify.md",
         "to": "commands/verify.md",
         "kind": "reference"
@@ -4466,6 +4674,12 @@
         "from": "skills/planning/references/gauntlet-loop.md",
         "reference": "phase-c-executing-plans.md",
         "to": "skills/planning/references/phase-c-executing-plans.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/gauntlet-loop.md",
+        "reference": "references/shared/007-path-conventions.md",
+        "to": "references/shared/007-path-conventions.md",
         "kind": "reference"
       },
       {
@@ -4622,6 +4836,12 @@
         "from": "skills/planning/references/phase-b-writing-plans.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md",
         "to": "references/shared/070-parallel-agent-spawn.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/phase-b-writing-plans.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
+        "to": "skills/planning/scripts/sdd.py",
         "kind": "reference"
       },
       {
@@ -4885,6 +5105,12 @@
       {
         "from": "skills/planning/scripts/sdd.py",
         "reference": "skills/*/SKILL.md",
+        "to": "skills/issue-improve/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "skills/*/SKILL.md",
         "to": "skills/landing-page-design/SKILL.md",
         "kind": "computed-input"
       },
@@ -5111,6 +5337,30 @@
         "kind": "reference"
       },
       {
+        "from": "skills/skill-improve/references/anthropic-best-practices-summary.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/quick_validate.py",
+        "to": "skills/skill-improve/scripts/quick_validate.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/skill-improve/references/anthropic-best-practices-summary.md",
+        "reference": ".github/check_listing_budget.py",
+        "to": ".github/check_listing_budget.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/skill-improve/references/anthropic-best-practices-summary.md",
+        "reference": "quick_validate.py",
+        "to": "skills/skill-improve/scripts/quick_validate.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/skill-improve/references/authoring.md",
+        "reference": ".github/check_listing_budget.py",
+        "to": ".github/check_listing_budget.py",
+        "kind": "reference"
+      },
+      {
         "from": "skills/skill-improve/references/authoring.md",
         "reference": "learning.md",
         "to": "skills/skill-improve/learning.md",
@@ -5120,6 +5370,12 @@
         "from": "skills/skill-improve/references/authoring.md",
         "reference": "quick_validate.py",
         "to": "skills/skill-improve/scripts/quick_validate.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/skill-improve/references/authoring.md",
+        "reference": "references/anthropic-best-practices-summary.md",
+        "to": "skills/skill-improve/references/anthropic-best-practices-summary.md",
         "kind": "reference"
       },
       {
@@ -5198,6 +5454,11 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "CHANGELOG.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "bin/audit-settings.mjs",
         "reason": "external URL or caller-resolved host path"
       },
@@ -5253,6 +5514,11 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "README.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "REVIEW.md",
         "reason": "host-project input or output, resolved by the caller"
       },
@@ -5260,6 +5526,11 @@
         "from": "AGENT_SETUP.md",
         "reference": "config.toml",
         "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": ".claude/CLAUDE.md",
+        "reason": "host-project instruction hierarchy, not installed plugin instructions"
       },
       {
         "from": "AGENT_SETUP.md",
@@ -5563,7 +5834,17 @@
       },
       {
         "from": "references/shared/007-path-conventions.md",
+        "reference": "PLAN-REVIEW-LOG.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "references/shared/007-path-conventions.md",
         "reference": "PLAN.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "references/shared/007-path-conventions.md",
+        "reference": "plan-review.json",
         "reason": "external URL or caller-resolved host path"
       },
       {
@@ -5897,6 +6178,26 @@
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
       },
       {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "PLAN.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": ".graph-powers/config.json",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "AGENTS.md",
+        "reason": "host-project instruction hierarchy, not installed plugin instructions"
+      },
+      {
+        "from": "skills/issue-improve/learning.md",
+        "reference": "historical ledger",
+        "reason": "historical paths/calls are evidence, not operational dependencies"
+      },
+      {
         "from": "skills/landing-page-design/references/house-canon.md",
         "reference": "SKILL.md",
         "reason": "host-project input or output, resolved by the caller"
@@ -5985,6 +6286,16 @@
         "from": "skills/planning/references/dispatch-matrix.md",
         "reference": "CLAUDE.md",
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
+      },
+      {
+        "from": "skills/planning/references/gauntlet-loop.md",
+        "reference": "PLAN-REVIEW-LOG.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "skills/planning/references/gauntlet-loop.md",
+        "reference": "plan-review.json",
+        "reason": "external URL or caller-resolved host path"
       },
       {
         "from": "skills/planning/references/gauntlet-loop.md",
@@ -6155,6 +6466,11 @@
         "from": "skills/skill-improve/learning.md",
         "reference": "historical ledger",
         "reason": "historical paths/calls are evidence, not operational dependencies"
+      },
+      {
+        "from": "skills/skill-improve/references/anthropic-best-practices-summary.md",
+        "reference": "SKILL.md",
+        "reason": "host-project input or output, resolved by the caller"
       },
       {
         "from": "skills/skill-improve/references/authoring.md",

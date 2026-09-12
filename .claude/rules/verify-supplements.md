@@ -21,7 +21,7 @@ are deliberately not gates (`AGENTS.md § The linter configuration is not a gate
 contributor's editor says the same thing on every machine, and none of them can fail a pull
 request).
 
-What this repository does have is twenty-seven verification checks, none of which fit a key named
+What this repository does have is twenty-eight verification checks, none of which fit a key named
 `typeCheck`, `lint` or `build`. Before this file existed `/verify` ran one of them and reported a
 clean line, which is the exact failure mode `§ 0` warns about: a gate nobody declared reads like a
 gate nobody needed.
@@ -64,6 +64,7 @@ and returns nonzero pending separately approved native identity, exact-byte scan
 | 25 | Version | `python3 .github/check_version_bump.py` | a shipped file changed without a version bump. Installed machines compare versions, not commits, so the change reaches nobody |
 | 26 | Grok projection and configuration | `python3 .github/check_grok.py` | Grok metadata or configuration preservation/idempotence differs from its supported contract |
 | 27 | Cursor projection and context | `python3 .github/check_cursor.py` | Cursor metadata, generated hooks, native context output or configuration preservation regressed |
+| 28 | Issue plan comment | `python3 skills/issue-improve/scripts/test_issue_comment.py` | preview, scoped author/marker selection, pagination or safe retry/publication regressed |
 
 One additional installation assertion needs fixture arguments and therefore runs in CI rather than
 here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` reports it as

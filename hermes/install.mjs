@@ -125,7 +125,7 @@ export function buildRegistrationPlan(pluginRoot = HERE) {
   const names = new Map();
 
   function add(name, path, fallback) {
-    const previous = names.get(name);
+    const previous = names.get(name.toLowerCase());
     if (previous) {
       throw new Error(
         `Hermes registration collision for '${name}': ${previous} and ${relativePath(root, path)}`,
@@ -135,7 +135,7 @@ export function buildRegistrationPlan(pluginRoot = HERE) {
       throw new Error(`Hermes registration source is missing: ${path}`);
     }
     const relativeName = relativePath(root, path);
-    names.set(name, relativeName);
+    names.set(name.toLowerCase(), relativeName);
     registrations.push({
       name,
       path: relativeName,
@@ -159,8 +159,10 @@ export function buildRegistrationPlan(pluginRoot = HERE) {
   if (existsSync(commands)) {
     for (const fileName of readdirSync(commands).filter((name) => name.endsWith(".md")).sort()) {
       if (fileName.toUpperCase() === "AGENTS.MD") continue;
+      const name = fileName.slice(0, -3);
+      if (names.get(name.toLowerCase()) === `skills/${name}/SKILL.md`) continue;
       const path = join(commands, fileName);
-      add(fileName.slice(0, -3), path, fileName.slice(0, -3));
+      add(name, path, name);
     }
   }
 

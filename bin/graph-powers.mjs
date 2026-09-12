@@ -1265,7 +1265,7 @@ if (wantGrok) {
     let nativeInstall = false;
     let proof = null;
     let runtimeProof = null;
-    if (!dryRun && grokVersion) {
+    if (grokVersion) {
       proof = verifyHookClient("grok", {
         probe: true,
       });
@@ -1273,8 +1273,10 @@ if (wantGrok) {
         runtimeProof = verifyHookClient("grok", { requireGrokRuntime: true, probe: true });
       }
       nativeInstall = proof.ok && (!runtimeProof || runtimeProof.ok);
-      if (proof.body?.present && !proof.ok) requireHookProof("Grok", proof);
-      if (runtimeProof && !runtimeProof.ok) requireHookProof("Grok", runtimeProof);
+      if (!dryRun) {
+        if (proof.body?.present && !proof.ok) requireHookProof("Grok", proof);
+        if (runtimeProof && !runtimeProof.ok) requireHookProof("Grok", runtimeProof);
+      }
     }
 
     const grokAbsenceConfirmed = proof?.body?.discovery === "absent";
@@ -1322,9 +1324,13 @@ if (wantGrok) {
     }
 
     if (dryRun) {
-      warn(
-        "dry-run: Grok package was not changed or certified; a real run proves its exact path first",
-      );
+      if (nativeInstall) {
+        info("dry-run: native Grok package proved; plugins.paths stays empty");
+      } else {
+        warn(
+          "dry-run: Grok package was not changed; a real run proves its exact path first",
+        );
+      }
     } else if (nativeInstall) {
       requireHookProof("Grok", runtimeProof ?? proof);
     } else {

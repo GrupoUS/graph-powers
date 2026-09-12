@@ -6,7 +6,7 @@
 
 ## Activation and goal
 
-Only `/gauntlet <objective-or-approved-plan-file-or-directory> [--plan <path>] [--dry-run]` may pass `profile: gauntlet`,
+Only `/gauntlet <objective-or-approved-plan-file-or-directory> [--plan <path>] [--dry-run] [--review-only]` may pass `profile: gauntlet`,
 and only after `sdd.py validate --profile gauntlet` returns a normalized eligible tier. An objective
 first uses Planning Step 0 → Phase A → Phase B; its Gauntlet plan review is required at every eligible
 L3+ tier before validation. A direct approved-plan non-dry invocation authorizes Phase C for exactly
@@ -16,7 +16,8 @@ form authorizes another plan, Git or an outward-facing action. Never infer a pla
 that is missing, invalid or outside the worktree stops as that path and returns to `/plan`; it never
 becomes an objective.
 L1-L2 returns `NOT ELIGIBLE FOR GAUNTLET` and follows the normal route. `/implement` always keeps
-Phase C's default profile and `/verify quick` close.
+Phase C's default profile and `/verify quick` close. `--review-only` requests the independent plan
+review and its bind and stops there: a review request never authorizes Phase C, a lease or a writer.
 
 The controller owns the loop. Its stable unit is:
 
@@ -33,7 +34,8 @@ The normalized plan must provide `tier`, unique task IDs, non-empty `Owns`, payl
 observable acceptance, decisive `CHECK`/`EXPECT`, an `EVIDENCE` field, valid TDD status and a
 routable writer and bundled skill (or `none`). `EVIDENCE: pending` is correct for an open task; Phase C replaces it only when the
 task closes. Before lease or a product writer, it must also have a valid independent evaluator Mode
-1 plan review that still matches the current relevant snapshot. The review evaluates applicable
+1 plan review that still matches the current relevant snapshot. That match is mechanical and its
+exact rule is in § Review binding. The review evaluates applicable
 database, backend/API and frontend/client coverage from the Gauntlet matrix when present, or from an
 approved legacy plan's existing task/connection evidence. Missing or invalidated coverage/review
 returns to Phase B; do not rewrite an otherwise green spec merely to add a heading, and reuse matching
@@ -43,10 +45,13 @@ complete grammar and lease.
 For a plan `--dry-run`, validate read-only, then derive and display tier, task count, `Owns`, `Needs`,
 ready waves, writer and reviewer routes, every applicable cap and the final `/verify loop <PLAN_FILE>`.
 For an objective `--dry-run`, report only the proposed Step 0 → Phase A → Phase B → evaluator →
-approval → Phase C → verify sequence and its artifact boundary. Neither form acquires a lease, creates
-a workspace, writes any file, or dispatches an agent; objective dry-run additionally does not
-investigate, materialize, validate an on-disk artifact, or run a check. Reject unknown flags rather
-than ignoring them.
+approval → Phase C → verify sequence and its artifact boundary. Both forms declare the run's two role
+ids — `builder`, the write-capable route the plan's dispatch matrix names, or for an objective the
+route `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` gives its task type,
+and `inspector`, the review role (default `graph-powers:evaluator`) — and bind nothing. Neither form
+acquires a lease, creates a workspace, writes any file, or dispatches an agent; objective dry-run
+additionally does not investigate, materialize, validate an on-disk artifact, or run a check. Reject
+unknown flags rather than ignoring them.
 
 ## Scheduler
 
@@ -83,6 +88,22 @@ workspace ledger and preserve it across critic, correction and resume cycles.
 Phase C's inline self-review fallback is disabled for this profile. If an independent critic cannot
 be dispatched, stop `BLOCKED`, preserve the lease and report the unavailable review boundary; a
 builder may never serve as its own Gauntlet critic.
+
+## Review binding
+
+`sdd.py review-bind` ties the Mode 1 verdict to the SHA-256 of the plan bytes: in the plan's SDD
+workspace, `<plan-slug>/plan-review.json` keeps the last round and the append-only
+`<plan-slug>/PLAN-REVIEW-LOG.md` takes one line per round, with the requested model beside the
+observed one — a fallback is recorded, never silent. Both paths are in
+`references/shared/007-path-conventions.md`. The `inspector` id defaults to `graph-powers:evaluator`
+and is never the `builder` id or `main`; `codex:codex-rescue` inspects only on an explicit host
+request in that turn, which the bind records.
+
+`review-check` writes nothing: it reads the raw bytes and gates the first `acquire`, where `0`
+authorizes the lease and `4` sends the plan back to Phase B for a new round, with no lease. A resume
+of this plan's own lease compares the plan without the structured task and gate `EVIDENCE:` fields
+and with their checkboxes normalized, so Phase C's own evidence writes are not drift; any other
+change is `STALE`.
 
 ## One wave cycle
 
@@ -186,6 +207,8 @@ declared performance and project gates remain authoritative.
 
 ## Final close
 
+The final inspection is a fresh evaluator, distinct from every builder of the run; a controller edit
+to the plan after it invalidates that inspection and requires a new one.
 After Phase C's separate final reviewer resolves Critical and Important findings, keep the lease
 and run `/verify loop <PLAN_FILE>`. Its documented fallback in `commands/verify.md § 1.6` runs once when the
 workflow tool is absent, the name does not resolve or the workflow declines; it still requires a fresh

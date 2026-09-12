@@ -217,16 +217,19 @@ is operator posture and is not removed.
 
 ### Gauntlet execution
 
-`/gauntlet <objective-or-plan-path> [--dry-run]` is the opt-in route from discovery and brainstorming
+`/gauntlet <objective-or-plan-path> [--dry-run] [--review-only]` is the opt-in route from discovery and brainstorming
 through a reviewed structured plan to implementation and verification. It reuses valid planning
 evidence and existing scope approval; unresolved decisions return to planning before implementation.
 It keeps coupled work sequential, permits bounded
 parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
 read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
-the normal local route. The dry run describes the planning route, or validates a supplied plan and
-prints its schedule, without acquiring a lease,
-writing or spawning. Codex exposes the same command as the generated `$graph-powers:gauntlet` skill;
-Hermes translates the method but does not claim a `/gauntlet` slash-command surface.
+the normal local route. `--review-only` runs the independent plan review, binds its verdict to the
+plan's SHA-256 in the SDD workspace and stops before any lease or writer; an approved plan that
+changes afterwards needs a new review before Phase C. The dry run describes the planning route, or
+validates a supplied plan and prints its schedule, declaring builder and inspector as two distinct
+roles and without acquiring a lease, writing or spawning. Codex exposes the same command as the
+generated `$graph-powers:gauntlet` skill; Hermes translates the method but does not claim a
+`/gauntlet` slash-command surface.
 
 ---
 
@@ -826,6 +829,15 @@ node ~/.graph-powers/src/bin/graph-powers.mjs --update  # the clone, and the Cod
 ```
 
 Both happen on their own at session start — this is only the manual form.
+
+What does not update itself is the project's instruction layer — the delimited block in
+`AGENTS.md`, `.claude/rules/`, `.graph-powers/config.json`, client posture — because it was
+written against the plugin version installed at the time. After a plugin update, open a session
+in the project and run the Update mode of [`AGENT_SETUP.md`](AGENT_SETUP.md):
+
+```
+Read AGENT_SETUP.md from the graph-powers plugin (https://github.com/GrupoUS/graph-powers) and run its Update mode for this project.
+```
 
 That is the only reason this repository exists. If a change ever has to be made in five places
 again, something went back to the old model.

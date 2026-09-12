@@ -202,6 +202,20 @@ redistributed verbatim. The profile is a new synthesis for this harness: existin
 owns scheduling and state, while task lanes add bounded builder, independent critic, evidence-led
 correction and optional order-reversed visual comparison under the repository's existing caps.
 
+  skills/planning/references/gauntlet-loop.md § Review binding
+  skills/planning/references/phase-b-writing-plans.md § Step 7
+  skills/planning/references/phase-c-executing-plans.md § Step 1
+  references/shared/007-path-conventions.md
+  commands/gauntlet.md
+  skills/planning/scripts/sdd.py § review-bind, review-check
+
+Four invariants were transferred from chaseai-yt/claudex-loop
+(https://github.com/chaseai-yt/claudex-loop, MIT, read 2026-09-12) into that existing profile: an
+approval bound to the SHA-256 of the plan bytes, a review-only request that stops before execution,
+an inspector role that is never the builder role, and an append-only review log. No upstream prompt,
+script or file is redistributed here; the loop, the state, the ledgers and the caps remain this
+repository's own.
+
 ================================================================================
 Source-informed adaptation — internal GrupoUS material, not verbatim redistribution
 ================================================================================
@@ -281,3 +295,16 @@ https://github.com/OthmanAdi/planning-with-files/tree/3cbb7dcc4b37224ba41e0200e8
 and isolated plan selection. Graph Powers integrates these into its existing spec/plan/checkpoint
 owners and read-only status query, retaining approval, evidence freshness and execution budgets.
 No upstream file is redistributed. Performance effects have not been measured.
+
+================================================================================
+Original issue-to-plan adaptation — no external source redistributed
+================================================================================
+
+  commands/issue-improve.md
+  skills/issue-improve/
+
+Original Graph Powers implementation (2026-09-11), adapting the in-repository Planning
+issue-triage, Step 0 and Phase A/B contracts into a planning-only entry and an author-scoped,
+marked-comment helper. Python standard library and the existing gh CLI supply the mechanics;
+no external source code was copied. The focused evaluation records are synthetic fixtures,
+not fresh-model trigger telemetry or proof of an installed client runtime.

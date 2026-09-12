@@ -7,6 +7,7 @@ When a task touches multiple domains, invoke skills in this order:
    authoring, execution and TDD; and the two gates that are references rather than skills,
    `015-verification-gate.md` and `070-parallel-agent-spawn.md` (HOW: discipline + format).
    Review feedback enters through `${CLAUDE_PLUGIN_ROOT}/commands/pr-review.md § 4.1`.
+   `graph-powers:issue-improve` uses Planning for issue-to-plan comments and stops before execution.
 3. **Harness knowledge** — `graph-powers:debugger`, `senior-architect`, `skill-improve`, `graph-powers:intent-layer` (WHAT: anti-pattern catalogue, architecture trade-offs, the project's AGENTS.md hierarchy)
 4. **Domain skills** — the project's own database/provider/deploy skills, `performance-optimization`, `webapp-testing`, `senior-prompt-engineer`
 5. **Implementation and design skills last** — `designer` (direction first, then its craft passes), `uxmaster`, `animate` (motion), `landing-page-design` (a landing or marketing page), and the external `emil-design-eng` and `apple-design` skills

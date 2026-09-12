@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.20.6 — Gauntlet review bound to the plan bytes
+
+`sdd.py review-bind` binds a Mode 1 verdict to the SHA-256 of the plan file and appends one line per
+round to `PLAN-REVIEW-LOG.md`; `review-check` answers `APPROVED`, `STALE`, `REVISION_REQUIRED` or
+`UNREVIEWED` and writes nothing. Gauntlet `acquire` runs that check before it creates a lease, and a
+resume of its own lease compares the plan without the `EVIDENCE` fields and checkboxes Phase C owns,
+so evidence writes never read as drift while any other edit does. The inspector id is never the
+builder id nor `main`. `/gauntlet --review-only` validates, reviews, binds and stops before any
+lease, Phase C or writer; every dry run declares the two role ids and binds nothing. Three critical
+negative evals cover the review-only stop, the stale bind and a builder inspecting its own diff.
+
+The context-budget caps rise from 50,500/205,000 to 51,500/208,000 bytes: the review-only contract in
+`/gauntlet` and the binding section of the Gauntlet profile are what the set now pays. The
+measurement is unchanged.
+
+Prompting references carry their sources (issue #23). `prompt_engineering_patterns.md` cites the
+Anthropic guide for each claim, makes the chain-of-thought scaffold opt-in, replaces the
+`ultrathink` and forced-`tool_choice` shortcuts with adaptive thinking and structured outputs, and
+states cache pricing and TTLs as documented. The skill rubric matches `quick_validate.py`
+(1,024-character description, 500 non-empty lines, warning-only trigger phrase, the
+1,536-character listing entry as a separate object), asks for a narrow `when` and a minimal router,
+and is linked from Mode A. The verification gate says a partial check proves only what it measures
+and names the task-scoped claim it does prove. `AGENTS.md` and `.claude/CLAUDE.md` point to the
+subtree rules a task needs. Description and AGENTS criteria follow the cross-client observation in
+https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra; Claude stays
+canonical. `ultra-verify` infers the auth surface from path tokens instead of substrings, so a
+changed `authoring.md` no longer contradicts its own scope classification. `AGENT_SETUP.md` gains an
+Update mode that re-syncs an installed project's instruction layer (delimited block, rules, config,
+posture) after a plugin update, keyed on the version the client verifier reports.
+
+## 1.20.5 — Issue plans with approved, repeatable comments
+
+`/issue-improve` turns a fetched GitHub issue into a concise plan without implementing host code.
+It reuses Planning triage and reviews, validates L3+ plans with the Gauntlet profile, and prepares
+the complete marked comment for target/payload approval. The Python helper previews by default;
+approved publication selects the authenticated author's marker across every comment page, then
+creates, updates or leaves it unchanged. Ambiguous targets and API errors stop without blind retries.
+
+Codex native and Hermes give the canonical skill precedence over its exact same-name command
+adapter. Other registrations and genuine collision checks remain. Focused CLI regressions run
+in CI; source-derived client metadata and projections follow version 1.20.5.
+
+The context-budget caps rise from 50,000/200,000 to 50,500/205,000 bytes: the command set already
+sat at 49,995 B floor, so the 325 B `issue-improve` adapter and its 7,379 B skill could not fit
+without either raising the caps or trimming unrelated commands. The measurement is unchanged.
+
 ## 1.20.4 — Editor-independent debug diagnostics
 
 `/debug` collects local Oxlint and Oxfmt CLI diagnostics before edits, including clean-tree

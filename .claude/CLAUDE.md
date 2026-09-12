@@ -1,7 +1,8 @@
 # Claude Code — graph-powers
 
-The rules for this repository are in `AGENTS.md`, at the root. Read it before any edit: it carries
-the seven cardinals, the gates, and the question every new artefact has to answer.
+The rules for this repository are in `AGENTS.md`, at the root. Read it when the work touches a cardinal,
+a gate, wiring or a harness artefact: it carries the eight cardinals, the gate owner and the ownership
+map. A typo or a local fix follows the rule file already scoped by `paths:`.
 
 Domain rules load on their own, per the `paths:` of each file in `.claude/rules/`.
 

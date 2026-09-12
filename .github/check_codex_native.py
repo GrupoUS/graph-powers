@@ -153,12 +153,13 @@ def check_codex_command_skills() -> None:
     native_paths = sorted(
         path.relative_to(native_root).as_posix() for path in native_root.rglob("SKILL.md")
     )
-    expected_native_paths = [f"{name}/SKILL.md" for name in command_names]
+    native_names = [name for name in command_names if not (ROOT / "skills" / name / "SKILL.md").is_file()]
+    expected_native_paths = [f"{name}/SKILL.md" for name in native_names]
     if native_paths != expected_native_paths:
         raise AssertionError(
             f"native command skills are stale: expected {expected_native_paths}, got {native_paths}"
         )
-    for name in command_names:
+    for name in native_names:
         path = native_root / name / "SKILL.md"
         body = path.read_text(encoding="utf-8")
         if f"name: {name}\n" not in body or f"$graph-powers:{name}" not in body:
@@ -169,6 +170,22 @@ def check_codex_command_skills() -> None:
             raise AssertionError(
                 f"{path.relative_to(ROOT)} reintroduced rejected command templates"
             )
+
+    with TemporaryDirectory(prefix="graph-powers-native-canonical-") as raw:
+        fixture = Path(raw)
+        for relative in ("skills/demo/SKILL.md", "skills/Case/SKILL.md", "commands/demo.md", "commands/case.md", "commands/other.md"):
+            path = fixture / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('---\ndescription: "Fixture"\n---\n', encoding="utf-8")
+        generated = subprocess.run(
+            ["bun", "-e", '''
+import { buildNativeCommandSkills } from "./codex/native-plugin.mjs";
+process.stdout.write(JSON.stringify(Object.keys(buildNativeCommandSkills(process.env.GRAPH_POWERS_COMMAND_FIXTURE))));
+'''], cwd=ROOT, env={**os.environ, "GRAPH_POWERS_COMMAND_FIXTURE": str(fixture)},
+            capture_output=True, encoding="utf-8", check=False,
+        )
+        if generated.returncode != 0 or json.loads(generated.stdout) != ["case/SKILL.md", "other/SKILL.md"]:
+            raise AssertionError(f"native canonical precedence lost exact-name scope: {generated.stdout} {generated.stderr}")
 
     with TemporaryDirectory(prefix="graph-powers-command-skills-") as raw:
         fixture = Path(raw)

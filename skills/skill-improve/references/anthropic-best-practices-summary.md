@@ -1,6 +1,6 @@
 # Skill Validation Rubric
 
-Strict policy anchors for skill compliance. Use with `quick_validate.py`.
+Policy anchors for skill compliance, split into what `quick_validate.py` fails, what it only warns about, and what stays convention. The shared listing cap belongs to `.github/check_listing_budget.py`.
 
 ---
 
@@ -9,19 +9,22 @@ Strict policy anchors for skill compliance. Use with `quick_validate.py`.
 | Field         | Rule                                                             | Validation            |
 | ------------- | ---------------------------------------------------------------- | --------------------- |
 | `name`        | MUST be kebab-case (a-z, 0-9, hyphens only)                      | Regex: `^[a-z0-9-]+$` |
-| `name`        | MUST be under 64 characters                                      | `len(name) < 64`      |
-| `description` | MUST fit the shared listing entry cap of 1,536 characters        | `check_listing_budget.py` |
-| `description` | MUST NOT contain angle brackets `<>` or `[]`                     | Grepped exclusion     |
-| `description` | MUST start with "Use when..." or equivalent practical invocation | Pattern match         |
+| `name`        | SHOULD be under 64 characters                                    | convention; not validated |
+| `description` | MUST be at most 1,024 characters                                  | `quick_validate.py` Rule 1 (fails) |
+| listing entry | MUST fit 1,536 characters of `name`, `description` and `when_to_use` combined — the client's listing entry, a different object from the frontmatter field | `.github/check_listing_budget.py` ENTRY_CAP (fails) |
+| `description` | MUST NOT contain `<` or `>`; `[` and `]` stay out by convention      | `quick_validate.py` (fails on `<` `>`) |
+| `description` | SHOULD start with "Use when...", "Use for...", "Use to..." or "Help with..." | `quick_validate.py` warns on stderr; exit code unchanged |
+| `description` | MUST be quoted when it contains `: ` (an unquoted value is invalid YAML and the skill never registers) | `quick_validate.py` (fails) |
 
 ---
 
-## Trigger Phrasing Quality (MUST)
+## Trigger Phrasing Quality (policy; the validator only warns, never fails)
 
-- MUST start with "Use when...", "Use for...", "Use to...", or "Help with..."
+- SHOULD start with "Use when...", "Use for...", "Use to...", or "Help with..."
 - MUST describe triggering conditions, not workflow summary
 - MUST include specific symptoms or contexts ("race conditions", "flaky tests")
 - MUST NOT summarize what the skill does (agent will skip full reading)
+- SHOULD be short with a narrow when: the symptom or context that selects the skill, not an itinerary of steps
 
 **BAD**: "Skill for TDD: write test first, watch it fail..." (workflow summary)
 **GOOD**: "Use when implementing any feature before writing implementation code" (trigger)
@@ -43,7 +46,7 @@ Strict policy anchors for skill compliance. Use with `quick_validate.py`.
 
 ### Token Efficiency (MUST)
 
-- MUST keep SKILL.md body under 500 lines
+- MUST keep the SKILL.md body at or under 500 non-empty lines (blank lines are not counted — `quick_validate.py` Rule 2)
 - MUST move details >100 lines to `references/*.md`
 - MUST challenge each paragraph: "Does the agent need this?"
 
@@ -60,6 +63,7 @@ ships uses it, and enforcing it would condemn every name in the repository inclu
 - SHOULD use self-contained structure for <100 lines
 - SHOULD use references/ directory for heavy docs
 - SHOULD use scripts/ for deterministic operations
+- SHOULD keep SKILL.md a minimal router: trigger, minimum method, stop condition and conditional references, never the full recipe
 
 ---
 
@@ -84,16 +88,18 @@ ships uses it, and enforcing it would condemn every name in the repository inclu
 
 **Required for**: Schema changes, API contracts, auth flows, security code.
 
+The script is the check; asking the model to "double-check" its own work adds no evidence.
+
 ---
 
 ## Quality Gates (MUST)
 
 ### Structure
 
-- [ ] Frontmatter has only `name` and `description`
+- [ ] Frontmatter has `name` and `description`; client-honoured keys such as `argument-hint`, `user-invocable` and `license` are allowed and not rejected
 - [ ] `name` matches kebab-case regex
-- [ ] `description` starts with approved trigger phrase
-- [ ] SKILL.md body under 500 lines
+- [ ] `description` starts with an approved trigger phrase (the validator only warns)
+- [ ] SKILL.md body at or under 500 non-empty lines
 - [ ] No Windows-style paths (`\\`)
 
 ### Content

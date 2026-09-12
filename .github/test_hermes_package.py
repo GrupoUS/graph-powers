@@ -208,8 +208,15 @@ class HermesPackageTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, "missing canonical template was silently treated as a host file")
         self.assertIn("templates/CLAUDE.md", result.stderr)
 
+    def test_canonical_skill_wins_over_exact_command(self):
+        self.put("commands/demo.md", "# Command adapter\n")
+        package, plan = self.emit()
+        self.assertEqual([row["name"] for row in plan["registrations"]], ["demo"])
+        self.assertIn("# Demo", (package / "skills/demo.md").read_text())
+        self.assertNotIn("Command adapter", (package / "skills/demo.md").read_text())
+
     def test_duplicate_public_name_fails(self):
-        self.put("commands/demo.md", "# Duplicate\n")
+        self.put("hermes/skills/demo/SKILL.md", "# Unrelated duplicate\n")
         result = self.generate("--package-only")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("collision", result.stderr.lower())

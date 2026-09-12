@@ -441,6 +441,8 @@ const underConfiguredRoot = (root) => {
 }
 const pathHasSegment = (file, names) => file.split(POSIX_PATH_SEPARATOR).some((segment) => names.includes(segment))
 const pathHasExtension = (file, extensions) => extensions.some((extension) => file.endsWith('.' + extension))
+// Tokens, not substrings: `authoring.md` is not an auth path, `use-auth.ts` and `session.ts` are.
+const pathHasToken = (file, names) => file.toLowerCase().split(/[/._-]+/).some((token) => names.includes(token))
 const pathHasRouteFile = (file) => {
   const basename = file.slice(file.lastIndexOf('/') + 1)
   return ['route.', 'webhook.'].some((prefix) => basename.startsWith(prefix) && basename.length > prefix.length)
@@ -456,7 +458,7 @@ const inferredBuiltins = {
   schema: underConfiguredRoot(paths.schemaRoot) || pathMatches((file) =>
     pathHasSegment(file, ['migration', 'migrations', 'schema', 'database', 'prisma'])
     || pathHasExtension(file, ['sql', 'prisma'])),
-  auth: pathMatches((file) => ['auth', 'session', 'webhook', 'rls', 'policy'].some((marker) => file.includes(marker))),
+  auth: pathMatches((file) => pathHasToken(file, ['auth', 'session', 'webhook', 'rls', 'policy'])),
 }
 const contradictedSurfaces = Object.entries(inferredBuiltins)
   .filter(([name, inferred]) => inferred && touched[name] !== true)
@@ -743,9 +745,9 @@ const uniqueOwner = (rows) => {
   return owners.size === 1 ? [...owners.values()][0] : null
 }
 const openItems = (completeness, refuted, gates) => {
-  const missing = (completeness?.items ?? []).filter((i) => i.status !== 'done').map((item) => ({
-    ...item, ...planRequirements.find((requirement) => requirement.id === item.id),
-  }))
+  const missing = (completeness?.items ?? []).filter((i) => i.status !== 'done').map((item) => Object.assign(
+    {}, item, planRequirements.find((requirement) => requirement.id === item.id),
+  ))
   const ownedFindings = refuted.map((item) => {
     const owner = uniqueOwner(planRequirements.filter((requirement) => requirement.taskId === item.taskId))
     return { ...item, owns: owner?.owns ?? [], taskId: owner?.taskId ?? '', agent: owner?.agent ?? '' }
@@ -806,7 +808,8 @@ const dropExhausted = (it) => {
 let round = 0
 let unconfirmed = []
 let state = openItems(c, actionableFrom(sk), g)
-while (initialEvidenceComplete && state.total > 0 && round < MAX_ROUNDS) {
+while (state.total > 0 && round < MAX_ROUNDS) {
+  if (!initialEvidenceComplete) break
   state.missing = state.missing.filter(dropExhausted)
   state.refuted = state.refuted.filter(dropExhausted)
   state.gateItems = state.gateItems.filter(dropExhausted)
