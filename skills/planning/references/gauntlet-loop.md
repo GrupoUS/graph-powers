@@ -6,18 +6,13 @@
 
 ## Activation and goal
 
-Only `/gauntlet <objective-or-approved-plan-file-or-directory> [--plan <path>] [--dry-run] [--review-only]` may pass `profile: gauntlet`,
-and only after `sdd.py validate --profile gauntlet` returns a normalized eligible tier. An objective
-first uses Planning Step 0 → Phase A → Phase B; its Gauntlet plan review is required at every eligible
-L3+ tier before validation. A direct approved-plan non-dry invocation authorizes Phase C for exactly
-that canonical plan without a second execution request. An objective authorizes only its stated scope
-and already-covered transitions; a new decision, authority or material scope change pauses. Neither
-form authorizes another plan, Git or an outward-facing action. Never infer a plan: a supplied path
-that is missing, invalid or outside the worktree stops as that path and returns to `/plan`; it never
-becomes an objective.
-L1-L2 returns `NOT ELIGIBLE FOR GAUNTLET` and follows the normal route. `/implement` always keeps
-Phase C's default profile and `/verify quick` close. `--review-only` requests the independent plan
-review and its bind and stops there: a review request never authorizes Phase C, a lease or a writer.
+Only explicit `/gauntlet` may pass `profile: gauntlet`, after validation returns an eligible tier.
+Objectives use Step 0 → Phase A Step 2's grill/confirmation → Phase B and its required L3+ plan review.
+A direct approved-plan invocation covers Phase C for that plan; objectives cover only stated scope
+and approved transitions. New decisions/authority/scope pause. Neither authorizes another plan, Git
+or outward actions. A missing, invalid or out-of-worktree supplied path stops at `/plan`, never
+becomes an objective. L1-L2 is `NOT ELIGIBLE FOR GAUNTLET`; `/implement` retains its default profile
+and `/verify quick`. `--review-only` stops after independent plan review/bind, before execution.
 
 The controller owns the loop. Its stable unit is:
 
@@ -30,28 +25,31 @@ lane with explicit state is equivalent; persistent subagent identity is never re
 
 ## Entry and dry-run
 
-The normalized plan must provide `tier`, unique task IDs, non-empty `Owns`, payload-bearing `Needs`,
-observable acceptance, decisive `CHECK`/`EXPECT`, an `EVIDENCE` field, valid TDD status and a
-routable writer and bundled skill (or `none`). `EVIDENCE: pending` is correct for an open task; Phase C replaces it only when the
-task closes. Before lease or a product writer, it must also have a valid independent evaluator Mode
-1 plan review that still matches the current relevant snapshot. That match is mechanical and its
-exact rule is in § Review binding. The review evaluates applicable
-database, backend/API and frontend/client coverage from the Gauntlet matrix when present, or from an
-approved legacy plan's existing task/connection evidence. Missing or invalidated coverage/review
-returns to Phase B; do not rewrite an otherwise green spec merely to add a heading, and reuse matching
-evidence instead of requesting approval again. Phase C's validator remains the authority for the
-complete grammar and lease.
+**Before validating a supplied plan**, inspect unresolved `TBD`, `[ASSUMED]`, and missing or
+payload-empty `Needs`. `Needs: none` and open-task `EVIDENCE: pending` are valid, not holes. A ready
+approved plan reuses settled decisions with no new grill or confirmation. For holes, reopen only
+those decisions and affected dependents through Phase A Step 2; confirm the repaired understanding,
+then Phase B repairs the plan and obtains a new Mode 1 verdict/`review-bind` for its changed bytes.
+Run `validate` and `review-check` before admission; any further edit, including a validation repair,
+invalidates the bind. Dry-run describes holes without live questions or effects; review-only reports
+holes and stops before repair. Other invalid grammar still returns to `/plan`.
+
+Phase C's validator owns grammar/lease: eligible `tier`, unique IDs, non-empty `Owns`, payload-bearing
+`Needs`, observable acceptance, decisive `CHECK`/`EXPECT`, `EVIDENCE`, valid TDD and routable
+writer/skill (or `none`). Before lease/writer, require a current independent evaluator Mode 1 review
+under § Review binding. It checks applicable database, API and client coverage from the Gauntlet
+matrix or approved legacy task/connection evidence. Missing/invalidated coverage or review returns
+to Phase B; reuse matching evidence and do not rewrite a green spec merely to add headings.
 
 For a plan `--dry-run`, validate read-only, then derive and display tier, task count, `Owns`, `Needs`,
 ready waves, writer and reviewer routes, every applicable cap and the final `/verify loop <PLAN_FILE>`.
-For an objective `--dry-run`, report only the proposed Step 0 → Phase A → Phase B → evaluator →
-approval → Phase C → verify sequence and its artifact boundary. Both forms declare the run's two role
-ids — `builder`, the write-capable route the plan's dispatch matrix names, or for an objective the
-route `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md` gives its task type,
-and `inspector`, the review role (default `graph-powers:evaluator`) — and bind nothing. Neither form
-acquires a lease, creates a workspace, writes any file, or dispatches an agent; objective dry-run
-additionally does not investigate, materialize, validate an on-disk artifact, or run a check. Reject
-unknown flags rather than ignoring them.
+For an objective dry-run, describe Step 0 → Phase A frontier rounds/recommendations → explicit
+shared-understanding confirmation → Phase B → evaluator → approval → Phase C → verify, and artifact
+boundaries. Both forms name distinct `builder` (plan dispatch matrix, or the objective's task role
+from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`) and `inspector`
+(default `graph-powers:evaluator`). No live questions, bind, lease, workspace, writes or spawns;
+objective dry-run also forbids investigation, plan materialization/validation and checks.
+Reject unknown flags.
 
 ## Scheduler
 

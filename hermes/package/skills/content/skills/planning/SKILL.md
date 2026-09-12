@@ -26,8 +26,8 @@ transition; pause again only for a new decision, authority, or material scope ch
 and `content/skills/planning/references/layer-map.md` are for Phase B assignments/order.
 
 `/gauntlet` is opt-in, never default: at L3+ it accepts either an objective or an approved plan. An
-objective enters Step 0 → Phase A → Phase B first; only a validated eligible plan loads
-`content/skills/planning/references/gauntlet-loop.md`. Preserve its leases, independent critic, configured caps and evidence.
+objective enters Step 0 → Phase A → Phase B first; supplied plans use
+`content/skills/planning/references/gauntlet-loop.md`'s preflight before validation. Preserve its leases, independent critic, configured caps and evidence.
 For a task marked `TDD: required`, read `content/skills/planning/references/execution/tdd-policy.md`; load the other
 execution prompts only for their dispatch/review event.
 

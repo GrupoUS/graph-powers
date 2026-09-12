@@ -31,20 +31,25 @@ Exit `0` returns `tier`, `tasks`, `gates`, `writeLease`; invalid/legacy plans ro
 never inferred. Validation checks IDs/fields/evidence, dependencies/reads/cycles, task cap, phase
 gates and ownership. Overlap requires a sequential dependency.
 
-For a real run, atomically validate and acquire the plan-scoped lease before the first writer:
+Acquire before writing; use the hook session ID for lifecycle and dispatch:
 
 ```bash
-python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" acquire <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan> --session-id <SESSION_ID>
 ```
 
-Default omits profile flags. Gauntlet adds `--profile gauntlet` to validate/acquire/status;
-Acceptance and bundled-Skill checks repeat before lease. Gauntlet `acquire` also refuses a `STALE`,
-`REVISION_REQUIRED` or `UNREVIEWED` plan review with exit `4` and no lease, returning to Phase B for
-a new `review-bind`.
+Gauntlet adds `--profile gauntlet` to validate/acquire/status and repeats Acceptance/Skill checks.
+`STALE`, `REVISION_REQUIRED` or `UNREVIEWED` blocks acquisition (exit `4`): Phase B `review-bind`.
+Default omits profile flags.
 
-`acquire` atomically creates `.graph-powers/logs/write-lease.json`: run ID and paths for
-`writeLease`, relative PLAN_FILE, progress/review/dispatch ledgers. One create wins; another plan's
-lease is never merged/overwritten. Create the workspace only after acquisition.
+`.graph-powers/logs/leases/<id>.json`: session/run, plan, literal paths, expiry.
+Only check/publication is serialized. Disjoint runs coexist; progress is plan-scoped.
+
+G4 names/denies foreign live claims; other writes/reads stay free. TTL: 45 minutes.
+Run `sdd.py heartbeat <PLAN_FILE> --session-id <SESSION_ID>` before waves and every 15 minutes;
+after expiry reacquire/recheck inputs. Once verified, replace `heartbeat` with `release`.
+No session: CLI uses plan identity; hooks never infer it. Migration keeps run ID.
+`ALLOW_OFF_LEASE` stays. No worktree needed; leases cannot identify children, enforce shell writes
+or serialize Git's index.
 
 Dry-run reports validation/routing/dependencies/proposed lease without writes or dispatch;
 conversation-only plans remain in the response until an approved non-dry run materializes them.
@@ -53,7 +58,7 @@ Before resume and each wave, read `references/loop-engineering.md § Context Res
 query the selected plan (read-only; approval and current evidence remain separate):
 
 ```bash
-python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan> --session-id <SESSION_ID>
 ```
 
 Before skipping checked work, match checks/reviews to current package/tree, relevant staged,
@@ -73,7 +78,7 @@ fewest useful lanes, up to `graphGuardrails.maxParallelWave`.
 Reserve `graph-powers:evaluator` for final review before the first wave. Before every child call:
 
 ```bash
-python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" dispatch reserve <PLAN_FILE> --key <stable-key> --kind <kind> --role graph-powers:<agent> --max-spawns <graphGuardrails.maxSpawnsPerWorkflow>
+python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" dispatch reserve <PLAN_FILE> --key <stable-key> --kind <kind> --role graph-powers:<agent> --max-spawns <graphGuardrails.maxSpawnsPerWorkflow> --session-id <SESSION_ID>
 ```
 
 Kinds are bootstrap, writer, evaluator, correction and confirmation. Only fresh `status: RESERVED`
@@ -136,7 +141,7 @@ After all phase tasks close, run normalized `gates` in plan order: exact `CHECK`
 and matching `EXPECT`. The controller records deciding `EVIDENCE` and checks each box; every phase
 gate must have non-pending proof before phase closure. Phase gates never replace focused task checks.
 Then append the phase checkpoint to
-`.graph-powers/logs/progress.md`: timestamp, canonical plan, phase, base `HEAD`, working-tree status,
+`.graph-powers/logs/sdd/<plan-slug>/progress.md`: timestamp, canonical plan, phase, base `HEAD`, working-tree status,
 closed gate IDs and the next runnable or blocked task.
 
 Per `${CLAUDE_PLUGIN_ROOT}/references/shared/010-quality-gates.md`, repository-wide type-check and
@@ -151,7 +156,7 @@ run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review pa
 task-review ledger to a separate `graph-powers:evaluator` in
 `references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
 Minor findings and triage deferred or parked items. The default profile then runs `/verify quick`,
-conditionally `/evolve auto` on PASS when its trigger applies, and `sdd.py release <PLAN_FILE>`. The Gauntlet profile instead follows
+conditionally `/evolve auto` on PASS when triggered, then `sdd.py release <PLAN_FILE> --session-id <SESSION_ID>`. Gauntlet follows
 `gauntlet-loop.md § Final close` while the lease remains held. A failing final gate leaves the lease
 and working-tree state explicit until resolution or a safe abort.
 

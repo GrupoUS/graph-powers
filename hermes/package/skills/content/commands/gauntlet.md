@@ -11,11 +11,11 @@ workflow_type: prompt-chaining
 for objective. Resolve quoted existing file/directory (directory → `PLAN.md`); `--plan`/`*.md` stays a
 path if invalid, other text an objective. Only when a plan path is supplied, read `content/references/shared/000-config-loader.md` before resolution.
 
-Objective `--dry-run`: report Step 0 → A → B → evaluator → approval → C → `/verify loop` and stop. No skill,
-investigate, validate, check, lease, write or spawn. Only when a non-dry objective is supplied, invoke `skill_view("graph-powers:planning")`: L1-L2 is `NOT ELIGIBLE FOR GAUNTLET`; L3+ runs
-Step 0 → A → B and evaluator review. Reuse covered approval; pause only for new scope/authority/decision.
+Objective `--dry-run`: describe Step 0 → A's frontier rounds/recommendations → explicit shared-understanding
+confirmation → B → evaluator → approval → C → `/verify loop`; stop without live questions, skill,
+investigation, validation, checks, lease, writes or spawns. Only for a non-dry objective, invoke `skill_view("graph-powers:planning")`: L1-L2 is `NOT ELIGIBLE FOR GAUNTLET`; L3+ runs Step 0 → Phase A Step 2's grill/confirmation → Phase B. Covered scope approval does not replace that confirmation.
 
-Validate the plan and check its bound review, both read-only:
+Only for a supplied plan, read `content/skills/planning/references/gauntlet-loop.md` § Entry and dry-run and apply its hole preflight **before validation**. Ready approved plans need no new grill/confirmation; dry-run describes gaps, review-only reports them and stops. Then validate and check the bound review, read-only:
 
 ```text
 python -X utf8 "content/skills/planning/scripts/sdd.py" validate <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan> --profile gauntlet
@@ -24,13 +24,12 @@ python -X utf8 "content/skills/planning/scripts/sdd.py" review-check <PLAN_FILE>
 
 Invalid → `/plan`; L1-L2 → `NOT ELIGIBLE FOR GAUNTLET` without profile/spawn.
 
-`review-bind` belongs to Phase B Step 7, after the Mode 1 verdict, or to `--review-only`: validate,
-run that review, bind its verdict and stop — no acquire, Phase C, lease or writer. Every `--dry-run`
-reports `builder` and `inspector` as two distinct role ids and binds nothing. A non-dry run without
-`--review-only` enters Phase C only when `review-check` exits `0`; exit `4` (`STALE`,
-`REVISION_REQUIRED`, `UNREVIEWED`) returns to Phase B with no lease.
+`review-bind` follows the Mode 1 verdict in Phase B Step 7. `--review-only` validates, reviews,
+binds and stops before acquire, Phase C, lease or writer. Every dry-run names distinct `builder`
+and `inspector` role ids and binds nothing. Execution requires `review-check` exit `0`; exit `4`
+(`STALE`, `REVISION_REQUIRED`, `UNREVIEWED`) returns to Phase B without a lease.
 
 Only for a valid L3+ plan `--dry-run`, report tier, tasks, Owns/Needs, waves, reviewers,
 caps and `/verify loop <PLAN_FILE>`, then stop; no workspace, lease, write or spawn.
 
-Only for a valid non-dry L3+ plan, read `content/skills/planning/references/gauntlet-loop.md` and invoke `skill_view("graph-powers:planning")` Phase C with `profile: gauntlet`; the loop owns coverage/review reuse before lease. End reviewed/unstaged.
+Only for a valid non-dry L3+ plan without `--review-only`, read `content/skills/planning/references/gauntlet-loop.md` and invoke `skill_view("graph-powers:planning")` Phase C with `profile: gauntlet`. End reviewed/unstaged.

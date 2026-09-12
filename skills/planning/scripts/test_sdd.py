@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from typing import TypedDict
@@ -866,7 +867,7 @@ class SddCliTests(unittest.TestCase):
 
             self.assertEqual(acquire.returncode, 2)
             self.assertIn("missing required field Acceptance", acquire.stderr)
-            self.assertFalse((root / ".graph-powers/logs/write-lease.json").exists())
+            self.assertEqual(list((root / ".graph-powers/logs/leases").glob("*.json")), [])
 
     def test_review_bind_records_sha_and_review_check_detects_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1027,16 +1028,16 @@ class SddCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             plan = self.consult_plan(root)
-            lease_path = root / ".graph-powers/logs/write-lease.json"
-
             unreviewed = self.run_gauntlet_acquire(plan)
             self.assertEqual(unreviewed.returncode, 4)
             self.assertEqual(json.loads(unreviewed.stdout)["status"], "UNREVIEWED")
-            self.assertFalse(lease_path.exists(), "an unreviewed plan created a lease")
+            self.assertEqual(list((root / ".graph-powers/logs/leases").glob("*.json")), [],
+                             "an unreviewed plan created a lease")
 
             self.assertEqual(self.run_review_bind(plan).returncode, 0)
             acquired = self.run_gauntlet_acquire(plan)
             self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            lease_path = self.active_lease(plan)
             self.assertTrue(lease_path.exists())
 
             plan.write_text(
@@ -1115,7 +1116,7 @@ class SddCliTests(unittest.TestCase):
             plan = self.write_plan(root, baseline)
             self.assertEqual(self.run_review_bind(plan).returncode, 0)
             self.assertEqual(self.run_gauntlet_acquire(plan).returncode, 0)
-            lease_path = root / ".graph-powers/logs/write-lease.json"
+            lease_path = self.active_lease(plan)
             lease = lease_path.read_bytes()
 
             resumed = (
@@ -1210,7 +1211,7 @@ class SddCliTests(unittest.TestCase):
             plan = self.write_plan(root, baseline)
             self.assertEqual(self.run_review_bind(plan).returncode, 0)
             self.assertEqual(self.run_gauntlet_acquire(plan).returncode, 0)
-            lease_path = root / ".graph-powers/logs/write-lease.json"
+            lease_path = self.active_lease(plan)
             lease = lease_path.read_bytes()
 
             for label, separator in (
@@ -1356,7 +1357,7 @@ class SddCliTests(unittest.TestCase):
             self.assertIn("symlink", escaped_file.stderr)
             self.assertFalse(outside_file.exists())
 
-    def test_concurrent_acquire_keeps_one_plan_lease_and_release_checks_owner(self) -> None:
+    def test_concurrent_disjoint_sessions_acquire_independent_leases(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             subprocess.run(["git", "init", "-q"], cwd=root, check=True)
@@ -1370,23 +1371,280 @@ class SddCliTests(unittest.TestCase):
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                 results = list(pool.map(
-                    lambda plan: self.run_cli("acquire", str(plan), "--max-tasks", "10"),
+                    lambda plan: self.run_cli("acquire", str(plan), "--max-tasks", "10",
+                                               "--session-id", plan.parent.name),
                     plans,
                 ))
 
-            self.assertEqual(sorted(result.returncode for result in results), [0, 2])
-            lease_path = root / ".graph-powers/logs/write-lease.json"
-            lease = json.loads(lease_path.read_text(encoding="utf-8"))
-            winner = next(plan for plan, result in zip(plans, results, strict=True) if result.returncode == 0)
-            loser = next(plan for plan, result in zip(plans, results, strict=True) if result.returncode == 2)
-            self.assertEqual(lease["plan"], winner.relative_to(root).as_posix())
+            self.assertEqual(sorted(result.returncode for result in results), [0, 0])
+            leases = list((root / ".graph-powers/logs/leases").glob("*.json"))
+            self.assertEqual(len(leases), 2)
+            owners = [json.loads(path.read_text(encoding="utf-8")) for path in leases]
+            self.assertEqual({value["plan"] for value in owners}, {
+                "plans/alpha/PLAN.md", "plans/beta/PLAN.md",
+            })
+            self.assertTrue(all(".graph-powers/logs/progress.md" not in value["paths"]
+                                for value in owners))
 
-            wrong_release = self.run_cli("release", str(loser))
-            self.assertEqual(wrong_release.returncode, 2)
-            self.assertTrue(lease_path.exists())
-            release = self.run_cli("release", str(winner))
-            self.assertEqual(release.returncode, 0, release.stderr)
-            self.assertFalse(lease_path.exists())
+    def session_plans(self, root: Path, owns: tuple[str, str]) -> list[Path]:
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        plans = []
+        for name, paths in zip(("alpha", "beta"), owns, strict=True):
+            directory = root / "plans" / name
+            directory.mkdir(parents=True)
+            plan = directory / "PLAN.md"
+            plan.write_text(plan_text(task("T1.1", paths)), encoding="utf-8")
+            plans.append(plan)
+        return plans
+
+    def active_lease(self, plan: Path) -> Path:
+        root = Path(subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], cwd=plan.parent, encoding="utf-8",
+        ).strip())
+        return next(path for path in (root / ".graph-powers/logs/leases").glob("*.json")
+                    if json.loads(path.read_text(encoding="utf-8"))["plan"] ==
+                    plan.relative_to(root).as_posix())
+
+    def test_concurrent_session_overlap_has_one_winner(self) -> None:
+        # Exact and prefix conflicts must serialize check-and-publish, in either arrival order.
+        for owns in (("src/shared.py", "src/shared.py"), ("src/", "src/nested/file.py")):
+            with self.subTest(owns=owns), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                plans = self.session_plans(root, owns)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(lambda plan: self.run_cli(
+                        "acquire", str(plan), "--max-tasks", "10", "--session-id", plan.parent.name,
+                    ), plans))
+                self.assertEqual(sorted(result.returncode for result in results), [0, 2])
+                winner = next(plan for plan, result in zip(plans, results, strict=True)
+                              if result.returncode == 0)
+                lease = json.loads(self.active_lease(winner).read_text(encoding="utf-8"))
+                loser = next(result for result in results if result.returncode == 2)
+                self.assertIn(lease["runId"], loser.stderr)
+                self.assertEqual(len(list((root / ".graph-powers/logs/leases").glob("*.json"))), 1)
+
+    def test_session_owns_metacharacters_are_literal_and_symlink_aliases_overlap(self) -> None:
+        for owned, target, expected in (("src/*.py", "src/a.py", 0),
+                                        ("app/[id]", "app/customer/page.tsx", 0),
+                                        ("src/", "src/a.py", 2),
+                                        ("alias/", "src/a.py", 2)):
+            with self.subTest(owned=owned), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                alpha, beta = self.session_plans(root, (owned, target))
+                (root / "src").mkdir()
+                (root / "alias").symlink_to(root / "src", target_is_directory=True)
+                first = self.run_cli("acquire", str(alpha), "--max-tasks", "10", "--session-id", "a")
+                self.assertEqual(first.returncode, 0, first.stderr)
+                second = self.run_cli("acquire", str(beta), "--max-tasks", "10", "--session-id", "b")
+                self.assertEqual(second.returncode, expected, second.stdout + second.stderr)
+
+    def test_dispatch_reservation_holds_its_run_until_publication(self) -> None:
+        # Release/new acquire between run lookup and ledger publication must not reset the cap.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            self.assertEqual(self.run_cli("acquire", str(plan), "--max-tasks", "10").returncode, 0)
+            source = (
+                "import sys\nsys.path.insert(0, sys.argv[1])\nimport sdd\n"
+                "original = sdd._dispatch_run\n"
+                "def paused(*args):\n"
+                "    result = original(*args)\n"
+                "    print('run-selected', flush=True)\n"
+                "    sys.stdin.read()\n"
+                "    return result\n"
+                "sdd._dispatch_run = paused\n"
+                "sdd.main(['dispatch', 'reserve', sys.argv[2], '--key', 'wave-1:writer-1',"
+                " '--kind', 'writer', '--role', 'graph-powers:debugger', '--max-spawns', '8'])\n"
+            )
+            child = subprocess.Popen(
+                [sys.executable, "-B", "-c", source, str(SCRIPT.parent), str(plan)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8",
+            )
+            try:
+                assert child.stdout is not None
+                self.assertEqual(child.stdout.readline().strip(), "run-selected")
+                released = self.run_cli("release", str(plan))
+                self.assertEqual(released.returncode, 4, released.stdout + released.stderr)
+                self.assertTrue(self.active_lease(plan).exists())
+            finally:
+                child.terminate()
+                child.communicate(timeout=5)
+            self.assertEqual(self.run_cli("release", str(plan)).returncode, 0)
+
+    def test_session_owner_lifecycle_expiry_and_dispatch_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            alpha, beta = self.session_plans(root, ("src/a.py", "src/b.py"))
+            for plan, session in ((alpha, "owner-a"), (beta, "owner-b")):
+                acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10",
+                                        "--session-id", session)
+                self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            path = self.active_lease(alpha)
+            initial = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(initial["version"], 1)
+            self.assertEqual(initial["sessionId"], "owner-a")
+            self.assertEqual(initial["expiresAt"] - initial["heartbeatAt"], 2700)
+            self.assertIn(".graph-powers/logs/sdd/alpha/progress.md", initial["paths"])
+            for session in ("owner-b", None):
+                args = ("--session-id", session) if session else ()
+                before = path.read_bytes()
+                for action in ("release", "heartbeat"):
+                    denied = self.run_cli(action, str(alpha), *args)
+                    self.assertEqual(denied.returncode, 2, denied.stdout + denied.stderr)
+                    self.assertEqual(path.read_bytes(), before)
+                status = self.run_cli("status", str(alpha), "--max-tasks", "10", *args, cwd=root)
+                self.assertEqual(status.returncode, 4, status.stdout + status.stderr)
+            reserved = self.run_cli("dispatch", "reserve", str(alpha), "--session-id", "owner-a",
+                "--key", "wave-1:writer-1", "--kind", "writer", "--role", "graph-powers:debugger",
+                "--max-spawns", "8")
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            denied = self.run_dispatch(alpha, "wave-1:writer-2")
+            self.assertEqual(denied.returncode, 2)
+            renewed = self.run_cli("heartbeat", str(alpha), "--session-id", "owner-a")
+            self.assertEqual(renewed.returncode, 0, renewed.stderr)
+            current = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(current["runId"], initial["runId"])
+            self.assertGreater(current["heartbeatAt"], initial["heartbeatAt"])
+            duplicate = self.run_cli("dispatch", "reserve", str(alpha), "--session-id", "owner-a",
+                "--key", "wave-1:writer-1", "--kind", "writer", "--role", "graph-powers:debugger",
+                "--max-spawns", "8")
+            self.assertEqual(json.loads(duplicate.stdout)["status"], "ALREADY_RESERVED")
+            current.update(heartbeatAt=time.time() - 2800, expiresAt=time.time() - 100)
+            path.write_text(json.dumps(current), encoding="utf-8")
+            before = self.status_snapshot(root)
+            expired = self.run_cli("status", str(alpha), "--max-tasks", "10",
+                                   "--session-id", "owner-a", cwd=root)
+            self.assertEqual(json.loads(expired.stdout)["lease"]["state"], "ABSENT")
+            self.assertEqual(self.status_snapshot(root), before)
+            self.assertEqual(self.run_cli("heartbeat", str(alpha), "--session-id", "owner-a").returncode, 2)
+            self.assertFalse(path.exists())
+            reacquired = self.run_cli("acquire", str(alpha), "--max-tasks", "10", "--session-id", "new-owner")
+            self.assertEqual(reacquired.returncode, 0, reacquired.stderr)
+            fresh = json.loads(self.active_lease(alpha).read_text(encoding="utf-8"))
+            self.assertNotEqual(fresh["runId"], initial["runId"])
+            self.assertEqual(self.run_cli("release", str(alpha), "--session-id", "new-owner").returncode, 0)
+            self.assertTrue(self.active_lease(beta).exists())
+
+    def test_legacy_migration_retains_run_dispatch_and_foreign_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            alpha, beta = self.session_plans(root, ("src/a.py", "src/a.py"))
+            logs = root / ".graph-powers/logs"
+            logs.mkdir(parents=True)
+            legacy = logs / "write-lease.json"
+            legacy.write_text(json.dumps({"plan": "plans/alpha/PLAN.md", "runId": "legacy-run",
+                "paths": ["src/a.py", "plans/alpha/PLAN.md", ".graph-powers/logs/progress.md",
+                          ".graph-powers/logs/sdd/alpha/task-reviews.md",
+                          ".graph-powers/logs/sdd/alpha/dispatches.json"]}), encoding="utf-8")
+            reserved = self.run_dispatch(alpha, "wave-1:writer-1")
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            conflict = self.run_cli("acquire", str(beta), "--max-tasks", "10", "--session-id", "other")
+            self.assertEqual(conflict.returncode, 2)
+            self.assertIn("legacy-run", conflict.stderr)
+            resumed = self.run_cli("acquire", str(alpha), "--max-tasks", "10")
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            self.assertFalse(legacy.exists())
+            value = json.loads(self.active_lease(alpha).read_text(encoding="utf-8"))
+            self.assertEqual(value["runId"], "legacy-run")
+            self.assertEqual(value["sessionId"], "plan:plans/alpha/PLAN.md")
+            self.assertNotIn(".graph-powers/logs/progress.md", value["paths"])
+            duplicate = self.run_dispatch(alpha, "wave-1:writer-1")
+            self.assertEqual(json.loads(duplicate.stdout)["status"], "ALREADY_RESERVED")
+
+    def test_session_gauntlet_resume_requires_own_live_lease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            self.assertEqual(self.run_review_bind(plan).returncode, 0)
+            acquired = self.run_cli("acquire", str(plan), "--max-tasks", "10", "--profile", "gauntlet",
+                                    "--session-id", "builder")
+            self.assertEqual(acquired.returncode, 0, acquired.stderr)
+            plan.write_text(plan.read_text(encoding="utf-8").replace(
+                "  EVIDENCE: pending\n  TDD:", "  EVIDENCE: verified\n  TDD:"), encoding="utf-8")
+            for session, expected in (("builder", 0), ("intruder", 4)):
+                resumed = self.run_cli("acquire", str(plan), "--max-tasks", "10", "--profile", "gauntlet",
+                                       "--session-id", session)
+                self.assertEqual(resumed.returncode, expected, resumed.stdout + resumed.stderr)
+
+    def test_session_leases_refuse_malformed_and_symlinked_state(self) -> None:
+        for fixture in ("malformed", "symlink-file", "symlink-directory", "unsafe-path"):
+            with self.subTest(fixture=fixture), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "repo"
+                root.mkdir()
+                plan = self.consult_plan(root)
+                leases = root / ".graph-powers/logs/leases"
+                leases.mkdir(parents=True)
+                outside = Path(directory) / "outside"
+                outside.mkdir()
+                if fixture == "symlink-directory":
+                    leases.rmdir()
+                    leases.symlink_to(outside, target_is_directory=True)
+                elif fixture == "symlink-file":
+                    (leases / "bad.json").symlink_to(outside / "missing")
+                elif fixture == "unsafe-path":
+                    (leases / "bad.json").write_text(json.dumps({"version": 1,
+                        "sessionId": "foreign", "runId": "foreign-run", "plan": "PLAN.md",
+                        "paths": ["../outside"], "heartbeatAt": time.time(),
+                        "expiresAt": time.time() + 2700}), encoding="utf-8")
+                else:
+                    (leases / "bad.json").write_text("{", encoding="utf-8")
+                for action in ("acquire", "status", "heartbeat", "release"):
+                    args = ("--max-tasks", "10") if action in {"acquire", "status"} else ()
+                    result = self.run_cli(action, str(plan), *args, "--session-id", "builder", cwd=root)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+                self.assertEqual(list(outside.iterdir()), [])
+
+    def test_session_leases_reject_oversized_timestamps_without_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            leases = root / ".graph-powers/logs/leases"
+            leases.mkdir(parents=True)
+            value = {"version": 1, "sessionId": "foreign", "runId": "foreign-run",
+                     "plan": "PLAN.md", "paths": ["src/main.py"],
+                     "heartbeatAt": time.time(), "expiresAt": time.time() + 2700}
+            for field in ("heartbeatAt", "expiresAt"):
+                for oversized in (10**400, -(10**400)):
+                    with self.subTest(field=field, positive=oversized > 0):
+                        (leases / "bad.json").write_text(json.dumps({**value, field: oversized}),
+                                                         encoding="utf-8")
+                        for action in ("acquire", "status", "heartbeat", "release"):
+                            args = ("--max-tasks", "10") if action in {"acquire", "status"} else ()
+                            result = self.run_cli(action, str(plan), *args, "--session-id", "builder", cwd=root)
+                            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                            self.assertNotIn("Traceback", result.stderr)
+                        dispatch = self.run_dispatch(plan, "wave-1:writer-1")
+                        self.assertEqual(dispatch.returncode, 2, dispatch.stdout + dispatch.stderr)
+                        self.assertNotIn("Traceback", dispatch.stderr)
+
+    def test_terminated_lease_transaction_does_not_leave_an_orphan_lock(self) -> None:
+        # An interrupted publisher must not strand every future session behind a stale file.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            source = (
+                "import sys\nfrom pathlib import Path\n"
+                "sys.path.insert(0, sys.argv[1])\nimport sdd\n"
+                "def interrupted(root):\n"
+                "    print('transaction-held', flush=True)\n"
+                "    sys.stdin.read()\n"
+                "sdd._migrate_leases = interrupted\n"
+                "sdd.main(['acquire', sys.argv[2], '--max-tasks', '10'])\n"
+            )
+            child = subprocess.Popen(
+                [sys.executable, "-B", "-c", source, str(SCRIPT.parent), str(plan)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                encoding="utf-8",
+            )
+            try:
+                assert child.stdout is not None
+                self.assertEqual(child.stdout.readline().strip(), "transaction-held")
+            finally:
+                child.terminate()
+                child.communicate(timeout=5)
+            result = self.run_cli("acquire", str(plan), "--max-tasks", "10", "--session-id", "new-session")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_dispatch_cap_survives_resume_and_resets_only_for_a_new_lease(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

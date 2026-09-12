@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "4c058cbe7e9e39730529f0b1852a0b753866ad11",
-    "version": "1.20.6",
+    "base_revision": "a815af18baa4c1c14658a655b50ccf646ea7ee05",
+    "version": "1.20.8",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "a8f369906258de21009124660f98c6c4fb51840e40b71e9f0cfdf4386821a006",
-      "base_sha256": "31b4a86e0ff9e77148233037a1ee62b27a9106e92f4af1d570305d5fef9c3d03",
+      "sha256": "43021f721c69514cb3cdc93ba4825ebbd744a6959d4c5d8653d8d4b92f60d9b8",
+      "base_sha256": "a8f369906258de21009124660f98c6c4fb51840e40b71e9f0cfdf4386821a006",
       "dirty": true
     },
     {
@@ -264,8 +264,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
-      "base_sha256": "d579247946a3b35954d9e2f82561043dc20a6293b4f7abb8e081867b05b6be3b",
-      "dirty": true
+      "base_sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -275,8 +275,8 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
-      "base_sha256": "a4d2b602486116ab13e5458dd3712deddb665405dfb0c70b4512e902120d59b9",
+      "sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
+      "base_sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
       "dirty": true
     },
     {
@@ -389,8 +389,8 @@
     },
     {
       "path": "commands/gauntlet.md",
-      "sha256": "021dc08c6c239cdfb0b7957ad7eb74931b13109ef36f6fa1236fe2a2a73ee9cd",
-      "base_sha256": "01a6afd0813ba4104a6966d734b782cd7404225eb95fbe748f28d7c107e2e4ea",
+      "sha256": "7aaea7c73c3f76b21728895cd3d083e55a330f31a4aa71873e7743beb659cd52",
+      "base_sha256": "021dc08c6c239cdfb0b7957ad7eb74931b13109ef36f6fa1236fe2a2a73ee9cd",
       "dirty": true
     },
     {
@@ -419,9 +419,9 @@
     },
     {
       "path": "commands/prime.md",
-      "sha256": "723cc83c84fb95f30b011ffbf09ea7a5832ec9db8d7b83019394d397b81cb842",
+      "sha256": "118ab1e4a711d7ea0be72d6a6b0c73bcf32c690b8276b592c990feb011efc0dc",
       "base_sha256": "723cc83c84fb95f30b011ffbf09ea7a5832ec9db8d7b83019394d397b81cb842",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/research.md",
@@ -450,8 +450,8 @@
     {
       "path": "hermes/install.mjs",
       "sha256": "26c2481c6085d23a986c561985447a539c6322954014e1d9b31de82687b0227e",
-      "base_sha256": "63b4b4cdaac5bd6d33257167e3d899473e92e351665ac74d94cd77ddb3bd0096",
-      "dirty": true
+      "base_sha256": "26c2481c6085d23a986c561985447a539c6322954014e1d9b31de82687b0227e",
+      "dirty": false
     },
     {
       "path": "hermes/package_builder.py",
@@ -575,8 +575,8 @@
     },
     {
       "path": "references/shared/007-path-conventions.md",
-      "sha256": "08d96283a0a468b0a660e7ca4036aa0c2ded6f80d3805c72b2fc1af2490a5114",
-      "base_sha256": "96fd415d2f78e162f900adadc10da6621f2e3b26c5b1777ea3c033089638af9b",
+      "sha256": "89f30677a9d79baec418e13ea16b5a0cbed98b3d9363d265422f56794f845cf8",
+      "base_sha256": "08d96283a0a468b0a660e7ca4036aa0c2ded6f80d3805c72b2fc1af2490a5114",
       "dirty": true
     },
     {
@@ -588,8 +588,8 @@
     {
       "path": "references/shared/015-verification-gate.md",
       "sha256": "5055ad45076f6d342f140a495d155a85d07e454ba860371a52558dfa5262a98e",
-      "base_sha256": "131907048bac2eaec36eabdf017af113c6e1af86599b78a182e1ff6fc1bb6f45",
-      "dirty": true
+      "base_sha256": "5055ad45076f6d342f140a495d155a85d07e454ba860371a52558dfa5262a98e",
+      "dirty": false
     },
     {
       "path": "references/shared/020-complexity-routing.md",
@@ -636,8 +636,8 @@
     {
       "path": "references/shared/060-skill-domain-matrix.md",
       "sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
-      "base_sha256": "19462f368bc04c9d9542cff1df2ccee7fa7fead32d22f28c2beb5eb6c7bd5d76",
-      "dirty": true
+      "base_sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
+      "dirty": false
     },
     {
       "path": "references/shared/070-parallel-agent-spawn.md",
@@ -659,9 +659,9 @@
     },
     {
       "path": "references/shared/110-guardrails-index.md",
-      "sha256": "5d1d064567b171167a20fa0c71b97484526b002ca9e0dcc433369458066e1211",
+      "sha256": "c11ef30b57334beb1b64ccb88164d987dfa4091443be9a69b3188e6a5e90db19",
       "base_sha256": "5d1d064567b171167a20fa0c71b97484526b002ca9e0dcc433369458066e1211",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/115-code-graph.md",
@@ -672,8 +672,8 @@
     {
       "path": "references/shared/120-skill-invocation-order.md",
       "sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
-      "base_sha256": "a04dd8db9df389174493e46d4034ad3bd64b954d47af91137d03e781a26f2e80",
-      "dirty": true
+      "base_sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
+      "dirty": false
     },
     {
       "path": "references/shared/125-change-set.md",
@@ -882,32 +882,32 @@
     {
       "path": "skills/issue-improve/SKILL.md",
       "sha256": "56ea97d4efae55ea7666ca3a5ded91ad09d5a7fd39b284d9dcfab0701a8d4882",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "56ea97d4efae55ea7666ca3a5ded91ad09d5a7fd39b284d9dcfab0701a8d4882",
+      "dirty": false
     },
     {
       "path": "skills/issue-improve/evals/evals.json",
       "sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
+      "dirty": false
     },
     {
       "path": "skills/issue-improve/learning.md",
       "sha256": "1f42bf6ead254d0704584baa274af3eb94fd24744715d3370646247194edc4d4",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "1f42bf6ead254d0704584baa274af3eb94fd24744715d3370646247194edc4d4",
+      "dirty": false
     },
     {
       "path": "skills/issue-improve/scripts/issue_comment.py",
       "sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
+      "dirty": false
     },
     {
       "path": "skills/issue-improve/scripts/test_issue_comment.py",
       "sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
+      "dirty": false
     },
     {
       "path": "skills/landing-page-design/SKILL.md",
@@ -959,14 +959,14 @@
     },
     {
       "path": "skills/planning/SKILL.md",
-      "sha256": "120d4096bf8baac3cae06ce0b17dc596842bcd628bc212fe1073a2e32075ef1b",
+      "sha256": "0446ac4608b5cdd042292944924d5dfe81b5f9310e447a969517c64dece3a4c0",
       "base_sha256": "120d4096bf8baac3cae06ce0b17dc596842bcd628bc212fe1073a2e32075ef1b",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/evals/evals.json",
-      "sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
-      "base_sha256": "bead10648aed68b23507b7826dbbc4918156e93fd5aaa32f9bb30667c8574f01",
+      "sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
+      "base_sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
       "dirty": true
     },
     {
@@ -1013,8 +1013,8 @@
     },
     {
       "path": "skills/planning/references/gauntlet-loop.md",
-      "sha256": "a01a51bdeee4c1a98a279feee2bbebcf1bf27839a1629b01e0a7d880d3127e9d",
-      "base_sha256": "4e3e6d5e0942bfa5c7d675780f76c1f598a78c18dda332ee1279de3fe582c18d",
+      "sha256": "fe9d2427f1c4c23f01d32d9c33b88cf9edf8ed46afa14c5b47697435e4d2d6b7",
+      "base_sha256": "a01a51bdeee4c1a98a279feee2bbebcf1bf27839a1629b01e0a7d880d3127e9d",
       "dirty": true
     },
     {
@@ -1031,26 +1031,26 @@
     },
     {
       "path": "skills/planning/references/loop-engineering.md",
-      "sha256": "ce5563465f7560135b6c5b40765e5ef7f3e33a2f7c8849c5d44445f87e176e22",
+      "sha256": "5578ac94d3de816fac22df0af3a842489ed0ae98aaf52e6aaf2050e48eef1fa2",
       "base_sha256": "ce5563465f7560135b6c5b40765e5ef7f3e33a2f7c8849c5d44445f87e176e22",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-a-brainstorm.md",
-      "sha256": "45fbfb37f5f3fbe5030b514f0d034e4405a136a2d93416d0ef0c138283edd59f",
+      "sha256": "54596effb3c5278db77e20e2e3a972f1e1cd02e8e5e4f2ac6e3cbc92b9460186",
       "base_sha256": "45fbfb37f5f3fbe5030b514f0d034e4405a136a2d93416d0ef0c138283edd59f",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
       "sha256": "9ce445502b7dc5fc7bed447f5235e6734bbe8cc116f77b58b3c321059a5f3b5b",
-      "base_sha256": "bb5f8b65bb9c0034b2a57c666d46e6a76181ab91670d1b81efdea3b1e9d1a0e4",
-      "dirty": true
+      "base_sha256": "9ce445502b7dc5fc7bed447f5235e6734bbe8cc116f77b58b3c321059a5f3b5b",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "eb0f4cb40d080067a199dc79830984b5b08d04bee7224c8d46e2f122dbb13e28",
-      "base_sha256": "832347c05846ba8a45ea0bdf8166877fb6d3e4e812ec6b3d1beb8b0f423250b6",
+      "sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
+      "base_sha256": "eb0f4cb40d080067a199dc79830984b5b08d04bee7224c8d46e2f122dbb13e28",
       "dirty": true
     },
     {
@@ -1067,8 +1067,8 @@
     },
     {
       "path": "skills/planning/scripts/sdd.py",
-      "sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
-      "base_sha256": "a2caab06bf19e00a1187a4e05967a1d2db4bf23b2e5781157aaf19cdf2ae4986",
+      "sha256": "d0916aea0d203cbc48dd8645d338f1a50548277b3792721585a8069983386894",
+      "base_sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
       "dirty": true
     },
     {
@@ -1128,8 +1128,8 @@
     {
       "path": "skills/senior-prompt-engineer/references/prompt_engineering_patterns.md",
       "sha256": "5f4bf8a362cdc79a96b66c6da84f9f01dadcb15038773383110749f6a976245e",
-      "base_sha256": "a00493107e5ca1ecd780ce91505826be10dc1b3202dbd33a82f57fadc084be04",
-      "dirty": true
+      "base_sha256": "5f4bf8a362cdc79a96b66c6da84f9f01dadcb15038773383110749f6a976245e",
+      "dirty": false
     },
     {
       "path": "skills/skill-improve/LICENSE-CC-BY-4.0.txt",
@@ -1164,14 +1164,14 @@
     {
       "path": "skills/skill-improve/references/anthropic-best-practices-summary.md",
       "sha256": "0f6b17438ae6e30095766d0ae59c9ce59de58807f6becdb744fa1e010bd1001c",
-      "base_sha256": "ee77b33613cfe450d8f19663584af7be8e7921bf76928a11c5b94ba0eb9cc0ae",
-      "dirty": true
+      "base_sha256": "0f6b17438ae6e30095766d0ae59c9ce59de58807f6becdb744fa1e010bd1001c",
+      "dirty": false
     },
     {
       "path": "skills/skill-improve/references/authoring.md",
       "sha256": "838c17726007cbf7bb0e816deae5debba5831123f004518d527b35f80a5ae1f3",
-      "base_sha256": "7d7471cc35eaf46e66dfc12fc7fb80d696ff83eb96948941cefbedae67c9b5f1",
-      "dirty": true
+      "base_sha256": "838c17726007cbf7bb0e816deae5debba5831123f004518d527b35f80a5ae1f3",
+      "dirty": false
     },
     {
       "path": "skills/skill-improve/references/harness-wiring-audit.md",
@@ -1260,8 +1260,8 @@
     {
       "path": "workflows/ultra-verify.js",
       "sha256": "790bc5b7113dc45a609c9b436b5fd43c591934c563fc0f0fe0a1bc30c6c417aa",
-      "base_sha256": "13e47c87bbb178a5564e7f34a4ab98b9e20b5c466c32401e7a41230181cdfc1c",
-      "dirty": true
+      "base_sha256": "790bc5b7113dc45a609c9b436b5fd43c591934c563fc0f0fe0a1bc30c6c417aa",
+      "dirty": false
     }
   ],
   "files": [
@@ -1275,7 +1275,7 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
+      "sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
       "sources": [
         "NOTICE"
       ],
@@ -1291,7 +1291,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "d6b305dfc969b78c8c4043b9ed48c225bef1c70fd32737a6d24a81fc2017cabe",
+      "sha256": "57066083a92b89e4714f85f5de3162e46e40a56a982e94e52a8b15d14363f03e",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1563,7 +1563,7 @@
     },
     {
       "path": "skills/content/commands/gauntlet.md",
-      "sha256": "9d67c7ef904e2f83e043e78a6cfdb5e0648f129d48365776f89a4296230aadb2",
+      "sha256": "c071a4d0421c27ac4d7e3f304bfa513c6d7e4204eca1fbddc6ea40b7bf276edd",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -1603,7 +1603,7 @@
     },
     {
       "path": "skills/content/commands/prime.md",
-      "sha256": "058879557a1b5cda06bc7b8fe421207da86740c85cc962e159d25568501c1aa4",
+      "sha256": "2ce058f168cf68f4c15698e673f9beed64ae7c6c54d785532479a5e98fdf0396",
       "sources": [
         "commands/prime.md"
       ],
@@ -1795,7 +1795,7 @@
     },
     {
       "path": "skills/content/references/shared/007-path-conventions.md",
-      "sha256": "54523e1493efeb741bf46e4b33427b2a8fa0668f28ff3139039a190e29f0990a",
+      "sha256": "062bbe4b5146e4ac0042c056af9c029fd4caa0213847d0a2f694567367924e4e",
       "sources": [
         "references/shared/007-path-conventions.md"
       ],
@@ -1907,7 +1907,7 @@
     },
     {
       "path": "skills/content/references/shared/110-guardrails-index.md",
-      "sha256": "397a1b140e0a7ce4819beddc304a685659ac91ceda5679b1ca5abc7471fab3f5",
+      "sha256": "301cddf8dd73a7012d1e778e4585b737b0cf598d476f984bbd9df99058b53ef4",
       "sources": [
         "references/shared/110-guardrails-index.md"
       ],
@@ -2307,7 +2307,7 @@
     },
     {
       "path": "skills/content/skills/planning/SKILL.md",
-      "sha256": "71de5fa7f98e37ad4642ddd53f6d7a07e3c176aa67ab8ec1803b5a9c42ff03fe",
+      "sha256": "d15881c196016cea349c301cb3886271a4b527aaaa596a54d76ee882aa267683",
       "sources": [
         "skills/planning/SKILL.md"
       ],
@@ -2315,7 +2315,7 @@
     },
     {
       "path": "skills/content/skills/planning/evals/evals.json",
-      "sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
+      "sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
       "sources": [
         "skills/planning/evals/evals.json"
       ],
@@ -2379,7 +2379,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/gauntlet-loop.md",
-      "sha256": "d11a36690e8d512b0fae11641667708ec70a360e1ec8becf44e791ce4538547d",
+      "sha256": "04b15c49bb48a988322ee5ea6140ae8ebdcedf7972380f45eb6b75656f0d0d8e",
       "sources": [
         "skills/planning/references/gauntlet-loop.md"
       ],
@@ -2403,7 +2403,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/loop-engineering.md",
-      "sha256": "54189712a3535d08e7642cd36842efb15f9f9be81ac84ebc7640a362d6ca4133",
+      "sha256": "e20727322a943d257296f4aa49233cc8abaa30b7229cf2a4385e6600a4ccaf76",
       "sources": [
         "skills/planning/references/loop-engineering.md"
       ],
@@ -2411,7 +2411,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-a-brainstorm.md",
-      "sha256": "dfb62e3a1e437164433551a717d1e774ae5168adee8affa326cdd64032fc0471",
+      "sha256": "c92c4a825f330f75bbcd034ec740e1b17ca52e7d9acf5a9883699e4d7ef944b8",
       "sources": [
         "skills/planning/references/phase-a-brainstorm.md"
       ],
@@ -2427,7 +2427,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "716ab70d8a51b8f9b0eea5964bfd02873532df11f1125944a3c79b1b3a5da857",
+      "sha256": "d9c691990717abdacf0240c28e5eadbf9cfe167c4ae794b572bfcaedab980656",
       "sources": [
         "skills/planning/references/phase-c-executing-plans.md"
       ],
@@ -2451,7 +2451,7 @@
     },
     {
       "path": "skills/content/skills/planning/scripts/sdd.py",
-      "sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
+      "sha256": "d0916aea0d203cbc48dd8645d338f1a50548277b3792721585a8069983386894",
       "sources": [
         "skills/planning/scripts/sdd.py"
       ],
@@ -2763,7 +2763,7 @@
     },
     {
       "path": "skills/gauntlet.md",
-      "sha256": "9d67c7ef904e2f83e043e78a6cfdb5e0648f129d48365776f89a4296230aadb2",
+      "sha256": "c071a4d0421c27ac4d7e3f304bfa513c6d7e4204eca1fbddc6ea40b7bf276edd",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -2835,7 +2835,7 @@
     },
     {
       "path": "skills/planning.md",
-      "sha256": "71de5fa7f98e37ad4642ddd53f6d7a07e3c176aa67ab8ec1803b5a9c42ff03fe",
+      "sha256": "d15881c196016cea349c301cb3886271a4b527aaaa596a54d76ee882aa267683",
       "sources": [
         "skills/planning/SKILL.md"
       ],
@@ -2851,7 +2851,7 @@
     },
     {
       "path": "skills/prime.md",
-      "sha256": "058879557a1b5cda06bc7b8fe421207da86740c85cc962e159d25568501c1aa4",
+      "sha256": "2ce058f168cf68f4c15698e673f9beed64ae7c6c54d785532479a5e98fdf0396",
       "sources": [
         "commands/prime.md"
       ],
@@ -4792,6 +4792,12 @@
       },
       {
         "from": "skills/planning/references/phase-a-brainstorm.md",
+        "reference": "gauntlet-loop.md",
+        "to": "skills/planning/references/gauntlet-loop.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/phase-a-brainstorm.md",
         "reference": "phase-b-writing-plans.md",
         "to": "skills/planning/references/phase-b-writing-plans.md",
         "kind": "reference"
@@ -5849,6 +5855,11 @@
       },
       {
         "from": "references/shared/007-path-conventions.md",
+        "reference": "progress.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "references/shared/007-path-conventions.md",
         "reference": "spec.md",
         "reason": "external URL or caller-resolved host path"
       },
@@ -5860,11 +5871,6 @@
       {
         "from": "references/shared/007-path-conventions.md",
         "reference": ".graph-powers/HANDOFF.md",
-        "reason": "host-project input or output, resolved by the caller"
-      },
-      {
-        "from": "references/shared/007-path-conventions.md",
-        "reference": ".graph-powers/logs/progress.md",
         "reason": "host-project input or output, resolved by the caller"
       },
       {
@@ -6334,13 +6340,13 @@
       },
       {
         "from": "skills/planning/references/loop-engineering.md",
-        "reference": "spec.md",
+        "reference": "progress.md",
         "reason": "external URL or caller-resolved host path"
       },
       {
         "from": "skills/planning/references/loop-engineering.md",
-        "reference": ".graph-powers/logs/progress.md",
-        "reason": "host-project input or output, resolved by the caller"
+        "reference": "spec.md",
+        "reason": "external URL or caller-resolved host path"
       },
       {
         "from": "skills/planning/references/loop-engineering.md",
@@ -6399,13 +6405,8 @@
       },
       {
         "from": "skills/planning/references/phase-c-executing-plans.md",
-        "reference": ".graph-powers/logs/progress.md",
-        "reason": "host-project input or output, resolved by the caller"
-      },
-      {
-        "from": "skills/planning/references/phase-c-executing-plans.md",
-        "reference": ".graph-powers/logs/write-lease.json",
-        "reason": "host-project input or output, resolved by the caller"
+        "reference": "progress.md",
+        "reason": "external URL or caller-resolved host path"
       },
       {
         "from": "skills/planning/references/phase-c-executing-plans.md",

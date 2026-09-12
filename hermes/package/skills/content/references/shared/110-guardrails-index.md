@@ -15,7 +15,7 @@ people to expect a block that never comes, or to be surprised by one that does.
 
 | Guardrail                                                          | Hook                     | Fires on                                       | Released by                                                                                                                                                |
 | ------------------------------------------------------------------ | ------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kill switch · spawn ceiling · round ceiling · write lease          | `https://github.com/GrupoUS/graph-powers/blob/main/hooks/graph_guardrails.py`    | every tool call                                | `rm AGENT_STOP` · `<PREFIX>_ALLOW_SPAWN_OVER=1` · `<PREFIX>_ALLOW_OFF_LEASE=1`                                                                             |
+| Kill switch · session spawn/round ceilings · foreign live path lease | `https://github.com/GrupoUS/graph-powers/blob/main/hooks/graph_guardrails.py`    | every tool call; leases on Write/Edit/NotebookEdit | `rm AGENT_STOP` · `<PREFIX>_ALLOW_SPAWN_OVER=1` · `<PREFIX>_ALLOW_OFF_LEASE=1`                                                                             |
 | Commit without approval                                            | `https://github.com/GrupoUS/graph-powers/blob/main/hooks/git_commit_gate.py`     | `Bash`                                         | `<PREFIX>_ALLOW_COMMIT=1`                                                                                                                                  |
 | Push, and push to a protected branch                               | `https://github.com/GrupoUS/graph-powers/blob/main/hooks/git_push_gate.py`       | `Bash`                                         | `<PREFIX>_ALLOW_PUSH=1` (+ `_ALLOW_PUSH_MAIN=1`)                                                                                                           |
 | Landing HEAD on a protected branch; deleting one                   | `https://github.com/GrupoUS/graph-powers/blob/main/hooks/git_branch_gate.py`     | `Bash`                                         | `<PREFIX>_ALLOW_MAIN_CHECKOUT=1`                                                                                                                           |
@@ -33,6 +33,9 @@ Stop semantics: Claude=block; Cursor=bounded follow-up with generated marker and
 Grok=passive/unsupported; Codex has a Stop schema contract but runtime parity is `NOT CONFIRMED`.
 The exact pre-commit cache artifact is self-excluded from its fingerprint; only fresh green results
 are cached, never failures, timeouts or unavailable tools.
+
+G4 denies live foreign path overlaps, naming the run; unclaimed writes and reads stay free.
+Planning Phase C owns session identity, heartbeat and expiry. G1 still stops every tool.
 
 **Releasing a gate, on any operating system.** The hook looks for the literal text `<KEY>=1` in the
 command, or for the variable in the environment (`https://github.com/GrupoUS/graph-powers/blob/main/hooks/_config.py`, `opted_in`). It never asks the

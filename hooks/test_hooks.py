@@ -2971,7 +2971,7 @@ def main() -> int:
         "deny",
     )
 
-    # G4 — write lease. The half that IS implementable: "touch only the files you declared".
+    # G4 — legacy claims remain protected while the session-aware producer migrates them.
     check(
         "with no lease on disk the check stands down",
         call("graph_guardrails", write_to("anything.ts"), ceil)[0],
@@ -2981,34 +2981,34 @@ def main() -> int:
     lease.parent.mkdir(parents=True, exist_ok=True)
     lease.write_text(json.dumps(["src/owned.ts", "docs/"]), encoding="utf-8")
     check(
-        "a write inside the lease is allowed",
+        "an ownerless legacy claim is foreign to a caller without session",
         call("graph_guardrails", write_to("src/owned.ts"), ceil)[0],
-        None,
-    )
-    check(
-        "a write inside a leased directory is allowed",
-        call("graph_guardrails", write_to("docs/notes.md"), ceil)[0],
-        None,
-    )
-    check(
-        "a write outside the lease is refused",
-        call("graph_guardrails", write_to("src/someone-elses.ts"), ceil)[0],
         "deny",
+    )
+    check(
+        "legacy directory claims protect descendants",
+        call("graph_guardrails", write_to("docs/notes.md"), ceil)[0],
+        "deny",
+    )
+    check(
+        "an unclaimed write stays free beside a legacy claim",
+        call("graph_guardrails", write_to("src/someone-elses.ts"), ceil)[0],
+        None,
     )
     check(
         "...and the opt-in key releases it",
         call(
             "graph_guardrails",
-            write_to("src/someone-elses.ts"),
+            write_to("src/owned.ts"),
             ceil,
             env={"CEIL_ALLOW_OFF_LEASE": "1"},
         )[0],
         None,
     )
-    lease.write_text(json.dumps({"paths": ["src/owned.ts"]}), encoding="utf-8")
+    lease.write_text(json.dumps({"plan": "PLAN.md", "paths": ["src/owned.ts"]}), encoding="utf-8")
     check(
-        "the object form of the lease works too",
-        call("graph_guardrails", write_to("src/owned.ts"), ceil)[0],
+        "the legacy plan fallback matches only an explicit session identity",
+        call("graph_guardrails", {**write_to("src/owned.ts"), "session_id": "plan:PLAN.md"}, ceil)[0],
         None,
     )
     lease.write_text("{ not json", encoding="utf-8")
@@ -3018,6 +3018,62 @@ def main() -> int:
         None,
     )
     lease.unlink()
+
+    # A live foreign claim blocks only overlapping writes, including directory aliases.
+    leases = lease.parent / "leases"
+    leases.mkdir()
+    live = {"version": 1, "sessionId": "session-a", "runId": "run-a", "plan": "plans/a/PLAN.md",
+            "paths": ["src/a.py", "docs/"], "heartbeatAt": time.time(),
+            "expiresAt": time.time() + 2700}
+    claim = leases / "a.json"
+    claim.write_text(json.dumps(live), encoding="utf-8")
+    second = leases / "b.json"
+    second.write_text(json.dumps({**live, "sessionId": "session-b", "runId": "run-b",
+                                  "paths": ["src/b.py"]}), encoding="utf-8")
+    for session, target, expected in (
+        ("session-a", "src/a.py", None), ("session-a", "free.py", None),
+        ("session-a", "src/b.py", "deny"), ("session-b", "src/a.py", "deny"),
+        ("session-b", "docs/nested/note.md", "deny"), ("session-b", "docs-other/note.md", None),
+        ("", "src/a.py", "deny"), ("", "unclaimed.py", None),
+    ):
+        result = call("graph_guardrails", {**write_to(target), "session_id": session}, ceil)
+        check(f"session {session or 'missing'} write {target}", result[0], expected)
+        if expected == "deny":
+            raw, _ = call_raw("graph_guardrails", {**write_to(target), "session_id": session}, ceil)
+            check("foreign conflict names owning run", "run-" in raw, True)
+    check("sessionId camel case owns its lease", call("graph_guardrails",
+        {**write_to("src/a.py"), "sessionId": "session-a"}, ceil)[0], None)
+    check("foreign claims never deny reads", call("graph_guardrails", {
+        "tool_name": "Read", "tool_input": {"file_path": "src/a.py"}, "session_id": "session-b",
+    }, ceil)[0], None)
+    check("off-lease opt-in preserves the escape", call("graph_guardrails",
+        {**write_to("src/a.py"), "session_id": "session-b"}, ceil,
+        env={"CEIL_ALLOW_OFF_LEASE": "1"})[0], None)
+    live.update(heartbeatAt=time.time() - 2800, expiresAt=time.time() - 100)
+    claim.write_text(json.dumps(live), encoding="utf-8")
+    check("expired foreign claim allows writes", call("graph_guardrails",
+        {**write_to("src/a.py"), "session_id": "session-b"}, ceil)[0], None)
+    live.update(heartbeatAt=time.time(), expiresAt=time.time() + 2700)
+    for malformed in ("{", "[]", json.dumps({**live, "expiresAt": "later"}),
+                      json.dumps({**live, "paths": [3]}),
+                      json.dumps({key: value for key, value in live.items() if key != "plan"})):
+        claim.write_text(malformed, encoding="utf-8")
+        check("malformed session lease fails open", call("graph_guardrails",
+            {**write_to("src/a.py"), "session_id": "session-b"}, ceil)[0], None)
+    for field in ("heartbeatAt", "expiresAt"):
+        for oversized in (10**400, -(10**400)):
+            claim.write_text(json.dumps({**live, field: oversized}), encoding="utf-8")
+            check(f"oversized {field} fails open without crashing", call("graph_guardrails",
+                {**write_to("src/a.py"), "session_id": "session-b"}, ceil), (None, 0))
+            check(f"oversized {field} leaves the next foreign claim protected", call("graph_guardrails",
+                {**write_to("src/b.py"), "session_id": "session-c"}, ceil), ("deny", 0))
+    claim.unlink()
+    claim.symlink_to(ceil / "missing-lease")
+    check("symlinked claim fails open", call("graph_guardrails",
+        {**write_to("src/a.py"), "session_id": "session-b"}, ceil)[0], None)
+    claim.unlink()
+    second.unlink()
+    leases.rmdir()
 
     print("### The pre-commit audit is the project's to declare, never the plugin's to choose")
     # This hook replaced one that fetched and executed a pinned third-party tool from the network

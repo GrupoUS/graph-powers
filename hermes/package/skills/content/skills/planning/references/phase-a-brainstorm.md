@@ -84,6 +84,28 @@ Use `AskUserQuestion`. **One topic per question.** Prefer 2-4 multiple-choice op
 ask which assumption would invalidate the preferred approach; do not add ceremony merely because of
 the label.
 
+**Explicit Gauntlet L3+ — grill:** keep a decision tree in the current conversation/spec, with
+settled answers, open branches and their dependencies. Inspect facts yourself using Step 1; do not
+ask the user to retrieve them. Pending factual research leaves its branch and dependent decisions
+open even when no question is ready; `[ASSUMED]` never settles a Gauntlet branch or closes its grill.
+
+In each round ask only the **ready frontier**: independent questions whose prerequisites are
+settled. Give each question a concrete recommendation and short rationale (emoji optional), using
+`AskUserQuestion`. Wait for the user's answers, record them, then recompute the frontier; never ask a
+dependent question prematurely or treat a recommendation as an answer. Reuse settled answers.
+
+After **all branches are settled**, summarize the resulting design and explicitly ask the user to
+confirm shared understanding. Wait for that confirmation before Phase B, Phase C, lease or any
+product writer. Earlier generic scope/execution approval does not replace it. Count clarification
+rounds and spec revisions against this Phase A's existing HARD-STOP ceiling; at exhaustion, retain
+open decisions and stop for user resolution, without assumed closure or a counter reset.
+
+For an approved plan, use `content/skills/planning/references/gauntlet-loop.md`'s hole preflight: a ready plan requires no fresh grill or
+confirmation; only explicit holes and their affected dependents reopen, followed by confirmation of
+the repair. `--dry-run` only describes this gate, with no live questions or effects; `--review-only`
+reports open branches/holes and stops rather than repairing or executing them. Ordinary planning
+keeps the clarification path above.
+
 ## Step 3 — Consolidate research findings
 
 Capture decision-changing findings as **source · fact · inference · decision · rationale** in the

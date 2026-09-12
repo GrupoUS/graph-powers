@@ -87,6 +87,19 @@ defaults so provenance remains inspectable.
 MIT — adapted material, not redistributed verbatim
 ================================================================================
 
+  skills/planning/references/phase-a-brainstorm.md § Step 2
+  skills/planning/references/gauntlet-loop.md § Entry and dry-run
+  commands/gauntlet.md
+
+Source-informed adaptation of Matt Pocock's `grilling` skill (MIT, Copyright (c) 2026 Matt Pocock),
+read 2026-09-12 at https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md
+(Git blob 8ca78c6d8f901aab0c5a1f896034b70e666ff2a3). Rewritten into Gauntlet's existing Phase A:
+ready decision-frontier rounds, recommendations, agent-owned factual lookup and explicit shared
+understanding. Graph Powers uses native AskUserQuestion (Hermes uses parent clarify), keeps
+emoji optional and reuses the existing HARD-STOP ceiling. Approved-plan hole repair, dry-run and
+review-only boundaries preserve this harness's admission/review contracts. No upstream skill,
+runtime or substantial source text is redistributed.
+
   skills/debugger/references/diagnose.md
   skills/debugger/references/methodology.md
 

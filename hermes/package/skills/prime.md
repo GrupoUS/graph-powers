@@ -20,7 +20,7 @@ Auto maps UI to frontend, API/service/schema/integration to backend, combined wo
 
 Before readiness, verify constraints and action/scope approval provenance. Reuse proof only with matching project/worktree, source/config/consumer digests, dirty state, dependencies and environment; SHA alone is insufficient. Mark missing proof. Read decisive sources and nearest instructions now; trace entrypoint, definitions and callers for a flow question. Reassess every four files; stop when answered.
 
-Only for resume with an identified same-worktree plan, run `python -X utf8 "content/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan>` (validated Gauntlet adds `--profile gauntlet`). Inspect its state and next ID/line; counts prove neither approval nor current checks. Invalid/ambiguous binding stops for correction/selection. Ordinary loads never scan plans or query plan status.
+Only on resume with an identified same-worktree plan, run `python -X utf8 "content/skills/planning/scripts/sdd.py" status <PLAN_FILE> --max-tasks <graphGuardrails.maxTasksPerPlan> --session-id <SESSION_ID>` using the acquisition identity (Gauntlet adds `--profile gauntlet`). Inspect state/next ID; counts prove neither approval nor fresh checks. Invalid/ambiguous binding stops. Other loads never scan plans or query status.
 
 For an unanswered structural question, use the config loader's graph branch with bounded provider discovery/text fallback. Sufficient source or local/document work needs no graph query.
 

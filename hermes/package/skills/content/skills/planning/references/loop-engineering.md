@@ -238,7 +238,7 @@ plane*. In this chain that state is the artifacts on disk, not the conversation:
 
 - `<plan dir>/spec.md` — Phase A's output, Phase B's input.
 - `<plan dir>/PLAN.md` — Phase B's output, Phase C's input. One plan is one directory: `content/references/shared/007-path-conventions.md`.
-- `.graph-powers/logs/progress.md` — the cross-session ledger (date + base HEAD and working-tree status per phase).
+- `.graph-powers/logs/sdd/<plan-slug>/progress.md` — the plan's cross-session ledger (date + base HEAD and working-tree status per phase).
 - `<plan dir>/HANDOFF.md` — the reset checkpoint (§ Context Reset Protocol).
 
 Because goal and state live in files, a fresh context can re-enter any loop mid-flight by reading

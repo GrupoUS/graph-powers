@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.20.8 — Concurrent session path leases
+
+G4 and SDD coordinate independent sessions in the same checkout through live path leases instead
+of a repository-wide write lease. Disjoint runs can acquire and write concurrently; foreign path
+overlap identifies the owning run. Leases expire after 45 minutes and support explicit renewal,
+owner-scoped release and expired-state pruning. Plan progress is isolated by plan; review binding
+and dispatch accounting retain their run identity. Reads remain free and ALLOW_OFF_LEASE remains
+the explicit escape. Path leases are advisory and do not serialize concurrent Git index operations.
+
+## 1.20.7 — Gauntlet decision frontier
+
+Gauntlet objectives settle ready decision branches in rounds, with recommendations and factual
+lookup, then wait for explicit shared-understanding confirmation before Phase B or execution.
+Approved plans keep settled decisions: preflight finds explicit holes before validation, repairs
+only affected branches, confirms the repair and binds a new review to changed bytes. Dry-run
+describes the gate; review-only reports holes and stops. The existing Phase A HARD-STOP, L1-L2
+exclusion and context-budget caps remain. Focused evals cover admission and bypass attempts;
+NOTICE attributes the source-informed adaptation, and Codex/Hermes projections follow 1.20.7.
+
 ## 1.20.6 — Gauntlet review bound to the plan bytes
 
 `sdd.py review-bind` binds a Mode 1 verdict to the SHA-256 of the plan file and appends one line per

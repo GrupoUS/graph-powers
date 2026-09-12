@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plan workspaces, task briefs, review packages, bounded dispatches and plan validation.
 
-One script, eleven subcommands, one location rule — so a brief and the package that reviews it can
+One script, twelve subcommands, one location rule — so a brief and the package that reviews it can
 never land in different directories:
 
     python -X utf8 sdd.py workspace PLAN_FILE                  -> prints the plan's workspace
@@ -11,6 +11,7 @@ never land in different directories:
     python -X utf8 sdd.py status    PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py acquire   PLAN_FILE --max-tasks N [--profile gauntlet]
     python -X utf8 sdd.py release   PLAN_FILE                 -> remove only that plan's lease
+    python -X utf8 sdd.py heartbeat PLAN_FILE                 -> renew that session's live lease
     python -X utf8 sdd.py review-bind  PLAN_FILE --verdict V --inspector ID --builder ID
     python -X utf8 sdd.py review-check PLAN_FILE                -> is the bound review still current
     python -X utf8 sdd.py dispatch reserve PLAN_FILE --key KEY --kind KIND --role ROLE --max-spawns N
@@ -47,6 +48,9 @@ round packages `SNAPSHOT..HEAD` and the re-review sees only the fix.
 `status` reports recorded progress without executing checks or writing state; closed records still
 need final verification. It is not an atomic snapshot or approval proof: revalidate/acquire before
 writing. A lease conflict returns its JSON with exit 4.
+`acquire`, `status`, `heartbeat`, `release` and `dispatch reserve` accept `--session-id`; omit it
+only for the `plan:<relative-plan-path>` fallback. Acquire is idempotent, heartbeat extends the
+45-minute TTL, and session identity must match the hook payload to authorize claimed writes.
 
 Exit codes, as upstream: 0 done · 2 usage or bad input · 3 task not found. Bounded dispatch or
 consultation states `USER_REQUIRED` and `BLOCKED` return 4 with their JSON result on stdout; all
@@ -70,6 +74,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, NoReturn
+
+if sys.platform == "win32":
+    import msvcrt
+
+    fcntl = None
+else:
+    import fcntl
+
+    msvcrt = None
 
 FENCE = re.compile(r"^\s*(```|~~~)")
 TASK_HEADING = re.compile(r"^(#{1,6})[ \t]+Task[ \t]+([0-9][0-9.]*[A-Za-z]?)")
@@ -115,6 +128,7 @@ NEED_REF = re.compile(
 # that already holds this plan's lease.
 REVIEW_CHECKBOX = re.compile(r"^([ \t]*[-*][ \t]+\[)[xX](\])")
 REVIEW_VERDICTS = ("APPROVED", "REVISION_REQUIRED")
+LEASE_TTL = 45 * 60
 
 AGENT_ID = re.compile(r"^graph-powers:(?P<slug>[a-z0-9][a-z0-9-]*)$")
 SKILL_ID = re.compile(r"^(?:graph-powers:)?(?P<slug>[a-z0-9][a-z0-9-]*)$")
@@ -613,9 +627,38 @@ def _write_json_ledger(path: Path, value: dict[str, Any], label: str) -> None:
 
 
 @contextmanager
-def _ledger_lock(directory: Path, stem: str, label: str) -> Iterator[None]:
+def _ledger_lock(
+    directory: Path, stem: str, label: str, *, advisory: bool = False,
+) -> Iterator[None]:
     lock = directory / f"{stem}.lock"
     deadline = time.monotonic() + 5
+    if advisory:
+        # Lease transactions must recover after process death. Keep this inode on disk: unlinking
+        # an advisory lock would let a third caller lock a new inode while a waiter owns the old one.
+        if lock.is_symlink():
+            fail(f"refusing symlink {label} lock: {lock.as_posix()}", 2)
+        try:
+            descriptor = os.open(lock, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        except OSError as error:
+            fail(f"cannot acquire {label} ledger lock: {error}", 2)
+        try:
+            while True:
+                try:
+                    if msvcrt is not None:
+                        os.lseek(descriptor, 0, os.SEEK_SET)
+                        msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                    else:
+                        assert fcntl is not None
+                        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        fail(f"{label} ledger lock timeout", BOUNDED_EXIT)
+                    time.sleep(0.01)
+            yield
+        finally:
+            os.close(descriptor)
+        return
     descriptor = -1
     while True:
         if lock.is_symlink():
@@ -1255,7 +1298,7 @@ def _relative_plan(plan: Path, root: Path) -> str:
         fail(f"plan is outside the repository: {plan.as_posix()}", 2)
 
 
-def _read_lease(path: Path) -> dict[str, Any]:
+def _read_lease(path: Path, root: Path) -> dict[str, Any]:
     if path.is_symlink():
         fail(f"refusing symlink write lease: {path.as_posix()}", 2)
     try:
@@ -1268,7 +1311,87 @@ def _read_lease(path: Path) -> dict[str, Any]:
         or not isinstance(value.get("paths"), list)
     ):
         fail(f"invalid existing write lease: {path.as_posix()}", 2)
+    value["plan"] = _status_relative_path(root, value["plan"])
+    value["paths"] = sorted({_status_relative_path(root, item) for item in value["paths"]})
+    if path.name == "write-lease.json":
+        # Legacy records have no clock or session. Their mtime bounds the transition; reading or
+        # migrating one must not keep an abandoned run alive indefinitely.
+        stamp = path.stat().st_mtime
+        value = {**value, "version": 1, "sessionId": _lease_session(value["plan"], None),
+                 "runId": value.get("runId") or f"legacy:{value['plan']}",
+                 "heartbeatAt": stamp, "expiresAt": stamp + LEASE_TTL}
+        progress = f".graph-powers/logs/sdd/{plan_slug(root / value['plan'])}/progress.md"
+        value["paths"] = sorted({progress if item == ".graph-powers/logs/progress.md" else item
+                                  for item in value["paths"]})
+    if (
+        type(value.get("version")) is not int or value["version"] != 1
+        or any(not isinstance(value.get(key), str) or not value[key].strip()
+               for key in ("sessionId", "runId"))
+        or any(type(value.get(key)) not in (int, float) or not 0 <= value[key] <= sys.float_info.max
+               for key in ("heartbeatAt", "expiresAt"))
+        or not 0 <= value["heartbeatAt"] < value["expiresAt"]
+    ):
+        fail(f"invalid existing write lease: {path.as_posix()}", 2)
     return value
+
+
+def _lease_session(relative_plan: str, session_id: str | None) -> str:
+    if session_id is None:
+        return f"plan:{relative_plan}"
+    if not session_id.strip() or "\x00" in session_id:
+        fail("session-id must be a non-empty identity", 2)
+    return session_id
+
+
+def _live_leases(root: Path, *, prune: bool = False) -> list[tuple[Path, dict[str, Any]]]:
+    """Read both generations; only a caller holding the lease transaction lock may prune."""
+    logs = _existing_secure_directory(root, ".graph-powers", "logs")
+    if logs is None:
+        return []
+    directory = _existing_secure_directory(root, ".graph-powers", "logs", "leases")
+    paths = sorted(directory.glob("*.json")) if directory is not None else []
+    legacy = logs / "write-lease.json"
+    if legacy.exists() or legacy.is_symlink():
+        paths.append(legacy)
+    result = []
+    now = time.time()
+    for path in paths:
+        value = _read_lease(path, root)
+        if value["expiresAt"] <= now:
+            if prune:
+                path.unlink()
+        else:
+            result.append((path, value))
+    return result
+
+
+def _lease_overlap(left: list[str], right: list[str]) -> bool:
+    return any(a == b or a.startswith(b + "/") or b.startswith(a + "/")
+               for a in left for b in right)
+
+
+def _lease_file(directory: Path, value: dict[str, Any]) -> Path:
+    identity = json.dumps([value["sessionId"], value["plan"]], ensure_ascii=False)
+    return directory / f"{hashlib.sha256(identity.encode('utf-8')).hexdigest()}.json"
+
+
+def _migrate_leases(root: Path) -> list[tuple[Path, dict[str, Any]]]:
+    """Migrate under the transaction lock, preserving the run used by dispatch/review resume."""
+    live = _live_leases(root, prune=True)
+    directory = _secure_directory(root, ".graph-powers", "logs", "leases")
+    for index, (path, value) in enumerate(live):
+        if path.name != "write-lease.json":
+            continue
+        target = _lease_file(directory, value)
+        if target.exists() or target.is_symlink():
+            existing = _read_lease(target, root)
+            if existing != value:
+                fail("write lease migration conflicts with an existing session record", 2)
+        else:
+            _write_json_ledger(target, value, "write lease")
+        path.unlink()
+        live[index] = (target, value)
+    return live
 
 
 def _lease_paths(plan: Path, relative_plan: str, owns: list[str]) -> list[str]:
@@ -1277,7 +1400,7 @@ def _lease_paths(plan: Path, relative_plan: str, owns: list[str]) -> list[str]:
         {
             *owns,
             relative_plan,
-            ".graph-powers/logs/progress.md",
+            f".graph-powers/logs/sdd/{plan_slug(plan)}/progress.md",
             f".graph-powers/logs/sdd/{plan_slug(plan)}/task-reviews.md",
             f".graph-powers/logs/sdd/{plan_slug(plan)}/dispatches.json",
         }
@@ -1285,7 +1408,7 @@ def _lease_paths(plan: Path, relative_plan: str, owns: list[str]) -> list[str]:
 
 
 def _status_relative_path(root: Path, raw: Any) -> str:
-    """Validate status inputs locally; older lease consumers retain their admission rules."""
+    """Validate and canonicalize ownership within this worktree, including symlink aliases."""
     if not isinstance(raw, str) or not raw.strip() or "\x00" in raw:
         fail("invalid status lease path: expected a non-empty relative path", 2)
     portable = PurePosixPath(raw.replace("\\", "/"))
@@ -1305,10 +1428,12 @@ def _status_relative_path(root: Path, raw: Any) -> str:
             current.resolve().relative_to(root)
         except ValueError:
             fail(f"status path escapes the repository: {raw}", 2)
-    return portable.as_posix()
+    return current.resolve().relative_to(root).as_posix()
 
 
-def status(raw_plan: str, max_tasks: int, profile: str = "default") -> tuple[dict[str, Any], int]:
+def status(
+    raw_plan: str, max_tasks: int, profile: str = "default", session_id: str | None = None,
+) -> tuple[dict[str, Any], int]:
     """Derive the first incomplete phase from validated records, without creating state."""
     root = Path(git_out(["rev-parse", "--show-toplevel"], Path.cwd()).strip()).resolve()
     _relative_plan(Path(raw_plan).absolute(), root)
@@ -1321,23 +1446,17 @@ def status(raw_plan: str, max_tasks: int, profile: str = "default") -> tuple[dic
         fail("plan validation failed: " + "; ".join(errors), 2)
     assert normalized is not None
 
-    expected = _lease_paths(plan, relative_plan, normalized["writeLease"])
-    for path in expected:
-        _status_relative_path(root, path)
+    expected = sorted({_status_relative_path(root, path) for path in
+                       _lease_paths(plan, relative_plan, normalized["writeLease"])})
+    session = _lease_session(relative_plan, session_id)
     lease: dict[str, Any] = {"state": "ABSENT", "planFile": None}
-    logs = _existing_secure_directory(root, ".graph-powers", "logs")
-    if logs is not None:
-        lease_path = logs / "write-lease.json"
-        if lease_path.is_symlink() or lease_path.exists():
-            existing = _read_lease(lease_path)
-            owner = _status_relative_path(root, existing["plan"])
-            paths = {_status_relative_path(root, path) for path in existing["paths"]}
-            lease = {
-                "state": "MATCHING"
-                if owner == relative_plan and paths == set(expected)
-                else "CONFLICT",
-                "planFile": owner,
-            }
+    for _, existing in _live_leases(root):
+        own = existing["sessionId"] == session and existing["plan"] == relative_plan
+        if own or _lease_overlap(existing["paths"], expected):
+            lease = {"state": "MATCHING" if own and existing["paths"] == expected else "CONFLICT",
+                     "planFile": existing["plan"]}
+            if lease["state"] == "CONFLICT":
+                break
 
     tasks, gates = normalized["tasks"], normalized["gates"]
     phase_by_id = {}
@@ -1433,23 +1552,15 @@ def _dispatch_role(kind: str, role: str) -> str:
     return role
 
 
-def _dispatch_run(plan: Path) -> tuple[str, Path]:
+def _dispatch_run(plan: Path, session_id: str | None = None) -> tuple[str, Path]:
     """Return the active lease run id and workspace, refusing unleased reservations."""
     root = repo_root(plan)
     relative_plan = _relative_plan(plan, root)
-    logs = _existing_secure_directory(root, ".graph-powers", "logs")
-    if logs is None:
-        _dispatch_error("reserve requires an active plan write lease")
-    lease_path = logs / "write-lease.json"
-    if not lease_path.exists():
-        _dispatch_error("reserve requires an active plan write lease")
-    lease = _read_lease(lease_path)
-    if lease["plan"] != relative_plan:
-        _dispatch_error(f"write lease belongs to {lease['plan']}, not {relative_plan}")
-    run_id = lease.get("runId")
-    if not isinstance(run_id, str) or not run_id:
-        run_id = f"legacy:{relative_plan}"
-    return run_id, workspace(plan)
+    session = _lease_session(relative_plan, session_id)
+    for _, lease in _live_leases(root):
+        if lease["plan"] == relative_plan and lease["sessionId"] == session:
+            return lease["runId"], workspace(plan)
+    _dispatch_error("reserve requires an active plan write lease owned by this session")
 
 
 def _read_dispatch_ledger(path: Path, run_id: str) -> dict[str, Any]:
@@ -1477,66 +1588,71 @@ def _read_dispatch_ledger(path: Path, run_id: str) -> dict[str, Any]:
 
 
 def reserve_dispatch(
-    plan: Path, key: str, kind: str, role: str, max_spawns: int
+    plan: Path, key: str, kind: str, role: str, max_spawns: int, *, session_id: str | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Atomically authorize one actual child dispatch; resumed keys never reauthorize it."""
     if not DECISION_KEY.fullmatch(key):
         _dispatch_error("key must be a bounded lowercase stable identifier, never prompt text")
     role = _dispatch_role(kind, role)
     max_spawns = _workflow_spawn_ceiling(max_spawns)
-    run_id, directory = _dispatch_run(plan)
-    ledger_path = directory / "dispatches.json"
-    with _ledger_lock(directory, "dispatches", "dispatch"):
-        ledger = _read_dispatch_ledger(ledger_path, run_id)
-        configured = ledger["maxSpawns"]
-        if configured is None:
-            ledger["maxSpawns"] = max_spawns
-        elif configured != max_spawns:
-            _dispatch_error(
-                f"max-spawns changed inside one workflow ({configured} to {max_spawns})"
-            )
-        reservations = ledger["reservations"]
-        existing = reservations.get(key)
-        if existing is not None:
-            if existing.get("kind") != kind or existing.get("role") != role:
-                _dispatch_error("an existing dispatch key cannot change kind or role")
+    root = repo_root(plan)
+    logs = _existing_secure_directory(root, ".graph-powers", "logs")
+    if logs is None:
+        _dispatch_error("reserve requires an active plan write lease")
+    with _ledger_lock(logs, "leases", "write lease", advisory=True):
+        run_id, directory = _dispatch_run(plan, session_id)
+        ledger_path = directory / "dispatches.json"
+        with _ledger_lock(directory, "dispatches", "dispatch"):
+            ledger = _read_dispatch_ledger(ledger_path, run_id)
+            configured = ledger["maxSpawns"]
+            if configured is None:
+                ledger["maxSpawns"] = max_spawns
+            elif configured != max_spawns:
+                _dispatch_error(
+                    f"max-spawns changed inside one workflow ({configured} to {max_spawns})"
+                )
+            reservations = ledger["reservations"]
+            existing = reservations.get(key)
+            if existing is not None:
+                if existing.get("kind") != kind or existing.get("role") != role:
+                    _dispatch_error("an existing dispatch key cannot change kind or role")
+                used = len(reservations)
+                return {
+                    **existing,
+                    "status": "ALREADY_RESERVED",
+                    "used": used,
+                    "remaining": max_spawns - used,
+                    "maxSpawns": max_spawns,
+                    "resumed": True,
+                }, 0
             used = len(reservations)
-            return {
-                **existing,
-                "status": "ALREADY_RESERVED",
-                "used": used,
-                "remaining": max_spawns - used,
-                "maxSpawns": max_spawns,
-                "resumed": True,
-            }, 0
-        used = len(reservations)
-        if used >= max_spawns:
-            return {
-                "status": "BLOCKED",
+            if used >= max_spawns:
+                return {
+                    "status": "BLOCKED",
+                    "dispatchKey": key,
+                    "kind": kind,
+                    "role": role,
+                    "used": used,
+                    "remaining": 0,
+                    "maxSpawns": max_spawns,
+                    "reason": "workflow dispatch cap reached; persist deferred work and return",
+                }, BOUNDED_EXIT
+            entry = {
+                "status": "RESERVED",
                 "dispatchKey": key,
                 "kind": kind,
                 "role": role,
-                "used": used,
-                "remaining": 0,
+                "sequence": used + 1,
+            }
+            reservations[key] = entry
+            _write_json_ledger(ledger_path, ledger, "dispatch")
+            return {
+                **entry,
+                "used": used + 1,
+                "remaining": max_spawns - used - 1,
                 "maxSpawns": max_spawns,
-                "reason": "workflow dispatch cap reached; persist deferred work and return",
-            }, BOUNDED_EXIT
-        entry = {
-            "status": "RESERVED",
-            "dispatchKey": key,
-            "kind": kind,
-            "role": role,
-            "sequence": used + 1,
-        }
-        reservations[key] = entry
-        _write_json_ledger(ledger_path, ledger, "dispatch")
-        return {
-            **entry,
-            "used": used + 1,
-            "remaining": max_spawns - used - 1,
-            "maxSpawns": max_spawns,
-            "resumed": False,
-        }, 0
+                "resumed": False,
+            }, 0
 
 
 def review_plan_file(raw: str) -> Path:
@@ -1790,71 +1906,81 @@ def _gauntlet_review_gate(
     root: Path,
     relative_plan: str,
     paths: list[str],
+    session: str,
 ) -> tuple[dict[str, Any], int] | None:
     """Refuse a plan whose review no longer holds, before a lease exists to defend it."""
-    logs = _existing_secure_directory(root, ".graph-powers", "logs")
-    resume = False
-    if logs is not None:
-        lease_path = logs / "write-lease.json"
-        if lease_path.is_symlink():
-            fail(f"refusing symlink write lease: {lease_path.as_posix()}", 2)
-        if lease_path.exists():
-            existing = _read_lease(lease_path)
-            resume = existing.get("plan") == relative_plan and existing.get("paths") == paths
+    resume = any(existing["sessionId"] == session and existing["plan"] == relative_plan
+                 and existing["paths"] == paths for _, existing in _live_leases(root))
     output, code = _review_state(plan, scope_only=resume)
     return None if code == 0 else (output, code)
 
 
-def acquire(plan: Path, max_tasks: int, profile: str = "default") -> tuple[dict[str, Any], int]:
-    """Validate the plan and create its write lease with an atomic create-if-absent."""
+def acquire(
+    plan: Path, max_tasks: int, profile: str = "default", session_id: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Serialize check-and-publish only; independent live runs never hold the transaction lock."""
     normalized, errors = validate_plan(plan, max_tasks, profile)
     if errors:
         fail("plan validation failed: " + "; ".join(errors), 2)
     assert normalized is not None
     root = repo_root(plan)
     relative_plan = _relative_plan(plan, root)
-    paths = _lease_paths(plan, relative_plan, normalized["writeLease"])
-    if profile == "gauntlet":
-        refused = _gauntlet_review_gate(plan, root, relative_plan, paths)
-        if refused is not None:
-            return refused
+    session = _lease_session(relative_plan, session_id)
+    paths = sorted({_status_relative_path(root, path) for path in
+                    _lease_paths(plan, relative_plan, normalized["writeLease"])})
     logs = _secure_directory(root, ".graph-powers", "logs")
-    lease_path = logs / "write-lease.json"
-    payload = {"plan": relative_plan, "paths": paths, "runId": secrets.token_hex(12)}
-    encoded = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    try:
-        _write_text_no_symlink(lease_path, encoded, exclusive=True)
-    except FileExistsError:
-        existing = _read_lease(lease_path)
-        if existing.get("plan") != relative_plan or existing.get("paths") != paths:
-            fail(
-                f"write lease conflict: {existing['plan']} already owns {lease_path.as_posix()}", 2
-            )
+    with _ledger_lock(logs, "leases", "write lease", advisory=True):
+        if profile == "gauntlet":
+            refused = _gauntlet_review_gate(plan, root, relative_plan, paths, session)
+            if refused is not None:
+                return refused
+        live = _migrate_leases(root)
+        matching = None
+        for _, existing in live:
+            own = existing["sessionId"] == session and existing["plan"] == relative_plan
+            if own and existing["paths"] == paths:
+                matching = existing
+            elif own or _lease_overlap(paths, existing["paths"]):
+                fail(f"write lease conflict: run {existing['runId']} ({existing['plan']}, "
+                     f"session {existing['sessionId']}) owns overlapping paths", 2)
+        if matching is None:
+            now = time.time()
+            payload = {"version": 1, "sessionId": session, "runId": secrets.token_hex(12),
+                       "plan": relative_plan, "paths": paths,
+                       "heartbeatAt": now, "expiresAt": now + LEASE_TTL}
+            _write_json_ledger(_lease_file(logs / "leases", payload), payload, "write lease")
     return normalized, 0
 
 
-def release(plan: Path) -> None:
-    """Remove the active lease only when this exact canonical plan owns it."""
+def lease_lifecycle(plan: Path, session_id: str | None, action: str) -> None:
+    """Renew/release only the requesting session's live plan lease; never resurrect expiry."""
     root = repo_root(plan)
     relative_plan = _relative_plan(plan, root)
+    session = _lease_session(relative_plan, session_id)
     logs = _existing_secure_directory(root, ".graph-powers", "logs")
     if logs is None:
+        if action == "heartbeat":
+            fail("heartbeat requires an active plan write lease", 2)
         print(f"no write lease to release for {relative_plan}")
         return
-    lease_path = logs / "write-lease.json"
-    if lease_path.is_symlink():
-        fail(f"refusing symlink write lease: {lease_path.as_posix()}", 2)
-    if not lease_path.exists():
+    with _ledger_lock(logs, "leases", "write lease", advisory=True):
+        live = _migrate_leases(root)
+        for path, existing in live:
+            if existing["plan"] == relative_plan and existing["sessionId"] == session:
+                if action == "release":
+                    path.unlink()
+                    print(f"released write lease for {relative_plan}")
+                else:
+                    now = time.time()
+                    existing.update(heartbeatAt=now, expiresAt=now + LEASE_TTL)
+                    _write_json_ledger(path, existing, "write lease")
+                    print(json.dumps(existing, ensure_ascii=False, indent=2))
+                return
+        if any(value["plan"] == relative_plan for _, value in live):
+            fail(f"write lease for {relative_plan} belongs to another session", 2)
+        if action == "heartbeat":
+            fail("heartbeat requires an active plan write lease owned by this session", 2)
         print(f"no write lease to release for {relative_plan}")
-        return
-    existing = _read_lease(lease_path)
-    if existing["plan"] != relative_plan:
-        fail(f"write lease belongs to {existing['plan']}, not {relative_plan}", 2)
-    try:
-        lease_path.unlink()
-    except OSError as error:
-        fail(f"cannot release write lease {lease_path.as_posix()}: {error}", 2)
-    print(f"released write lease for {relative_plan}")
 
 
 def resolve_ref(ref: str, label: str, root: Path) -> str:
@@ -1966,6 +2092,7 @@ def main(argv: list[str] | None = None) -> int:
     p_status.add_argument("plan")
     p_status.add_argument("--max-tasks", type=int, required=True)
     p_status.add_argument("--profile", choices=("default", "gauntlet"), default="default")
+    p_status.add_argument("--session-id")
 
     p_acquire = sub.add_parser(
         "acquire", help="validate and atomically acquire the plan write lease"
@@ -1973,9 +2100,15 @@ def main(argv: list[str] | None = None) -> int:
     p_acquire.add_argument("plan")
     p_acquire.add_argument("--max-tasks", type=int, required=True)
     p_acquire.add_argument("--profile", choices=("default", "gauntlet"), default="default")
+    p_acquire.add_argument("--session-id")
 
     p_release = sub.add_parser("release", help="release only the write lease owned by this plan")
     p_release.add_argument("plan")
+    p_release.add_argument("--session-id")
+
+    p_heartbeat = sub.add_parser("heartbeat", help="renew only this session's live plan lease")
+    p_heartbeat.add_argument("plan")
+    p_heartbeat.add_argument("--session-id")
 
     p_bind = sub.add_parser("review-bind", help="bind one plan review verdict to the plan bytes")
     p_bind.add_argument("plan")
@@ -2000,6 +2133,7 @@ def main(argv: list[str] | None = None) -> int:
     p_dispatch_reserve.add_argument("--kind", choices=tuple(sorted(DISPATCH_KINDS)), required=True)
     p_dispatch_reserve.add_argument("--role", required=True)
     p_dispatch_reserve.add_argument("--max-spawns", type=int, required=True)
+    p_dispatch_reserve.add_argument("--session-id")
 
     p_consult = sub.add_parser("consult", help="reserve or record a parent-mediated consultation")
     consult_sub = p_consult.add_subparsers(dest="consult_action", required=True)
@@ -2017,7 +2151,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "status":
         try:
-            output, code = status(args.plan, args.max_tasks, args.profile)
+            output, code = status(args.plan, args.max_tasks, args.profile, args.session_id)
         except (OSError, ValueError, RuntimeError) as error:
             fail(f"cannot read plan status: {error}", 2)
         print(json.dumps(output, ensure_ascii=False, indent=2))
@@ -2049,13 +2183,13 @@ def main(argv: list[str] | None = None) -> int:
         assert normalized is not None
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
     elif args.command == "acquire":
-        normalized, code = acquire(plan, args.max_tasks, args.profile)
+        normalized, code = acquire(plan, args.max_tasks, args.profile, args.session_id)
         print(json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=False))
         return code
-    elif args.command == "release":
-        release(plan)
+    elif args.command in {"release", "heartbeat"}:
+        lease_lifecycle(plan, args.session_id, args.command)
     elif args.command == "dispatch":
-        output, code = reserve_dispatch(plan, args.key, args.kind, args.role, args.max_spawns)
+        output, code = reserve_dispatch(plan, args.key, args.kind, args.role, args.max_spawns, session_id=args.session_id)
         print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=False))
         return code
     elif args.command == "consult":

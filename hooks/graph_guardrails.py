@@ -34,20 +34,18 @@ G3  round ceiling    - spawns of the SAME agent inside that same window. This is
                        specialist. The name is normalised, so a plugin agent and the
                        same agent named without its prefix share one counter
                        instead of granting double the rounds.
-G4  write lease      - when `.graph-powers/logs/write-lease.json` exists, `Write`/`Edit`
-                       outside the declared paths is denied. That file is how the
-                       orchestrator declares file ownership before a parallel
-                       wave; without it this check stands down entirely. The
-                       producer is planning Phase C, from the `writeLease` array
-                       `skills/planning/scripts/sdd.py validate` returns.
+G4  write lease      - live `.graph-powers/logs/leases/*.json` claims protect `Write`/`Edit`
+                       from overlapping foreign sessions. Own and unclaimed paths
+                       stay writable; reads are free. Phase C publishes claims through
+                       `sdd.py acquire --session-id`, renews with `heartbeat`, and releases
+                       with `release`. Expiry is 45 minutes; legacy claims use their mtime.
 
 What it deliberately does NOT enforce, and why
 ----------------------------------------------
 *Two writers on one file, detected by agent identity.* It is not implementable
 here: a hook cannot tell a subagent from the main thread — they run in-process
 with the same `CLAUDE_CODE_SESSION_ID` and the same PID (verified empirically,
-see the same note in `git_commit_gate.py`). G4 enforces the actionable half —
-"touch only the files you own" — and the structural half lives where the
+see the same note in `git_commit_gate.py`). G4 separates sessions; the structural half lives where the
 violation is actually born, in planning Phase C. Its `sdd.py validate` preflight
 rejects concurrent tasks that claim the same path before any wave or lease exists.
 
@@ -73,7 +71,7 @@ import json
 import os
 import sys
 import time
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
 # Project parameters (branch, protected branches, opt-in prefix, ceilings) come from
@@ -94,6 +92,7 @@ except Exception:
 
 STOP_FILE = "AGENT_STOP"
 LEASE_FILE = ".graph-powers/logs/write-lease.json"
+LEASE_DIR = ".graph-powers/logs/leases"
 COUNTER_DIR = ".graph-powers/logs/sessions"
 
 OPT_IN_SPAWN = gp.opt_in("SPAWN_OVER")
@@ -170,20 +169,57 @@ def recent_spawns(state: dict[str, Any], now: float, window_seconds: int) -> lis
     return out
 
 
-def lease_paths(root: Path) -> list[str] | None:
-    """None = no lease declared = this check stands down."""
-    path = root / LEASE_FILE
-    if not path.exists():
-        return None
+def lease_paths(root: Path) -> list[dict[str, Any]]:
+    """Read live claims without writing state. Malformed records fail open individually."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if isinstance(data, dict):
-        data = data.get("paths", [])
-    if not isinstance(data, list):
-        return None
-    return [str(p) for p in data if isinstance(p, str)]
+        if any((root / part).is_symlink() for part in
+               (".graph-powers", ".graph-powers/logs", LEASE_DIR)):
+            return []
+        paths = sorted((root / LEASE_DIR).glob("*.json"))
+        legacy = root / LEASE_FILE
+        if legacy.exists():
+            paths.append(legacy)
+    except OSError:
+        return []
+    claims = []
+    for path in paths:
+        try:
+            if path.is_symlink():
+                continue
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if path == legacy:
+                data = {"paths": data} if isinstance(data, list) else data
+                if not isinstance(data, dict):
+                    continue
+                stamp = path.stat().st_mtime
+                data = {**data, "version": 1, "sessionId": f"plan:{data.get('plan', '')}",
+                        "runId": data.get("runId") or f"legacy:{data.get('plan', 'unknown')}",
+                        "heartbeatAt": stamp, "expiresAt": stamp + 2700}
+            if (
+                not isinstance(data, dict) or type(data.get("version")) is not int
+                or data["version"] != 1
+                or (path != legacy and (not isinstance(data.get("plan"), str) or not data["plan"].strip()))
+                or any(not isinstance(data.get(key), str) or not data[key].strip()
+                       for key in ("sessionId", "runId"))
+                or any(type(data.get(key)) not in (int, float) or not 0 <= data[key] <= sys.float_info.max
+                       for key in ("heartbeatAt", "expiresAt"))
+                or not 0 <= data["heartbeatAt"] < data["expiresAt"]
+                or data["expiresAt"] <= time.time()
+                or not isinstance(data.get("paths"), list)
+            ):
+                continue
+            normalized = []
+            for raw in data["paths"]:
+                if not isinstance(raw, str) or not raw.strip() or "\x00" in raw:
+                    raise ValueError("invalid claim path")
+                portable = PurePosixPath(raw.replace("\\", "/"))
+                if portable.is_absolute() or PureWindowsPath(raw).drive or ".." in portable.parts or not portable.parts:
+                    raise ValueError("invalid claim path")
+                normalized.append((root / portable).resolve().relative_to(root.resolve()).as_posix())
+            claims.append({**data, "paths": normalized})
+        except (OSError, ValueError, RuntimeError, TypeError):
+            continue
+    return claims
 
 
 def opted_in(name: str, payload: dict[str, Any]) -> bool:
@@ -282,8 +318,8 @@ def main() -> int:
         return 0
 
     if tool in {"Write", "Edit", "NotebookEdit"}:
-        declared = lease_paths(root)
-        if declared is None:
+        claims = lease_paths(root)
+        if not claims:
             return 0  # no lease on disk = nobody declared ownership = nothing to enforce
         target = gp.file_path_from_payload(payload)
         if not target:
@@ -292,20 +328,21 @@ def main() -> int:
         # lease on disk says `src/owned.ts`, so a raw comparison denies every write during exactly
         # the wave this exists to protect. `protect_files.py` already normalises this way.
         try:
-            rel = Path(target).resolve().relative_to(root.resolve()).as_posix()
+            portable = Path(str(target).replace("\\", "/"))
+            rel = (root / portable).resolve().relative_to(root.resolve()).as_posix()
         except Exception:
             rel = PurePath(target).as_posix()
-        declared = [str(p).replace("\\", "/").removeprefix("./") for p in declared]
-        if any(rel == p.rstrip("/") or rel.startswith(p.rstrip("/") + "/") for p in declared):
-            return 0
         if opted_in(OPT_IN_LEASE, payload):
             return 0
-        deny(
-            f"WRITE LEASE: `{rel}` is outside the paths declared in {LEASE_FILE} "
-            f"({', '.join(declared[:6])}{'…' if len(declared) > 6 else ''}). During a parallel wave "
-            "each node owns a disjoint file set; writing outside it is how two nodes end up editing "
-            f"the same file. Finish inside your lease, or set {OPT_IN_LEASE}=1 if the lease is stale."
-        )
+        for claim in claims:
+            if session and claim["sessionId"] == session:
+                continue
+            if any(rel == p or rel.startswith(p + "/") or p.startswith(rel + "/")
+                   for p in claim["paths"]):
+                deny(f"WRITE LEASE: `{rel}` overlaps live run {claim['runId']} "
+                     f"(session {claim['sessionId']}). Use disjoint paths, release the owning lease, "
+                     f"or set {OPT_IN_LEASE}=1 for an approved override.")
+                break
         return 0
 
     return 0
