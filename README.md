@@ -2,7 +2,8 @@
 
 A shared harness for [Claude Code](https://claude.com/claude-code),
 [Codex CLI](https://developers.openai.com/codex), [Cursor](https://cursor.com),
-[Grok CLI](https://docs.x.ai/build) and [Hermes Agent](https://hermes-agent.nousresearch.com/):
+[Grok CLI](https://docs.x.ai/build), [Kilo](https://kilo.ai) and
+[Hermes Agent](https://hermes-agent.nousresearch.com/):
 agents, skills, commands and guardrails that work in any repository. Whatever changes from
 project to project leaves the code and enters one config file.
 
@@ -47,6 +48,20 @@ node <clone>/bin/graph-powers.mjs --target grok
 The installer verifies the exact Grok-reported package path and its sixteen fail-open hooks before
 writing `always-approve`. Restart the Grok session. Git commit and push still ask. `rm -rf /` still
 denies.
+
+**Kilo** — one command, then restart the session:
+
+```bash
+node <clone>/bin/graph-powers.mjs --target kilo
+```
+
+Kilo reads agents, commands, skills and plugins from `~/.kilo/`. The installer generates them from
+the same canonical files as the other clients, generates one primary router that dispatches the
+twelve roles by exact `subagent_type`, and installs a native plugin so the Python guardrails still
+run on `tool.execute.before`/`after`. Kilo has no `Stop` event and no workflow runtime, so completion
+verification and `Workflow({...})` are not projected; a command that named a workflow takes its
+declared fallback. The support matrix and the evidence behind each row are in
+[docs/kilo.md](docs/kilo.md).
 
 **Hermes Agent** — generated skills and agent contracts; runtime acceptance is pending:
 
@@ -194,19 +209,19 @@ cost you are choosing.
 
 ---
 
-## Five harnesses, one source
+## Six harnesses, one source
 
-Codex CLI, Cursor, Grok and Hermes read different files from Claude Code, but the shapes line up.
-The installers and native entrypoint generate those sides from the artefacts that already exist —
-nothing is maintained twice.
+Codex CLI, Cursor, Grok, Kilo and Hermes read different files from Claude Code, but the shapes line
+up. The installers and native entrypoint generate those sides from the artefacts that already exist
+— nothing is maintained twice.
 
-| Surface          | Claude Code               | Codex CLI                                                                                                                                                                                        | Cursor                                                                                          | Grok CLI                                                                           | Hermes Agent                                           |
-| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Guardrails       | `hooks/hooks.json`        | The same declaration, merged into `~/.codex/hooks.json`                                                                                                                                          | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | **NOT ENFORCED**; no Hermes hook surface               |
-| Skills           | `skills/<name>/SKILL.md`  | `.agents/skills/<name>/SKILL.md`                                                                                                                                                                 | The same files, via `.cursor-plugin/`                                                           | The same files, via `.grok-plugin/`                                                | `plugin.yaml` + `__init__.py`; `graph-powers:<name>`   |
-| Subagents        | `agents/*.md`             | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files                                                                         | The same markdown files                                                            | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
-| Commands         | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>`                                                                                                               | The same markdown files                                                                         | The same markdown files                                                            | namespaced skills, e.g. `graph-powers:plan`            |
-| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml`                                                                                                                                                                           | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`)                       | `~/.grok/config.toml` (`[ui] permission_mode`)                                     | parent agent approvals                                 |
+| Surface          | Claude Code               | Codex CLI                                                                                                                                                                                        | Cursor                                                                                          | Grok CLI                                                                           | Kilo                                                                                                                             | Hermes Agent                                           |
+| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Guardrails       | `hooks/hooks.json`        | The same declaration, merged into `~/.codex/hooks.json`                                                                                                                                          | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | Native `~/.kilo/plugin/graph-powers-guardrails.ts` on `tool.execute.before/after` (no Stop, PermissionRequest, Notification or SubagentStart event) | **NOT ENFORCED**; no Hermes hook surface               |
+| Skills           | `skills/<name>/SKILL.md`  | `.agents/skills/<name>/SKILL.md`                                                                                                                                                                 | The same files, via `.cursor-plugin/`                                                           | The same files, via `.grok-plugin/`                                                | `~/.kilo/skills/<name>/SKILL.md`, canonical names                                                                                | `plugin.yaml` + `__init__.py`; `graph-powers:<name>`   |
+| Subagents        | `agents/*.md`             | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files                                                                         | The same markdown files                                                            | `~/.kilo/agent/*.md` plus a generated `graph-powers` primary, through `kilo/model-policy.json`: semantic profile, exact `provider/model`, `edit`/`task` denials | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
+| Commands         | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>`                                                                                                               | The same markdown files                                                                         | The same markdown files                                                            | `~/.kilo/command/*.md` with an explicit `agent:` router and exact `subagent_type` fan-out                                         | namespaced skills, e.g. `graph-powers:plan`            |
+| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml`                                                                                                                                                                           | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`)                       | `~/.grok/config.toml` (`[ui] permission_mode`)                                     | `~/.kilo/kilo.jsonc`: generated `lsp` and `formatter` keys, JSONC-preserving merge                                                | parent agent approvals                                 |
 
 The Codex hooks file is **merged, never overwritten**. Other tools' installers write it too, and
 clobbering it would silently disable someone else's guardrails, which is this
@@ -300,7 +315,7 @@ the [verification contract](.claude/rules/verify-supplements.md) defines those l
 ```
 
 Agents, skills, commands and guardrails are live at the next session start. Nothing else is needed
-unless you also use Codex, Cursor, Grok or Hermes. Zed consumes instructions/editor settings only; this
+unless you also use Codex, Cursor, Grok, Kilo or Hermes. Zed consumes instructions/editor settings only; this
 repository does not implement a Zed lifecycle/tool-hook target.
 
 ### Codex CLI — native plugin (recommended)
@@ -471,7 +486,7 @@ wherever it actually ran from so updates find it again.
 
 | Option                                            | What it does                                                                                                                              |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `--target claude\|codex\|cursor\|grok\|both\|all` | Which supported client to configure. Cursor still requires its marketplace plugin first; Zed has no hook target. `both` is Claude + Codex |
+| `--target claude\|codex\|cursor\|grok\|kilo\|both\|all` | Which supported client to configure. Cursor still requires its marketplace plugin first; Zed has no hook target. `both` is Claude + Codex |
 | `--scope user`                                    | Writes to `~/.claude/settings.json`. **Default** — one install serves every project on the machine                                        |
 | `--scope project`                                 | Writes to `.claude/settings.json`, versioned. Use when the team must get the harness by cloning the repository                            |
 | `--scope local`                                   | Writes to `.claude/settings.local.json`, gitignored. To try it without affecting the team                                                 |
@@ -482,7 +497,7 @@ wherever it actually ran from so updates find it again.
 | `--prefix NAME`                                   | Opt-in key prefix (with `--config`). Default: the directory name                                                                          |
 | `--source <org/repo\|path>`                       | Where the marketplace comes from. Useful for a fork or a local clone                                                                      |
 | `--update`                                        | `git pull --ff-only` on the clone, then reinstall from it                                                                                 |
-| `--uninstall`                                     | Removes exactly the Codex artefacts a previous run recorded. Cursor permissions and Grok config.toml stay                                 |
+| `--uninstall`                                     | Removes exactly the Codex and Kilo artefacts a previous run recorded (and restores the Kilo config keys). Cursor permissions and Grok config.toml stay |
 
 ### Staying current
 

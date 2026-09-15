@@ -12,7 +12,7 @@ owner; do not add product, domain, branch, provider, or secret-specific content 
 5. Review/research agents declare `disallowedTools: Write, Edit`; `memory:` needs the same denial.
 6. Every agent declares its model tier. Workflows state their explicit model because they do not
    read agent frontmatter.
-7. Claude artifacts are canonical; Codex, Cursor, Grok, and Hermes are generated/adapted
+7. Claude artifacts are canonical; Codex, Cursor, Grok, Kilo, and Hermes are generated/adapted
    projections. Do not maintain a second inventory.
 8. Instructions must run on Linux, macOS, and Windows. Use portable Python or agent tools instead
    of POSIX shell constructs; normalize Python paths with `PurePath(...).as_posix()`.

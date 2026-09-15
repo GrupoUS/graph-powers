@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.21.0 — Native Kilo target
+
+Kilo is a first-class target. `--target kilo` generates agents, slash commands, skills and a
+guardrail plugin from the same canonical files Claude Code uses, and `kilo/install.mjs` is the only
+authority for the projection. The roles keep per-role models (`judge` and `architect` on Astra,
+`executor`, `verifier` and `scout` on Luna) and Claude aliases or Codex slugs are refused, because
+a model that resolves to nothing is a subagent that starts and never answers. Roles keep their
+boundaries: reviewers carry `edit: deny`, the evaluator is a leaf with `task: deny`, and research
+roles get a shell deny-list instead of an allowlist that would no longer fit how they work.
+
+Commands run in one generated primary router and name their specialists by exact `subagent_type`,
+so `/plan` still routes `project-planner` + `evaluator` and `/verify` still routes `evaluator` +
+`security-reviewer` + `ui-ux-designer`. Claude-only literals do not survive the projection:
+`graph-powers:<agent>` loses its prefix, `Skill("…")` becomes the skill by its directory name, and
+`Workflow({...})` is replaced by its already-declared fallback, because Kilo has no workflow
+runtime. Kilo has no `Stop` event either, so `stop_verify.py` has no Kilo projection and the plugin
+registers only the events Kilo actually triggers — the posture is reported as `PARTIAL` rather than
+implied complete.
+
+Artifacts land where Kilo reads them (`~/.kilo/agent`, `~/.kilo/command`, `~/.kilo/skills`,
+`~/.kilo/plugin`), proven with `kilo agent list`, `kilo debug skill` and `kilo debug config`.
+Managed config keys (`lsp`, `formatter`) are merged with a JSONC-preserving editor: comments and
+unrelated keys survive, a key we do not own is a conflict rather than an overwrite, and uninstall
+restores the file. The install is deterministic, records ownership before writing, and refuses to
+take over an artefact it did not write. `python3 .github/check_kilo.py` is gate 29.
+
 ## 1.20.8 — Concurrent session path leases
 
 G4 and SDD coordinate independent sessions in the same checkout through live path leases instead

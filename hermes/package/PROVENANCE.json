@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "a815af18baa4c1c14658a655b50ccf646ea7ee05",
-    "version": "1.20.8",
+    "base_revision": "092c403b1f84a2b0bd3a5f442d88d094b07d3391",
+    "version": "1.21.0",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "43021f721c69514cb3cdc93ba4825ebbd744a6959d4c5d8653d8d4b92f60d9b8",
-      "base_sha256": "a8f369906258de21009124660f98c6c4fb51840e40b71e9f0cfdf4386821a006",
+      "sha256": "53e9227cb66526781ead129f8487548f0434cff5ba95070942695b899b1d0268",
+      "base_sha256": "43021f721c69514cb3cdc93ba4825ebbd744a6959d4c5d8653d8d4b92f60d9b8",
       "dirty": true
     },
     {
@@ -263,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
+      "sha256": "42d867b8b5294312644543619d1948a8e740022dcd988848f02fbc2756a5bf3a",
       "base_sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -276,8 +276,8 @@
     {
       "path": "NOTICE",
       "sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
-      "base_sha256": "24948dfb5fe94ed2c63d5a89698fdea31665f121356bcb150a18a06e2096e26c",
-      "dirty": true
+      "base_sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
+      "dirty": false
     },
     {
       "path": "agents/debugger.md",
@@ -390,8 +390,8 @@
     {
       "path": "commands/gauntlet.md",
       "sha256": "7aaea7c73c3f76b21728895cd3d083e55a330f31a4aa71873e7743beb659cd52",
-      "base_sha256": "021dc08c6c239cdfb0b7957ad7eb74931b13109ef36f6fa1236fe2a2a73ee9cd",
-      "dirty": true
+      "base_sha256": "7aaea7c73c3f76b21728895cd3d083e55a330f31a4aa71873e7743beb659cd52",
+      "dirty": false
     },
     {
       "path": "commands/implement.md",
@@ -420,8 +420,8 @@
     {
       "path": "commands/prime.md",
       "sha256": "118ab1e4a711d7ea0be72d6a6b0c73bcf32c690b8276b592c990feb011efc0dc",
-      "base_sha256": "723cc83c84fb95f30b011ffbf09ea7a5832ec9db8d7b83019394d397b81cb842",
-      "dirty": true
+      "base_sha256": "118ab1e4a711d7ea0be72d6a6b0c73bcf32c690b8276b592c990feb011efc0dc",
+      "dirty": false
     },
     {
       "path": "commands/research.md",
@@ -443,9 +443,9 @@
     },
     {
       "path": "docs/client-compatibility.md",
-      "sha256": "f0a759e274732b68b78844c579a90f7deb7d6253e17df40a7cfdb727052f7de1",
+      "sha256": "1c23206ac48f7dff99dc7ec671dc39aa67388e68d06821ee766a3c48c12270ae",
       "base_sha256": "f0a759e274732b68b78844c579a90f7deb7d6253e17df40a7cfdb727052f7de1",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "hermes/install.mjs",
@@ -473,9 +473,9 @@
     },
     {
       "path": "references/execution-floor.md",
-      "sha256": "c7157d623b7d1af131c7b41c91409d5cc11b6a2cd7507013ef6dc4686819048e",
+      "sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
       "base_sha256": "c7157d623b7d1af131c7b41c91409d5cc11b6a2cd7507013ef6dc4686819048e",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/recovery-protocol.md",
@@ -576,8 +576,8 @@
     {
       "path": "references/shared/007-path-conventions.md",
       "sha256": "89f30677a9d79baec418e13ea16b5a0cbed98b3d9363d265422f56794f845cf8",
-      "base_sha256": "08d96283a0a468b0a660e7ca4036aa0c2ded6f80d3805c72b2fc1af2490a5114",
-      "dirty": true
+      "base_sha256": "89f30677a9d79baec418e13ea16b5a0cbed98b3d9363d265422f56794f845cf8",
+      "dirty": false
     },
     {
       "path": "references/shared/010-quality-gates.md",
@@ -660,8 +660,8 @@
     {
       "path": "references/shared/110-guardrails-index.md",
       "sha256": "c11ef30b57334beb1b64ccb88164d987dfa4091443be9a69b3188e6a5e90db19",
-      "base_sha256": "5d1d064567b171167a20fa0c71b97484526b002ca9e0dcc433369458066e1211",
-      "dirty": true
+      "base_sha256": "c11ef30b57334beb1b64ccb88164d987dfa4091443be9a69b3188e6a5e90db19",
+      "dirty": false
     },
     {
       "path": "references/shared/115-code-graph.md",
@@ -960,14 +960,14 @@
     {
       "path": "skills/planning/SKILL.md",
       "sha256": "0446ac4608b5cdd042292944924d5dfe81b5f9310e447a969517c64dece3a4c0",
-      "base_sha256": "120d4096bf8baac3cae06ce0b17dc596842bcd628bc212fe1073a2e32075ef1b",
-      "dirty": true
+      "base_sha256": "0446ac4608b5cdd042292944924d5dfe81b5f9310e447a969517c64dece3a4c0",
+      "dirty": false
     },
     {
       "path": "skills/planning/evals/evals.json",
       "sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
-      "base_sha256": "b16004d60648ef43564bf4656afa800d5c8c91cf6b588076815b945668f4c651",
-      "dirty": true
+      "base_sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -1014,8 +1014,8 @@
     {
       "path": "skills/planning/references/gauntlet-loop.md",
       "sha256": "fe9d2427f1c4c23f01d32d9c33b88cf9edf8ed46afa14c5b47697435e4d2d6b7",
-      "base_sha256": "a01a51bdeee4c1a98a279feee2bbebcf1bf27839a1629b01e0a7d880d3127e9d",
-      "dirty": true
+      "base_sha256": "fe9d2427f1c4c23f01d32d9c33b88cf9edf8ed46afa14c5b47697435e4d2d6b7",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/issue-triage.md",
@@ -1032,14 +1032,14 @@
     {
       "path": "skills/planning/references/loop-engineering.md",
       "sha256": "5578ac94d3de816fac22df0af3a842489ed0ae98aaf52e6aaf2050e48eef1fa2",
-      "base_sha256": "ce5563465f7560135b6c5b40765e5ef7f3e33a2f7c8849c5d44445f87e176e22",
-      "dirty": true
+      "base_sha256": "5578ac94d3de816fac22df0af3a842489ed0ae98aaf52e6aaf2050e48eef1fa2",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-a-brainstorm.md",
       "sha256": "54596effb3c5278db77e20e2e3a972f1e1cd02e8e5e4f2ac6e3cbc92b9460186",
-      "base_sha256": "45fbfb37f5f3fbe5030b514f0d034e4405a136a2d93416d0ef0c138283edd59f",
-      "dirty": true
+      "base_sha256": "54596effb3c5278db77e20e2e3a972f1e1cd02e8e5e4f2ac6e3cbc92b9460186",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
@@ -1050,8 +1050,8 @@
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
       "sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
-      "base_sha256": "eb0f4cb40d080067a199dc79830984b5b08d04bee7224c8d46e2f122dbb13e28",
-      "dirty": true
+      "base_sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1068,8 +1068,8 @@
     {
       "path": "skills/planning/scripts/sdd.py",
       "sha256": "d0916aea0d203cbc48dd8645d338f1a50548277b3792721585a8069983386894",
-      "base_sha256": "ef314732593c190ea02929a55f4c0be21eec82fe458fc15b32b91f1464eceedf",
-      "dirty": true
+      "base_sha256": "d0916aea0d203cbc48dd8645d338f1a50548277b3792721585a8069983386894",
+      "dirty": false
     },
     {
       "path": "skills/senior-architect/SKILL.md",
@@ -1291,7 +1291,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "57066083a92b89e4714f85f5de3162e46e40a56a982e94e52a8b15d14363f03e",
+      "sha256": "adc0f218d25186429a1262224ed71c4239bfed1e3c01a6e1a9fc3ab051462094",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1419,7 +1419,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "02113d05b400ff0554239537e8aec205027a2e2ff9a5055b130523c7c6021534",
+      "sha256": "b22e71836391ece40af9252847d4ba251d7b5d71d598e24d30472680b42a687a",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1635,7 +1635,7 @@
     },
     {
       "path": "skills/content/docs/client-compatibility.md",
-      "sha256": "d08474b2d77e7e90ef39f786b331ca89957710e2c5881ba0dd954f493776c454",
+      "sha256": "98d429e08805ead399079dcff73aa22756eed224b64bcc43263cbbc71e752da6",
       "sources": [
         "docs/client-compatibility.md"
       ],
@@ -1659,7 +1659,7 @@
     },
     {
       "path": "skills/content/references/execution-floor.md",
-      "sha256": "ba299a592a970ad927f5276fceb8b275c1a4e5db095a2c2c37ad86c0303d5bf8",
+      "sha256": "25f150559b2e8194ee283c273595d01415fe247432b604673ba85c91d6b08cfd",
       "sources": [
         "references/execution-floor.md"
       ],
@@ -5485,6 +5485,11 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "docs/kilo.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "hermes/install.mjs",
         "reason": "external URL or caller-resolved host path"
       },
@@ -5715,8 +5720,18 @@
       },
       {
         "from": "docs/client-compatibility.md",
+        "reference": "stop_verify.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "docs/client-compatibility.md",
         "reference": "subagent_context.py",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "docs/client-compatibility.md",
+        "reference": "docs/kilo.md",
+        "reason": "host-project input or output, resolved by the caller"
       },
       {
         "from": "references/recovery-protocol.md",

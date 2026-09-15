@@ -1,6 +1,6 @@
 > Hermes auxiliary: `content/` paths are `file_path` values relative to the registered-document parent. Apply the loaded graph-engineering mapping and host policy; this file is served without template expansion.
 
-# Grok Build, Grok Bot and Cursor compatibility
+# Grok Build, Grok Bot, Cursor and Kilo compatibility
 
 Official contracts checked on 2026-09-10. Claude artefacts remain canonical; client generators
 adapt the supported interfaces. A generated file, a discovered extension and a hook executed by a
@@ -82,5 +82,32 @@ Use the supported skill surface when preparing Graph Powers work for a Bot:
 This is a preparation procedure, not a tested Bot installer. Bot hook enforcement, local plugin
 loading and runtime parity remain **UNVERIFIED**. Native Bot permissions continue to govern actions;
 the Python guardrails on the developer's computer do not protect a different cloud computer.
+
+## Kilo
+
+Kilo generates its agents, commands, skills and guardrail plugin from the same canonical files
+Claude Code uses; the Kilo generator under `<PLUGIN>/kilo/` is the only authority for that
+projection. The support matrix with the evidence behind each row is in the repository's own
+`docs/kilo.md`, which is a developer document and is deliberately not projected into this package:
+the Kilo generator is not Hermes content.
+
+Discovery was proven with the installed CLI rather than from documentation: agents come from
+`~/.kilo/agent/`, skills from `~/.kilo/skills/`, commands from `~/.kilo/command/`, plugins from
+`~/.kilo/plugin/`, and the global config file is `~/.kilo/kilo.jsonc` (a
+`~/.config/kilo/kilo.jsonc` is merged in and the home file wins a conflicting key). A generated
+file, a discovered file and an executed hook are three different claims; `kilo agent list`,
+`kilo debug agent <role>` and `kilo debug config` are the second, and a live tool interception has
+not been exercised here.
+
+Two lifecycle gaps are stated rather than papered over. Kilo has no `Stop` event, so
+`https://github.com/GrupoUS/graph-powers/blob/main/hooks/stop_verify.py` has no projection and completion is not verified by a hook; and it has no workflow
+runtime, so a `Workflow({...})` call in a command is replaced by its already-declared fallback
+instead of being retried. `--client kilo` therefore reports posture **PARTIAL**:
+`tool.execute.before`/`after` carry the tool-level guardrails, and `PermissionRequest`,
+`Notification` and `SubagentStart` are named as unprojected.
+
+The `permission.task` **allow-list** form is UNVERIFIED — a map form also reported
+`tools.task: false`, so the router keeps the default and names its specialists in the prompt. Only
+`permission.task: deny` (the evaluator leaf) is enforced and claimed.
 
 Installation entry points and package checks remain in [content/AGENT_SETUP.md](content/AGENT_SETUP.md).

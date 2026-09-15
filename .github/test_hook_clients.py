@@ -107,6 +107,7 @@ def installer_fixture(base: Path) -> tuple[Path, Path, Path, dict[str, str]]:
         "commands",
         "cursor",
         "grok",
+        "kilo",
         "references",
         "skills",
         "templates",

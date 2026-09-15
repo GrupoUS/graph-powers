@@ -278,7 +278,7 @@ and Grok's passive Stop is not an enforced gate.
 
 ## Step 9 — Install and prove the selected clients
 
-Use an explicit target. `--target all` covers Claude, Codex, Cursor and Grok; it does **not**
+Use an explicit target. `--target all` covers Claude, Codex, Cursor, Grok and Kilo; it does **not**
 include Hermes or Zed and is unsuitable when it would mix native and clone Codex installations.
 Install → verify that client's package/direct guardrail probe → apply the chosen posture → reload
 and prove live hook execution. Package checks do not certify an already-running client.
@@ -422,7 +422,27 @@ Confirm the Bot workspace and supported skills surface first. The local `--targe
 configures Grok Build only; it neither installs a Bot skill nor creates a routine. Do not report
 Bot hooks or native runtime parity as verified from CLI package evidence.
 
-### 9i — Hermes
+### 9i — Kilo
+
+Kilo is generated, not patched, and it has no marketplace package for this plugin. Write the global
+artefacts once per machine, then restart the session.
+
+```bash
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client kilo --project-dir . --expected-version <VERSION> --probe-guardrail
+bun "<PLUGIN>/bin/graph-powers.mjs" --target kilo --autonomy <MODE>
+```
+
+The installer writes agents, commands, skills and the guardrail plugin under `~/.kilo/`, merges two
+config keys (`lsp`, `formatter`) into `~/.kilo/kilo.jsonc` without touching comments or unrelated
+keys, and records ownership before writing; a file it does not own is a refusal, not an overwrite.
+`--client kilo` reports posture `PARTIAL` because Kilo has no `Stop`, `PermissionRequest`,
+`Notification` or `SubagentStart` event: the tool-level guardrails run through the native plugin and
+the lifecycle registrations that cannot be projected are named rather than implied. Do not report
+completion verification or workflow parity as enforced on Kilo, and do not install a second copy of
+the hooks. See `<PLUGIN>/docs/kilo.md` for the support matrix and its evidence. That document is a developer
+document and is deliberately not projected into the Hermes package.
+
+### 9j — Hermes
 
 Static development checks run with the reviewed source checkout as the working directory.
 `<SOURCE>` is its absolute path, not an installed Hermes package; these development scripts are
@@ -452,7 +472,7 @@ by the test runner's `--runtime`) requires explicit installed `--package-root` a
 an installation. Graph Powers hooks remain `NOT ENFORCED`; model/tool frontmatter is descriptive,
 and the parent must apply actual host policy and approvals.
 
-### 9j — Zed
+### 9k — Zed
 
 Zed's native agent has no Graph Powers hook target. Report instructions/editor integration
 separately and hooks as `NOT ENFORCED`. An external agent launched by Zed is verified as its own

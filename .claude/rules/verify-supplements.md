@@ -65,6 +65,7 @@ and returns nonzero pending separately approved native identity, exact-byte scan
 | 26 | Grok projection and configuration | `python3 .github/check_grok.py` | Grok metadata or configuration preservation/idempotence differs from its supported contract |
 | 27 | Cursor projection and context | `python3 .github/check_cursor.py` | Cursor metadata, generated hooks, native context output or configuration preservation regressed |
 | 28 | Issue plan comment | `python3 skills/issue-improve/scripts/test_issue_comment.py` | preview, scoped author/marker selection, pagination or safe retry/publication regressed |
+| 29 | Kilo projection and configuration | `python3 .github/check_kilo.py` | Kilo metadata, generated agents/commands/skills, model routing, permission boundaries, literal translation, deterministic output or JSONC-preserving config merge differs from its supported contract |
 
 One additional installation assertion needs fixture arguments and therefore runs in CI rather than
 here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` reports it as

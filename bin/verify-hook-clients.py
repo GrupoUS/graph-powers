@@ -1199,6 +1199,10 @@ def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[
             result["present"] = None
             fail(result, shape_error)
             return finish(result)
+        if entries is None:
+            result["present"] = None
+            fail(result, "Grok plugin inventory did not provide entries")
+            return finish(result)
         named_entries = [entry for entry in entries if entry.get("name") == PLUGIN]
         if not named_entries:
             result["present"] = False
@@ -1299,6 +1303,68 @@ def probe_guardrail(result: dict[str, Any], root: Path) -> None:
     result["probe"] = proof
 
 
+def verify_kilo(args: argparse.Namespace, proof: dict[str, Any]) -> dict[str, Any]:
+    """A generated surface, so the proof is the manifest plus the registered plugin.
+
+    Kilo has no marketplace package for this plugin and no Stop, PermissionRequest, Notification or
+    SubagentStart event. The honest posture is therefore `PARTIAL`: the tool-level guardrails run
+    through the native plugin, and the lifecycle registrations that cannot be projected are named
+    rather than implied.
+    """
+    result = base_result("kilo")
+    result["python"] = proof
+    home = Path(os.environ.get("KILO_HOME") or (Path.home() / ".kilo"))
+    result["root"] = str(home)
+    result["route"] = "native-plugin"
+    manifest_path = (
+        home / "graph-powers-installed.json"
+        if args.scope == "user"
+        else args.project_dir / ".graph-powers" / "installed-kilo.json"
+    )
+    manifest, error = read_json(manifest_path)
+    if error or not isinstance(manifest, dict):
+        result["present"] = False
+        warn(result, f"no Kilo install recorded at {manifest_path}")
+        result["posture"] = {"hooks": "NOT ENFORCED", "tools": "none"}
+        return finish(result)
+
+    result["present"] = True
+    result["version"] = str(manifest.get("version")) if manifest.get("version") else None
+    result["manifest"] = str(manifest_path)
+    if manifest.get("complete") is not True:
+        fail(result, "the Kilo manifest is not marked complete — re-run the installer")
+    if args.expected_version and result["version"] != args.expected_version:
+        fail(result, f"installed Kilo version {result['version']} != expected {args.expected_version}")
+    missing = [path for path in manifest.get("paths", []) if not Path(path).exists()]
+    if missing:
+        fail(result, f"manifest records missing Kilo artefacts: {', '.join(missing[:5])}")
+    agents = manifest.get("agents") or {}
+    if len(agents) != 12:
+        fail(result, f"manifest records {len(agents)} Kilo roles; expected the 12 canonical roles")
+
+    plugin = home / "plugin" / "graph-powers-guardrails.ts"
+    registrations = 0
+    if plugin.is_file():
+        text = plugin.read_text(encoding="utf-8", errors="replace")
+        registrations = len(re.findall(r'"script"\s*:', text))
+        if "${NULL}" in text:
+            fail(result, "the Kilo plugin contains an unexpanded placeholder")
+    else:
+        fail(result, f"the Kilo guardrail plugin is missing: {plugin}")
+    result["hooks"] = {"registrations": registrations, "surface": "tool.execute.before/after"}
+    result["posture"] = {"hooks": "PARTIAL", "tools": "native-plugin"}
+    warn(
+        result,
+        "Kilo has no Stop, PermissionRequest, Notification or SubagentStart event: "
+        "stop_verify.py, tool_approver.py, notify.py and subagent_context.py have no Kilo projection",
+    )
+    if agents:
+        result["agents"] = agents
+    if args.probe_guardrail and args.plugin_root:
+        probe_guardrail(result, args.plugin_root)
+    return finish(result)
+
+
 def client_is_in_use(client: str) -> bool:
     if client == "claude":
         return shutil.which("claude") is not None or claude_root().exists()
@@ -1308,6 +1374,9 @@ def client_is_in_use(client: str) -> bool:
         return shutil.which("cursor-agent") is not None or (Path.home() / ".cursor").exists()
     if client == "grok":
         return shutil.which("grok") is not None or grok_root().exists()
+    if client == "kilo":
+        home = Path(os.environ.get("KILO_HOME") or (Path.home() / ".kilo"))
+        return shutil.which("kilo") is not None or home.exists()
     if client == "hermes":
         return shutil.which("hermes") is not None
     return False
@@ -1326,6 +1395,8 @@ def verify_one(client: str, args: argparse.Namespace, proof: dict[str, Any]) -> 
         return verify_grok(args, proof)
     if client == "hermes":
         return verify_hermes(args, proof)
+    if client == "kilo":
+        return verify_kilo(args, proof)
     if client == "zed":
         result = base_result("zed")
         result.update(
@@ -1367,7 +1438,7 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument(
         "--client",
         required=True,
-        choices=("claude", "codex", "codex-home", "cursor", "grok", "hermes", "zed", "all"),
+        choices=("claude", "codex", "codex-home", "cursor", "grok", "hermes", "kilo", "zed", "all"),
     )
     cli.add_argument("--plugin-root", type=resolved, default=resolved(Path(__file__).parent.parent))
     cli.add_argument("--package-root", type=resolved)
@@ -1402,7 +1473,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     policy = effective_policy(args.plugin_root, args.project_dir)
     if args.client == "all":
         results = []
-        for client in ("claude", "codex", "cursor", "grok", "hermes"):
+        for client in ("claude", "codex", "cursor", "grok", "hermes", "kilo"):
             result = verify_one(client, args, proof)
             if not result.get("present") and not client_is_in_use(client):
                 result["errors"] = []

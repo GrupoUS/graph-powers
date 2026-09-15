@@ -518,6 +518,90 @@ jobs:
             --client grok --package-root "${{ github.workspace }}" --plugin-root "${{ github.workspace }}" \
             --project-dir "$project" --check-posture --autonomy guarded
 
+  kilo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Kilo artefacts match the Claude source
+        run: python3 .github/check_kilo.py
+
+      - name: Clone installer --target kilo, from a project directory
+        run: |
+          project=$(mktemp -d)
+          fakehome=$(mktemp -d)
+          git -C "$project" init -q
+          cd "$project"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target kilo --skip-marketplace --autonomy guarded
+          python3 - "$fakehome" <<'PY'
+          import json, os, sys
+          home = sys.argv[1]
+          root = os.path.join(home, ".kilo")
+          for relative in ("agent/graph-powers.md", "command/verify.md",
+                           "plugin/graph-powers-guardrails.ts"):
+              path = os.path.join(root, relative)
+              assert os.path.isfile(path), f"missing {relative}"
+          manifest = json.load(open(os.path.join(root, "graph-powers-installed.json"), encoding="utf-8"))
+          assert manifest["complete"] is True, manifest
+          assert len(manifest["agents"]) == 12, manifest["agents"]
+          config = open(os.path.join(home, ".kilo/kilo.jsonc"), encoding="utf-8").read()
+          assert '"formatter": false' in config and '"lsp"' in config, config
+          print("kilo install wired agents, commands, plugin and config")
+          PY
+
+      - name: Kilo uninstall restores the config surface
+        run: |
+          project=$(mktemp -d)
+          fakehome=$(mktemp -d)
+          git -C "$project" init -q
+          mkdir -p "$fakehome/.kilo"
+          printf '%s\n' '{ "// sentinel": true, "model": "kilo/~openai/gpt-luna-latest" }' \
+            > "$fakehome/.kilo/kilo.jsonc"
+          cd "$project"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target kilo --skip-marketplace --autonomy guarded >/dev/null
+          test -f "$fakehome/.kilo/agent/graph-powers.md"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" --uninstall >/dev/null
+          test ! -f "$fakehome/.kilo/agent/graph-powers.md"
+          python3 - "$fakehome" <<'PY'
+          import os, sys
+          home = sys.argv[1]
+          config = open(os.path.join(home, ".kilo/kilo.jsonc"), encoding="utf-8").read()
+          assert '"model"' in config, config
+          assert '"formatter"' not in config and '"lsp"' not in config, config
+          print("uninstall removed the artefacts and restored the operator config")
+          PY
+
+      - name: Kilo runtime discovery (when the CLI is present)
+        run: |
+          if ! command -v kilo >/dev/null 2>&1; then
+            echo "kilo is not installed on this runner — the generated surface was proven structurally"
+            exit 0
+          fi
+          project=$(mktemp -d)
+          fakehome=$(mktemp -d)
+          git -C "$project" init -q
+          cd "$project"
+          HOME="$fakehome" node "${{ github.workspace }}/bin/graph-powers.mjs" \
+            --target kilo --skip-marketplace --autonomy guarded >/dev/null
+          HOME="$fakehome" kilo debug agent evaluator | tee /tmp/kilo-agent.json
+          python3 /tmp/kilo-agent.json <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert data["model"]["providerID"] == "kilo", data["model"]
+          assert data["mode"] == "subagent", data
+          assert any(p.get("permission") == "task" and p.get("action") == "deny"
+                     for p in data["permission"]), data["permission"]
+          print("kilo resolves the generated role and its leaf denial")
+          PY
+
   hook-benchmark-windows:
     runs-on: windows-latest
     steps:

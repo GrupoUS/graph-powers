@@ -7,6 +7,9 @@ belongs to `../schema/config.schema.json`; client projections belong to their ge
 
 - `hooks.json` is the only event/matcher/script declaration. Claude Code and Grok consume it;
   Codex and Cursor project it. Generate `hooks-cursor.json` through `../cursor/install.mjs`.
+  Kilo reaches the same scripts through the generated `~/.kilo/plugin/graph-powers-guardrails.ts`,
+  which carries only `PreToolUse`/`PostToolUse`; Kilo has no `Stop`, `PermissionRequest`,
+  `Notification` or `SubagentStart` event, so those registrations are omitted, not emulated.
 - `_config.py` resolves project payload → environment → git root → cwd and merges project
   configuration over the permitted operator defaults. Use its `bash_command`, `canonical_tool`,
   `file_path_from_payload` and `project_dir` helpers across client payload shapes.

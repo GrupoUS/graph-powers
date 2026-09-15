@@ -1,8 +1,8 @@
 # Execution floor
 
 This is the coordination authority. `safety-floor.md` sets non-negotiable limits; shared
-references own the detailed method. Claude, Codex, Cursor and Grok consume projections of this
-source; Hermes translates it in its native skill.
+references own the detailed method. Claude, Codex, Cursor, Grok and Kilo consume projections of
+this source; Hermes translates it in its native skill.
 
 Subagents do not inherit the parent context. Agent bodies mirror only the safety limits and return
 contract they need, with provenance comments.

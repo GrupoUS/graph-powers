@@ -34,6 +34,11 @@ import {
 import { install as installCursor } from "../cursor/install.mjs";
 import { install as installGrok } from "../grok/install.mjs";
 import {
+  globallyInstalled as kiloGloballyInstalled,
+  install as installKilo,
+  uninstall as uninstallKilo,
+} from "../kilo/install.mjs";
+import {
   proofFailure,
   verifierPath,
   verifyHookClient as runHookVerifier,
@@ -73,7 +78,7 @@ const flagValue = (name, fallback) => {
   const i = argv.indexOf(name);
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[i + 1] : fallback;
 };
-const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "both", "all"]);
+const VALID_TARGETS = new Set(["claude", "codex", "cursor", "grok", "kilo", "both", "all"]);
 const OPTIONS_WITH_VALUES = new Set([
   "--target",
   "--scope",
@@ -113,7 +118,7 @@ function validateArguments(args) {
 
   const target = flagValue("--target", null);
   if (target !== null && !VALID_TARGETS.has(target)) {
-    die(`invalid target: ${target}`, "use --target claude | codex | cursor | grok | both | all");
+    die(`invalid target: ${target}`, "use --target claude | codex | cursor | grok | kilo | both | all");
   }
 }
 
@@ -150,13 +155,17 @@ ${bold("USAGE")}
   It writes the IDE/CLI permission posture only after you have proved the plugin is present.
   Grok CLI reads \`.grok-plugin/\` and \`hooks/hooks.json\` (Claude's nested shape, not a second
   list). This script writes the active Grok home config; do not also drop user hook files.
+  Kilo reads agents, commands, skills and plugins from \`~/.kilo/\`, and its config from
+  \`~/.kilo/kilo.jsonc\` (a \`~/.config/kilo/kilo.jsonc\` is merged in too, and the home file wins a
+  conflicting key). This script writes the generated agents/commands/skills, the guardrail plugin
+  and the two managed config keys; it never touches an agent, command or skill it does not own.
   Zed has no Graph Powers hook target: it consumes project instructions/editor settings only.
 
 ${bold("OPTIONS")}
-  --target <claude|codex|cursor|grok|both|all>
+  --target <claude|codex|cursor|grok|kilo|both|all>
                                  Which harness to configure. Default: autodetect from the CLIs and
                                  their homes. \`both\` is Claude + Codex (the historical pair). \`all\`
-                                 covers the four supported hook clients; it never invents Zed hooks.
+                                 covers the five supported hook clients; it never invents Zed hooks.
   --scope <user|project|local>   Where to register. Default: user — install once, serve every
                                  project on this machine, including future ones.
                                  user    = ~/.claude/settings.json (recommended)
@@ -182,7 +191,8 @@ ${bold("OPTIONS")}
   --dry-run                      Show what it would do, without doing it.
   --skip-marketplace             Skip registering the marketplace (already registered).
   --update                       Pull the latest commit into this clone and reinstall from it.
-  --uninstall                    Remove the generated Codex artefacts recorded by a previous run.
+  --uninstall                    Remove the generated Codex artefacts recorded by a previous run,
+                                 and the Kilo artefacts recorded by theirs.
                                  Cursor's ~/.cursor/permissions.json and Grok's ~/.grok/config.toml
                                  are operator posture and stay.
   --agent-setup                  Print the prompt that hands AGENT_SETUP.md to the agent, and exit.
@@ -296,6 +306,8 @@ const cursorHome = existsSync(join(homedir(), ".cursor"));
 const grokVersion = cliVersion("grok");
 const grokHomeDir = process.env.GROK_HOME || join(homedir(), ".grok");
 const grokHome = existsSync(grokHomeDir);
+const kiloVersion = cliVersion("kilo");
+const kiloHome = existsSync(join(homedir(), ".kilo"));
 
 const targetWasAsked = flagValue("--target", null) !== null;
 let target = flagValue("--target", null);
@@ -303,18 +315,27 @@ let wantClaude;
 let wantCodex;
 let wantCursor;
 let wantGrok;
+let wantKilo;
 if (targetWasAsked) {
   wantClaude = target === "claude" || target === "both" || target === "all";
   wantCodex = target === "codex" || target === "both" || target === "all";
   wantCursor = target === "cursor" || target === "all";
   wantGrok = target === "grok" || target === "all";
+  wantKilo = target === "kilo" || target === "all";
 } else {
   wantClaude = Boolean(claudeVersion);
   wantCodex = Boolean(codexVersion);
   wantCursor = Boolean(cursorVersion || cursorHome);
   wantGrok = Boolean(grokVersion || grokHome);
+  wantKilo = Boolean(kiloVersion || kiloHome);
   target =
-    [wantClaude && "claude", wantCodex && "codex", wantCursor && "cursor", wantGrok && "grok"]
+    [
+      wantClaude && "claude",
+      wantCodex && "codex",
+      wantCursor && "cursor",
+      wantGrok && "grok",
+      wantKilo && "kilo",
+    ]
       .filter(Boolean)
       .join("+") || "none";
 }
@@ -410,9 +431,19 @@ if (has("--update")) {
 
 // ── uninstall ────────────────────────────────────────────────────────────────
 if (has("--uninstall")) {
-  console.log(`\n${bold("graph-powers")} ${dim("— removing generated Codex artefacts")}`);
+  console.log(`\n${bold("graph-powers")} ${dim("— removing generated Codex and Kilo artefacts")}`);
   const removed = uninstallCodex({ projectDir: cwd, dryRun, log: (p) => info(p) });
-  ok(`${removed.length} path(s) removed; third-party hook entries untouched`);
+  ok(`${removed.length} Codex path(s) removed; third-party hook entries untouched`);
+  // Kilo records its own manifest, so it is removed from its own record rather than from Codex's.
+  // Containment is enforced inside: a corrupted manifest cannot become an rm -rf outside ~/.kilo.
+  const kiloRemoved = uninstallKilo({
+    pluginRoot: PLUGIN_ROOT,
+    scope: scope === "user" ? "user" : "project",
+    projectDir: cwd,
+    dryRun,
+    log: (p) => info(String(p).replace(homedir(), "~")),
+  });
+  ok(`${kiloRemoved.removed.length} Kilo path(s) removed; managed config keys restored`);
   info("The Claude Code plugin is removed with `claude plugin uninstall graph-powers`.");
   info("Cursor's ~/.cursor/permissions.json is operator posture and is not removed.");
   info("Grok's ~/.grok/config.toml is operator posture and is not removed.");
@@ -1003,6 +1034,7 @@ steps.push("autonomy");
 if (wantCodex) steps.push("codex");
 if (wantCursor) steps.push("cursor");
 if (wantGrok) steps.push("grok");
+if (wantKilo) steps.push("kilo");
 if (setupOxc) steps.push("oxc");
 if (wantConfig) steps.push("config");
 steps.push("verify");
@@ -1010,7 +1042,7 @@ const TOTAL = steps.length + 1;
 let n = 0;
 
 console.log(
-  `\n${bold("Graph Powers")} ${dim("— shared harness for Claude Code, Codex CLI, Cursor and Grok")}`,
+  `\n${bold("Graph Powers")} ${dim("— shared harness for Claude Code, Codex CLI, Cursor, Grok and Kilo")}`,
 );
 if (dryRun) console.log(yellow("  dry-run: nothing will be changed"));
 
@@ -1037,13 +1069,16 @@ step(++n, TOTAL, "Checking the environment");
   if (grokVersion) ok(`grok ${grokVersion}`);
   else if (grokHome) ok(`Grok home present (${grokHomeDir})`);
   else info("grok not found");
+  if (kiloVersion) ok(`kilo ${kiloVersion}`);
+  else if (kiloHome) ok("Kilo home present (~/.kilo)");
+  else info("kilo not found");
   // A missing CLI is only fatal when nobody said what to wire. With an explicit `--target` the
   // request is unambiguous, and generating the artefacts for a CLI that is not installed yet is a
   // real use: a container image, a CI runner, a machine being prepared for someone else.
-  if (!wantClaude && !wantCodex && !wantCursor && !wantGrok && !targetWasAsked) {
+  if (!wantClaude && !wantCodex && !wantCursor && !wantGrok && !wantKilo && !targetWasAsked) {
     die(
-      "neither `claude`, `codex`, Cursor, nor Grok was found.",
-      "Install Claude Code, Codex CLI, Cursor or Grok CLI first, " +
+      "neither `claude`, `codex`, Cursor, Grok nor Kilo was found.",
+      "Install Claude Code, Codex CLI, Cursor, Grok CLI or Kilo first, " +
         "or pass --target to write the artefacts anyway.",
     );
   }
@@ -1052,7 +1087,7 @@ step(++n, TOTAL, "Checking the environment");
     // without it, so there is nothing to generate ahead of time.
     die(
       "--target includes claude, but the `claude` CLI is not on PATH.",
-      "Use --target codex, --target cursor or --target grok, or install Claude Code.",
+      "Use --target codex, --target cursor, --target grok or --target kilo, or install Claude Code.",
     );
   }
   if (wantCodex && !codexVersion) {
@@ -1065,6 +1100,9 @@ step(++n, TOTAL, "Checking the environment");
   }
   if (wantGrok && !grokVersion && !grokHome) {
     warn(`Grok is not on PATH and ${grokHomeDir} is absent — clone discovery will be configured.`);
+  }
+  if (wantKilo && !kiloVersion && !kiloHome) {
+    warn("Kilo is not on PATH and ~/.kilo is absent — the artefacts will still be written.");
   }
 
   // 3.10 is the real floor: several hooks use `X | None` in annotations evaluated at import time.
@@ -1365,9 +1403,46 @@ if (wantGrok) {
   }
 }
 
-if (setupOxc) {
-  step(++n, TOTAL, "Installing and configuring Oxc");
+// Kilo is generated, not patched: agents, commands and skills come from the canonical files, and
+// the plugin only carries the events Kilo actually triggers (there is no Stop and no workflow
+// runtime, so `stop_verify.py` and `Workflow(...)` have no projection here).
+if (wantKilo) {
+  const level = scope === "user" ? "user" : "project";
+  step(++n, TOTAL, `Generating Kilo artefacts ${dim(`(scope: ${level})`)}`);
   try {
+    if (dryRun) {
+      const planned = installKilo({
+        pluginRoot: PLUGIN_ROOT,
+        scope: level,
+        projectDir: cwd,
+        dryRun: true,
+        log: () => {},
+      });
+      info(`dry-run: ${planned.planned.length} path(s) would be written under ~/.kilo`);
+    } else {
+      const already = level === "user" ? kiloGloballyInstalled(PLUGIN_ROOT) : { installed: false };
+      if (already.installed && already.sameVersion && !has("--force")) {
+        ok(`Kilo artefacts already at ${already.version} — regenerated from this clone only`);
+      }
+      const result = installKilo({
+        pluginRoot: PLUGIN_ROOT,
+        scope: level,
+        projectDir: cwd,
+        force: has("--force"),
+        log: (p) => info(String(p).replace(homedir(), "~")),
+      });
+      ok(`${result.written.length} Kilo path(s) written · ${result.agents.length} roles`);
+      info("Agents, commands and skills live in ~/.kilo; the config keys are lsp and formatter.");
+      info("The guardrail plugin fires on tool.execute.before/after — Kilo has no Stop hook.");
+      for (const message of result.unavailable) warn(message);
+    }
+  } catch (e) {
+    die(`failed to wire Kilo: ${e.message}`);
+  }
+}
+
+if (setupOxc) {
+  step(++n, TOTAL, "Installing and configuring Oxc");  try {
     const result = runOxcSetup({
       projectDir: cwd,
       pluginRoot: PLUGIN_ROOT,
@@ -1442,6 +1517,20 @@ if (wantGrok && !dryRun) {
     info("Grok left on guarded posture (no always-approve write)");
   }
   info("Restart the Grok session. Hooks and skills are read at startup.");
+}
+
+if (wantKilo && !dryRun) {
+  const state = scope === "user" ? kiloGloballyInstalled(PLUGIN_ROOT) : { installed: false };
+  if (state.installed && state.complete) {
+    ok(`${Object.keys(state.agents ?? {}).length} Kilo roles recorded, manifest complete`);
+  } else if (state.installed) {
+    warn("the Kilo manifest is incomplete or its artefacts are missing — re-run the installer.");
+  } else if (scope === "project") {
+    ok("Kilo project artefacts written into .kilo/");
+  } else {
+    warn("no Kilo manifest was written — check the output above.");
+  }
+  info("Restart the Kilo session: agents, commands, skills and plugins are read at startup.");
 }
 
 console.log(`

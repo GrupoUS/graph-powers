@@ -15,6 +15,8 @@ REQUIRED = [
     "codex/install.mjs", "codex/lib.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
     "cursor/install.mjs",
     "grok/install.mjs",
+    "kilo/install.mjs", "kilo/lib.mjs", "kilo/model-policy.json", "kilo/model-policy.mjs",
+    ".github/check_kilo.py",
     "hermes/install.mjs", "hermes/skills/graph-engineering/SKILL.md", "plugin.yaml", "__init__.py",
     "hooks/hooks.json", "hooks/_config.py", "hooks/test_hooks.py", "hooks/auto_update.py",
     ".github/check_oxc_policy.py", ".oxlintrc.json", ".oxfmtrc.json",

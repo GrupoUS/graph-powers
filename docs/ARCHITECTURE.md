@@ -208,8 +208,8 @@ were.
 
 ## 8. Five harnesses, one source
 
-**Decided:** everything Codex, Cursor and Grok needs is *generated* from the artefacts that already
-exist for Claude Code; Hermes receives a native projection from those same directories.
+**Decided:** everything Codex, Cursor, Grok and Kilo needs is *generated* from the artefacts that
+already exist for Claude Code; Hermes receives a native projection from those same directories.
 
 It turned out to be cheaper than expected: Codex hooks use the same event names and stdin payload,
 so the thirteen Python files run unchanged. One script is registered twice:

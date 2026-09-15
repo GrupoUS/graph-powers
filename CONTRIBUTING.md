@@ -171,7 +171,7 @@ historical-record exclusions; do not copy its regex into documentation or CI.
 ## After approving
 
 The change reaches the projects on the next plugin update (`claude plugin update graph-powers`, plus
-`node <clone>/bin/graph-powers.mjs --target all` for the generated Codex, Cursor and Grok sides). There is no gradual rollout: either it is
+`node <clone>/bin/graph-powers.mjs --target all` for the generated Codex, Cursor, Grok and Kilo sides). There is no gradual rollout: either it is
 published or it is not.
 
 If something got through and broke, the path is to revert in the repository and publish again — not
