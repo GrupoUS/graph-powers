@@ -3,9 +3,12 @@
 > What actually stops you, and where the rule that stops you is written. Read the canonical source
 > before applying — this is a map, not the text.
 
-The distinction that matters: the first table **denies**, in code, whether or not anyone read it.
-The second table is convention — real, but enforced by attention. An index that mixes them teaches
-people to expect a block that never comes, or to be surprised by one that does.
+The distinction that matters: the first table **denies**, in code, whether or not anyone read it,
+**on clients that dispatch** `hooks/hooks.json`. The second table is convention — real, but
+enforced by attention. An index that mixes them teaches people to expect a block that never
+comes, or to be surprised by one that does. On Grok, plugin PreToolUse is `UNVERIFIED` until
+DISPATCH (`hook_name=plugin/graph-powers` in the Grok hooks log); inspect and a Python probe
+are not that proof.
 
 ### Enforced — hooks, declared in `hooks/hooks.json`
 

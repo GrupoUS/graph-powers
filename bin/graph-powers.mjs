@@ -1397,7 +1397,7 @@ if (wantGrok) {
       `${grokHomeDir}/config.toml is user-only. permission_mode cannot live in a project .grok/.`,
     );
     info("Do not also write user hooks/*.json under the Grok home — plugin hooks would run twice.");
-    info("Git commit and push still ask. rm -rf / still denies.");
+    info("Grok plugin PreToolUse is UNVERIFIED until hook_name=plugin/graph-powers appears in the hooks log.");
   } catch (e) {
     die(`failed to wire Grok: ${e.message}`);
   }
@@ -1416,6 +1416,7 @@ if (wantKilo) {
         scope: level,
         projectDir: cwd,
         dryRun: true,
+        autonomy: autonomyLevel,
         log: () => {},
       });
       info(`dry-run: ${planned.planned.length} path(s) would be written under ~/.kilo`);
@@ -1429,10 +1430,17 @@ if (wantKilo) {
         scope: level,
         projectDir: cwd,
         force: has("--force"),
+        autonomy: autonomyLevel,
         log: (p) => info(String(p).replace(homedir(), "~")),
       });
       ok(`${result.written.length} Kilo path(s) written · ${result.agents.length} roles`);
-      info("Agents, commands and skills live in ~/.kilo; the config keys are lsp and formatter.");
+      info("Agents, commands and skills live in ~/.kilo; the config keys are lsp, formatter and the permission posture.");
+      if (result.permissionChanged?.length) {
+        ok(
+          `Kilo approval posture → allow (${result.permissionChanged.join(", ")}); ` +
+            "the destructive floor and git gates are unchanged",
+        );
+      }
       info("The guardrail plugin fires on tool.execute.before/after — Kilo has no Stop hook.");
       for (const message of result.unavailable) warn(message);
     }

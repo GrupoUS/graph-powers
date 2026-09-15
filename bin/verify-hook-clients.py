@@ -6,7 +6,8 @@ then validates the package at the exact recorded path against the canonical hook
 that package. It never installs, updates, deletes, enables, trusts, or rewrites anything.
 
 Exit 0 means every requested, present client has a valid package or an explicitly reported absent
-runtime. Exit 1 means a client must not be switched to bypass/unrestricted/always-approve.
+runtime, including Grok ``UNVERIFIED`` dispatch. Exit 1 means a requested present client is ``FAIL``
+and must not be switched to bypass/unrestricted/always-approve.
 ``--json`` keeps the contract stable for the JavaScript installer and CI.
 """
 
@@ -78,10 +79,29 @@ def warn(result: dict[str, Any], message: str) -> None:
     result["warnings"].append(message)
 
 
-def finish(result: dict[str, Any]) -> dict[str, Any]:
-    result["ok"] = not result["errors"]
-    result["status"] = "PASS" if result["ok"] else "FAIL"
+def finish(result: dict[str, Any], *, status: str | None = None) -> dict[str, Any]:
+    if result["errors"]:
+        result["ok"] = False
+        result["status"] = "FAIL"
+        return result
+    result["ok"] = True
+    result["status"] = status or "PASS"
     return result
+
+
+def failed_clients(results: list[dict[str, Any]]) -> list[str]:
+    return [row["client"] for row in results if row.get("status") == "FAIL"]
+
+
+def clients_ok(results: list[dict[str, Any]]) -> bool:
+    return not failed_clients(results)
+
+
+def aggregate_line(results: list[dict[str, Any]]) -> str:
+    failed = failed_clients(results)
+    if not failed:
+        return "hook clients: PASS"
+    return "hook clients: FAIL (" + ", ".join(failed) + ")"
 
 
 def python3_proof() -> dict[str, Any]:
@@ -1096,12 +1116,12 @@ def grok_runtime_document(args: argparse.Namespace) -> tuple[Any | None, str | N
 
 
 def grok_runtime_active(result: dict[str, Any], args: argparse.Namespace) -> None:
-    """Prove Grok loaded this exact package declaration; it does not execute hooks."""
+    """Prove Grok discovered this exact package declaration. That is not dispatcher evidence."""
     document, inspect_error = grok_runtime_document(args)
     runtime: dict[str, Any] = {
         "checked": True,
         "active": False,
-        "discovery": "plugin declaration loaded; hook execution remains runtime-managed by Grok",
+        "discovery": "inspect lists the plugin hooks file; it does not prove Grok dispatched it",
     }
     result["runtime"] = runtime
     if inspect_error:
@@ -1175,6 +1195,88 @@ def grok_runtime_active(result: dict[str, Any], args: argparse.Namespace) -> Non
     runtime["active"] = True
 
 
+PLUGIN_DISPATCH_NEEDLE = "hook_name=plugin/graph-powers"
+
+
+def grok_dispatch_proof(result: dict[str, Any], args: argparse.Namespace) -> None:
+    """DISPATCH is a Grok hooks log showing plugin/graph-powers, not inspect or a Python probe."""
+    proof: dict[str, Any] = {
+        "checked": False,
+        "active": False,
+        "status": "UNVERIFIED",
+        "source": None,
+        "evidence": (
+            "plugin PreToolUse dispatch is UNVERIFIED until the Grok hooks log contains "
+            + PLUGIN_DISPATCH_NEEDLE
+        ),
+    }
+    log_path = args.grok_hooks_log
+    if log_path is not None:
+        proof["checked"] = True
+        proof["source"] = str(log_path)
+        try:
+            text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            proof["status"] = "FAIL"
+            proof["error"] = str(exc)
+            fail(result, f"Grok hooks log is unreadable: {exc}")
+            result["dispatch"] = proof
+            return
+        if PLUGIN_DISPATCH_NEEDLE in text:
+            proof["active"] = True
+            proof["status"] = "PASS"
+            proof["evidence"] = PLUGIN_DISPATCH_NEEDLE
+        else:
+            proof["evidence"] = (
+                "Grok hooks log has no hook_name=plugin/graph-powers "
+                "(settings or user ~/.grok/hooks entries are not plugin dispatch)"
+            )
+    result["dispatch"] = proof
+    if args.require_grok_dispatch and not proof["active"]:
+        proof["checked"] = True
+        fail(
+            result,
+            "Grok plugin hook dispatch is UNVERIFIED: no hook_name=plugin/graph-powers "
+            "in the Grok hooks log",
+        )
+
+
+def finalize_grok(package: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    inspect_failed = bool(package["errors"])
+    if args.check_posture:
+        grok_posture(package, args)
+    layers = {
+        "package": "FAIL" if inspect_failed else "PASS",
+        "discovery": "SKIPPED",
+        "dispatch": "UNVERIFIED",
+    }
+    if args.require_grok_runtime:
+        grok_runtime_active(package, args)
+        layers["discovery"] = (
+            "PASS" if (package.get("runtime") or {}).get("active") else "FAIL"
+        )
+    if args.probe_guardrail and package.get("root"):
+        probe_guardrail(package, resolved(package["root"]))
+        if package.get("probe") and not package["probe"].get("ok"):
+            layers["package"] = "FAIL"
+    grok_dispatch_proof(package, args)
+    layers["dispatch"] = str((package.get("dispatch") or {}).get("status") or "UNVERIFIED")
+    package["layers"] = layers
+    if layers["dispatch"] == "UNVERIFIED":
+        warn(
+            package,
+            str(
+                (package.get("dispatch") or {}).get("evidence")
+                or "Grok plugin dispatch is UNVERIFIED"
+            ),
+        )
+    if package["errors"]:
+        return finish(package)
+    if layers["dispatch"] != "PASS":
+        return finish(package, status="UNVERIFIED")
+    return finish(package)
+
+
 def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[str, Any]:
     if args.package_root:
         package = inspect_package(
@@ -1234,13 +1336,7 @@ def verify_grok(args: argparse.Namespace, python_proof: dict[str, Any]) -> dict[
         )
         package["route"] = "native"
         package["inventoryPath"] = str(resolved(root_value))
-    if args.check_posture:
-        grok_posture(package, args)
-    if args.require_grok_runtime:
-        grok_runtime_active(package, args)
-    if args.probe_guardrail and package.get("root"):
-        probe_guardrail(package, resolved(package["root"]))
-    return finish(package)
+    return finalize_grok(package, args)
 
 
 def probe_guardrail(result: dict[str, Any], root: Path) -> None:
@@ -1423,12 +1519,23 @@ def human_line(result: dict[str, Any]) -> str:
     if registrations is None:
         registrations = result.get("registrations")
     if registrations is not None:
-        label = (
-            "hooks" if result.get("hooks", {}).get("registrations") is not None else "registrations"
-        )
-        details.append(f"{registrations} {label}")
+        if result.get("client") == "grok":
+            details.append(f"{registrations} registrations")
+        else:
+            label = (
+                "hooks"
+                if result.get("hooks", {}).get("registrations") is not None
+                else "registrations"
+            )
+            details.append(f"{registrations} {label}")
     if result.get("route"):
         details.append(str(result["route"]))
+    layers = result.get("layers")
+    if isinstance(layers, dict) and layers:
+        details.append(
+            f"package {layers.get('package')}, discovery {layers.get('discovery')}, "
+            f"dispatch {layers.get('dispatch')}"
+        )
     suffix = f" — {', '.join(details)}" if details else ""
     return f"{result['client']:7} {result['status']}{suffix}"
 
@@ -1450,7 +1557,9 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--expected-version")
     cli.add_argument("--check-posture", action="store_true")
     cli.add_argument("--require-grok-runtime", action="store_true")
+    cli.add_argument("--require-grok-dispatch", action="store_true")
     cli.add_argument("--grok-inspect-file", type=resolved)
+    cli.add_argument("--grok-hooks-log", type=resolved)
     cli.add_argument("--autonomy", choices=("auto", "autonomous", "guarded"), default="auto")
     cli.add_argument("--probe-guardrail", action="store_true")
     cli.add_argument("--json", action="store_true")
@@ -1483,10 +1592,11 @@ def main(argv: Iterable[str] | None = None) -> int:
             results.append(result)
         results.append(verify_one("zed", args, proof))
         body: dict[str, Any] = {
-            "ok": all(result["ok"] for result in results),
+            "ok": clients_ok(results),
             "python": proof,
             "policy": policy,
             "clients": results,
+            "failed": failed_clients(results),
         }
     else:
         body = verify_one(args.client, args, proof)
@@ -1519,7 +1629,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             for message in result.get("warnings", []):
                 print(f"  NOTE: {message}")
         if args.client == "all":
-            print("hook clients: PASS" if body["ok"] else "hook clients: FAIL")
+            print(aggregate_line(rows))
     return 0 if body["ok"] else 1
 
 

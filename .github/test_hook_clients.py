@@ -485,6 +485,198 @@ def test_grok_runtime_proof_requires_active_exact_plugin_hooks() -> None:
         assert cwd_record.read_text(encoding="utf-8") == str(project), body
 
 
+def _grok_active_inspect(package: Path) -> dict[str, Any]:
+    return {
+        "externalCompat": {
+            "cells": [{"vendor": "claude", "surface": "hooks", "enabled": True}]
+        },
+        "plugins": [
+            {
+                "name": "graph-powers",
+                "path": str(package),
+                "enabled": True,
+                "provides": {"hooks": True},
+            }
+        ],
+        "hooks": [
+            {
+                "event": "(plugin)",
+                "hookType": "file",
+                "target": str(package / "hooks/hooks.json"),
+                "source": {
+                    "type": "plugin",
+                    "plugin_name": "graph-powers",
+                    "path": str(package),
+                },
+            }
+        ],
+    }
+
+
+def test_grok_probe_and_inspect_do_not_claim_dispatch_pass() -> None:
+    """Inspect plus an isolated git_commit_gate probe is not Grok dispatcher evidence."""
+    with tempfile.TemporaryDirectory(prefix="gp-client-grok-dispatch-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        package = copy_package(base / "grok-package")
+        version = json.loads((package / ".grok-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+        inventory = base / "grok-plugins.json"
+        inspect = base / "grok-inspect.json"
+        write_json(
+            inventory,
+            [{"status": "installed", "name": "graph-powers", "version": version, "path": str(package)}],
+        )
+        write_json(inspect, _grok_active_inspect(package))
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+            "--probe-guardrail",
+        )
+        assert result.returncode == 0, body
+        assert body["status"] == "UNVERIFIED", body
+        assert body["ok"] is True, body
+        assert body["layers"] == {
+            "package": "PASS",
+            "discovery": "PASS",
+            "dispatch": "UNVERIFIED",
+        }, body
+        assert body["runtime"]["active"] is True, body
+        assert body["probe"]["ok"] is True, body
+        assert body["dispatch"]["active"] is False, body
+        human = subprocess.run(
+            [
+                sys.executable,
+                str(VERIFY),
+                "--client",
+                "grok",
+                "--plugin-root",
+                str(ROOT),
+                "--inventory-file",
+                str(inventory),
+                "--require-grok-runtime",
+                "--grok-inspect-file",
+                str(inspect),
+                "--probe-guardrail",
+            ],
+            cwd=ROOT,
+            env=environment(home),
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=60,
+        )
+        grok_line = next(
+            (line for line in human.stdout.splitlines() if line.startswith("grok")),
+            "",
+        )
+        assert grok_line.startswith("grok    UNVERIFIED"), human.stdout
+        assert "16 hooks" not in grok_line, grok_line
+        assert "dispatch UNVERIFIED" in grok_line, grok_line
+        assert " PASS —" not in grok_line, grok_line
+
+
+def test_grok_dispatch_pass_requires_plugin_hook_name_in_log() -> None:
+    with tempfile.TemporaryDirectory(prefix="gp-client-grok-log-") as raw:
+        base = Path(raw)
+        home = base / "home"
+        package = copy_package(base / "grok-package")
+        version = json.loads((package / ".grok-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+        inventory = base / "grok-plugins.json"
+        inspect = base / "grok-inspect.json"
+        write_json(
+            inventory,
+            [{"status": "installed", "name": "graph-powers", "version": version, "path": str(package)}],
+        )
+        write_json(inspect, _grok_active_inspect(package))
+        settings_log = base / "settings-only.log"
+        settings_log.write_text(
+            "hook_name=global/graph-powers-auto-update:session_start[0].hooks[0]\n"
+            "hooks.dispatch{hook_event=pre_tool_use hook_count=4}:"
+            "hook.run{hook_name=project/settings:pre_tool_use[0].hooks[0]}\n",
+            encoding="utf-8",
+        )
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+            "--grok-hooks-log",
+            str(settings_log),
+        )
+        assert result.returncode == 0, body
+        assert body["status"] == "UNVERIFIED", body
+        assert body["layers"]["dispatch"] == "UNVERIFIED", body
+
+        plugin_log = base / "plugin-dispatch.log"
+        plugin_log.write_text(
+            "hooks.dispatch{hook_event=pre_tool_use hook_count=11}:"
+            "hook.run{hook_name=plugin/graph-powers:pre_tool_use[0].hooks[0] "
+            "hook_event=pre_tool_use}\n",
+            encoding="utf-8",
+        )
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+            "--grok-hooks-log",
+            str(plugin_log),
+        )
+        assert result.returncode == 0, body
+        assert body["status"] == "PASS", body
+        assert body["layers"]["dispatch"] == "PASS", body
+        assert body["dispatch"]["active"] is True, body
+
+        result, body = verify(
+            home,
+            "grok",
+            "--inventory-file",
+            str(inventory),
+            "--require-grok-runtime",
+            "--grok-inspect-file",
+            str(inspect),
+            "--require-grok-dispatch",
+        )
+        assert result.returncode != 0, body
+        assert body["status"] == "FAIL", body
+        assert any("dispatch" in message.lower() for message in body["errors"]), body
+
+
+def test_client_all_names_failed_clients_without_rewriting_grok() -> None:
+    spec = importlib.util.spec_from_file_location("graph_powers_verify_hook_clients", VERIFY)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    rows = [
+        {"client": "grok", "status": "UNVERIFIED", "ok": True, "present": True},
+        {"client": "hermes", "status": "FAIL", "ok": False, "present": True},
+        {"client": "cursor", "status": "FAIL", "ok": False, "present": True},
+        {"client": "zed", "status": "NOT ENFORCED", "ok": True, "present": True},
+    ]
+    failed = module.failed_clients(rows)
+    assert failed == ["hermes", "cursor"], failed
+    assert module.clients_ok(rows) is False
+    assert (
+        module.aggregate_line(rows)
+        == "hook clients: FAIL (hermes, cursor)"
+    )
+    grok_only = [row for row in rows if row["client"] == "grok"]
+    assert module.clients_ok(grok_only) is True
+    assert module.aggregate_line(grok_only) == "hook clients: PASS"
+
+
 def test_codex_home_distinguishes_blocked_from_inert_missing_paths() -> None:
     with tempfile.TemporaryDirectory(prefix="gp-codex-home-audit-") as raw:
         base = Path(raw)
@@ -1070,6 +1262,17 @@ def test_standalone_grok_installer_rejects_stale_clone() -> None:
         assert "fail-open" in result.stderr, result.stderr
 
 
+def test_grok_updater_is_not_a_second_hook_list() -> None:
+    script = (ROOT / "grok/update-graph-powers.py").read_text(encoding="utf-8")
+    assert "INTERVAL_SECONDS = 15 * 60" in script
+    assert '"plugin", "update"' in script
+    unit = (ROOT / "grok/graph-powers-grok-update.service").read_text(encoding="utf-8")
+    assert "PLUGIN_ROOT" in unit
+    assert "update-graph-powers.py" in unit
+    timer = (ROOT / "grok/graph-powers-grok-update.timer").read_text(encoding="utf-8")
+    assert "15min" in timer
+
+
 def test_auto_update_worker_never_replaces_grok_cache() -> None:
     module_path = ROOT / "hooks/auto_update.py"
     spec = importlib.util.spec_from_file_location("graph_powers_auto_update_test", module_path)
@@ -1336,6 +1539,9 @@ def main() -> int:
         test_cursor_rejects_corrupt_and_ambiguous_cache_entries,
         test_grok_inventory_and_posture_use_grok_home,
         test_grok_runtime_proof_requires_active_exact_plugin_hooks,
+        test_grok_probe_and_inspect_do_not_claim_dispatch_pass,
+        test_grok_dispatch_pass_requires_plugin_hook_name_in_log,
+        test_client_all_names_failed_clients_without_rewriting_grok,
         test_codex_home_distinguishes_blocked_from_inert_missing_paths,
         test_codex_references_follow_the_active_home,
         test_incomplete_codex_clone_install_is_repaired,
@@ -1346,6 +1552,7 @@ def main() -> int:
         test_installer_only_bootstraps_after_a_valid_empty_grok_inventory,
         test_standalone_cursor_installer_requires_verified_cache,
         test_standalone_grok_installer_rejects_stale_clone,
+        test_grok_updater_is_not_a_second_hook_list,
         test_auto_update_worker_never_replaces_grok_cache,
         test_installer_refuses_stale_claude_before_bypass,
         test_installer_validates_operations_before_side_effects,

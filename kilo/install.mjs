@@ -37,6 +37,7 @@ import {
   kiloConfigFiles,
   kiloHome,
   kiloPaths,
+  mergeConfigPermission,
   parseJsonc,
   readText,
   removeManagedKeys,
@@ -537,6 +538,31 @@ export function managedConfigKeys({ resolveCommand }) {
   };
 }
 
+/**
+ * The Kilo CLI approval posture under `autonomy.level: autonomous`.
+ *
+ * Kilo has no `PermissionRequest` event, so the guardrail plugin cannot auto-approve anything: it
+ * only blocks. Every command the classifier does not recognise therefore reaches the operator as a
+ * prompt until the *config* says otherwise. `permission` is that config, and these keys are the
+ * surface the installed SDK exposes — `edit`, `bash`, `webfetch`, `external_directory` and
+ * `doom_loop` — plus the `"*"` catch-all that covers every tool outside those five. Writing all of
+ * them is what "autonomous" means on Kilo; leaving one behind is a prompt flood on that tool.
+ *
+ * This is posture only. The destructive floor, the git gates and the per-role `permission` denials
+ * in the generated agents still hold: Kilo resolves the last matching rule, an agent's own rules
+ * are appended after the config's, and — the reason shadowing an XDG `permission` is safe — the
+ * guardrail plugin, not the permission list, is the boundary the gates actually run in.
+ */
+export const AUTONOMOUS_PERMISSION = {
+  edit: "allow",
+  bash: "allow",
+  webfetch: "allow",
+  external_directory: "allow",
+  doom_loop: "allow",
+  "*": { "*": "allow" },
+};
+
+
 /** Resolve a command without executing it: PATH first, then the project's own node_modules. */
 export function defaultResolver(projectDir) {
   return (name) => {
@@ -636,6 +662,7 @@ export function install({
   dryRun = false,
   force = false,
   settings = null,
+  autonomy = "autonomous",
   log = () => {},
 } = {}) {
   const paths = kiloPaths(scope, projectDir, pluginRoot);
@@ -752,10 +779,45 @@ export function install({
         "merge it by hand or remove the key, then re-run",
     );
   }
-  const configChanged = merged.changed.length > 0;
+
+  // The approval posture is separate from the managed keys: `permission` belongs to the operator,
+  // so it is merged sub-key by sub-key and never recorded as ours. An XDG `permission` is shadowed
+  // rather than skipped — the home file wins a conflicting top-level key, and an operator who ran
+  // `--autonomy autonomous` asked for exactly this. It is safe because the permission list is not
+  // the boundary: the guardrail plugin, the git gates and the generated agents' own denials are,
+  // and all three still run. Silent skipping is the failure mode where the setting looks broken.
+  const autonomous = autonomy === true || String(autonomy).toLowerCase() === "autonomous";
+  let permissionChanged = [];
+  let nextText = merged.text;
+  if (scope === "user" && autonomous) {
+    const definedElsewhere = kiloConfigFiles().slice(1).some((other) => {
+      if (!existsSync(other)) return false;
+      try {
+        return Object.hasOwn(parseJsonc(readText(other)), "permission");
+      } catch {
+        return false;
+      }
+    });
+    if (definedElsewhere) {
+      unavailable.push(
+        "the XDG Kilo config defines `permission`; the home posture shadows it. The guardrail plugin is still the boundary",
+      );
+    }
+    const permission = mergeConfigPermission(nextText, AUTONOMOUS_PERMISSION);
+    if (permission.conflicts.length) {
+      throw new Error(
+        `Kilo config defines ${permission.conflicts.join(", ")} as a non-object; ` +
+          "make it an object or remove the key, then re-run",
+      );
+    }
+    nextText = permission.text;
+    permissionChanged = permission.changed;
+  }
+
+  const configChanged = merged.changed.length > 0 || permissionChanged.length > 0;
   if (configChanged) {
     log(paths.config);
-    if (!dryRun) writeFile(paths.config, merged.text.endsWith("\n") ? merged.text : `${merged.text}\n`);
+    if (!dryRun) writeFile(paths.config, nextText.endsWith("\n") ? nextText : `${nextText}\n`);
     written.push(paths.config);
   }
   if (unavailable.length) for (const message of unavailable) log(`  ! ${message}`);
@@ -784,6 +846,7 @@ export function install({
     agents: agents.map(({ name, policy }) => Object.assign({ name }, policy)),
     configChanged,
     configConflicts: merged.conflicts,
+    permissionChanged,
     unavailable,
     manifest: paths.manifest,
     complete: !dryRun,
@@ -881,8 +944,14 @@ function main() {
   const dryRun = argv.includes("--dry-run");
   const scope = argValue(argv, "--scope", "user");
   const projectDir = resolve(argValue(argv, "--project", process.cwd()));
+  const autonomy = argValue(argv, "--autonomy", "autonomous");
   if (!["user", "project"].includes(scope)) {
     console.error(`invalid scope: ${scope} (use user|project)`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!["autonomous", "guarded"].includes(autonomy)) {
+    console.error(`invalid autonomy: ${autonomy} (use autonomous|guarded)`);
     process.exitCode = 1;
     return;
   }
@@ -897,6 +966,7 @@ function main() {
       projectDir,
       dryRun,
       force: argv.includes("--force"),
+      autonomy,
       log: (m) => console.log(`  ${m}`),
     });
     if (argv.includes("--json")) {

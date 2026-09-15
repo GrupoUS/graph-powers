@@ -51,7 +51,9 @@ own worktree fingerprint.
   decides; unavailable tooling is an explicit fail-open skip, never a passing check.
 - Claude can block Stop. Cursor uses its generated client marker and bounded follow-ups (limit 5).
   Codex has a Stop schema contract; Desktop/exec/UX/blocking parity is **NOT CONFIRMED**. Grok Stop
-  remains passive. No Git-native dispatcher or staged-snapshot execution is active.
+  remains passive. Grok plugin PreToolUse is **UNVERIFIED** until the dispatcher expands
+  `hooks/hooks.json` (`hook_name=plugin/graph-powers`); do not copy that file into the Grok
+  user-hooks directory. No Git-native dispatcher or staged-snapshot execution is active.
 - `session_context.py` supplies gate discovery and short conditional pointers. `subagent_context.py`
   supplies the solution ladder to children; it never waits indefinitely for stdin. Keep their
   output bounds and mirrors consistent with the canonical references.

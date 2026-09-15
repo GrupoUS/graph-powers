@@ -14,11 +14,14 @@
  *
  * Do not also write ~/.grok/hooks/*.json. That is how native plugin hooks and a clone copy
  * run twice. Point Grok at the plugin directory; let hooks/hooks.json be the one source.
+ * Optional Grok cache refresh is grok/update-graph-powers.py plus the systemd examples in
+ * this directory; this installer never writes the user-hooks directory.
  *
  * Do not write `[permission] deny` for git commit/push. The Python gates own that, and a TOML
  * deny would block the opt-in key. `permission_mode = "always-approve"` is the confirmation
- * lever; PreToolUse deny still blocks. Project `.grok/config.toml` cannot set permission_mode —
- * that key is user config only (`~/.grok/config.toml` or `$GROK_HOME/config.toml`).
+ * lever. Plugin PreToolUse deny blocks only when Grok dispatches hooks/hooks.json; inspect
+ * listing that file is DISCOVERY, not DISPATCH. Project `.grok/config.toml` cannot set
+ * permission_mode — that key is user config only (`~/.grok/config.toml` or `$GROK_HOME/config.toml`).
  *
  * User files are merged, never replaced. A permission list is somebody's decision. A standalone
  * autonomous run first calls the shared verifier against this exact package root; `--emit-only`

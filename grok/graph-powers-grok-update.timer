@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Graph Powers on Grok on a 15-minute interval
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

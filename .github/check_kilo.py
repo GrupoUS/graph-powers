@@ -98,6 +98,43 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def strip_jsonc(text: str) -> str:
+    out: list[str] = []
+    i = 0
+    in_string = False
+    quote = ""
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+        if in_string:
+            out.append(ch)
+            if ch == "\\":
+                out.append(nxt)
+                i += 2
+                continue
+            if ch == quote:
+                in_string = False
+            i += 1
+            continue
+        if ch in "\"'":
+            in_string = True
+            quote = ch
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+
+def config_object(home: Path) -> dict[str, Any]:
+    return json.loads(strip_jsonc(read(home / ".kilo" / "kilo.jsonc")))
+
+
 def frontmatter(text: str) -> dict[str, Any]:
     match = re.match(r"^---\n([\s\S]*?)\n---\n", text)
     if not match:
@@ -307,6 +344,12 @@ def check_config(problems: list[str]) -> None:
             fail(problems, "config merge did not add the managed keys")
         if not result.get("configChanged"):
             fail(problems, "install reported no config change while adding managed keys")
+        merged = config_object(home)
+        permission = merged.get("permission")
+        if not isinstance(permission, dict) or permission.get("bash") != {"ls *": "allow"}:
+            fail(problems, "config merge overwrote the operator's own permission rules")
+        if not isinstance(permission, dict) or permission.get("edit") != "allow":
+            fail(problems, "config merge did not add the autonomous edit posture")
         # Uninstall restores the config surface.
         removed = run_installer(home, "--uninstall")
         if removed.returncode != 0:
@@ -316,6 +359,52 @@ def check_config(problems: list[str]) -> None:
             fail(problems, "uninstall left a managed config key behind")
         if "// operator comment" not in restored or '"model"' not in restored:
             fail(problems, "uninstall damaged the operator's config")
+        if "permission" not in restored or '"ls *"' not in restored:
+            fail(problems, "uninstall damaged the operator's permission rules")
+
+
+def check_permission_posture(problems: list[str]) -> None:
+    """Autonomous writes the whole Kilo approval posture, XDG permission or not; guarded writes none."""
+    scalars = {"edit", "bash", "webfetch", "external_directory", "doom_loop"}
+    expected = scalars | {"*"}
+    with tempfile.TemporaryDirectory(prefix="gp-kilo-perm-") as raw:
+        home = Path(raw)
+        (home / ".config" / "kilo").mkdir(parents=True)
+        install_json(home)
+        permission = config_object(home).get("permission")
+        if not isinstance(permission, dict) or set(permission) != expected:
+            fail(
+                problems,
+                f"autonomous install wrote permission {permission!r}, expected all of {sorted(expected)}",
+            )
+        else:
+            if any(permission.get(key) != "allow" for key in scalars):
+                fail(problems, f"autonomous permission posture is not allow-all: {permission!r}")
+            if permission.get("*") != {"*": "allow"}:
+                fail(problems, f"autonomous permission catch-all missing: {permission!r}")
+        # The posture is operator config, not a managed key: uninstall leaves it where it is.
+        run_installer(home, "--uninstall")
+        if "permission" not in config_object(home):
+            fail(problems, "uninstall removed the operator's permission posture")
+    # An XDG `permission` is shadowed by the home posture, not allowed to defeat autonomous.
+    with tempfile.TemporaryDirectory(prefix="gp-kilo-perm-xdg-") as raw:
+        home = Path(raw)
+        xdg = home / ".config" / "kilo" / "kilo.jsonc"
+        xdg.parent.mkdir(parents=True, exist_ok=True)
+        xdg.write_text('{\n  "permission": { "bash": { "ls *": "allow" } }\n}\n', encoding="utf-8")
+        result = install_json(home)
+        permission = config_object(home).get("permission")
+        if not isinstance(permission, dict) or permission.get("bash") != "allow":
+            fail(problems, f"XDG permission defeated the autonomous posture: {permission!r}")
+        if not any("XDG" in message for message in result.get("unavailable", [])):
+            fail(problems, "shadowing the XDG permission was not reported")
+    with tempfile.TemporaryDirectory(prefix="gp-kilo-perm-guarded-") as raw:
+        home = Path(raw)
+        (home / ".config" / "kilo").mkdir(parents=True)
+        install_json(home, "--autonomy", "guarded")
+        config = config_object(home)
+        if "permission" in config:
+            fail(problems, f"guarded install wrote an approval posture: {config['permission']!r}")
 
 
 def check_config_conflict(problems: list[str]) -> None:
@@ -458,6 +547,7 @@ def main() -> int:
         check_plugin(problems, home)
     check_ownership(problems)
     check_config(problems)
+    check_permission_posture(problems)
     check_config_conflict(problems)
     check_model_policy(problems)
     check_project_scope(problems)

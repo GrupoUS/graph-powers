@@ -1,5 +1,6 @@
 # Local execution state — never versioned.
 AGENT_STOP
+.grok/
 .claude/logs/
 .graph-powers/logs/
 .graph-powers/cache/

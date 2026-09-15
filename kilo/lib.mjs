@@ -414,6 +414,48 @@ export function upsertManagedKeys(text, updates, ownedKeys = []) {
   return { text: out, changed, conflicts: [] };
 }
 
+/**
+ * Merge the autonomous permission posture into a config, additively.
+ *
+ * `permission` is operator posture, not a key this installer owns. Kilo's own resolution is
+ * last-match-wins, and a person tunes `permission.bash` and `permission.edit` per machine; a
+ * harness that recognised the name and replaced the object is how somebody's approval workflow
+ * gets deleted without a word. So every sub-key this writes is written only when the operator has
+ * not declared it, a `permission` that is not an object is a conflict rather than a value to
+ * replace, and the merged object is never recorded as ours — uninstall leaves it where the
+ * operator can find it, the same rule Cursor's `permissions.json` follows.
+ *
+ * Returns the sub-keys actually added, so a caller can report which posture this run introduced
+ * without claiming the operator's existing rules as its own.
+ */
+export function mergeConfigPermission(text, permission) {
+  const current = parseJsonc(text);
+  const existing = current.permission;
+  if (
+    existing !== undefined &&
+    (existing === null || typeof existing !== "object" || Array.isArray(existing))
+  ) {
+    return { text, changed: [], conflicts: ["permission"] };
+  }
+  const base = existing ?? {};
+  const additions = {};
+  for (const [key, value] of Object.entries(permission)) {
+    if (Object.hasOwn(base, key)) continue;
+    additions[key] = value;
+  }
+  const added = Object.keys(additions);
+  if (!added.length) return { text, changed: [], conflicts: [] };
+
+  const merged = { ...base, ...additions };
+  const span = topLevelValueSpan(text, "permission");
+  if (!span) {
+    const inserted = upsertManagedKeys(text, { permission: merged }, []);
+    return { text: inserted.text, changed: added, conflicts: inserted.conflicts };
+  }
+  const out = `${text.slice(0, span[0])}${renderValue(merged, "  ")}${text.slice(span[1])}`;
+  return { text: out, changed: added, conflicts: [] };
+}
+
 /** The offset of the object's opening `{`, ignoring comments and strings. */
 export function objectOpen(text) {
   let i = 0;

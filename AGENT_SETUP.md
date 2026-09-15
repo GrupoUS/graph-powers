@@ -8,9 +8,11 @@ Complete authorized, reversible setup and its checks without repeated confirmati
 existing settings and dirty files. Obtain approval for destructive cleanup, credentials,
 publication, or an expansion of the requested scope. Installing does not authorize Git operations.
 
-**Success:** every requested client has a verified package, the applicable hooks execute after
-reload, project configuration resolves correctly, and no required check remains unverified.
-Skip irrelevant branches. Stop after that proof; do not add audits or optional integrations.
+**Success:** every requested client has a verified package. Report hook proof as PACKAGE,
+DISCOVERY or DISPATCH — do not treat inspect or a Python probe as live Grok dispatch. Project
+configuration resolves correctly, and no required check is reported as passed when it is
+`UNVERIFIED`. Skip irrelevant branches. Stop after that proof; do not add audits or optional
+integrations.
 
 ## Command conventions
 
@@ -40,8 +42,13 @@ later version can change what each of them should say. Run this mode when the us
 the plugin and update the project, or when the version a client reports is older than `<VERSION>`:
 
 ```bash
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir . --expected-version <VERSION>
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir .
 ```
+
+Inspect each requested client's row. `--client all` prints a table and names any `FAIL` clients;
+a Hermes static mismatch or a stale Cursor cache is that row, not a Grok failure. Then re-check
+each requested hook client with `--expected-version <VERSION>` (Grok layers are PACKAGE /
+DISCOVERY / DISPATCH; see §9h). `--client all` exit 1 does not mean Grok failed.
 
 1. Read `<PLUGIN>/CHANGELOG.md` from the reported version to `<VERSION>`; each entry names what
    moved. Map every entry to a project surface in the table below; an entry that touches none of
@@ -95,8 +102,10 @@ python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir 
 ```
 
 Inspect each requested client's result. Exit 0 can include absent runtimes: `SKIPPED` is not an
-installed client. Registry presence alone is insufficient; the verifier checks the actual package.
-Keep a valid installation matching the intended version and repair only missing or stale components.
+installed client. `UNVERIFIED` is not live dispatch. Registry presence alone is insufficient; the
+verifier checks the actual package. A named `FAIL` on Hermes or Cursor does not rewrite a Grok
+row. Keep a valid installation matching the intended version and repair only missing or stale
+components.
 
 ## Step 1 — Resolve prerequisites, not every optional tool
 
@@ -280,8 +289,9 @@ and Grok's passive Stop is not an enforced gate.
 
 Use an explicit target. `--target all` covers Claude, Codex, Cursor, Grok and Kilo; it does **not**
 include Hermes or Zed and is unsuitable when it would mix native and clone Codex installations.
-Install → verify that client's package/direct guardrail probe → apply the chosen posture → reload
-and prove live hook execution. Package checks do not certify an already-running client.
+Install → verify that client's package (and Grok DISCOVERY when autonomous) → apply the chosen
+posture → reload. Prove DISPATCH only from that client's hook log or a blocking PreToolUse;
+package checks, inspect and an isolated Python probe do not certify live Grok dispatch.
 
 ### Claude Code — native plugin
 
@@ -399,23 +409,55 @@ handled by its owner. Never add a user hook file that bypasses the plugin.
 
 Use the existing native package or one supported clone path; preserve `GROK_HOME`.
 
-If a native package exists, use Grok's supported install/update path when needed and run the version
-and guardrail check below **before** applying posture. The wrapper reuses a valid native package;
-it does not guarantee an upgrade. For a clone route without native registration, first run the
-installer line with `<MODE>` set to `guarded`, then the same package check. Request autonomous
-posture only after the native client reports that exact package and its hooks as active.
+Grok proof has three layers. Do not collapse them:
+
+| Layer | What it proves | How |
+|---|---|---|
+| PACKAGE | Manifest, fail-open runners and scripts at the listed path | `"<PLUGIN>/bin/verify-hook-clients.py" --client grok` (optional `--probe-guardrail` is an isolated `hooks/git_commit_gate.py` run, not the dispatcher) |
+| DISCOVERY | `grok inspect --json` lists this package's `hooks/hooks.json` as `hookType=file` | `--require-grok-runtime` |
+| DISPATCH | Grok actually ran a plugin handler | `--grok-hooks-log` containing `hook_name=plugin/graph-powers`, or `--require-grok-dispatch` (nonzero while UNVERIFIED) |
+
+Grok 1.0.30 registers the plugin file and does not expand it. Plugin PreToolUse is **UNVERIFIED**
+until DISPATCH evidence exists. Stop stays passive. Settings files and `~/.grok/hooks` that do
+run are not plugin dispatch.
+
+If a native package exists, use Grok's supported install/update path when needed and run the
+PACKAGE (and autonomous DISCOVERY) check below **before** applying posture. The wrapper reuses a
+valid native package; it does not guarantee an upgrade. For a clone route without native
+registration, first run the installer line with `<MODE>` set to `guarded`, then the same package
+check. Request autonomous posture only after PACKAGE and DISCOVERY pass for that exact path.
 
 ```bash
-python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client grok --project-dir . --expected-version <VERSION> --probe-guardrail
+python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client grok --project-dir . --expected-version <VERSION> --require-grok-runtime --probe-guardrail
 bun "<PLUGIN>/bin/graph-powers.mjs" --target grok --autonomy <MODE>
 ```
 
-The installer validates the selected package before permissive posture and keeps discovery wired
-under guarded policy. Autonomous setup additionally requires that exact package and its hook
-declaration to be active in Grok discovery. File integrity alone cannot establish trust or enablement.
-Preserve explicit disabled settings and resolve trust through the native client; do not automate
-trust to make a verification pass. Hooks remain in the canonical `hooks/hooks.json`; do not create
-a second list. Restart Grok after installation/update; the background updater does not replace its cache.
+The human line must not read as `PASS — 16 hooks`. Expect `UNVERIFIED` with `package PASS`,
+`discovery PASS`, `dispatch UNVERIFIED` until a hooks log shows `hook_name=plugin/graph-powers`.
+`--probe-guardrail` does not change that.
+
+The installer validates PACKAGE (and DISCOVERY when autonomous) before permissive posture and
+keeps discovery wired under guarded policy. File integrity alone cannot establish trust or
+enablement. Preserve explicit disabled settings and resolve trust through the native client; do
+not automate trust to make a verification pass. Hooks remain in the canonical `hooks/hooks.json`;
+do not create a second list. `--target grok` does not write the Codex `<!-- graph-powers:start -->`
+block into `AGENTS.md`.
+
+Restart Grok after installation/update; an open session keeps the previous files. Native Grok
+does not use `hooks/auto_update.py` (no `autoUpdate.grok`). Immediate refresh:
+
+```bash
+grok plugin update graph-powers
+```
+
+Optional operator timer (not installed by `--target grok`): copy
+`<PLUGIN>/grok/update-graph-powers.py` and the systemd examples
+`grok/graph-powers-grok-update.service` / `.timer`, replacing `PLUGIN_ROOT`. Interval is 15
+minutes. That directory should hold only this updater, not a copy of `hooks.json`.
+
+Grok command names on this client: `/issue-improve` is the skill (bare). While the Codex plugin
+is enabled, invoke `/graph-powers:setup`, `/graph-powers:debug` and `/graph-powers:plan` so they
+do not collide with Codex `setup` or Grok built-ins.
 
 For Grok Bot, use the [client compatibility procedure](docs/client-compatibility.md#grok-bot).
 Confirm the Bot workspace and supported skills surface first. The local `--target grok` route
@@ -434,7 +476,10 @@ bun "<PLUGIN>/bin/graph-powers.mjs" --target kilo --autonomy <MODE>
 
 The installer writes agents, commands, skills and the guardrail plugin under `~/.kilo/`, merges two
 config keys (`lsp`, `formatter`) into `~/.kilo/kilo.jsonc` without touching comments or unrelated
-keys, and records ownership before writing; a file it does not own is a refusal, not an overwrite.
+keys, and — under autonomous — merges the `permission` approval posture (`edit`, `bash`,
+`webfetch`, `external_directory`, `doom_loop`, `*` set to `allow`) sub-key by sub-key. It records
+ownership before writing; a file it does not own is a refusal, not an overwrite. The posture is
+operator config, is not recorded as a managed key, and uninstall leaves it in place.
 `--client kilo` reports posture `PARTIAL` because Kilo has no `Stop`, `PermissionRequest`,
 `Notification` or `SubagentStart` event: the tool-level guardrails run through the native plugin and
 the lifecycle registrations that cannot be projected are named rather than implied. Do not report
@@ -484,10 +529,12 @@ client, not as Zed-native hook coverage.
 python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client <CLIENT> --project-dir . --expected-version <VERSION> --check-posture --autonomy <MODE> --probe-guardrail
 ```
 
-Repeat for requested hook clients only, adding the chosen scope/route where needed. Use Hermes'
-installed-package check in 9i separately. `--check-posture` covers Claude, Cursor and Grok; Codex
-posture/runtime still needs the direct proof in 9e. The verifier derives current registration
-counts from manifests; never substitute a historical hard-coded count.
+Repeat for requested hook clients only, adding the chosen scope/route where needed. For Grok add
+`--require-grok-runtime` and report DISPATCH separately (`--grok-hooks-log` or
+`--require-grok-dispatch`). Use Hermes' installed-package check in 9j separately. `--check-posture`
+covers Claude, Cursor and Grok; Codex posture/runtime still needs the direct proof in 9e. The
+verifier derives current registration counts from manifests; never substitute a historical
+hard-coded count, and never treat a Grok registration count as executed hooks.
 
 Check only what this setup touched:
 

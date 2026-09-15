@@ -12,11 +12,20 @@ and the canonical `hooks/hooks.json`; do not install another copy of those hooks
 The [settings reference](https://docs.x.ai/build/settings/reference) distinguishes plugin paths,
 enabled/disabled lists and compatibility switches. A path alone does not establish activation.
 
-Before changing approval posture, verify the exact package and its active discovery with
-`grok inspect --json`. Match the enabled Graph Powers entry and its plugin hook source to the
-verified root. An installed entry from `grok plugin list --json` is package inventory, not proof
-that the current session loads it. An unavailable or malformed inventory is not an empty inventory
-and must not trigger installation or trust. Preserve an explicit disabled setting or trust decision;
+Three layers, reported separately by `"<PLUGIN>/bin/verify-hook-clients.py" --client grok`:
+
+| Layer | Evidence | Not evidence |
+|---|---|---|
+| PACKAGE | `grok plugin list --json` path plus the package bytes | A Python subprocess of `git_commit_gate.py` (`--probe-guardrail`) |
+| DISCOVERY | `grok inspect --json` lists this root's `hooks/hooks.json` as `event=(plugin)` `hookType=file` | `plugins[].enabled` on other names, `provides.agents` counts, `projectInstructions` file lists |
+| DISPATCH | Grok hooks log `hook_name=plugin/graph-powers` | inspect, probe, `~/.grok/hooks` user files, Claude/project `settings.json` |
+
+Inspect is inventory of what Grok *registered*. Live enablement is `plugins.enabled` /
+`plugins.disabled` plus the skill/agent catalog. Live dispatch is the hooks log. Match the
+enabled Graph Powers entry and its plugin hook source to the verified root before changing
+approval posture. An installed entry from `grok plugin list --json` is PACKAGE, not DISCOVERY
+or DISPATCH. An unavailable or malformed inventory is not an empty inventory and must not
+trigger installation or trust. Preserve an explicit disabled setting or trust decision;
 resolve it through the native client before requesting autonomous setup again. Guarded setup
 can configure discovery without granting trust or changing approval posture.
 
@@ -29,13 +38,15 @@ The [hook contract](https://docs.x.ai/build/features/hooks) makes only `PreToolU
 Passive events ignore stdout. Consequently, registering `SessionStart` or `SubagentStart` does
 not prove that their Claude `additionalContext` reaches Grok. Supply the execution floor and
 applicable method in the parent instructions and the canonical delegation handoff. Do not claim
-that Stop verification blocks completion on Grok.
+that Stop verification blocks completion on Grok. Plugin PreToolUse on Grok is **UNVERIFIED**
+until DISPATCH evidence exists.
 
-Local research used Grok 1.0.25: the existing installed package exposed its namespaced agents and
-an enabled plugin through inspection. A disposable home with an untrusted clone exposed a disabled
-plugin and no loaded skills/hooks despite a configured path and enabled list. This demonstrates
-why package integrity cannot substitute for active discovery. Inspection plus a direct Python
-guardrail probe still does not prove native end-to-end tool interception.
+Local research used Grok 1.0.30: inspect lists the plugin hooks file, and the dispatcher runs
+user `~/.grok/hooks` plus Claude/project settings — not `plugin/graph-powers`. `provides.agents=1`
+is known inspect noise (the live catalog still exposes the twelve `graph-powers:<role>` names).
+Inspection plus a direct Python guardrail probe still does not prove native end-to-end tool
+interception. The shared hook-client verifier therefore prints `dispatch UNVERIFIED` rather than
+`PASS — 16 hooks`.
 
 ## Cursor
 

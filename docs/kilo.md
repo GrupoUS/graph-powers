@@ -52,6 +52,7 @@ key and then removed.
 | Per-role model via agent `model:` | SUPPORTED | `kilo debug agent evaluator` → `{providerID: kilo, modelID: ~openai/gpt-astra-latest}` |
 | `tools:` boolean map | SUPPORTED | resolved tool map shows `write: false`, `task: false` |
 | `permission.edit` / `permission.bash` (last match wins) | SUPPORTED | resolved permission list; a nested `bash` map accepts per-pattern actions |
+| Global `permission` posture (`allow` for `edit`, `bash`, `webfetch`, `external_directory`, `doom_loop`, `*`) | SUPPORTED | installed SDK `permission` type; `check_kilo.py` asserts the emitted object byte-for-byte |
 | `permission.task: deny` (leaf) | SUPPORTED | evaluator resolves with `{"permission":"task","action":"deny"}` |
 | `permission.task` pattern **allow-list** | UNVERIFIED | a map form also produced `tools.task: false`; the router therefore keeps the default and names its specialists in the prompt instead |
 | `mode: primary\|subagent` | SUPPORTED | `kilo agent list` groups by mode |
@@ -156,11 +157,23 @@ node "<PLUGIN>/bin/graph-powers.mjs" --target kilo --uninstall
 - Output is deterministic: two runs into the same home produce identical bytes.
 - `lsp` and `formatter` are merged with a JSONC-preserving editor. Comments, blank lines and
   unrelated keys survive. A managed key defined in the XDG file stops the install. Uninstall removes
-  the keys and the file when it only held ours.
+  the keys and the file when it only held ours. The `permission` posture is not a managed key:
+  uninstall leaves it for the operator.
 
 Managed config keys: `formatter: false` (one formatter owner — `ultracite.py`) and
 `lsp: { "eslint": { "disabled": true } }`, because Oxlint is the declared local linter. `deno` and
 `typescript` self-gate on their project files, so they are left enabled.
+
+The approval posture is separate from those managed keys. Kilo has no `PermissionRequest` event, so
+the guardrail plugin can only block — a command the classifier does not recognise reaches the
+operator as a prompt unless `permission` says otherwise. An `autonomous` install therefore merges
+`permission: { edit, bash, webfetch, external_directory, doom_loop, "*" } = allow` into
+`~/.kilo/kilo.jsonc`, sub-key by sub-key, leaving any rule the operator already declared untouched.
+A `guarded` install writes none of it. An XDG `~/.config/kilo/kilo.jsonc` that defines `permission`
+is shadowed by the home value (reported, not silent): the permission list is not the boundary — the
+guardrail plugin, the git gates and the generated agents' own denials are — so the destructive floor
+still denies. The posture is operator config, is never recorded in the manifest, and uninstall
+leaves it in place, the same rule Cursor's `permissions.json` follows.
 
 ## Verification
 

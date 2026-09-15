@@ -45,9 +45,12 @@ grok plugin install graph-powers --trust
 node <clone>/bin/graph-powers.mjs --target grok
 ```
 
-The installer verifies the exact Grok-reported package path and its sixteen fail-open hooks before
-writing `always-approve`. Restart the Grok session. Git commit and push still ask. `rm -rf /` still
-denies.
+The installer verifies the exact Grok-reported package path and its fail-open **registrations**
+(PACKAGE) and, when autonomous, that inspect lists that file (DISCOVERY) before writing
+`always-approve`. Plugin PreToolUse on Grok is **UNVERIFIED** until the hooks log shows
+`hook_name=plugin/graph-powers`; do not read a verifier `PASS` or a registration count as
+executed gates. Restart the Grok session. Git commit and push still follow the AGENTS.md floor
+and opt-in keys; plugin Python denies do not run until DISPATCH is proven.
 
 **Kilo** — one command, then restart the session:
 
@@ -220,8 +223,8 @@ up. The installers and native entrypoint generate those sides from the artefacts
 | Guardrails       | `hooks/hooks.json`        | The same declaration, merged into `~/.codex/hooks.json`                                                                                                                                          | Generated `hooks/hooks-cursor.json` (PermissionRequest, Notification and SubagentStart skipped) | The same `hooks/hooks.json` (Claude nested shape; payload adapted in `_config.py`) | Native `~/.kilo/plugin/graph-powers-guardrails.ts` on `tool.execute.before/after` (no Stop, PermissionRequest, Notification or SubagentStart event) | **NOT ENFORCED**; no Hermes hook surface               |
 | Skills           | `skills/<name>/SKILL.md`  | `.agents/skills/<name>/SKILL.md`                                                                                                                                                                 | The same files, via `.cursor-plugin/`                                                           | The same files, via `.grok-plugin/`                                                | `~/.kilo/skills/<name>/SKILL.md`, canonical names                                                                                | `plugin.yaml` + `__init__.py`; `graph-powers:<name>`   |
 | Subagents        | `agents/*.md`             | Native companion `codex/native-agents/*.toml` and clone `.codex/agents/*.toml` are both generated through `codex/model-policy.json`: explicit semantic profile, Codex model and reasoning effort | The same markdown files                                                                         | The same markdown files                                                            | `~/.kilo/agent/*.md` plus a generated `graph-powers` primary, through `kilo/model-policy.json`: semantic profile, exact `provider/model`, `edit`/`task` denials | `agents/*.md` as `graph-powers:agent-<slug>` contracts |
-| Commands         | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>`                                                                                                               | The same markdown files                                                                         | The same markdown files                                                            | `~/.kilo/command/*.md` with an explicit `agent:` router and exact `subagent_type` fan-out                                         | namespaced skills, e.g. `graph-powers:plan`            |
-| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml`                                                                                                                                                                           | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`)                       | `~/.grok/config.toml` (`[ui] permission_mode`)                                     | `~/.kilo/kilo.jsonc`: generated `lsp` and `formatter` keys, JSONC-preserving merge                                                | parent agent approvals                                 |
+| Commands         | `commands/*.md` (`/name`) | native thin skills: `$graph-powers:<name>`; clone fallback: `$graph-powers-<name>`                                                                                                               | The same markdown files                                                                         | Same markdown files as skills; `/issue-improve` is the skill. Prefix `/graph-powers:setup`, `/graph-powers:debug`, `/graph-powers:plan` while the Codex plugin is enabled | `~/.kilo/command/*.md` with an explicit `agent:` router and exact `subagent_type` fan-out                                         | namespaced skills, e.g. `graph-powers:plan`            |
+| IDE/CLI approval | `~/.claude/settings.json` | `~/.codex/config.toml`                                                                                                                                                                           | `~/.cursor/permissions.json` (IDE) and `cli-config.json` (`cursor-agent`)                       | `~/.grok/config.toml` (`[ui] permission_mode`)                                     | `~/.kilo/kilo.jsonc`: generated `lsp` and `formatter` keys plus the autonomous `permission` posture, JSONC-preserving merge                                                | parent agent approvals                                 |
 
 The Codex hooks file is **merged, never overwritten**. Other tools' installers write it too, and
 clobbering it would silently disable someone else's guardrails, which is this
@@ -430,14 +433,15 @@ Grok marketplace installs the same repository through `.grok-plugin/plugin.json`
 `hooks/hooks.json` directly. That is the plugin. The confirmation flood is `config.toml` under
 `GROK_HOME`, falling back to `~/.grok`, with `[ui] permission_mode = "always-approve"`. A project
 `.grok/config.toml` cannot set that key. After installing the plugin, run the clone installer once
-(or the setup playbook Step 9h): it reads `grok plugin list --json`, verifies the exact reported path,
-manifest, sixteen guarded runners and their targets, and only then changes posture. Restart the
-session. Do not add user `hooks/*.json` beside plugin hooks. Under guarded posture the installer
-still wires discovery without writing always-approve. Autonomous setup also requires the verified
-package to be enabled with its hooks discovered by Grok; file integrity alone is insufficient.
+(or the setup playbook Step 9h): it reads `grok plugin list --json`, verifies PACKAGE (path,
+manifest, fail-open runners) and autonomous DISCOVERY (`grok inspect --json` listing that file),
+and only then changes posture. Restart the session. Plugin DISPATCH is a separate proof: the
+verifier prints `UNVERIFIED` until the Grok hooks log contains `hook_name=plugin/graph-powers`.
+Do not add user `hooks/*.json` that copy plugin hooks. Under guarded posture the installer
+still wires discovery without writing always-approve. File integrity alone is insufficient.
 An explicit disabled plugin or unresolved trust decision must be handled in the native client.
-Git commit/push still ask; `rm -rf /` still
-denies.
+`hooks/auto_update.py` does not update Grok; run `grok plugin update graph-powers` and restart,
+or the optional timer in `grok/update-graph-powers.py` (15 minutes; not installed by `--target grok`).
 
 ```bash
 node ~/.graph-powers/src/bin/graph-powers.mjs --target grok
@@ -536,6 +540,9 @@ node ~/.graph-powers/src/bin/graph-powers.mjs --update
 // .graph-powers/config.json — all optional, these are the defaults
 "autoUpdate": { "enabled": true, "intervalHours": 12, "claude": true, "codex": true }
 ```
+
+There is no `autoUpdate.grok`. Native Grok can lag until `grok plugin update graph-powers` plus a
+new session, or the optional 15-minute timer in `grok/update-graph-powers.py`.
 
 `GRAPH_POWERS_NO_AUTO_UPDATE=1` turns it off for one machine without editing the project's
 config.
@@ -748,7 +755,9 @@ Fifteen hook scripts, wired through sixteen registrations in
 plugin is installed. Cursor loads the generated [`hooks/hooks-cursor.json`](hooks/hooks-cursor.json)
 (twelve registrations: PermissionRequest and Notification are unsupported; SubagentStart lacks the
 canonical hook's context-output contract). Grok uses the
-Claude file; `_config.py` adapts camelCase payloads and Grok tool names so the same gates run. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
+Claude file; `_config.py` adapts camelCase payloads and Grok tool names so the same gates *can*
+run. Plugin PreToolUse on Grok remains **UNVERIFIED** until DISPATCH (`hook_name=plugin/graph-powers`
+in the Grok hooks log); inspect plus a Python probe is not that proof. `smart_bash_approver` runs at `PreToolUse` to block the destructive floor and again at
 `PermissionRequest` to approve an escalation that the same classifier already allowed;
 `tool_approver` answers the same event for everything that is **not** a shell command. A
 guarded `ask` is left to the normal approval flow; an autonomous allow never reaches the user.

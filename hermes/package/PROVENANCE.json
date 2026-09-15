@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "092c403b1f84a2b0bd3a5f442d88d094b07d3391",
-    "version": "1.21.0",
+    "base_revision": "f399b31b9095bec9758448b3a6f7fde64e6892a8",
+    "version": "1.21.1",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "53e9227cb66526781ead129f8487548f0434cff5ba95070942695b899b1d0268",
-      "base_sha256": "43021f721c69514cb3cdc93ba4825ebbd744a6959d4c5d8653d8d4b92f60d9b8",
+      "sha256": "685b3fed54575c5f5a1afcba6decf8e61416f4125717a3d4cce9e614666e6ce0",
+      "base_sha256": "53e9227cb66526781ead129f8487548f0434cff5ba95070942695b899b1d0268",
       "dirty": true
     },
     {
@@ -263,8 +263,8 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "42d867b8b5294312644543619d1948a8e740022dcd988848f02fbc2756a5bf3a",
-      "base_sha256": "b5b721b52e7549224b604cfa16dbf09ef791337ba9bc350b45bb470ccf6a24f6",
+      "sha256": "121295cd4d1eee9355de2f3115ca4ae90fc6c73e31284c20899a1785253e488f",
+      "base_sha256": "42d867b8b5294312644543619d1948a8e740022dcd988848f02fbc2756a5bf3a",
       "dirty": true
     },
     {
@@ -443,8 +443,8 @@
     },
     {
       "path": "docs/client-compatibility.md",
-      "sha256": "1c23206ac48f7dff99dc7ec671dc39aa67388e68d06821ee766a3c48c12270ae",
-      "base_sha256": "f0a759e274732b68b78844c579a90f7deb7d6253e17df40a7cfdb727052f7de1",
+      "sha256": "684fc514637025c906bffd10a1cae9890b887eb0cc1720d1f00b23fef8eafb64",
+      "base_sha256": "1c23206ac48f7dff99dc7ec671dc39aa67388e68d06821ee766a3c48c12270ae",
       "dirty": true
     },
     {
@@ -474,8 +474,8 @@
     {
       "path": "references/execution-floor.md",
       "sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
-      "base_sha256": "c7157d623b7d1af131c7b41c91409d5cc11b6a2cd7507013ef6dc4686819048e",
-      "dirty": true
+      "base_sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
+      "dirty": false
     },
     {
       "path": "references/recovery-protocol.md",
@@ -659,9 +659,9 @@
     },
     {
       "path": "references/shared/110-guardrails-index.md",
-      "sha256": "c11ef30b57334beb1b64ccb88164d987dfa4091443be9a69b3188e6a5e90db19",
+      "sha256": "7d7d4a6bb3599fe8882923ffdd1e6a846972d80b2c1a62487331a9a483696118",
       "base_sha256": "c11ef30b57334beb1b64ccb88164d987dfa4091443be9a69b3188e6a5e90db19",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/115-code-graph.md",
@@ -1291,7 +1291,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "adc0f218d25186429a1262224ed71c4239bfed1e3c01a6e1a9fc3ab051462094",
+      "sha256": "47113b234607e20077e6817fd5f73f1a8baf722af04f9ffa20ac3274f3d5b840",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1419,7 +1419,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "b22e71836391ece40af9252847d4ba251d7b5d71d598e24d30472680b42a687a",
+      "sha256": "b705bc0259447cc76a897c125df4c054ad4d0085558933bc3413685df20c8bc3",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1635,7 +1635,7 @@
     },
     {
       "path": "skills/content/docs/client-compatibility.md",
-      "sha256": "98d429e08805ead399079dcff73aa22756eed224b64bcc43263cbbc71e752da6",
+      "sha256": "4e890f2873a9677000fda29130b287b57f88cd3dc211303b26080cc807da975b",
       "sources": [
         "docs/client-compatibility.md"
       ],
@@ -1907,7 +1907,7 @@
     },
     {
       "path": "skills/content/references/shared/110-guardrails-index.md",
-      "sha256": "301cddf8dd73a7012d1e778e4585b737b0cf598d476f984bbd9df99058b53ef4",
+      "sha256": "4e37b110c3c1fcd86dce839f56f4be5dfd854e75b9af146292382acfc3bc20f0",
       "sources": [
         "references/shared/110-guardrails-index.md"
       ],
@@ -5430,6 +5430,11 @@
     "host_references": [
       {
         "from": "AGENT_SETUP.md",
+        "reference": "hooks.json",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "hooks/AGENTS.md",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
@@ -5440,7 +5445,17 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "hooks/auto_update.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "hooks/command_trust.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "hooks/git_commit_gate.py",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
       {
@@ -5486,6 +5501,11 @@
       {
         "from": "AGENT_SETUP.md",
         "reference": "docs/kilo.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "grok/update-graph-powers.py",
         "reason": "external URL or caller-resolved host path"
       },
       {
@@ -5715,6 +5735,11 @@
       },
       {
         "from": "docs/client-compatibility.md",
+        "reference": "git_commit_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "docs/client-compatibility.md",
         "reference": "hooks/hooks.json",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
@@ -5730,7 +5755,17 @@
       },
       {
         "from": "docs/client-compatibility.md",
+        "reference": "bin/verify-hook-clients.py",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "docs/client-compatibility.md",
         "reference": "docs/kilo.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "docs/client-compatibility.md",
+        "reference": "settings.json",
         "reason": "host-project input or output, resolved by the caller"
       },
       {

@@ -1,0 +1,9 @@
+[Unit]
+Description=Update the Graph Powers plugin in the Grok CLI cache
+Documentation=https://github.com/GrupoUS/graph-powers
+
+[Service]
+Type=oneshot
+# Replace PLUGIN_ROOT with the `path` field from `grok plugin list --json`.
+# Do not point this at a second copy of hooks/hooks.json.
+ExecStart=python3 PLUGIN_ROOT/grok/update-graph-powers.py --scheduled

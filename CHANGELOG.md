@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.21.1 — Honest Grok hook proof
+
+Grok 1.0.30 still registers `hooks/hooks.json` as `hookType=file` and does not dispatch it.
+`bin/verify-hook-clients.py --client grok` now reports PACKAGE, DISCOVERY and DISPATCH separately.
+Inspect plus `--probe-guardrail` can no longer print `PASS — 16 hooks`; without
+`hook_name=plugin/graph-powers` in a Grok hooks log the Grok row is `UNVERIFIED`.
+`--require-grok-dispatch` is nonzero until that evidence exists. `--client all` names the
+clients that actually `FAIL` instead of hiding a Grok row behind Hermes or Cursor.
+
+Docs and the Grok installer comments match those layers. Plugin PreToolUse on Grok is
+UNVERIFIED; Stop stays passive. Optional native refresh is `grok/update-graph-powers.py` plus
+systemd examples with no home paths; `--target grok` still does not write `~/.grok/hooks/`.
+`hooks/auto_update.py` remains Claude/Codex only.
+
+Kilo autonomous installs also write the CLI approval posture: `permission` for `edit`, `bash`,
+`webfetch`, `external_directory`, `doom_loop` and the `*` catch-all set to `allow`, merged sub-key
+by sub-key so an operator's own rules survive. Kilo has no `PermissionRequest` event, so without it
+every command the classifier did not recognise was a prompt. A guarded install writes none of it,
+the posture is operator config rather than a managed key (uninstall leaves it in place), and the
+destructive floor and git gates still run because the guardrail plugin — not the permission list —
+is the boundary.
+
 ## 1.21.0 — Native Kilo target
 
 Kilo is a first-class target. `--target kilo` generates agents, slash commands, skills and a
