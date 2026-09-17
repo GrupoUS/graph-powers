@@ -479,7 +479,11 @@ config keys (`lsp`, `formatter`) into `~/.kilo/kilo.jsonc` without touching comm
 keys, and — under autonomous — merges the `permission` approval posture (`edit`, `bash`,
 `webfetch`, `external_directory`, `doom_loop`, `*` set to `allow`) sub-key by sub-key. It records
 ownership before writing; a file it does not own is a refusal, not an overwrite. The posture is
-operator config, is not recorded as a managed key, and uninstall leaves it in place.
+operator config, is not recorded as a managed key, and uninstall leaves it in place. Each generated
+agent also carries an exact `provider/model` and reasoning `variant` from `kilo/model-policy.json`,
+defaulting to the operator's `openai`/`xai` subscriptions rather than the per-token `kilo` gateway;
+those Markdown fields are authoritative, so `~/.config/kilo/graph-powers.json` — not the session
+model picker — is the override surface.
 `--client kilo` reports posture `PARTIAL` because Kilo has no `Stop`, `PermissionRequest`,
 `Notification` or `SubagentStart` event: the tool-level guardrails run through the native plugin and
 the lifecycle registrations that cannot be projected are named rather than implied. Do not report

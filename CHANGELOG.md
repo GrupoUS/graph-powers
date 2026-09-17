@@ -22,6 +22,14 @@ the posture is operator config rather than a managed key (uninstall leaves it in
 destructive floor and git gates still run because the guardrail plugin — not the permission list —
 is the boundary.
 
+Kilo model routing defaults to the operator's own subscriptions instead of the per-token `kilo/`
+gateway: judge and architect on `openai/gpt-6-astra` (`medium`), executor on `xai/grok-4.6`
+(`xhigh`), verifier and scout on `openai/gpt-5.6-luna` (`max`). Agents now carry a reasoning
+`variant` alongside `model`, because both are authoritative in the agent Markdown — `kilo debug
+agent` proved `agent.<id>.model`/`agent.<id>.variant` in `kilo.jsonc` only fill a field the Markdown
+omits, which is why a TUI model change reverted. `~/.config/kilo/graph-powers.json` remains the
+override surface and accepts a `variant`, per agent or per profile.
+
 ## 1.21.0 — Native Kilo target
 
 Kilo is a first-class target. `--target kilo` generates agents, slash commands, skills and a

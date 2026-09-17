@@ -7,7 +7,7 @@ Kilo reads `~/.kilo/agent/*.md`, `~/.kilo/command/*.md`, `~/.kilo/skills/<name>/
 home and asserts the properties the projection promises:
 
 * the full inventory (12 roles + the router, 13 commands, every canonical skill);
-* a resolved `provider/model` id per role, never a Claude alias or a Codex slug;
+* a resolved `provider/model` id and reasoning variant per role, never a Claude alias or a Codex slug;
 * read-only and leaf boundaries actually present in the emitted frontmatter;
 * no Claude-only literal surviving in anything Kilo reads;
 * deterministic output, ownership refusal, and a config merge that keeps comments;
@@ -212,13 +212,16 @@ def check_agents(problems: list[str], home: Path, agents: list[str]) -> None:
     expected_model = {
         name: profiles[profile]["model"] for name, profile in policy["agents"].items()
     }
+    expected_variant = {
+        name: profiles[profile]["variant"] for name, profile in policy["agents"].items()
+    }
     for name in agents:
         path = home / ".kilo" / "agent" / f"{name}.md"
         if not path.is_file():
             fail(problems, f"agent {name}: missing")
             continue
         text = read(path)
-        if re.search(r"^effort:|^variant:|^temperature:|^top_p:", text, re.MULTILINE):
+        if re.search(r"^effort:|^temperature:|^top_p:", text, re.MULTILINE):
             fail(problems, f"agent {name}: carries a Claude-only tuning key")
         try:
             data = frontmatter(text)
@@ -232,8 +235,14 @@ def check_agents(problems: list[str], home: Path, agents: list[str]) -> None:
         model = data.get("model", "")
         if model != expected_model.get(name):
             fail(problems, f"agent {name}: model {model!r} != policy {expected_model.get(name)!r}")
+        variant = data.get("variant")
+        if variant != expected_variant.get(name):
+            fail(
+                problems,
+                f"agent {name}: variant {variant!r} != policy {expected_variant.get(name)!r}",
+            )
         provider, _, bare = model.partition("/")
-        if provider != "kilo" or not bare:
+        if not provider or not bare or provider.lower() in {"opus", "sonnet", "haiku", "fable"}:
             fail(problems, f"agent {name}: model {model!r} is not a Kilo provider/model id")
         if name == "evaluator":
             permission = data.get("permission") or {}
@@ -424,14 +433,20 @@ def check_config_conflict(problems: list[str]) -> None:
 def check_model_policy(problems: list[str]) -> None:
     script = """-e\0import{isKiloModelId,resolveKiloAgentPolicy}from'./kilo/model-policy.mjs';
 const bad=['opus','sonnet','haiku','fable','gpt-5.6-sol','claude-sonnet-4',''];
-const good=['kilo/~openai/gpt-astra-latest','kilo/deepseek/deepseek-v4.1-flash'];
+const good=['kilo/~openai/gpt-astra-latest','openai/gpt-6-astra','xai/grok-4.6'];
 console.log(JSON.stringify({
 rejected:bad.filter(isKiloModelId),
 accepted:good.filter((m)=>!isKiloModelId(m)),
 judge:resolveKiloAgentPolicy('evaluator').model,
+judgeVariant:resolveKiloAgentPolicy('evaluator').variant,
 executor:resolveKiloAgentPolicy('debugger').model,
+executorVariant:resolveKiloAgentPolicy('debugger').variant,
+verifier:resolveKiloAgentPolicy('verification').model,
+verifierVariant:resolveKiloAgentPolicy('verification').variant,
 leaf:resolveKiloAgentPolicy('evaluator').leaf,
 override:resolveKiloAgentPolicy('debugger',{agent:{debugger:{model:'kilo/~openai/gpt-terra-latest'}}}).model,
+overrideVariant:resolveKiloAgentPolicy('debugger',{agent:{debugger:{model:'kilo/~openai/gpt-terra-latest'}}}).variant,
+variantOnly:resolveKiloAgentPolicy('debugger',{agent:{debugger:{variant:'low'}}}).variant,
 }));"""
     result = node(script)
     if result.returncode != 0:
@@ -442,14 +457,20 @@ override:resolveKiloAgentPolicy('debugger',{agent:{debugger:{model:'kilo/~openai
         fail(problems, f"claude/codex model ids accepted: {data['rejected']}")
     if data["accepted"]:
         fail(problems, f"valid Kilo model ids rejected: {data['accepted']}")
-    if not data["judge"].endswith("gpt-astra-latest"):
-        fail(problems, f"judge profile resolves {data['judge']!r}")
-    if not data["executor"].endswith("gpt-luna-latest"):
-        fail(problems, f"executor profile resolves {data['executor']!r}")
+    if data["judge"] != "openai/gpt-6-astra" or data["judgeVariant"] != "medium":
+        fail(problems, f"judge profile resolves {data['judge']!r} @ {data['judgeVariant']!r}")
+    if data["executor"] != "xai/grok-4.6" or data["executorVariant"] != "xhigh":
+        fail(problems, f"executor profile resolves {data['executor']!r} @ {data['executorVariant']!r}")
+    if data["verifier"] != "openai/gpt-5.6-luna" or data["verifierVariant"] != "max":
+        fail(problems, f"verifier profile resolves {data['verifier']!r} @ {data['verifierVariant']!r}")
     if data["leaf"] is not True:
         fail(problems, "evaluator is not declared a leaf")
-    if not data["override"].endswith("gpt-terra-latest"):
-        fail(problems, "per-agent override did not win")
+    if data["override"] != "kilo/~openai/gpt-terra-latest":
+        fail(problems, "per-agent model override did not win")
+    if data["overrideVariant"] is not None:
+        fail(problems, f"a model override inherited a profile variant: {data['overrideVariant']!r}")
+    if data["variantOnly"] != "low":
+        fail(problems, f"a variant-only override was ignored: {data['variantOnly']!r}")
     rejected = node(
         "-e\0import{resolveKiloAgentPolicy}from'./kilo/model-policy.mjs';"
         "try{resolveKiloAgentPolicy('debugger',{agent:{debugger:{model:'opus'}}});console.log('accepted')}"

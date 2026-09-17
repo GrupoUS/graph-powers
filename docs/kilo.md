@@ -49,7 +49,7 @@ key and then removed.
 | Capability | Status | Evidence |
 |---|---|---|
 | Agent discovery from `~/.kilo/agent/` | SUPPORTED | `kilo agent list` |
-| Per-role model via agent `model:` | SUPPORTED | `kilo debug agent evaluator` → `{providerID: kilo, modelID: ~openai/gpt-astra-latest}` |
+| Per-role model via agent `model:` | SUPPORTED | `kilo debug agent evaluator` → `{providerID: openai, modelID: gpt-6-astra}` |
 | `tools:` boolean map | SUPPORTED | resolved tool map shows `write: false`, `task: false` |
 | `permission.edit` / `permission.bash` (last match wins) | SUPPORTED | resolved permission list; a nested `bash` map accepts per-pattern actions |
 | Global `permission` posture (`allow` for `edit`, `bash`, `webfetch`, `external_directory`, `doom_loop`, `*`) | SUPPORTED | installed SDK `permission` type; `check_kilo.py` asserts the emitted object byte-for-byte |
@@ -62,7 +62,8 @@ key and then removed.
 | Plugin hooks `shell.env`, `permission.ask`, `event`, `chat.*` | SUPPORTED | installed `@kilocode/plugin` type definitions |
 | `lsp` / `formatter` config keys | SUPPORTED | installed SDK types; `false | { [id]: … }` |
 | `subagent_model` config key | UNSUPPORTED | absent from the installed SDK types; not emitted |
-| `variant`, `effort`, `xhigh` | NOT APPLICABLE | no such agent fields; the catalog advertises no variants for Astra/Luna, so none are emitted |
+| `variant` on an agent Markdown | SUPPORTED | isolated-`HOME` `kilo debug agent` resolved `model: openai/gpt-5.6-luna` + `variant: max`; `agent.<id>.variant` in `kilo.jsonc` only fills a field the Markdown omits |
+| `effort`, `temperature`, `top_p` | NOT EMITTED | no canonical agent carries them, and a Claude-only tuning key must not be projected |
 | `Stop` event | ABSENT | no such hook exists; `stop_verify.py` has no Kilo projection |
 | `PermissionRequest`, `Notification`, `SubagentStart` | ABSENT | no confirmed Kilo event; `tool_approver.py`, `notify.py`, `subagent_context.py` are omitted |
 | Workflow runtime (`Workflow({...})`) | ABSENT | commands take their already-declared fallback instead of retrying a name |
@@ -95,13 +96,20 @@ Twelve canonical agents plus one generated primary, `graph-powers`. The primary'
 the Graph Powers commands explicitly because Kilo's built-in `ask`, `code`, `plan` and `debug`
 agents compete by name, and Kilo chooses by description when nothing else decides.
 
-| Profile | Model | Agents |
-|---|---|---|
-| judge | `kilo/~openai/gpt-astra-latest` | evaluator, security-reviewer, skill-improver, ui-ux-designer |
-| architect | `kilo/~openai/gpt-astra-latest` | project-planner |
-| executor | `kilo/~openai/gpt-luna-latest` | debugger, frontend-specialist, mobile-developer, performance-optimizer |
-| verifier | `kilo/~openai/gpt-luna-latest` | verification |
-| scout | `kilo/~openai/gpt-luna-latest` | explorer, librarian |
+| Profile | Model | Variant | Agents |
+|---|---|---|---|
+| judge | `openai/gpt-6-astra` | `medium` | evaluator, security-reviewer, skill-improver, ui-ux-designer |
+| architect | `openai/gpt-6-astra` | `medium` | project-planner |
+| executor | `xai/grok-4.6` | `xhigh` | debugger, frontend-specialist, mobile-developer, performance-optimizer |
+| verifier | `openai/gpt-5.6-luna` | `max` | verification |
+| scout | `openai/gpt-5.6-luna` | `max` | explorer, librarian |
+
+The defaults route through the operator's **subscriptions** (`openai/…`, `xai/…`) instead of the
+`kilo/…` gateway so a session does not bill the KiloCode API per token. `model:` and `variant:` are
+written into each generated agent Markdown, because that frontmatter is authoritative: `kilo debug
+agent` proved `agent.<id>.model` and `agent.<id>.variant` in `kilo.jsonc` only fill a field the
+Markdown omits. That is why changing the model from the TUI and saving reverts to the Markdown
+value — the override surface is `~/.config/kilo/graph-powers.json`, not the session picker.
 
 `isKiloModelId` refuses a Claude alias (`opus`, `sonnet`, `haiku`, `fable`) and a Codex slug
 (`gpt-5.6-sol`), because neither resolves and a subagent with an unresolvable model starts and never
@@ -135,13 +143,15 @@ surface is `~/.config/kilo/graph-powers.json` (or `GRAPH_POWERS_KILO_MODELS` for
 
 ```jsonc
 {
-  "agent": { "evaluator": { "model": "kilo/~openai/gpt-sol-latest" } },
-  "profiles": { "executor": { "model": "kilo/~openai/gpt-terra-latest" } }
+  "agent": { "verification": { "model": "openai/gpt-5.6-luna", "variant": "max" } },
+  "profiles": { "executor": { "model": "xai/grok-4.6", "variant": "high" } }
 }
 ```
 
-Precedence: per-agent → profile → legacy family tier → flat → semantic default. The main model is
-never written: the router inherits whatever the operator chose.
+Precedence: per-agent → profile → legacy family tier → flat → semantic default. Model and variant
+resolve together from the winning source, except that an override which names a model but no variant
+gets the model's own default rather than the replaced profile's variant; a variant-only override
+still applies. The main model is never written: the router inherits whatever the operator chose.
 
 ## Install and rollback
 

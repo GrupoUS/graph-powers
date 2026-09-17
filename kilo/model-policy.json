@@ -13,19 +13,24 @@
   },
   "profiles": {
     "judge": {
-      "model": "kilo/~openai/gpt-astra-latest"
+      "model": "openai/gpt-6-astra",
+      "variant": "medium"
     },
     "architect": {
-      "model": "kilo/~openai/gpt-astra-latest"
+      "model": "openai/gpt-6-astra",
+      "variant": "medium"
     },
     "executor": {
-      "model": "kilo/~openai/gpt-luna-latest"
+      "model": "xai/grok-4.6",
+      "variant": "xhigh"
     },
     "verifier": {
-      "model": "kilo/~openai/gpt-luna-latest"
+      "model": "openai/gpt-5.6-luna",
+      "variant": "max"
     },
     "scout": {
-      "model": "kilo/~openai/gpt-luna-latest"
+      "model": "openai/gpt-5.6-luna",
+      "variant": "max"
     }
   },
   "leafAgents": ["evaluator"],

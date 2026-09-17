@@ -9,6 +9,13 @@
  * already has an authority for the same decision — `agent.<id>.model` in `kilo.jsonc` — so the
  * generated agents carry the semantic default and the operator's config still wins.
  *
+ * The defaults route through the operator's own subscriptions (`openai/…`, `xai/…`) rather than the
+ * `kilo/…` gateway, so a session does not bill the KiloCode API per token, and they carry a
+ * reasoning `variant` because the subscription catalogs advertise one. Proven against 7.6.2: an
+ * agent Markdown `model:` and `variant:` are both authoritative, and `agent.<id>.*` in `kilo.jsonc`
+ * only fills a field the Markdown left out — which is exactly why a model change made in the TUI
+ * reverts, and why the default has to be right here.
+ *
  * Claude aliases (`opus`, `sonnet`, `haiku`, `fable`) and Codex slugs (`gpt-5.6-sol`) must never
  * reach a Kilo agent: they resolve to nothing, and a model that resolves to nothing is a subagent
  * that silently stops. `isKiloModelId` is the gate that proves the difference — a Kilo id always
@@ -39,10 +46,6 @@ function text(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function own(object, key) {
-  return Boolean(object) && typeof object === "object" && Object.hasOwn(object, key);
-}
-
 /**
  * A usable Kilo model id: `provider/model`, with neither side empty.
  *
@@ -62,6 +65,14 @@ export function isKiloModelId(model) {
   return !CLAUDE_FAMILIES.has(provider);
 }
 
+/**
+ * Pick the first candidate that carries a model, refusing anything that is not a Kilo id.
+ *
+ * The model and the reasoning variant resolve independently. A per-agent override that names a
+ * model but no variant must not inherit the profile default's variant — a Luna override on an Astra
+ * profile would otherwise carry a variant Astra never advertised. A variant-only override still
+ * applies, because it is explicit.
+ */
 function firstModel(candidates) {
   for (const candidate of candidates) {
     const value = text(candidate.value);
@@ -72,7 +83,22 @@ function firstModel(candidates) {
           "cannot enter a Kilo agent",
       );
     }
-    return { ...candidate, value };
+    return { value, source: candidate.source };
+  }
+  return null;
+}
+
+/** Pick the first explicit reasoning-effort override, rejecting a blank value rather than ignoring it. */
+function firstVariant(candidates) {
+  for (const candidate of candidates) {
+    if (candidate.value === undefined || candidate.value === null) continue;
+    const value = text(candidate.value);
+    if (!value) {
+      throw new Error(
+        "invalid Kilo variant override: expected a non-empty reasoning effort such as low, high, xhigh or max",
+      );
+    }
+    return { value, source: candidate.source };
   }
   return null;
 }
@@ -112,22 +138,33 @@ export function resolveKiloAgentPolicy(agentName, settings = {}, sourceAgent = {
   const warnings = [];
   const family = sourceFamily(sourceAgent);
   const tier = profile ? null : (TIER_BY_FAMILY[family] ?? null);
-  const choice = firstModel([
+  const model = firstModel([
     { value: override.model, source: "agent-override" },
     { value: profileOverride?.model, source: "profile-override" },
     { value: tier ? settings?.models?.[tier] : null, source: tier ? `legacy-models.${tier}` : null },
     { value: settings?.model, source: "legacy-model" },
     { value: profileDefault?.model, source: "semantic-default" },
   ]);
-  if (choice && choice.source !== "semantic-default" && choice.source !== "session-inheritance") {
+  // An explicit override always wins. Otherwise the profile's variant rides only with the profile's
+  // own model: an operator who changed the model without naming an effort gets the model's own
+  // default, not a variant that belonged to a model they replaced.
+  const variantOverride = firstVariant([
+    { value: override.variant, source: "agent-override" },
+    { value: profileOverride?.variant, source: "profile-override" },
+  ]);
+  const variant =
+    variantOverride?.value ??
+    (model?.source === "semantic-default" ? text(profileDefault?.variant) || null : null);
+  if (model && model.source !== "semantic-default" && model.source !== "session-inheritance") {
     warnings.push(KILO_WARNING_CATEGORIES.modelOverrideUnverified);
   }
 
   return {
     agent: name,
     profile,
-    model: choice?.value ?? null,
-    modelSource: choice?.source ?? "session-inheritance",
+    model: model?.value ?? null,
+    variant,
+    modelSource: model?.source ?? "session-inheritance",
     policySource: profile ? "kilo/model-policy.json" : "legacy-extension-agent",
     leaf: KILO_LEAF_AGENTS.has(name),
     warnings,
@@ -150,6 +187,9 @@ for (const [agent, profile] of Object.entries(KILO_AGENT_PROFILES)) {
 for (const [profile, body] of Object.entries(KILO_PROFILE_DEFAULTS)) {
   if (!isKiloModelId(body.model)) {
     throw new Error(`Kilo profile ${profile} does not carry a provider/model id`);
+  }
+  if (!text(body.variant)) {
+    throw new Error(`Kilo profile ${profile} does not carry a reasoning variant`);
   }
 }
 for (const agent of KILO_LEAF_AGENTS) {

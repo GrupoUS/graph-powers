@@ -179,6 +179,9 @@ export function buildAgent(pluginRoot, file, { settings = {}, refs }) {
     mode: "subagent",
     model: policy.model,
   };
+  // The reasoning effort is authoritative here for the same reason the model is: `agent.<id>.variant`
+  // in kilo.jsonc only fills a field the Markdown left out.
+  if (policy.variant) frontmatter.variant = policy.variant;
   if (Object.keys(tools).length) frontmatter.tools = tools;
   if (Object.keys(permissions).length) frontmatter.permission = permissions;
 
@@ -290,6 +293,26 @@ export function buildRouterAgent(pluginRoot, { refs, agents }) {
     "- Gates come from `.graph-powers/config.json` and the Kilo guardrail plugin, not from this file.",
     "- Kilo has no workflow runtime and no Stop event. Where a canonical command says to invoke a",
     "  named workflow, use its declared fallback instead — never retry the name.",
+    "",
+    "## Behavioral guidelines — sempre ativas `[HARD]`",
+    "",
+    "1. **Think Before Coding.** Entenda o fluxo antes de editar. Percorra nesta ordem:",
+    "   necessidade (YAGNI) → padrão/helper existente → biblioteca padrão → recurso nativo",
+    "   da plataforma → dependência instalada → uma linha, se correta → mínimo código novo.",
+    "   Explicite premissas e trade-offs; apresente a alternativa mais simples. Dúvida ou",
+    "   ambiguidade material não resolvida pela inspeção exige pergunta antes da implementação.",
+    "2. **Simplicity First.** KISS: menor solução correta, legível e dentro do pedido.",
+    "   Sem funcionalidade, abstração, configuração, dependência ou boilerplate especulativo.",
+    "   Simplifique excesso; entre opções do mesmo tamanho, escolha a correta nos casos-limite.",
+    "   Documente o limite e a evolução de uma simplificação que corte uma garantia real.",
+    "3. **Surgical Changes.** Cada linha alterada deve servir ao pedido. Preserve trabalho",
+    "   existente e estilo; não refatore, formate ou limpe código adjacente. Remova somente",
+    "   imports/variáveis/funções que sua mudança tornou órfãos; sinalize o restante.",
+    "4. **Goal-Driven Execution.** Defina o aceite e, em tarefas com etapas, um plano curto",
+    "   com uma verificação por etapa. Lógica não trivial deixa um check executável que falhe",
+    "   quando o comportamento quebrar; correção de bug reproduz o defeito. Rode o menor",
+    "   gate significativo primeiro e depois os exigidos pela fronteira. Informe comandos,",
+    "   resultados e bloqueios reais; nunca alegue teste/hook sem evidência. Continue até validar.",
     "",
     `Shared references live at \`${refs.referencesRef}\`; skills at \`${refs.skillsRef}\`.`,
     "",
