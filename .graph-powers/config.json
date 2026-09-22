@@ -45,5 +45,10 @@
       "skills/debugger",
       "skills/intent-layer"
     ]
+  },
+  "codex": {
+    "evaluation": {
+      "enabled": true
+    }
   }
 }

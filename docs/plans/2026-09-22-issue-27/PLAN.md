@@ -1,5 +1,10 @@
 # Issue 27 — current Codex models and typed routing
 
+**Expanded objective — HOLD:** checked tasks below cover the original optional-routing scope.
+The latest request requires Jev to select agents/skills/commands and coordinate round-trip handoffs.
+Audit found this unimplemented; issue 27 stays OPEN. Revise acceptance and the execution graph
+before implementing or declaring the broader goal complete.
+
 **Tier:** L4
 **Baseline:** main, d30ccc21f3296c0ecb77d57e94761238bd526585, version 1.21.1, clean.
 **Design authority:** User-approved conversation plan, including latest Sol/Luna generation.
@@ -142,7 +147,7 @@ generators and native local marketplace update. Read AGENT_SETUP.md during autho
     3. Back up affected installed files and update the existing registered local plugin; preserve global user settings.
     4. Record proof and separate paid runtime smoke/activation needing further authorization.
 
-- [ ] **T3.3** — Run separately authorized runtime smokes
+- [x] **T3.3** — Run separately authorized runtime smokes
   Owns: docs/plans/2026-09-22-issue-27/smoke.md
   Needs: T3.2 (reads: verified installed candidate and concrete smoke commands)
   Acceptance: Authorized Astra/Luna model-effort and one Jev evaluation prove actual runtime; replay produces no network. Without separate authorization record NOT RUN, never passed.
@@ -150,7 +155,7 @@ generators and native local marketplace update. Read AGENT_SETUP.md during autho
   TDD: not-applicable (external runtime smoke)
   CHECK: python3 .github/check_codex_native.py
   EXPECT: codex-native:
-  EVIDENCE: PARTIAL: three real Codex smokes exit 0 (Astra/high, Luna/medium,max); Jev NOT RUN because AI_GATEWAY_API_KEY absent; zero paid requests. Native-economic/Ultra runtime NOT RUN.
+  EVIDENCE: Three real Codex smokes exit 0; user then authorized credential setup. Jev HTTP 200, typesafe-ai/jev, choice inspect/probabilities 0.99 and 0.01; exactly one request; identical recorded replay with empty env and zero fetches. Native-economic/Ultra runtime remains optional and NOT RUN.
   Steps:
     1. Prepare exact synthetic requests and bounded commands after candidate exists.
     2. Obtain specific paid API/credential approval before live calls; static check alone never closes this task.
@@ -183,6 +188,6 @@ installed Kilo settings are unchanged. The explicit Hermes output set is thirtee
 
 ## Not yet specified
 
-Jev account integration remains NOT RUN because the environment credential is absent, despite
-one-call authorization. Codex smokes and native refresh passed. No manual parent model change;
-global config hash changed across native registration and whole-file preservation is not claimed.
+Jev account integration now passed after explicit credential authorization. Codex smokes and native
+refresh passed. Optional native-economic/Ultra and Hermes runtime remain outside activation scope.
+Windows CI has a confirmed baseline encoding failure outside this issue. No parent model change.

@@ -1,7 +1,7 @@
 # Issue 27 — runtime smoke evidence
 
 User explicitly authorized synthetic Codex Astra/high and Luna/medium|max and at most one paid
-Jev call. This does not authorize credential changes or fallback/retry.
+Jev call. A later user request explicitly authorized storing the supplied gateway key and enabling local evaluation; fallback/retry remain forbidden.
 
 Codex CLI 0.155.1; existing native installation and authentication, ephemeral sessions, disposable
 working directory, read-only sandbox. Synthetic prompt asks for ISSUE27_SMOKE_OK without tools,
@@ -19,8 +19,14 @@ Logs: `.graph-powers/logs/issue-27/smoke/`. These prove the requested model/effo
 Codex turn; native/clone checker separately proves the twelve generated role resolutions. They
 are not a benchmark or proof that a previously opened Desktop session reloaded its roles.
 
-Jev integration: NOT RUN — AI_GATEWAY_API_KEY absent from the process environment. Zero paid
-requests sent. Do not discover credentials automatically or substitute a chat endpoint. A future
-single authorized synthetic evaluation must use the public adapter; local replay must send no
-network request. Native-economic and native-ultra runtime activation are NOT RUN; no top-level
-profile was installed.
+Jev integration: PASS on 2026-09-22, after explicit user authorization to configure the supplied
+credential globally and enable evaluation locally. Credential exists only in the native Codex
+shell environment settings (mode 0600); no value is stored in the repository or sent to GitHub.
+
+One real adapter evaluation returned HTTP 200, model `typesafe-ai/jev`, choice `inspect`,
+probabilities `inspect: 0.99`, `review: 0.01`, and generation `gen_01M35CX4EN28NX7R9VHKQ0XHCR`.
+The gateway reported 422 input and 31 output tokens. This is observed usage, not a pricing promise.
+Replay used an empty credential environment and a rejecting transport: same recorded result,
+zero fetch calls. Real request count: exactly one. No chat endpoint, fallback, retry or automatic spawn.
+Evidence: `.graph-powers/logs/issue-27/gateway-activation/live-result.json` and durable attempt marker.
+Native-economic/Ultra runtime remains NOT RUN; those optional profiles were not activated.

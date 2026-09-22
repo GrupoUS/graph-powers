@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "d30ccc21f3296c0ecb77d57e94761238bd526585",
+    "base_revision": "24812f0be2066a9b581129c26a9d362bd80f05fe",
     "version": "1.22.0+codex.20260922193943",
-    "dirty": true
+    "dirty": false
   },
   "registrations": [
     {
@@ -246,8 +246,8 @@
     {
       "path": ".claude-plugin/plugin.json",
       "sha256": "198a811aa7ba05e2b6075930ba3de097bacc630e43b0630fdac59f76f63555c9",
-      "base_sha256": "685b3fed54575c5f5a1afcba6decf8e61416f4125717a3d4cce9e614666e6ce0",
-      "dirty": true
+      "base_sha256": "198a811aa7ba05e2b6075930ba3de097bacc630e43b0630fdac59f76f63555c9",
+      "dirty": false
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -264,8 +264,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "dd93788e217fa54aa4ade760e71e930d8967d1dbab1925db30936d22ea3ae5be",
-      "base_sha256": "71dca68c38c48bfbcfc48f1e75e6aaa2cae3dbe16ecbf191d3e8eb8a247755a4",
-      "dirty": true
+      "base_sha256": "dd93788e217fa54aa4ade760e71e930d8967d1dbab1925db30936d22ea3ae5be",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -354,14 +354,14 @@
     {
       "path": "codex/evaluate.mjs",
       "sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
+      "dirty": false
     },
     {
       "path": "codex/install.mjs",
       "sha256": "3a90cb1fb240af8d57e8514ae77b906878c4c0ed5c98195eb5a12e79b631bd99",
-      "base_sha256": "ef4b43182a955ffb1d6475282d8c7ceee8fcb3c06ee01820ff95eecc8eaf518b",
-      "dirty": true
+      "base_sha256": "3a90cb1fb240af8d57e8514ae77b906878c4c0ed5c98195eb5a12e79b631bd99",
+      "dirty": false
     },
     {
       "path": "codex/lib.mjs",
@@ -372,14 +372,14 @@
     {
       "path": "codex/model-policy.json",
       "sha256": "672a386f0b971073b3a8e41a63a1bfd08ef05f823d53ffa10abe5d43f40988d1",
-      "base_sha256": "5001fd6e45f7dc91cdf37af1c3eeaec703535a5111b11870dd1120e9db31d018",
-      "dirty": true
+      "base_sha256": "672a386f0b971073b3a8e41a63a1bfd08ef05f823d53ffa10abe5d43f40988d1",
+      "dirty": false
     },
     {
       "path": "codex/model-policy.mjs",
       "sha256": "7e50b7bba69ba08d2d8c03f38aa9fb199176353ec644e3ecd0c1e3d4b09f8715",
-      "base_sha256": "93f0baa3fde8f99b11c4349d6b1e7db32fa5111fb47683120e517bc99756a6f7",
-      "dirty": true
+      "base_sha256": "7e50b7bba69ba08d2d8c03f38aa9fb199176353ec644e3ecd0c1e3d4b09f8715",
+      "dirty": false
     },
     {
       "path": "commands/debug.md",
@@ -624,8 +624,8 @@
     {
       "path": "references/shared/030-agent-assignment-matrix.md",
       "sha256": "c0dc7b3ab2b83757f83d5d1e570a9a58ac138f2b2e6d0a375a74feb7968e7996",
-      "base_sha256": "87163ea593b6f190b5ac4b0d8b9d1621e919fc23e4b9cb59c47f6c5f3afd958d",
-      "dirty": true
+      "base_sha256": "c0dc7b3ab2b83757f83d5d1e570a9a58ac138f2b2e6d0a375a74feb7968e7996",
+      "dirty": false
     },
     {
       "path": "references/shared/035-agent-resolution-recovery.md",
@@ -720,8 +720,8 @@
     {
       "path": "schema/config.schema.json",
       "sha256": "d3e1d5ba2bfd2d5bff2e23f7bd57e11eb0a084de9f31de2a978fac489fb3f09a",
-      "base_sha256": "bab02e700227e087e038016c6ae52212b94f8ae9f519543920e86f7b44b1553e",
-      "dirty": true
+      "base_sha256": "d3e1d5ba2bfd2d5bff2e23f7bd57e11eb0a084de9f31de2a978fac489fb3f09a",
+      "dirty": false
     },
     {
       "path": "skills/animate/SKILL.md",
@@ -1086,8 +1086,8 @@
     {
       "path": "skills/planning/scripts/sdd.py",
       "sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
-      "base_sha256": "d0916aea0d203cbc48dd8645d338f1a50548277b3792721585a8069983386894",
-      "dirty": true
+      "base_sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
+      "dirty": false
     },
     {
       "path": "skills/senior-architect/SKILL.md",
@@ -1122,8 +1122,8 @@
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
       "sha256": "2fa38cc57a60467a2c671a19ab08c62d730c04e34ad4d31a9a03fc75554f1518",
-      "base_sha256": "45cc2eb507c5f76c3543f13655c5ab8eb10d0edd3528b51a782e54a0b7881940",
-      "dirty": true
+      "base_sha256": "2fa38cc57a60467a2c671a19ab08c62d730c04e34ad4d31a9a03fc75554f1518",
+      "dirty": false
     },
     {
       "path": "skills/senior-prompt-engineer/references/agentic_system_design.md",

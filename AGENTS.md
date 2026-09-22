@@ -51,8 +51,35 @@ architecture and audience live in `docs/`.
 <!-- graph-powers:start -->
 ## Graph Powers
 
-This machine runs the shared Graph Powers harness. Read its shared-context index, then only the
-fragments the task needs; safety and execution floors always apply. Project-specific parameters,
-rules, and product specifications remain in this repository. A hook denial names the opt-in that a
-person must set for the approved action.
+This machine runs the Graph Powers harness, installed once and shared by every project.
+
+Three files carry everything else:
+
+- `~/.codex/graph-powers/shared-context.md` — an index of the shared patterns, one file each under
+  `~/.codex/graph-powers/shared/`: config loader, quality gates, complexity routing, agent matrix,
+  spawn patterns, and the rest. Read the index, then only the fragments the task needs.
+- `~/.codex/graph-powers/safety-floor.md` — the invariants that hold regardless of the task: git and
+  outward-facing actions, tenant and personal data, irreversible operations, secrets, tooling,
+  scope, completion claims, accessibility.
+- `~/.codex/graph-powers/execution-floor.md` — how the work is coordinated, in force from the first turn:
+  delegation is required above L3 and refused below it, read-only agents go to the background in
+  a single message, one writer per file, and the seven-section contract every spawned prompt
+  carries. On Codex nothing spawns on its own — the prompt has to say so. Read it before
+  spawning anything.
+
+**What is global and what is this project's.** The harness itself — skills, subagents,
+commands, guardrails — is installed once for the whole machine, because it is identical
+everywhere. What belongs to this repository and nothing else lives here:
+
+- `.graph-powers/config.json` — the branch, the gate commands, the paths, the opt-in prefix
+- `.codex/rules/` and `.claude/rules/` — this project's domain rules
+- `DESIGN.md`, `PRODUCT.md`, `REVIEW.md` — its design, product and review authorities
+
+The guardrails are what make one global copy correct rather than sloppy: they read **this**
+project's config at runtime, so the same files enforce a different work branch and a different
+opt-in key in every repository.
+
+Read the config; never assume it. A denied command is the rule working, not a bug to route
+around: it names the environment variable that releases it, and a person sets that variable,
+in the turn they approved it.
 <!-- graph-powers:end -->
