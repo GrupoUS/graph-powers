@@ -348,12 +348,17 @@ node codex/native-plugin.mjs --out <codex-home>/agents
 
 This companion step writes roles only; it does not install a second hook or skill route. Those TOMLs
 and the clone fallback use the same resolver from `codex/model-policy.json`, so neither generated
-route inherits one session model for all twelve agents. The defaults encode the economic role of the
-node:
+route inherits one session model for all twelve agents. The defaults preserve each specialist's role:
 
-- judges and architects: `gpt-5.6-sol` + `max`;
-- executors and the verifier: `gpt-5.6-terra` + `high`;
-- scouts: `gpt-5.6-luna` + `medium`.
+- judges, architects, executors and the verifier: `gpt-6-astra` + `high`;
+- scouts: `gpt-6-luna` + `medium`.
+
+The operator's parent stays a manual choice: the issue-27 mode is `gpt-6-luna` + `max`.
+At each model-policy update, revalidate the latest official model in the selected family and
+record its literal ID; never invent a `-latest` alias or silently change the runtime model.
+Smoke the resolved model and effort on the actual account before activation. An unavailable
+combination is BLOCKED, not a reason to substitute another model or effort.
+Read [AGENT_SETUP.md](AGENT_SETUP.md) in update mode when refreshing an existing installation.
 
 The tracked files under `codex/native-agents/` are portable source snapshots. The `--out` step
 resolves every `${CLAUDE_PLUGIN_ROOT}` reference to the actual installed plugin root before Codex
@@ -370,12 +375,12 @@ workflow, read-only and evaluator-leaf boundaries are explicit instructions and 
 not hard per-role runtime capabilities.
 
 The non-judge profiles name `judge` as their escalation target, but the resolver never retries by
-itself. Existing bounded stopping conditions decide when to hand an ambiguity to Sol; there is no
+itself. Existing bounded stopping conditions decide when to hand an ambiguity to the evaluator; there is no
 automatic Luna → Terra → Sol chain and no new retry loop.
 
 Model selects which intelligence/cost tier executes the node. Reasoning effort controls that
-model's single-agent reasoning budget. Terra has no automatic role or retry hop, but an operator can
-select it explicitly through a profile or individual-agent override:
+model's single-agent reasoning budget. Existing explicit overrides, including older model IDs,
+are preserved. This legacy example illustrates precedence; new defaults use the current IDs above:
 
 ```json
 "codex": {
@@ -411,7 +416,9 @@ codex --profile native-ultra
 ```
 
 The installed Codex build still decides whether the selected model/account can execute Ultra; a
-runtime rejection is reported rather than translated to another model. Judges remain on Sol Max.
+runtime rejection is reported rather than translated to another model. The existing top-level defaults
+are `native-ultra`: `gpt-6-sol`/`ultra`, and `native-economic`: `gpt-6-luna`/`low`.
+Neither changes the manually selected Luna/max parent. Judges remain on Astra/high.
 
 ### Cursor
 

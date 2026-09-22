@@ -427,6 +427,58 @@ class SddCliTests(unittest.TestCase):
             "status": "RESERVED",
         }
 
+    def jev_request(
+        self,
+        *,
+        task_id_value: str = "T2",
+        decision_key: str = "typed-route",
+    ) -> dict[str, object]:
+        request = self.consult_request(
+            task_id_value=task_id_value,
+            decision_key=decision_key,
+            backend="jev",
+        )
+        request["options"] = ["astra", "luna"]
+        request["recommendation"] = "astra"
+        request["evaluationRequest"] = {
+            "model": "typesafe-ai/jev",
+            "state": {"task": task_id_value, "doubt": "routing"},
+            "questions": {
+                "route": {
+                    "type": "choice",
+                    "instructions": "Choose the best candidate.",
+                    "criteria": {"astra": "best fit", "luna": "independent check"},
+                }
+            },
+            "candidates": [
+                {"id": "astra", "role": "debugger", "model": "gpt-6-astra", "reasoningEffort": "high"},
+                {"id": "luna", "role": "explorer", "model": "gpt-6-luna", "reasoningEffort": "medium"},
+            ],
+            "policy": {"identity": "issue27-routing-v1"},
+        }
+        return request
+
+    @staticmethod
+    def jev_result(request: dict[str, object]) -> dict[str, object]:
+        result = dict(request)
+        result.update(
+            {
+                "verdict": "astra",
+                "status": "RECORDED",
+                "evaluationResult": {
+                    "model": "typesafe-ai/jev",
+                    "answers": {
+                        "route": {
+                            "type": "choice",
+                            "choice": "astra",
+                            "probabilities": {"astra": 0.7, "luna": 0.3},
+                        }
+                    },
+                },
+            }
+        )
+        return result
+
     def consult_plan(self, root: Path) -> Path:
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
         return self.write_plan(root, plan_text(task("T1.1")))
@@ -1952,6 +2004,162 @@ class SddCliTests(unittest.TestCase):
             duplicate_record = self.run_consult("record", plan, result)
             self.assertEqual(duplicate_record.returncode, 0, duplicate_record.stderr)
             self.assertEqual(json.loads(duplicate_record.stdout), recorded_output)
+
+    def test_legacy_fallback_can_record_the_routed_reservation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.consult_request(backend="fable", capability_status="UNKNOWN")
+            reserved = self.run_consult("reserve", plan, request)
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            routed = json.loads(reserved.stdout)
+            self.assertEqual(routed["backend"], "evaluator")
+            self.assertTrue(routed["fallback"])
+
+            result = dict(routed)
+            result.update({"verdict": "PASS", "status": "RECORDED"})
+            recorded = self.run_consult("record", plan, result)
+            self.assertEqual(recorded.returncode, 0, recorded.stderr)
+            self.assertEqual(json.loads(recorded.stdout)["status"], "RECORDED")
+
+    def test_jev_reservation_exclusively_authorizes_one_fresh_send_and_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.jev_request()
+
+            fresh = self.run_consult("reserve", plan, request)
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
+            fresh_output = json.loads(fresh.stdout)
+            self.assertTrue(fresh_output["callAuthorized"])
+            ledger = root / ".graph-powers/logs/sdd" / root.name / "consultations.json"
+            self.assertNotIn("callAuthorized", ledger.read_text(encoding="utf-8"))
+
+            resumed = self.run_consult("reserve", plan, request)
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            self.assertFalse(json.loads(resumed.stdout)["callAuthorized"])
+
+            recorded = self.run_consult("record", plan, self.jev_result(request))
+            self.assertEqual(recorded.returncode, 0, recorded.stderr)
+            self.assertFalse(json.loads(recorded.stdout)["callAuthorized"])
+            self.assertEqual(json.loads(recorded.stdout)["evaluationResult"]["answers"]["route"]["choice"], "astra")
+
+    def test_jev_fingerprint_rejects_reused_key_and_malformed_terminal_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.jev_request()
+            self.assertEqual(self.run_consult("reserve", plan, request).returncode, 0)
+
+            changed = self.jev_request()
+            changed["evaluationRequest"]["state"] = {"task": "T2", "doubt": "different"}  # type: ignore[index]
+            mismatch = self.run_consult("reserve", plan, changed)
+            self.assertEqual(mismatch.returncode, 2)
+            self.assertIn("fingerprint", mismatch.stderr)
+
+            cross_backend = self.consult_request(decision_key="typed-route")
+            cross_backend.update({"verdict": "PASS", "status": "RECORDED"})
+            rejected_cross_backend = self.run_consult("record", plan, cross_backend)
+            self.assertEqual(rejected_cross_backend.returncode, 2)
+            self.assertIn("identity", rejected_cross_backend.stderr)
+
+            malformed = self.jev_result(request)
+            malformed["evaluationResult"]["answers"]["route"]["probabilities"] = {"astra": 1.2, "luna": -0.2}  # type: ignore[index]
+            invalid = self.run_consult("record", plan, malformed)
+            self.assertEqual(invalid.returncode, 2)
+            self.assertIn("probabilities", invalid.stderr)
+
+            result = self.jev_result(request)
+            result["evaluationResult"]["answers"]["route"]["choice"] = "other"  # type: ignore[index]
+            invalid_choice = self.run_consult("record", plan, result)
+            self.assertEqual(invalid_choice.returncode, 2)
+            self.assertIn("eligible", invalid_choice.stderr)
+
+            error = dict(request)
+            error.update(
+                {
+                    "verdict": "BLOCKED",
+                    "status": "BLOCKED",
+                    "evaluationError": {"code": "INVALID_RESPONSE", "reason": "Bearer secret-value"},
+                }
+            )
+            terminal = self.run_consult("record", plan, error)
+            self.assertEqual(terminal.returncode, 4, terminal.stderr)
+            self.assertEqual(json.loads(terminal.stdout)["evaluationError"]["code"], "INVALID_RESPONSE")
+            self.assertEqual(json.loads(terminal.stdout)["evaluationError"]["reason"], "typed evaluation failed")
+            self.assertNotIn("secret-value", terminal.stdout)
+
+            changed_record = self.jev_result(changed)
+            mismatch_record = self.run_consult("record", plan, changed_record)
+            self.assertEqual(mismatch_record.returncode, 2)
+            self.assertIn("fingerprint", mismatch_record.stderr)
+
+    def test_jev_record_rejects_a_verdict_that_conflicts_with_its_choice(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.jev_request()
+            self.assertEqual(self.run_consult("reserve", plan, request).returncode, 0)
+            conflict = self.jev_result(request)
+            conflict["verdict"] = "luna"
+
+            rejected = self.run_consult("record", plan, conflict)
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("verdict", rejected.stderr)
+
+    def test_jev_request_rejects_invalid_role_depth_and_typed_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for number, mutation, expected in (
+                (1, lambda request: request["evaluationRequest"].update({"model": "chat"}), "model"),  # type: ignore[index]
+                (2, lambda request: request["evaluationRequest"]["candidates"][0].update({"role": ""}), "role"),  # type: ignore[index]
+                (3, lambda request: request["evaluationRequest"]["questions"]["route"].update({"type": "text"}), "choice"),  # type: ignore[index]
+                (4, lambda request: request.update({"depth": 1}), "depth"),
+                (5, lambda request: request.update({"options": ["wrong"], "recommendation": "wrong"}), "options"),
+            ):
+                request = self.jev_request(decision_key=f"invalid-{number}")
+                mutation(request)
+                result = self.run_consult("reserve", plan, request)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(expected, result.stderr)
+
+            unavailable = self.jev_request(decision_key="jev-unavailable")
+            unavailable["capabilityStatus"] = "UNAVAILABLE"
+            blocked = self.run_consult("reserve", plan, unavailable)
+            self.assertEqual(blocked.returncode, 4)
+            blocked_output = json.loads(blocked.stdout)
+            self.assertEqual(blocked_output["backend"], "jev")
+            self.assertFalse(blocked_output["fallback"])
+            self.assertFalse(blocked_output["callAuthorized"])
+
+    def test_concurrent_jev_reservations_authorize_exactly_one_send_and_obey_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            request = self.jev_request()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                concurrent_results = list(pool.map(
+                    lambda _: self.run_consult("reserve", plan, request), range(2),
+                ))
+            self.assertEqual([result.returncode for result in concurrent_results], [0, 0])
+            self.assertEqual(
+                sum(json.loads(result.stdout)["callAuthorized"] for result in concurrent_results), 1,
+            )
+
+            for number in range(2, 4):
+                reserved = self.run_consult(
+                    "reserve", plan, self.jev_request(decision_key=f"typed-route-{number}"),
+                )
+                self.assertEqual(reserved.returncode, 0, reserved.stderr)
+                self.assertTrue(json.loads(reserved.stdout)["callAuthorized"])
+            capped = self.run_consult(
+                "reserve", plan, self.jev_request(decision_key="typed-route-4"),
+            )
+            self.assertEqual(capped.returncode, 4)
+            capped_output = json.loads(capped.stdout)
+            self.assertEqual(capped_output["status"], "USER_REQUIRED")
+            self.assertFalse(capped_output["callAuthorized"])
 
     def test_consultation_cap_is_per_task_and_fresh_task_gets_new_budget(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

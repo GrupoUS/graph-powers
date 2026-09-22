@@ -37,6 +37,9 @@ integrations.
 
 ## Update mode — an installed project after a plugin update
 
+Read this file from the verified target plugin version before updating an existing installation;
+the old installed guide is not evidence for the candidate's model policy or update steps.
+
 The plugin's bytes update on their own (`README.md` § Maintenance); the project's instruction
 layer does not. The delimited block in `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/rules/`,
 `.graph-powers/config.json` and client posture were written against one plugin version, and a
@@ -345,6 +348,37 @@ without a second hooks/skills install; do not copy portable TOMLs directly. Pres
 settings and check generated instructions contain no unresolved `CLAUDE_PLUGIN_ROOT` token.
 Codex's per-role read-only/leaf limits are advisory where the runtime lacks enforcement.
 
+For a model-policy update, compare the installed generated roles with their previous generated
+defaults before emitting. Preserve deliberate role overrides; only replace the previous plugin
+defaults with the new defaults after the user authorizes the update and the model/effort smoke
+passes. The generator preserves existing model/effort scalars on `--out`, so a successful command
+alone does not prove that an old default migrated. Back up affected files outside auto-loaded
+directories, render candidate roles in a disposable directory, then merge only proven old defaults.
+Never overwrite a non-generated personal role such as an operator's own reviewer.
+When every managed scalar matches the previous generated default, the existing generator's explicit
+`--config` option applies the new policy and declared overrides instead of preserving stale scalars:
+
+```bash
+bun "<PLUGIN>/codex/native-plugin.mjs" --plugin "<PLUGIN>" --config .graph-powers/config.json --out "<CODEX_HOME>/agents"
+```
+
+Use this migration only after that comparison; explicit config is not permission to erase a personal
+override that exists only in an installed role file. Keep one native marketplace route and refresh it
+with `codex plugin add graph-powers@graph-powers`; a local source needs no Git pull or marketplace
+upgrade. Re-read the refreshed cache's guide and prove its version and bytes before reporting success.
+
+The current Codex policy uses Astra/high for judge, architect, executor and verifier, and Luna/medium
+for scouts. Revalidate the latest official family IDs before a model-policy change; the policy is
+the sole owner of literal defaults. The issue-27 parent target is Luna/max, selected manually by the
+operator; setup does not change the session or global parent/default-subagent settings.
+The existing economic and Ultra profiles keep their top-level semantics and need their own smoke
+before use. Unsupported model/effort combinations remain BLOCKED without a silent fallback.
+
+Jev is separate opt-in typed routing through the parent consultation contract. Updating the plugin
+does not enable evaluation, supply a credential or authorize a paid request. See
+`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a` for the executable call site,
+reservation/replay behavior and capability requirements. Jev never replaces the evaluator role.
+
 **Clone fallback**, only when native installation is unavailable or a project-scoped copy is needed:
 
 ```bash
@@ -478,7 +512,14 @@ bun "<PLUGIN>/bin/graph-powers.mjs" --target kilo --autonomy <MODE>
 
 The installer writes agents, commands, skills and the guardrail plugin under `~/.kilo/`, merges two
 config keys (`lsp`, `formatter`) into `~/.kilo/kilo.jsonc` without touching comments or unrelated
-keys, and records ownership before writing; a file it does not own is a refusal, not an overwrite.
+keys, and — under autonomous — merges the `permission` approval posture (`edit`, `bash`,
+`webfetch`, `external_directory`, `doom_loop`, `*` set to `allow`) sub-key by sub-key. It records
+ownership before writing; a file it does not own is a refusal, not an overwrite. The posture is
+operator config, is not recorded as a managed key, and uninstall leaves it in place. Each generated
+agent also carries an exact `provider/model` and reasoning `variant` from `content/kilo/model-policy.json`,
+defaulting to the operator's `openai`/`xai` subscriptions rather than the per-token `kilo` gateway;
+those Markdown fields are authoritative, so `~/.config/kilo/graph-powers.json` — not the session
+model picker — is the override surface.
 `--client kilo` reports posture `PARTIAL` because Kilo has no `Stop`, `PermissionRequest`,
 `Notification` or `SubagentStart` event: the tool-level guardrails run through the native plugin and
 the lifecycle registrations that cannot be projected are named rather than implied. Do not report

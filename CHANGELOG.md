@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.22.0 — Current Codex specialists and typed routing
+
+Codex judge, architect, executor and verifier defaults use GPT-6 Astra/high; scouts use
+GPT-6 Luna/medium. Existing top-level economic and Ultra profiles use Luna 6/low and Sol 6/ultra.
+Role permissions, evaluator leaf/read-only intent and explicit override precedence are preserved.
+The parent remains a manual operator choice. Revalidate current official family IDs and smoke the
+resolved model/effort before activation; unsupported combinations never silently substitute models.
+
+Optional Jev routing uses typed HTTP evaluation rather than a chat role. The parent sends a minimal
+snapshot only for material uncertainty between eligible, capability-proven alternatives. The
+existing consultation ledger binds input to a fingerprint, authorizes only a fresh reservation,
+retains typed probabilities and terminal errors, and never retries a pending or completed decision.
+The three-decision cap and legacy consultation backends remain intact.
+
+AGENT_SETUP.md now describes reading the candidate guide on updates, migrating only generated old
+model defaults while preserving personal overrides, and keeping paid evaluation opt-in. Native
+companions and the Hermes dependency closure are regenerated from canonical sources. Local Codex
+development refresh uses a synchronized cachebuster build suffix across versioned manifests.
+
 ## 1.21.1 — Honest Grok hook proof
 
 Grok 1.0.30 still registers `hooks/hooks.json` as `hookType=file` and does not dispatch it.

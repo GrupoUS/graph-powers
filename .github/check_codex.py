@@ -13,18 +13,18 @@ import sys
 import tomllib
 
 EXPECTED_POLICY = {
-    "evaluator": ("judge", "gpt-5.6-sol", "max"),
-    "security-reviewer": ("judge", "gpt-5.6-sol", "max"),
-    "skill-improver": ("judge", "gpt-5.6-sol", "max"),
-    "ui-ux-designer": ("judge", "gpt-5.6-sol", "max"),
-    "project-planner": ("architect", "gpt-5.6-sol", "max"),
-    "debugger": ("executor", "gpt-5.6-terra", "high"),
-    "frontend-specialist": ("executor", "gpt-5.6-terra", "high"),
-    "mobile-developer": ("executor", "gpt-5.6-terra", "high"),
-    "performance-optimizer": ("executor", "gpt-5.6-terra", "high"),
-    "verification": ("verifier", "gpt-5.6-terra", "high"),
-    "explorer": ("scout", "gpt-5.6-luna", "medium"),
-    "librarian": ("scout", "gpt-5.6-luna", "medium"),
+    "evaluator": ("judge", "gpt-6-astra", "high"),
+    "security-reviewer": ("judge", "gpt-6-astra", "high"),
+    "skill-improver": ("judge", "gpt-6-astra", "high"),
+    "ui-ux-designer": ("judge", "gpt-6-astra", "high"),
+    "project-planner": ("architect", "gpt-6-astra", "high"),
+    "debugger": ("executor", "gpt-6-astra", "high"),
+    "frontend-specialist": ("executor", "gpt-6-astra", "high"),
+    "mobile-developer": ("executor", "gpt-6-astra", "high"),
+    "performance-optimizer": ("executor", "gpt-6-astra", "high"),
+    "verification": ("verifier", "gpt-6-astra", "high"),
+    "explorer": ("scout", "gpt-6-luna", "medium"),
+    "librarian": ("scout", "gpt-6-luna", "medium"),
 }
 READ_ONLY_AGENTS = {
     "evaluator",

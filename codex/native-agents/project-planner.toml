@@ -4,8 +4,8 @@
 name = "project-planner"
 description = "Use after research and before implementation to produce a scoped, testable plan with acceptance criteria, risks, decisions, ownership, and gates. Writes only the plan."
 # Codex policy: profile=architect; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-5.6-sol"
-model_reasoning_effort = "max"
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
 
 developer_instructions = '''
 

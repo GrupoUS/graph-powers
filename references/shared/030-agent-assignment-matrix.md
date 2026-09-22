@@ -37,11 +37,11 @@ and follow that route; do not load the failure-path reference during normal assi
 
 ### The role also carries the model
 
-Never invent a dynamic name or use a generic when this matrix has the role; harder judgment changes
-role (for example explorer → evaluator), not that role's model.
+Use the matrix role, never a generic/dynamic name. Harder judgment changes the role.
 
-- Claude native `Agent`: canonical `agents/<role>.md` owns `model:`; pass no override.
-- Claude `Workflow`: load the complete canonical `agents/*.md` model map, pass `model: M(role)` on
-  every call, and stop on a missing entry.
-- Codex: both generators map that same role through `codex/model-policy.json`; its semantic profile
-  owns model and effort, and Claude family names never enter Codex output.
+- Claude Agent: use canonical `agents/<role>.md` model without overrides.
+- Claude Workflow: load `agents/*.md`; pass its model on each call; stop if missing.
+- Codex: derive eligible role/model/effort from `codex/model-policy.json`, preserving overrides.
+
+Same model/effort: choose the role directly, without Jev. For material routing doubt only, read
+`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a`.

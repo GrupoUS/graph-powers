@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "warningCategories": {
+    "modelOverrideUnverified": "model-override-unverified",
+    "profileOverrideUnverified": "profile-override-unverified",
+    "candidateModelInactive": "candidate-model-inactive"
+  },
+  "legacyTiers": {
+    "haiku": "scout",
+    "sonnet": "executor",
+    "fable": "judge",
+    "opus": "judge"
+  },
+  "profiles": {
+    "judge": {
+      "model": "openai/gpt-6-astra",
+      "variant": "medium"
+    },
+    "architect": {
+      "model": "openai/gpt-6-astra",
+      "variant": "medium"
+    },
+    "executor": {
+      "model": "xai/grok-4.6",
+      "variant": "xhigh"
+    },
+    "verifier": {
+      "model": "openai/gpt-5.6-luna",
+      "variant": "max"
+    },
+    "scout": {
+      "model": "openai/gpt-5.6-luna",
+      "variant": "max"
+    }
+  },
+  "leafAgents": ["evaluator"],
+  "agents": {
+    "debugger": "executor",
+    "evaluator": "judge",
+    "explorer": "scout",
+    "frontend-specialist": "executor",
+    "librarian": "scout",
+    "mobile-developer": "executor",
+    "performance-optimizer": "executor",
+    "project-planner": "architect",
+    "security-reviewer": "judge",
+    "skill-improver": "judge",
+    "ui-ux-designer": "judge",
+    "verification": "verifier"
+  }
+}

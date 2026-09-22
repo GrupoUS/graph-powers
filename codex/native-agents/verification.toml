@@ -4,7 +4,7 @@
 name = "verification"
 description = "Use after a UI or user-flow change to verify it in a real browser: acceptance flows, screenshots, console/page errors, network evidence, and regressions. Report-only."
 # Codex policy: profile=verifier; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-5.6-terra"
+model = "gpt-6-astra"
 model_reasoning_effort = "high"
 
 developer_instructions = '''

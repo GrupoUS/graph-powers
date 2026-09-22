@@ -3,8 +3,8 @@
  *
  * Canonical agent Markdown remains Claude-oriented. Both Codex generators call this resolver,
  * and workflows read the adjacent JSON contract through their existing configuration bootstrap.
- * Model selection is semantic: judges and architects use Sol, iterative workers and verifiers use
- * Terra, and scouts use Luna. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
+ * Model selection is semantic: judges, architects, executors and verifiers use Astra,
+ * and scouts use Luna. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
  * proactive orchestration policy, not a larger single-agent reasoning budget.
  */
 
@@ -27,6 +27,23 @@ export const CODEX_WARNING_CATEGORIES = CODEX_MODEL_POLICY.warningCategories;
 export const CODEX_LEAF_AGENTS = new Set(CODEX_MODEL_POLICY.leafAgents ?? []);
 export const TIER_BY_MODEL = CODEX_MODEL_POLICY.legacyTiers;
 export const CLAUDE_MODEL_FAMILIES = new Set(Object.keys(TIER_BY_MODEL));
+
+/** Evaluation is opt-in and separate from every chat profile and override. */
+export function resolveCodexEvaluationPolicy(settings = {}) {
+  const evaluation = settings.evaluation === undefined ? {} : settings.evaluation;
+  if (!evaluation || typeof evaluation !== "object" || Array.isArray(evaluation) ||
+    Object.keys(evaluation).some((key) => !["enabled", "timeoutMs"].includes(key)) ||
+    (evaluation.enabled !== undefined && typeof evaluation.enabled !== "boolean") ||
+    (evaluation.timeoutMs !== undefined && (!Number.isInteger(evaluation.timeoutMs) ||
+      evaluation.timeoutMs < 100 || evaluation.timeoutMs > 60000))) {
+    throw new Error("invalid Codex evaluation settings");
+  }
+  return {
+    ...CODEX_MODEL_POLICY.evaluation,
+    ...evaluation,
+    enabled: evaluation.enabled === true,
+  };
+}
 
 const SUBAGENT_EFFORTS = new Set(CODEX_REASONING_EFFORTS);
 const SUBAGENT_PROFILES = new Set(
@@ -116,12 +133,13 @@ function requestedProfile(agentName, settings, override, warnings) {
   return requested;
 }
 
-/** True for a usable Codex model slug and false for a leaked Claude family. */
+/** Lexical modality check only; this does not prove account or runtime availability. */
 export function isCodexModelSlug(model) {
   const name = text(model);
   if (!name) return false;
   const lower = name.toLowerCase();
   if (CLAUDE_MODEL_FAMILIES.has(lower) || lower.startsWith("claude")) return false;
+  if (lower === CODEX_MODEL_POLICY.evaluation.model) return false;
   return true;
 }
 

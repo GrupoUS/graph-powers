@@ -63,6 +63,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
@@ -424,10 +425,11 @@ CONSULTATION_STATUSES = {"RESERVED", "RECORDED", "USER_REQUIRED", "BLOCKED"}
 CAPABILITY_STATUSES = {"SUPPORTED", "UNSUPPORTED", "UNKNOWN", "UNAVAILABLE", "FALLBACK_UNAVAILABLE"}
 IDENTITY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 DECISION_KEY = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
-CONSULTATION_BACKENDS = {"evaluator", "fable", "advisor"}
+CONSULTATION_BACKENDS = {"advisor", "evaluator", "fable", "jev"}
 MAX_CONSULTATION_TEXT = 4096
 MAX_CONSULTATION_ITEM = 2048
 MAX_CONSULTATION_OPTIONS = 32
+MAX_EVALUATION_JSON = 16384
 BOUNDED_EXIT = 4
 DISPATCH_KINDS = {"bootstrap", "writer", "evaluator", "correction", "confirmation"}
 PLUGIN_SCHEMA = PLUGIN_ROOT / "schema" / "config.schema.json"
@@ -457,6 +459,167 @@ def _bounded_list(value: Any, name: str) -> list[str]:
     return result
 
 
+def _bounded_json_object(value: Any, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not value:
+        _consultation_error(f"{name} must be a non-empty JSON object")
+    try:
+        encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError, RecursionError) as error:
+        _consultation_error(f"{name} must contain finite JSON values: {error}")
+    if len(encoded) > MAX_EVALUATION_JSON:
+        _consultation_error(f"{name} exceeds {MAX_EVALUATION_JSON} characters")
+    decoded = json.loads(encoded)
+    assert isinstance(decoded, dict)
+    return decoded
+
+
+def _validate_jev_request(value: Any) -> dict[str, Any]:
+    request = _bounded_json_object(value, "evaluationRequest")
+    if set(request) != {"model", "state", "questions", "candidates", "policy"}:
+        _consultation_error("evaluationRequest must contain model, state, questions, candidates, and policy")
+    if request["model"] != "typesafe-ai/jev":
+        _consultation_error("evaluationRequest model must be typesafe-ai/jev")
+    state = _bounded_json_object(request["state"], "evaluationRequest state")
+    policy = _bounded_json_object(request["policy"], "evaluationRequest policy")
+    candidates = request["candidates"]
+    if not isinstance(candidates, list) or not candidates or len(candidates) > MAX_CONSULTATION_OPTIONS:
+        _consultation_error(f"evaluationRequest candidates must contain 1-{MAX_CONSULTATION_OPTIONS} items")
+    normalized_candidates: list[dict[str, str]] = []
+    candidate_ids: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or set(candidate) != {"id", "role", "model", "reasoningEffort"}:
+            _consultation_error("evaluationRequest candidate must contain id, role, model, and reasoningEffort")
+        candidate_id = candidate["id"]
+        if not isinstance(candidate_id, str) or not IDENTITY.fullmatch(candidate_id):
+            _consultation_error("evaluationRequest candidate id must be a bounded stable identifier")
+        if candidate_id in candidate_ids:
+            _consultation_error("evaluationRequest candidate ids must be unique")
+        candidate_ids.add(candidate_id)
+        normalized_candidates.append(
+            {
+                "id": candidate_id,
+                "role": _bounded_text(candidate["role"], "evaluationRequest candidate role", MAX_CONSULTATION_ITEM),
+                "model": _bounded_text(candidate["model"], "evaluationRequest candidate model", MAX_CONSULTATION_ITEM),
+                "reasoningEffort": _bounded_text(
+                    candidate["reasoningEffort"], "evaluationRequest candidate reasoningEffort", MAX_CONSULTATION_ITEM,
+                ),
+            }
+        )
+    questions = request["questions"]
+    if not isinstance(questions, dict) or set(questions) != {"route"}:
+        _consultation_error("evaluationRequest questions must contain route")
+    route = questions["route"]
+    if not isinstance(route, dict) or set(route) != {"type", "instructions", "criteria"}:
+        _consultation_error("evaluationRequest route must contain type, instructions, and criteria")
+    if route["type"] != "choice":
+        _consultation_error("evaluationRequest route type must be choice")
+    criteria = route["criteria"]
+    if not isinstance(criteria, dict) or set(criteria) != candidate_ids:
+        _consultation_error("evaluationRequest route criteria must name every eligible candidate")
+    normalized_criteria = {
+        candidate_id: _bounded_text(criteria[candidate_id], "evaluationRequest route criterion", MAX_CONSULTATION_ITEM)
+        for candidate_id in sorted(candidate_ids)
+    }
+    return {
+        "model": "typesafe-ai/jev",
+        "state": state,
+        "questions": {
+            "route": {
+                "type": "choice",
+                "instructions": _bounded_text(route["instructions"], "evaluationRequest route instructions"),
+                "criteria": normalized_criteria,
+            }
+        },
+        "candidates": normalized_candidates,
+        "policy": policy,
+    }
+
+
+def _validate_jev_result(value: Any, request: dict[str, Any]) -> dict[str, Any]:
+    result = _bounded_json_object(value, "evaluationResult")
+    if set(result) != {"model", "answers"} or result["model"] != "typesafe-ai/jev":
+        _consultation_error("evaluationResult model must be typesafe-ai/jev with answers")
+    answers = result["answers"]
+    if not isinstance(answers, dict) or set(answers) != {"route"}:
+        _consultation_error("evaluationResult answers must contain route")
+    route = answers["route"]
+    if not isinstance(route, dict) or set(route) != {"type", "choice", "probabilities"}:
+        _consultation_error("evaluationResult route must contain type, choice, and probabilities")
+    if route["type"] != "choice":
+        _consultation_error("evaluationResult route type must be choice")
+    candidate_ids = {candidate["id"] for candidate in request["candidates"]}
+    choice = route["choice"]
+    if not isinstance(choice, str) or choice not in candidate_ids:
+        _consultation_error("evaluationResult route choice must be an eligible candidate id")
+    probabilities = route["probabilities"]
+    if not isinstance(probabilities, dict) or set(probabilities) != candidate_ids:
+        _consultation_error("evaluationResult probabilities must name every eligible candidate")
+    normalized_probabilities: dict[str, float | int] = {}
+    for candidate_id in sorted(candidate_ids):
+        probability = probabilities[candidate_id]
+        if isinstance(probability, bool) or not isinstance(probability, (int, float)) or not math.isfinite(probability):
+            _consultation_error("evaluationResult probabilities must be finite numbers")
+        if probability < 0 or probability > 1:
+            _consultation_error("evaluationResult probabilities must be between 0 and 1")
+        normalized_probabilities[candidate_id] = probability
+    if not math.isclose(sum(normalized_probabilities.values()), 1.0, rel_tol=0.0, abs_tol=1e-9):
+        _consultation_error("evaluationResult probabilities must sum to 1")
+    return {
+        "model": "typesafe-ai/jev",
+        "answers": {"route": {"type": "choice", "choice": choice, "probabilities": normalized_probabilities}},
+    }
+
+
+def _validate_jev_error(value: Any) -> dict[str, str]:
+    error = _bounded_json_object(value, "evaluationError")
+    if set(error) != {"code", "reason"}:
+        _consultation_error("evaluationError must contain code and reason")
+    code = error["code"]
+    if not isinstance(code, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", code):
+        _consultation_error("evaluationError code must be uppercase snake case")
+    _bounded_text(error["reason"], "evaluationError reason")
+    # The adapter may receive provider text. Persist only this generic reason, never that payload.
+    return {"code": code, "reason": "typed evaluation failed"}
+
+
+def _consultation_fingerprint(envelope: dict[str, Any]) -> str:
+    immutable = {
+        field: envelope[field]
+        for field in (
+            "taskId", "decisionKey", "question", "evidence", "options", "recommendation", "risk",
+            "requesterRole", "depth", "backend", "capabilityStatus", "evaluationRequest",
+        )
+        if field in envelope
+    }
+    encoded = json.dumps(immutable, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _assert_matching_fingerprint(existing: dict[str, Any], envelope: dict[str, Any]) -> None:
+    expected = existing.get("fingerprint")
+    received = envelope.get("fingerprint")
+    if not isinstance(received, str):
+        _consultation_error("consultation fingerprint does not match its reservation")
+    if not isinstance(expected, str):
+        expected = _consultation_fingerprint(existing)
+    if expected != received:
+        _consultation_error("consultation fingerprint does not match its reservation")
+
+
+def _assert_jev_identity(existing: dict[str, Any], envelope: dict[str, Any]) -> None:
+    """Bind only Jev requests: legacy fallbacks deliberately rewrite their backend."""
+    existing_backend = existing.get("backend")
+    incoming_backend = envelope.get("backend")
+    if existing_backend != "jev" and incoming_backend != "jev":
+        return
+    if (
+        existing_backend != incoming_backend
+        or existing.get("capabilityStatus") != envelope.get("capabilityStatus")
+    ):
+        _consultation_error("consultation identity does not match its reservation")
+    _assert_matching_fingerprint(existing, envelope)
+
+
 def _validate_consultation_envelope(raw: Any, action: str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         _consultation_error("envelope must be a JSON object")
@@ -484,7 +647,7 @@ def _validate_consultation_envelope(raw: Any, action: str) -> dict[str, Any]:
         _consultation_error("depth must be exactly 0; nested consultation is forbidden")
     backend = raw["backend"]
     if not isinstance(backend, str) or backend.strip().lower() not in CONSULTATION_BACKENDS:
-        _consultation_error("backend must be evaluator, fable, or advisor")
+        _consultation_error("backend must be advisor, evaluator, fable, or jev")
     capability = raw["capabilityStatus"]
     if not isinstance(capability, str) or capability.strip().upper() not in CAPABILITY_STATUSES:
         _consultation_error(
@@ -518,7 +681,7 @@ def _validate_consultation_envelope(raw: Any, action: str) -> dict[str, Any]:
         and verdict.strip().upper() != normalized_status
     ):
         _consultation_error(f"{normalized_status} requires matching verdict")
-    return {
+    normalized = {
         "taskId": task,
         "decisionKey": decision,
         "question": question,
@@ -533,12 +696,46 @@ def _validate_consultation_envelope(raw: Any, action: str) -> dict[str, Any]:
         "capabilityStatus": capability.strip().upper(),
         "status": normalized_status,
     }
+    if normalized["backend"] == "jev":
+        if "evaluationRequest" not in raw:
+            _consultation_error("jev requires evaluationRequest")
+        evaluation_request = _validate_jev_request(raw["evaluationRequest"])
+        candidate_ids = [candidate["id"] for candidate in evaluation_request["candidates"]]
+        if normalized["options"] != candidate_ids or normalized["recommendation"] != candidate_ids[0]:
+            _consultation_error("jev options must be candidate ids and recommendation the first candidate")
+        normalized["evaluationRequest"] = evaluation_request
+        has_result = "evaluationResult" in raw
+        has_error = "evaluationError" in raw
+        if action == "record":
+            if normalized_status == "RECORDED":
+                if not has_result or has_error:
+                    _consultation_error("recorded jev result requires evaluationResult only")
+                normalized["evaluationResult"] = _validate_jev_result(
+                    raw["evaluationResult"], evaluation_request,
+                )
+                if normalized["verdict"] != normalized["evaluationResult"]["answers"]["route"]["choice"]:
+                    _consultation_error("recorded jev verdict must match the typed route choice")
+            elif normalized_status in {"BLOCKED", "USER_REQUIRED"}:
+                if has_result or not has_error:
+                    _consultation_error("terminal jev failure requires evaluationError only")
+                normalized["evaluationError"] = _validate_jev_error(raw["evaluationError"])
+        elif has_result or has_error:
+            _consultation_error("jev reservation cannot include an evaluation result or error")
+    elif any(field in raw for field in ("evaluationRequest", "evaluationResult", "evaluationError")):
+        _consultation_error("typed evaluation fields require backend jev")
+    if normalized["backend"] == "jev":
+        normalized["fingerprint"] = _consultation_fingerprint(normalized)
+    return normalized
 
 
 def _consultation_route(envelope: dict[str, Any]) -> tuple[str, bool, str | None]:
     """Resolve only declared capability metadata; never probe a provider or harness."""
     backend = envelope["backend"]
     capability = envelope["capabilityStatus"]
+    if backend == "jev":
+        if capability == "SUPPORTED":
+            return "jev", False, None
+        return "jev", False, "Jev typed evaluation is unavailable"
     if backend in {"fable", "advisor"}:
         if capability == "SUPPORTED":
             return backend, False, None
@@ -570,6 +767,14 @@ def _consultation_output(
     if reason:
         output["reason"] = reason
     return output
+
+
+def _consultation_response(output: dict[str, Any], *, fresh: bool = False) -> dict[str, Any]:
+    """Return a safe CLI response without leaking internal state or provider payloads."""
+    response = {key: value for key, value in output.items() if key != "fingerprint"}
+    if response.get("backend") == "jev":
+        response["callAuthorized"] = bool(fresh and response.get("status") == "RESERVED")
+    return response
 
 
 def _read_consultation_ledger(path: Path) -> dict[str, Any]:
@@ -723,17 +928,19 @@ def consult(plan: Path, action: str, raw_json: str) -> tuple[dict[str, Any], int
         if existing is not None:
             if not isinstance(existing, dict):
                 fail("invalid consultation record", 2)
-            return existing, _consultation_result_code(existing)
+            _assert_jev_identity(existing, envelope)
+            return _consultation_response(existing), _consultation_result_code(existing)
         if len(task_decisions) >= 3:
-            return _consultation_output(
+            capped = _consultation_output(
                 envelope,
                 status="USER_REQUIRED",
                 fallback=fallback,
                 reason="consultation cap reached; parent must ask the user",
-            ), BOUNDED_EXIT
+            )
+            return _consultation_response(capped), BOUNDED_EXIT
         task_decisions[envelope["decisionKey"]] = envelope
         _write_json_ledger(ledger_path, ledger, "consultation")
-        return envelope, _consultation_result_code(envelope)
+        return _consultation_response(envelope, fresh=envelope["backend"] == "jev"), _consultation_result_code(envelope)
 
 
 def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]:
@@ -751,8 +958,11 @@ def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]
         existing = task_decisions.get(envelope["decisionKey"])
         if existing is None:
             _consultation_error("record requires a prior reservation for this decisionKey")
+        if not isinstance(existing, dict):
+            fail("invalid consultation record", 2)
+        _assert_jev_identity(existing, envelope)
         if existing["status"] != "RESERVED":
-            return existing, _consultation_result_code(existing)
+            return _consultation_response(existing), _consultation_result_code(existing)
         if (
             envelope["backend"] != existing["backend"]
             or envelope["capabilityStatus"] != existing["capabilityStatus"]
@@ -762,7 +972,7 @@ def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]
         envelope["fallback"] = existing.get("fallback", False)
         task_decisions[envelope["decisionKey"]] = envelope
         _write_json_ledger(ledger_path, ledger, "consultation")
-        return envelope, _consultation_result_code(envelope)
+        return _consultation_response(envelope), _consultation_result_code(envelope)
 
 
 def task_id(raw: str) -> str:

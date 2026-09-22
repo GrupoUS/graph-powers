@@ -27,44 +27,49 @@
   },
   "profiles": {
     "judge": {
-      "model": "gpt-5.6-sol",
-      "reasoningEffort": "max",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "high",
       "escalationProfile": null
     },
     "architect": {
-      "model": "gpt-5.6-sol",
-      "reasoningEffort": "max",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "high",
       "escalationProfile": "judge"
     },
     "executor": {
-      "model": "gpt-5.6-terra",
+      "model": "gpt-6-astra",
       "reasoningEffort": "high",
       "escalationProfile": "judge"
     },
     "verifier": {
-      "model": "gpt-5.6-terra",
+      "model": "gpt-6-astra",
       "reasoningEffort": "high",
       "escalationProfile": "judge"
     },
     "scout": {
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6-luna",
       "reasoningEffort": "medium",
       "escalationProfile": "judge"
     },
     "native-ultra": {
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6-sol",
       "reasoningEffort": "ultra",
       "topLevelOnly": true,
       "fallbackProfile": "judge",
       "escalationProfile": null
     },
     "native-economic": {
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6-luna",
       "reasoningEffort": "low",
       "topLevelOnly": true,
       "fallbackProfile": "executor",
       "escalationProfile": "judge"
     }
+  },
+  "evaluation": {
+    "model": "typesafe-ai/jev",
+    "endpoint": "https://ai-gateway.vercel.sh/v1/evaluate",
+    "timeoutMs": 10000
   },
   "leafAgents": [
     "evaluator"

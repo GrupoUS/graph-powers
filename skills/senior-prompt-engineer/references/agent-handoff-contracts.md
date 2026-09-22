@@ -86,6 +86,43 @@ capability or an unavailable fallback returns `BLOCKED` without a spawn or retry
 through `sdd.py consult reserve|record` in the plan's existing workspace; retain the ledger on resume.
 Optional `fallback` and bounded `reason` record that routing.
 
+### Codex typed routing (optional Jev)
+
+Only the parent may consult Jev for material uncertainty between eligible roles/models. Required
+reviews remain separate and use the named reviewer. With no doubt, or identical resolved model
+and effort across candidates, choose the role directly; do not pay for a redundant comparison.
+Jev returns a recommendation, never review prose, authorization or an automatic spawn.
+
+Explicitly enable `codex.evaluation.enabled` in the host configuration; supply `AI_GATEWAY_API_KEY`
+through the environment. Optional `timeoutMs` is 100–60000 (default 10000). No credential discovery,
+chat fallback, model substitution or retry. Invoke with JSON on the command runner's stdin:
+
+```bash
+bun "${CLAUDE_PLUGIN_ROOT}/codex/evaluate.mjs" --project . --plan "<PLAN_FILE>"
+```
+
+Input: `materialDoubt` (boolean), `taskId`, `decisionKey`, `question`, `evidence` (string array),
+`risk`, `state` (minimal non-sensitive object), `requesterRole` (parent/controller), `depth` (zero),
+and `candidates`. Each candidate contains `id`, canonical `role`, and `capability` with `model`,
+`reasoningEffort`, `status: SUPPORTED`, and `evidence` referencing a real smoke. Model/effort must
+match policy after overrides; a valid slug alone proves no account capability. Updating policy
+requires revalidating the latest official family IDs and smoking the resolved combination.
+The adapter sends no automatically collected repository content or history.
+
+The existing ledger uses backend `jev`, retaining an `evaluationRequest` with model, state,
+choice question, resolved candidates and policy identity. A fingerprint binds immutable input.
+Only a fresh reservation's transient `callAuthorized: true` permits sending; it is never persisted.
+Duplicates return false, including pending decisions after a crash. Changed input under the same
+key is rejected. Pending means reconcile the outcome, never resend. The cap remains three per task.
+
+`evaluationResult` retains model, eligible choice and probabilities; `evaluationError` contains a
+bounded generic code/reason. Terminal replay needs no credential or traffic. Unknown Jev capability
+blocks without fallback; legacy Fable/advisor routing is unchanged. The parent consumes the result
+without an uncalibrated probability threshold and remains responsible for the next action.
+CLI exits: 0 for success/skipped, 2 for invalid input/configuration, 4 for blocked, capped or pending
+decisions; unexpected adapter failure is 1. A plan must resolve inside the same Git root as the host,
+including through symlinks. Jev's recorded verdict must equal its typed choice.
+
 ## 3. Status semantics + invariants
 
 | Status | Required condition |

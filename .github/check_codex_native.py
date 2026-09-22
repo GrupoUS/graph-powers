@@ -23,22 +23,22 @@ from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_POLICY = {
-    "evaluator": ("judge", "gpt-5.6-sol", "max"),
-    "security-reviewer": ("judge", "gpt-5.6-sol", "max"),
-    "skill-improver": ("judge", "gpt-5.6-sol", "max"),
-    "ui-ux-designer": ("judge", "gpt-5.6-sol", "max"),
-    "project-planner": ("architect", "gpt-5.6-sol", "max"),
-    "debugger": ("executor", "gpt-5.6-terra", "high"),
-    "frontend-specialist": ("executor", "gpt-5.6-terra", "high"),
-    "mobile-developer": ("executor", "gpt-5.6-terra", "high"),
-    "performance-optimizer": ("executor", "gpt-5.6-terra", "high"),
-    "verification": ("verifier", "gpt-5.6-terra", "high"),
-    "explorer": ("scout", "gpt-5.6-luna", "medium"),
-    "librarian": ("scout", "gpt-5.6-luna", "medium"),
+    "evaluator": ("judge", "gpt-6-astra", "high"),
+    "security-reviewer": ("judge", "gpt-6-astra", "high"),
+    "skill-improver": ("judge", "gpt-6-astra", "high"),
+    "ui-ux-designer": ("judge", "gpt-6-astra", "high"),
+    "project-planner": ("architect", "gpt-6-astra", "high"),
+    "debugger": ("executor", "gpt-6-astra", "high"),
+    "frontend-specialist": ("executor", "gpt-6-astra", "high"),
+    "mobile-developer": ("executor", "gpt-6-astra", "high"),
+    "performance-optimizer": ("executor", "gpt-6-astra", "high"),
+    "verification": ("verifier", "gpt-6-astra", "high"),
+    "explorer": ("scout", "gpt-6-luna", "medium"),
+    "librarian": ("scout", "gpt-6-luna", "medium"),
 }
 EXPECTED_TOP_LEVEL_PROFILES = {
-    "native-economic": ["gpt-5.6-luna", "low"],
-    "native-ultra": ["gpt-5.6-sol", "ultra"],
+    "native-economic": ["gpt-6-luna", "low"],
+    "native-ultra": ["gpt-6-sol", "ultra"],
 }
 READ_ONLY_AGENTS = {
     "evaluator",
@@ -679,7 +679,7 @@ def main() -> int:
             return 1
         ultra_config = tomllib.loads(first_contents)
         if ultra_config != {
-            "model": "gpt-5.6-sol",
+            "model": "gpt-6-sol",
             "model_reasoning_effort": "ultra",
         }:
             print(f"::error::unexpected native-ultra profile: {ultra_config}")
@@ -706,7 +706,7 @@ def main() -> int:
             print("::error::native-economic top-level profile was not emitted")
             return 1
         if tomllib.loads(economic_path.read_text(encoding="utf-8")) != {
-            "model": "gpt-5.6-luna",
+            "model": "gpt-6-luna",
             "model_reasoning_effort": "low",
         }:
             print("::error::unexpected native-economic profile")
