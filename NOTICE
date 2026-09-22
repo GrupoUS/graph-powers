@@ -290,6 +290,16 @@ with explicit constraints and evidence validity, retained execution budgets and 
 review into its existing owners. No upstream file was copied. No upstream license or universal
 context threshold, success rate or performance gain is inferred from these sources.
 
+  agents/verification.md
+  skills/webapp-testing/SKILL.md
+
+Also informed by the `drive-screen` skill at
+https://github.com/coleam00/skills/tree/dfaa9105741fc5ba9b16b6a72551cad4bad70415/.claude/skills/drive-screen
+(MIT, source review 2026-09-22). Graph Powers adapts its preference for lower-impact tools,
+pre/post observation, completion evidence and untrusted page content to browser verification.
+Desktop control, keyboard handover and screen-driving scripts are excluded because the source
+explicitly excludes browser automation. No upstream code or prose is copied.
+
 ================================================================================
 Source-informed persistent planning — no upstream files redistributed
 ================================================================================

@@ -12,6 +12,8 @@
   explicit Gauntlet admits an approved L3+ plan. L1-L2 never enter Phase C.
 - Use the authorized current checkout and honor protected-branch hooks; never switch branches or
   infer a protected-branch opt-in from plan approval.
+- With Codex Jev enabled, link the approved PLAN before this phase; Phase C stays
+  the only implementation engine.
 - When and only when successful validation passed `profile: gauntlet`, read `content/skills/planning/references/gauntlet-loop.md` and apply its delta; a missing profile is always default.
 
 ## Exit contract
@@ -113,19 +115,6 @@ explicit exception status, retain its reason and run the applicable focused chec
 not edit the plan. The controller appends workspace `task-reviews.md` rows: timestamp, task ID,
 snapshot, wave verdict, correction count, deciding check output, failed/blocked attempts and distinct
 hypotheses. The recovery protocol owns findings and contract changes.
-
-### Parent-mediated consultation
-
-Only the controller requests consultations, owning `taskId`, validated `decisionKey`, reservations,
-deduplication, caps and resume state. Use the canonical envelope in
-`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md § 2a`
-and `content/skills/planning/scripts/sdd.py consult reserve|record` in the existing atomic, symlink-safe plan workspace. Tag these
-`consult`; ordinary task/correction/wave/final calls are `review`, separate from consultation budgets.
-Retain that ledger across resume, compaction and model changes. Workers cannot spawn; read-only
-evaluators/reviewers/critics cannot consult. Duplicate keys return recorded results; caps return
-`USER_REQUIRED`. Unresolved capability or unavailable fallback is `BLOCKED` without spawn/retry;
-persistent uncertainty returns to the user. Parent-supplied `SUPPORTED` metadata alone enables native
-Fable/advisor; `UNKNOWN`/`UNSUPPORTED` selects the read-only evaluator fallback, never a live probe.
 
 ### Inline fallback
 

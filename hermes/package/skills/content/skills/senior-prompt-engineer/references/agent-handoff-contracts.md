@@ -88,42 +88,63 @@ capability or an unavailable fallback returns `BLOCKED` without a spawn or retry
 through `content/skills/planning/scripts/sdd.py consult reserve|record` in the plan's existing workspace; retain the ledger on resume.
 Optional `fallback` and bounded `reason` record that routing.
 
-### Codex typed routing (optional Jev)
+### Codex typed coordination (optional Jev)
 
-Only the parent may consult Jev for material uncertainty between eligible roles/models. Required
-reviews remain separate and use the named reviewer. With no doubt, or identical resolved model
-and effort across candidates, choose the role directly; do not pay for a redundant comparison.
-Jev returns a recommendation, never review prose, authorization or an automatic spawn.
+Only the parent/controller at depth zero uses `content/codex/coordinate.mjs`; required reviews remain named
+and separate. When enabled, Jev may choose one catalogued agent, skill, command or `main` method,
+including same-model specialists. It selects a route only: it never authorizes,
+dispatches, reviews or completes work.
 
-Explicitly enable `codex.evaluation.enabled` in the host configuration; supply `AI_GATEWAY_API_KEY`
-through the environment. Optional `timeoutMs` is 100–60000 (default 10000). No credential discovery,
-chat fallback, model substitution or retry. Invoke with JSON on the command runner's stdin:
+Three authorizations are distinct: enable `codex.evaluation.enabled` in host configuration;
+authorize configuring `AI_GATEWAY_API_KEY` in the active global Codex environment; then authorize
+the bounded paid evaluation batch. Installation, a credential, prior result or replay grants none of the
+others. Optional `timeoutMs` is 100–60000 (default 10000). No credential discovery, chat fallback,
+model substitution or retry.
+
+Pass JSON on stdin to:
 
 ```bash
-bun "content/codex/evaluate.mjs" --project . --plan "<PLAN_FILE>"
+bun "content/codex/coordinate.mjs" <catalog|init|link-plan|next|return|status> --project . --session <ID>
 ```
 
-Input: `materialDoubt` (boolean), `taskId`, `decisionKey`, `question`, `evidence` (string array),
-`risk`, `state` (minimal non-sensitive object), `requesterRole` (parent/controller), `depth` (zero),
-and `candidates`. Each candidate contains `id`, canonical `role`, and `capability` with `model`,
-`reasoningEffort`, `status: SUPPORTED`, and `evidence` referencing a real smoke. Model/effort must
-match policy after overrides; a valid slug alone proves no account capability. Updating policy
-requires revalidating the latest official family IDs and smoking the resolved combination.
-The adapter sends no automatically collected repository content or history.
+Each object includes `{"requesterRole":"parent","depth":0}`. The minimum event payloads are:
 
-The existing ledger uses backend `jev`, retaining an `evaluationRequest` with model, state,
-choice question, resolved candidates and policy identity. A fingerprint binds immutable input.
-Only a fresh reservation's transient `callAuthorized: true` permits sending; it is never persisted.
-Duplicates return false, including pending decisions after a crash. Changed input under the same
-key is rejected. Pending means reconcile the outcome, never resend. The cap remains three per task.
+```json
+{"request":"<scope>","taskId":"T1","owns":["<path>"],"checks":[{"name":"<check>","argv":["<runner>","<arg>"]}]}
+{"allowed":["agent:verification"],"capabilities":[{"model":"<resolved>","reasoningEffort":"<resolved>","status":"SUPPORTED","evidence":"<smoke>"}]}
+{"ticket":"<ticket>","handoff":{"status":"COMPLETED","confidence":4,"artifacts":[],"qualityGates":[],"decisions":[],"risks":[],"nextAgent":"NONE","resumeHint":"<next action>"}}
+{"planPath":"<approved-plan-path>"}
+```
 
-`evaluationResult` retains model, eligible choice and probabilities; `evaluationError` contains a
-bounded generic code/reason. Terminal replay needs no credential or traffic. Unknown Jev capability
-blocks without fallback; legacy Fable/advisor routing is unchanged. The parent consumes the result
-without an uncalibrated probability threshold and remains responsible for the next action.
-CLI exits: 0 for success/skipped, 2 for invalid input/configuration, 4 for blocked, capped or pending
-decisions; unexpected adapter failure is 1. A plan must resolve inside the same Git root as the host,
-including through symlinks. Jev's recorded verdict must equal its typed choice.
+They are respectively `init`, `next`, `return` and `link-plan`; `catalog` and `status` need only
+the actor fields. Pass minimal non-sensitive snapshot/evidence data; the adapter collects no
+repository history automatically.
+
+1. `catalog` returns source-derived eligible actions. `init` persists request, task, owned paths,
+   approved checks and a baseline before selection.
+2. `next` accepts the bounded allowed set plus real `SUPPORTED` model/effort capability evidence,
+   records one choice and returns `executionAuthorized`, selected methods and a seven-section prompt.
+   The parent executes that native agent dispatch or main skill/command method.
+3. `return` accepts the Context Handoff and runs approved checks afresh, hashes declared artifacts
+   and rejects scope drift. `status` exposes resumable state. The next `next` receives that verified
+   feedback; only a current verified result can offer `finish`.
+4. Before approved implementation, the parent must use `link-plan` with the relative `planPath`
+   before Phase C. Linked tasks and gates require real evidence before finish. Planning-only work
+   may finish against its original checks without executing the proposed plan. The controller owns
+   this scope distinction; the adapter does not infer implementation approval from a plan file.
+
+The ledger retains typed request, policy identity and choice; a fingerprint binds input. Only a fresh
+transient `callAuthorized: true` sends one request. The Jev cap is three evaluations per task and
+coordination actions use `graphGuardrails.maxSpawnsPerWorkflow` (default 8). Duplicates, pending or
+failed decisions do not resend; replays need no credential or traffic. `evaluationResult` retains
+model, choice and probabilities; `evaluationError` has a bounded generic reason. Unknown capability
+blocks without fallback. The parent uses no probability threshold and owns the next action. CLI exits
+are 0 success/skipped, 2 invalid input/configuration, 4 blocked/capped/pending, and 1 unexpected
+failure. Plans resolve in the host Git root, including symlinks; recorded verdict equals typed choice.
+
+For user-visible acceptance, select `verification` when browser proof is useful; it loads
+`webapp-testing`. Use an authorized target and focused smoke first, then return screenshot plus
+console/network evidence or `BLOCKED`. Browser proof does not replace fresh declared checks.
 
 ## 3. Status semantics + invariants
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.23.0 — Jev agent and method coordination
+
+Opt-in Jev selects canonical agents, skills and commands, including roles sharing a model.
+The main agent performs native dispatch, retains return evidence and independently runs approved
+checks before offering completion. Durable tickets prevent repeat execution or evaluation on resume.
+Plans can be linked after bootstrap; browser verification loads webapp-testing. Setup documents
+the complete authorized route/return smoke. Source budget adds the explicitly approved 64 KiB;
+Hermes retains its independent 2 MiB limit.
+
 ## 1.22.1 — Guided first-time Jev setup
 
 AGENT_SETUP guides Vercel key creation, private entry, one global Codex credential, local opt-in,

@@ -1,69 +1,44 @@
-# Issue 27 — verification and installation
+# Issue 27 — final coordination verification
 
-Baseline: main `d30ccc21f3296c0ecb77d57e94761238bd526585`, clean, version 1.21.1.
-Implementation is now in remote main at `24812f0be2066a9b581129c26a9d362bd80f05fe`.
-Installed version: `1.22.0+codex.20260922193943`.
+Baseline for this continuation: main `7adc0d3981ccb14e742b0d42f998331904f93b18`, version1.22.1.
+Earlier routing/API/installation proof remains in Git history and smoke.md. The expanded scope
+now connects canonical agent, skill and command choices to native dispatch, return and verified
+completion. User authorized implementation, local installed update, issue comment/closure and
+exactly two additional synthetic Jev evaluations without retries. No commit/push authorization.
 
-## Authorization and scope
+## Acceptance evidence
 
-User authorized implementation, AGENT_SETUP and existing plugin refresh, synthetic Codex smokes,
-one real Jev evaluation, then global credential storage/local opt-in and issue comments/closure.
-No commit/push was performed in the closure turn. Parent model selection remains manual.
+- Policy preserves ten Astra/high roles, Luna/medium scouts, personal overrides and manual parent.
+- Jev typed HTTP is separate from chat; same-model roles remain distinct canonical actions.
+- Main receives loaded canonical methods and a seven-section dispatch; only main executes tools.
+- Persistent tickets and existing reserve/fingerprint/cap prevent duplicate calls and execution.
+- Returns retain decisions, risks and resume context; original approved gates run afresh. Scope
+  drift, stale snapshots, pending actions, invalid evidence and incomplete linked plans block finish.
+- `link-plan` attaches the approved plan after bootstrap without resetting history or budget.
+- `verification` explicitly loads webapp-testing; focused real browser cycle passed (smoke.md).
+- Local fixtures cover skills/commands, errors, concurrency, deletion, linked plans and replay.
+- Adversarial re-review and focused security review returned PASS. Static review is not runtime proof.
 
-**Expanded objective: NEEDS_WORK.** The latest request requires Jev to coordinate agents, skills,
-commands and round-trip handoffs through verified completion. Current code implements optional
-routing only: it skips roles sharing a model, accepts no skill/command candidates and does not
-connect the Jev result to the existing dispatch/return loop. The successful API smoke does not
-prove that broader cycle. Issue 27 remains OPEN; revise the plan before claiming completion.
-Audit: https://github.com/GrupoUS/graph-powers/issues/27#issuecomment-5783792693.
+## Delivery and remaining platform boundaries
 
-## Implemented scope and proof
+Candidate 1.23.0+codex.20260922214913 is installed. All 30 inventory commands exited 0;
+85 SDD tests and 25 client regressions passed. Twelve decisive installed sources match; the five
+personal roles and global config bytes are unchanged. Native hook verifier passed all 16 registrations
+and its synthetic deny probe. Context207878/208000; source4256630/4259840; Hermes1995903/2097152
+bytes before this report update. Full gate commands and exits: coordination-final/summary.json. Full logs are ignored under `.graph-powers/logs/issue-27/coordination-final/`.
+The key remains only in the existing global Codex environment entry, protected with mode0600;
+project config contains only evaluation opt-in. No value is included in source, reports or comments.
 
-- Ten Astra/high and two Luna/medium defaults; override precedence and evaluator read-only/leaf
-  intent preserved. Native/clone parity passes for all twelve roles.
-- Opt-in Jev evaluation is separate from chat; one fresh reservation permits one HTTP attempt.
-  Fingerprint, cap three, typed probabilities, terminal errors and replay use the existing ledger.
-- Regression RED/GREEN covers missing evaluation, duplicate/concurrent requests, legacy Fable
-  fallback, conflicting verdict/choice, symlink/nested Git roots and CLI exit codes 0/2/4/1.
-- Latest local policy/native checks and 77 SDD tests pass. Original full inventory: 30 commands;
-  initial context and Kilo failures were corrected and affected gates repeated successfully.
-  Context ceiling: 207918/208000. Kilo used existing Node 26.7.0 via process-only PATH; no trust
-  setting changed. Build/typecheck/lint are NOT DECLARED gates.
-- Evidence: `.graph-powers/logs/issue-27/gates/`, `recheck/`, `final-gates/` and `smoke/`.
-  Independent final review returned READY for the original scope; the expanded audit did not.
+Native-economic/Ultra activation and Hermes runtime are NOT RUN/UNVERIFIED; Hermes static proof
+is separate. `.github/check_codex.py` is CI-only because it requires installation fixtures.
+Build/typecheck/lint are NOT DECLARED gates. Prior Windows CI has a preexisting cp1252 failure
+printing U+2192 (runs35779558466 and35240317796); this turn does not claim remote CI success.
 
-## Installation and credential configuration
+Concurrent changes to NOTICE and browser method prose were preserved. Rollback only issue-owned
+hunks and their generated projections; retain consultation attempts, preserve personal settings,
+and never reset the checkout or restore unrelated configuration from a stale backup.
 
-Native plugin add and explicit-config companion emission exited 0. Nine decisive installed source
-files match the checkout, including AGENT_SETUP. All twelve roles match policy; five personal
-roles retain their hashes. Generic subagent defaults were preserved. Native client verification
-passed with 16 hook registrations and a denied synthetic commit-guard probe.
-Installation evidence: `.graph-powers/logs/issue-27/installation.json`.
-Backup is outside the source/autoload trees; its pointer is `install-backup-location.txt` there.
-
-The global config hash changed during native refresh; no manual edit or stale backup restore was
-performed then, so whole-file byte preservation was not claimed. Current parent is Luna 6/max.
-The later authorized credential edit changed only the global native shell environment entry
-`AI_GATEWAY_API_KEY`, kept mode 0600 and preserved other parsed settings. Local configuration stores
-only the evaluation opt-in. A fresh Codex executor confirmed variable presence without its value.
-No secret was copied into tracked files or the GitHub comment.
-
-## Real integration and remaining platform proof
-
-Three Codex smokes passed: Astra/high and Luna/medium|max. Jev returned HTTP 200 and a typed choice
-in exactly one request. Empty-env replay with network forbidden returned the same record, zero
-fetches. Details and generation ID are in smoke.md and `gateway-activation/live-result.json`.
-Native-economic/Ultra activation and Hermes runtime remain NOT RUN/UNVERIFIED; Hermes static
-package checks pass, with provenance refreshed after the implementation commit.
-
-CI Windows hook runtime fails with cp1252 UnicodeEncodeError printing U+2192: current run
-35779558466/job 106921280393 and baseline 35240317796/job 105266774345 have the same failure;
-relevant files are unchanged by this issue. Other jobs, including Codex, passed. Do not claim
-all CI green. Fix the Windows encoding separately; no workflow rerun was performed here.
-
-## Rollback
-
-Revert only issue-owned hunks; preserve concurrent user work, including the externally changed
-AGENTS.md block. Restore only owned installation artifacts from the backup if needed. Never reset
-the checkout or overwrite personal roles/settings. No closing action was taken after the expanded
-coordination requirement was found unmet.
+Issue27 closed at 2026-09-22T22:01:00Z after the completion comment:
+https://github.com/GrupoUS/graph-powers/issues/27#issuecomment-5784896589.
+The local complement remains uncommitted/unpushed; previous staged and concurrent edits remain.
+The plan lease was released. A new Codex conversation loads the refreshed native plugin.

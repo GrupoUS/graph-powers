@@ -400,13 +400,16 @@ The CLI, capability and replay contract lives in
 
    If false, check the active home and environment filters without displaying values.
    Send no request until the executor receives the key.
-6. After installation, follow §2a above with a disposable in-repo plan. Reuse a valid smoke or
-   obtain authorization for one synthetic evaluation, then replay the same decision offline.
-   Expect `typesafe-ai/jev`, a valid typed choice and zero new replay requests. Use evaluation,
-   never chat completions. On auth/availability/timeout failure, report BLOCKED without retry.
+6. After installation, use a disposable in-repo plan only with authorization for two synthetic
+   evaluations. Prove `catalog → init → next`, execute the returned native dispatch, return its
+   Context Handoff for fresh checks, then make the authorized post-return `next` evaluation. Link a
+   created approved PLAN before Phase C. Replay recorded decisions offline and expect zero new
+   requests. Expect `typesafe-ai/jev` and valid typed choices; use evaluation, never chat
+   completions. On auth/availability/timeout failure, report BLOCKED without retry.
 
 Report key presence, opt-in and evaluation proof separately; an unrun smoke is NOT RUN.
-API success does not prove full agent/skill/handoff coordination.
+A single `codex/evaluate.mjs` API probe proves only credential/provider response; the two-evaluation
+smoke proves routing and verified post-return handoff coordination.
 
 **Clone fallback**, only when native installation is unavailable or a project-scoped copy is needed:
 

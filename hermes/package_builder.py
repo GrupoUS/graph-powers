@@ -2,7 +2,7 @@
 """Build-only static dependency closure; never import a plugin or run copied code.
 
 Markdown links and concrete plugin paths are resolved before translation. Python local
-imports and ESM relative imports are read as syntax. The two bundled scripts with computed
+imports and ESM relative imports are read as syntax. Bundled scripts with computed
 source-root reads declare those dependencies below; unknown dynamic imports fail closed.
 Host-project examples and historical ledgers are recorded separately from package edges.
 """
@@ -38,13 +38,21 @@ HOST_PREFIXES = (".graph-powers/", ".claude/", ".codex/", ".agents/", ".zed/", "
                  "src/", "app/", "apps/", "packages/", "tests/", "test/", "dist/", "build/",
                  ".vercel/", "graft/.graph/")
 
-# These are dependency edges, not a second public registration inventory. Both files compute
+# These are dependency edges, not a second public registration inventory. These files compute
 # their source root and read these paths at runtime; retain that topology in content/.
 COMPUTED_INPUTS = {
     "skills/planning/scripts/sdd.py": {
         "paths": ["schema/config.schema.json"],
-        "globs": ["agents/*.md", "skills/*/SKILL.md"],
-        "reason": "SOURCE_PLUGIN_ROOT, PLUGIN_SCHEMA, AGENTS_DIR and SKILLS_DIR reads",
+        "globs": ["agents/*.md", "skills/*/SKILL.md", "commands/*.md"],
+        "reason": "SOURCE_PLUGIN_ROOT, schema and canonical routing catalog reads",
+    },
+    "codex/evaluate.mjs": {
+        "globs": ["agents/*.md", "skills/*/SKILL.md", "commands/*.md"],
+        "reason": "SOURCE_ROOT canonical routing catalog reads",
+    },
+    "codex/coordinate.mjs": {
+        "globs": ["agents/*.md", "skills/*/SKILL.md", "commands/*.md"],
+        "reason": "ROOT canonical routing catalog evidence reads",
     },
     ".github/check_workflows.mjs": {
         "paths": ["schema/config.schema.json"],

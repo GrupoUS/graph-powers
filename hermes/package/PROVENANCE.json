@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "e032b03f5cc3fbbf4a06332644a02e6d130baa8b",
-    "version": "1.22.1+codex.20260922205001",
+    "base_revision": "7adc0d3981ccb14e742b0d42f998331904f93b18",
+    "version": "1.23.0+codex.20260922214913",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "4e82858cce0715cd7b7d4ee67a34cf033dba4cb5b0185124d07e5c78dcbeb481",
-      "base_sha256": "198a811aa7ba05e2b6075930ba3de097bacc630e43b0630fdac59f76f63555c9",
+      "sha256": "fd7ce838e94d91046cb8bd440220e2c4542f312897cc09e5d1e75dcec8d8e411",
+      "base_sha256": "4e82858cce0715cd7b7d4ee67a34cf033dba4cb5b0185124d07e5c78dcbeb481",
       "dirty": true
     },
     {
@@ -263,8 +263,8 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "dba18de2c76d86bab6555e42d5690427ff4e6b3958e2ba6de461aa07a8aa1b71",
-      "base_sha256": "dd93788e217fa54aa4ade760e71e930d8967d1dbab1925db30936d22ea3ae5be",
+      "sha256": "e61411e17220a46f36f1d48dc71fd9483e5491938a2b48f5d3682338e7c89908",
+      "base_sha256": "dba18de2c76d86bab6555e42d5690427ff4e6b3958e2ba6de461aa07a8aa1b71",
       "dirty": true
     },
     {
@@ -275,9 +275,9 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
+      "sha256": "0dc679388e75d470ef38cb2a27c375bab80361c29122c6fc90f2becc9cd898ff",
       "base_sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "agents/debugger.md",
@@ -347,15 +347,21 @@
     },
     {
       "path": "agents/verification.md",
-      "sha256": "5c918ea6b16600495494530292993b5ee0410323f979124d5ad94a96fd6130db",
+      "sha256": "8129481609440d85f04ba4eade1945324161aaa5e2248347494ebff0f458dff2",
       "base_sha256": "5c918ea6b16600495494530292993b5ee0410323f979124d5ad94a96fd6130db",
-      "dirty": false
+      "dirty": true
+    },
+    {
+      "path": "codex/coordinate.mjs",
+      "sha256": "c909768b294cc746c273e27f3784f5edf8ba34b98ff0fa6b18917c8f5b493978",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "codex/evaluate.mjs",
-      "sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
+      "sha256": "0c3a3e49e26c383504eefd315bd2b06c9e1ebc3e4832cf6990734c3e90c68e1b",
       "base_sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "codex/install.mjs",
@@ -409,6 +415,12 @@
       "path": "commands/implement.md",
       "sha256": "66f3be00e47753e3e1669abc21040b8f5806401440434be182247d37c949ba99",
       "base_sha256": "66f3be00e47753e3e1669abc21040b8f5806401440434be182247d37c949ba99",
+      "dirty": false
+    },
+    {
+      "path": "commands/issue-improve.md",
+      "sha256": "396e8db5e9c4b0bf65834489612016d7b50b2da7d05baeecd6cb5014dfd1607e",
+      "base_sha256": "396e8db5e9c4b0bf65834489612016d7b50b2da7d05baeecd6cb5014dfd1607e",
       "dirty": false
     },
     {
@@ -467,9 +479,9 @@
     },
     {
       "path": "hermes/package_builder.py",
-      "sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
+      "sha256": "9114ae3d2d0c606b9b0fe8659940bb7904c03737db51d6e93d83fa5912bd5f3e",
       "base_sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "hermes/skills/graph-engineering/SKILL.md",
@@ -491,9 +503,9 @@
     },
     {
       "path": "references/execution-floor.md",
-      "sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
+      "sha256": "4d2156fc2a1289b25a6af595e0476ffed702c9ed9e2fa720726e37c17798497e",
       "base_sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/recovery-protocol.md",
@@ -587,9 +599,9 @@
     },
     {
       "path": "references/shared/005-method-bootstrap.md",
-      "sha256": "4ec98e22b6a99cfbb8291af41271dbc1b012bfa69ba4315e6f9b95f8ef91706f",
+      "sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
       "base_sha256": "4ec98e22b6a99cfbb8291af41271dbc1b012bfa69ba4315e6f9b95f8ef91706f",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/007-path-conventions.md",
@@ -623,9 +635,9 @@
     },
     {
       "path": "references/shared/030-agent-assignment-matrix.md",
-      "sha256": "c0dc7b3ab2b83757f83d5d1e570a9a58ac138f2b2e6d0a375a74feb7968e7996",
+      "sha256": "b556e4b2c69f4d50aa6d400c2c443f39ce15bc4a0465368b9cebee41557d20de",
       "base_sha256": "c0dc7b3ab2b83757f83d5d1e570a9a58ac138f2b2e6d0a375a74feb7968e7996",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/035-agent-resolution-recovery.md",
@@ -1067,9 +1079,9 @@
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
+      "sha256": "5edc10b1dd932c2f5db8447fbed0826d874e22f238d63769658fb6f5f6c37c84",
       "base_sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1085,9 +1097,9 @@
     },
     {
       "path": "skills/planning/scripts/sdd.py",
-      "sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
+      "sha256": "a3de1eab14209817a0169f6fde7c4445d1dbcf65020661cef887e3d2bacc6ead",
       "base_sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/senior-architect/SKILL.md",
@@ -1121,9 +1133,9 @@
     },
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "2fa38cc57a60467a2c671a19ab08c62d730c04e34ad4d31a9a03fc75554f1518",
+      "sha256": "8839fe0a5340666f86ab12b96d3d2dc16496677eb0ce2e4ff0e9e9628c81cb95",
       "base_sha256": "2fa38cc57a60467a2c671a19ab08c62d730c04e34ad4d31a9a03fc75554f1518",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/senior-prompt-engineer/references/agentic_system_design.md",
@@ -1235,9 +1247,9 @@
     },
     {
       "path": "skills/webapp-testing/SKILL.md",
-      "sha256": "fd341ee317e958314055079e23103486e1b7c88ccaec8facb45ef58127dbd5c4",
+      "sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
       "base_sha256": "fd341ee317e958314055079e23103486e1b7c88ccaec8facb45ef58127dbd5c4",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/webapp-testing/references/browser-setup.md",
@@ -1293,7 +1305,7 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
+      "sha256": "0dc679388e75d470ef38cb2a27c375bab80361c29122c6fc90f2becc9cd898ff",
       "sources": [
         "NOTICE"
       ],
@@ -1309,7 +1321,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "bdebe03d239c11369347ae5ac039d9a43b4ad066c4d96cd0f7b35f0bed0865b9",
+      "sha256": "688965e570e12eaac834953db7edb347ded92289474350091aac9e64f40e80ff",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1405,7 +1417,7 @@
     },
     {
       "path": "skills/agent-verification.md",
-      "sha256": "7696723dbc7ba284acee395d285f2e9b2d2d378aaead65b48f9f88d2239302ea",
+      "sha256": "eb4416214b177f5f65c9fafe7dd7145f6dfec47b3619dfc50df4442305fab20d",
       "sources": [
         "agents/verification.md"
       ],
@@ -1437,7 +1449,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "2544702b8b2aab959a2eaa57c0bc965a19112cb0cb32422ea93c31896e41dbba",
+      "sha256": "0126b12d2b513a208c340410ece89dd056904d104e58cc20a6d1180840718283",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1533,15 +1545,23 @@
     },
     {
       "path": "skills/content/agents/verification.md",
-      "sha256": "7696723dbc7ba284acee395d285f2e9b2d2d378aaead65b48f9f88d2239302ea",
+      "sha256": "eb4416214b177f5f65c9fafe7dd7145f6dfec47b3619dfc50df4442305fab20d",
       "sources": [
         "agents/verification.md"
       ],
       "kind": "content"
     },
     {
+      "path": "skills/content/codex/coordinate.mjs",
+      "sha256": "c909768b294cc746c273e27f3784f5edf8ba34b98ff0fa6b18917c8f5b493978",
+      "sources": [
+        "codex/coordinate.mjs"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/codex/evaluate.mjs",
-      "sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
+      "sha256": "0c3a3e49e26c383504eefd315bd2b06c9e1ebc3e4832cf6990734c3e90c68e1b",
       "sources": [
         "codex/evaluate.mjs"
       ],
@@ -1616,6 +1636,14 @@
       "sha256": "7619a599dea3178413fc8823870d653b2d1564d8786e00846e9b071818c2adb0",
       "sources": [
         "commands/implement.md"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/commands/issue-improve.md",
+      "sha256": "d15e245bb1bec5cfa86197ab34598cf890b8372928236e5a4956f5457fb08eca",
+      "sources": [
+        "commands/issue-improve.md"
       ],
       "kind": "content"
     },
@@ -1709,7 +1737,7 @@
     },
     {
       "path": "skills/content/references/execution-floor.md",
-      "sha256": "25f150559b2e8194ee283c273595d01415fe247432b604673ba85c91d6b08cfd",
+      "sha256": "d119e029f5bd8760536597ebfc360eba7efc147e8da7db5108598911928278de",
       "sources": [
         "references/execution-floor.md"
       ],
@@ -1837,7 +1865,7 @@
     },
     {
       "path": "skills/content/references/shared/005-method-bootstrap.md",
-      "sha256": "6b6c897e7240e26ce018d2c4b1b201cc6c6fc48c1c9f77bac7e4d143f86019a7",
+      "sha256": "67ae83fb91ec1651ba1922af376f96c942862c2eb407fbb5e06b77fb710839e8",
       "sources": [
         "references/shared/005-method-bootstrap.md"
       ],
@@ -1885,7 +1913,7 @@
     },
     {
       "path": "skills/content/references/shared/030-agent-assignment-matrix.md",
-      "sha256": "4ac4914eaf221c9ec4dbce1129497deb5e08a773332d2ffe8a90dc0469a0bc68",
+      "sha256": "c0cab3da86cbfa513c7fe8eecee2d698c81397e80ef5642798b6753b501662ff",
       "sources": [
         "references/shared/030-agent-assignment-matrix.md"
       ],
@@ -2477,7 +2505,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "d9c691990717abdacf0240c28e5eadbf9cfe167c4ae794b572bfcaedab980656",
+      "sha256": "7779fe13d76ea9e3cd7b2907f8ccb2610f7fd91d28e675fc4ced7f328593e364",
       "sources": [
         "skills/planning/references/phase-c-executing-plans.md"
       ],
@@ -2501,7 +2529,7 @@
     },
     {
       "path": "skills/content/skills/planning/scripts/sdd.py",
-      "sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
+      "sha256": "a3de1eab14209817a0169f6fde7c4445d1dbcf65020661cef887e3d2bacc6ead",
       "sources": [
         "skills/planning/scripts/sdd.py"
       ],
@@ -2549,7 +2577,7 @@
     },
     {
       "path": "skills/content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "50fb14b52a867ed4151c7778968959a009cb9813ffb71a3870b9d11488e0524f",
+      "sha256": "fd3910abda4fe246e4e226ced89c6f6831b78b638e01cda7714c92a719534817",
       "sources": [
         "skills/senior-prompt-engineer/references/agent-handoff-contracts.md"
       ],
@@ -2701,7 +2729,7 @@
     },
     {
       "path": "skills/content/skills/webapp-testing/SKILL.md",
-      "sha256": "63dd8ba011aecde34ffc3fba9ea72b55e4f880fede7fd04807a5d50d49aa6aac",
+      "sha256": "fa98bede2ee6bc38bf8f8610b5b7526ab5a278e9c681761cb4695b3fbc3b98c3",
       "sources": [
         "skills/webapp-testing/SKILL.md"
       ],
@@ -2965,7 +2993,7 @@
     },
     {
       "path": "skills/webapp-testing.md",
-      "sha256": "63dd8ba011aecde34ffc3fba9ea72b55e4f880fede7fd04807a5d50d49aa6aac",
+      "sha256": "fa98bede2ee6bc38bf8f8610b5b7526ab5a278e9c681761cb4695b3fbc3b98c3",
       "sources": [
         "skills/webapp-testing/SKILL.md"
       ],
@@ -3074,6 +3102,12 @@
         "from": "AGENT_SETUP.md",
         "reference": "AGENT_SETUP.md",
         "to": "AGENT_SETUP.md",
+        "kind": "reference"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "codex/evaluate.mjs",
+        "to": "codex/evaluate.mjs",
         "kind": "reference"
       },
       {
@@ -3335,6 +3369,492 @@
         "kind": "reference"
       },
       {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/debugger.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/evaluator.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/explorer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/frontend-specialist.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/librarian.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/mobile-developer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/performance-optimizer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/project-planner.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/security-reviewer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/skill-improver.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/ui-ux-designer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/verification.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/debug.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/design.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/evolve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/gauntlet.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/implement.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/issue-improve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/perf.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/plan.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/pr-review.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/prime.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/research.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/setup.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/verify.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/animate/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/debugger/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/design-fix/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/designer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/intent-layer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/issue-improve/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/landing-page-design/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/performance-optimization/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/planning/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/senior-architect/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/senior-prompt-engineer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/skill-improve/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/uxmaster/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/webapp-testing/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "../skills/planning/scripts/sdd.py",
+        "to": "skills/planning/scripts/sdd.py",
+        "kind": "javascript-import"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "./evaluate.mjs",
+        "to": "codex/evaluate.mjs",
+        "kind": "javascript-import"
+      },
+      {
+        "from": "codex/coordinate.mjs",
+        "reference": "./install.mjs",
+        "to": "codex/install.mjs",
+        "kind": "javascript-import"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/debugger.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/evaluator.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/explorer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/frontend-specialist.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/librarian.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/mobile-developer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/performance-optimizer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/project-planner.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/security-reviewer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/skill-improver.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/ui-ux-designer.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "agents/*.md",
+        "to": "agents/verification.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/debug.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/design.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/evolve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/gauntlet.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/implement.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/issue-improve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/perf.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/plan.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/pr-review.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/prime.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/research.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/setup.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "commands/*.md",
+        "to": "commands/verify.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/animate/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/debugger/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/design-fix/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/designer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/intent-layer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/issue-improve/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/landing-page-design/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/performance-optimization/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/planning/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/senior-architect/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/senior-prompt-engineer/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/skill-improve/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/uxmaster/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "codex/evaluate.mjs",
+        "reference": "skills/*/SKILL.md",
+        "to": "skills/webapp-testing/SKILL.md",
+        "kind": "computed-input"
+      },
+      {
         "from": "codex/evaluate.mjs",
         "reference": "../skills/planning/scripts/sdd.py",
         "to": "skills/planning/scripts/sdd.py",
@@ -3542,6 +4062,12 @@
         "from": "commands/implement.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
         "to": "skills/planning/scripts/sdd.py",
+        "kind": "reference"
+      },
+      {
+        "from": "commands/issue-improve.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/SKILL.md",
+        "to": "skills/issue-improve/SKILL.md",
         "kind": "reference"
       },
       {
@@ -3780,12 +4306,6 @@
       },
       {
         "from": "references/execution-floor.md",
-        "reference": "sdd.py",
-        "to": "skills/planning/scripts/sdd.py",
-        "kind": "reference"
-      },
-      {
-        "from": "references/execution-floor.md",
         "reference": "shared/015-verification-gate.md",
         "to": "references/shared/015-verification-gate.md",
         "kind": "reference"
@@ -3968,12 +4488,6 @@
         "from": "references/shared/030-agent-assignment-matrix.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/035-agent-resolution-recovery.md",
         "to": "references/shared/035-agent-resolution-recovery.md",
-        "kind": "reference"
-      },
-      {
-        "from": "references/shared/030-agent-assignment-matrix.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-        "to": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
         "kind": "reference"
       },
       {
@@ -5004,12 +5518,6 @@
       },
       {
         "from": "skills/planning/references/phase-c-executing-plans.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-        "to": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/planning/references/phase-c-executing-plans.md",
         "reference": "gauntlet-loop.md",
         "to": "skills/planning/references/gauntlet-loop.md",
         "kind": "reference"
@@ -5106,7 +5614,7 @@
       },
       {
         "from": "skills/planning/scripts/sdd.py",
-        "reference": "SOURCE_PLUGIN_ROOT, PLUGIN_SCHEMA, AGENTS_DIR and SKILLS_DIR reads",
+        "reference": "SOURCE_PLUGIN_ROOT, schema and canonical routing catalog reads",
         "to": "schema/config.schema.json",
         "kind": "computed-input"
       },
@@ -5180,6 +5688,84 @@
         "from": "skills/planning/scripts/sdd.py",
         "reference": "agents/*.md",
         "to": "agents/verification.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/debug.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/design.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/evolve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/gauntlet.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/implement.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/issue-improve.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/perf.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/plan.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/pr-review.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/prime.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/research.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/setup.md",
+        "kind": "computed-input"
+      },
+      {
+        "from": "skills/planning/scripts/sdd.py",
+        "reference": "commands/*.md",
+        "to": "commands/verify.md",
         "kind": "computed-input"
       },
       {
@@ -5340,14 +5926,20 @@
       },
       {
         "from": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/codex/evaluate.mjs",
-        "to": "codex/evaluate.mjs",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/codex/coordinate.mjs",
+        "to": "codex/coordinate.mjs",
         "kind": "reference"
       },
       {
         "from": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/commands/evolve.md",
         "to": "commands/evolve.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
+        "reference": "codex/coordinate.mjs",
+        "to": "codex/coordinate.mjs",
         "kind": "reference"
       },
       {

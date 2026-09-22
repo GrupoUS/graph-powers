@@ -12,7 +12,7 @@ from pathlib import PurePosixPath
 REQUIRED = [
     "bin/graph-powers.mjs", "bin/oxc-setup.mjs", "bin/audit-settings.mjs",
     "bin/hook-client-verifier.mjs", "bin/verify-hook-clients.py",
-    "codex/install.mjs", "codex/lib.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
+    "codex/install.mjs", "codex/lib.mjs", "codex/evaluate.mjs", "codex/coordinate.mjs", "codex/model-policy.json", "codex/model-policy.mjs",
     "cursor/install.mjs",
     "grok/install.mjs",
     "grok/update-graph-powers.py",
@@ -38,7 +38,8 @@ REQUIRED_DIRS = [
     "agents", "skills", "commands", "references", "templates", "examples", "workflows",
     "hermes", "codex/native-agents", "codex/native-command-skills",
 ]
-MAX_SOURCE_BYTES = 4 * 1024 * 1024
+# User-approved +64 KiB for the Jev controller and its integration regressions.
+MAX_SOURCE_BYTES = (4 * 1024 + 64) * 1024
 MAX_HERMES_BYTES = 2 * 1024 * 1024
 
 missing = [f for f in REQUIRED if not os.path.exists(f)]
@@ -81,7 +82,7 @@ print(f"Hermes package: {hermes_size} bytes ({hermes_size / 1024:.2f} KiB) / {MA
 print(f"Total: {total_size} bytes ({total_size / 1024:.2f} KiB) / {MAX_SOURCE_BYTES + MAX_HERMES_BYTES} bytes (source + Hermes)")
 
 if source_size > MAX_SOURCE_BYTES:
-    print("::error::the source grew past 4 MiB — check what got vendored back in")
+    print("::error::the source grew past 4 MiB + 64 KiB — check what got vendored back in")
 if hermes_size > MAX_HERMES_BYTES:
     print("::error::the Hermes package grew past 2 MiB — check its generated dependency closure")
 if missing:

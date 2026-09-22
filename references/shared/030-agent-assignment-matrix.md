@@ -43,5 +43,4 @@ Use the matrix role, never a generic/dynamic name. Harder judgment changes the r
 - Claude Workflow: load `agents/*.md`; pass its model on each call; stop if missing.
 - Codex: derive eligible role/model/effort from `codex/model-policy.json`, preserving overrides.
 
-Same model/effort: choose the role directly, without Jev. For material routing doubt only, read
-`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a`.
+For enabled Jev coordination use execution-floor §4a. Same-model roles remain distinct actions.

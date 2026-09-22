@@ -3,13 +3,12 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readCodexSettings } from "./install.mjs";
-import { parseFrontmatter } from "./lib.mjs";
+import { asList, listDirs, listMarkdown, parseFrontmatter } from "./lib.mjs";
 import {
-  CODEX_AGENT_PROFILES,
   CODEX_MODEL_POLICY,
   resolveCodexAgentPolicy,
   resolveCodexEvaluationPolicy,
@@ -20,10 +19,12 @@ const JEV_MODEL = CODEX_MODEL_POLICY.evaluation.model;
 const JEV_ENDPOINT = CODEX_MODEL_POLICY.evaluation.endpoint;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ROLE = /^[a-z][a-z0-9-]{0,63}$/;
-const MAX_CANDIDATES = 32;
+const MAX_CANDIDATES = 64;
 const MAX_TEXT = 4096;
 const MAX_ITEM = 2048;
-const MAX_REQUEST = 16384;
+const MAX_REQUEST = 65536;
+const MAX_STATE = 16384;
+const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function blocked(code) {
   return {
@@ -38,7 +39,10 @@ function skipped(reason) {
 }
 
 function gitRoot(directory) {
-  const done = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: directory, encoding: "utf8" });
+  const done = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd: directory,
+    encoding: "utf8",
+  });
   if (done.status !== 0 || !done.stdout.trim()) throw new Error("project or plan is not in Git");
   return realpathSync(done.stdout.trim());
 }
@@ -50,7 +54,12 @@ function projectPaths(projectDir, planPath) {
   const root = realpathSync(resolve(projectDir));
   const plan = realpathSync(resolve(root, planPath));
   const planRelative = relative(root, plan);
-  if (!planRelative || planRelative === ".." || planRelative.startsWith(`..${sep}`) || isAbsolute(planRelative)) {
+  if (
+    !planRelative ||
+    planRelative === ".." ||
+    planRelative.startsWith(`..${sep}`) ||
+    isAbsolute(planRelative)
+  ) {
     throw new Error("plan escapes project");
   }
   if (gitRoot(root) !== gitRoot(dirname(plan))) throw new Error("plan belongs to another Git root");
@@ -90,73 +99,155 @@ function list(value, name) {
 }
 
 function state(value) {
-  if (!isObject(value) || Object.keys(value).length === 0 || jsonSize(value) > MAX_REQUEST) {
+  if (!isObject(value) || Object.keys(value).length === 0 || jsonSize(value) > MAX_STATE) {
     throw new Error("invalid state");
   }
   return value;
 }
 
+/** Source-derived actions; method names are bare, with optional graph-powers: or /command input. */
+export function routingCatalog(settings = {}) {
+  const entries = [];
+  for (const [kind, paths] of [
+    ["skill", listDirs(join(SOURCE_ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`)],
+    ["command", listMarkdown(join(SOURCE_ROOT, "commands")).map((name) => `commands/${name}`)],
+    ["agent", listMarkdown(join(SOURCE_ROOT, "agents")).map((name) => `agents/${name}`)],
+  ]) {
+    for (const path of paths) {
+      const target = realpathSync(join(SOURCE_ROOT, path));
+      const rel = relative(realpathSync(SOURCE_ROOT), target);
+      if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`))
+        throw new Error("catalog path escapes source");
+      const { data } = parseFrontmatter(readFileSync(target, "utf8"));
+      const name =
+        kind === "skill" ? posix.basename(posix.dirname(path)) : posix.basename(path, ".md");
+      if (!ROLE.test(name)) throw new Error("invalid catalog name");
+      const agent = kind === "agent";
+      const resolved = agent ? resolveCodexAgentPolicy(name, settings, data) : {};
+      const skills = agent
+        ? asList(data.skills).map((value) => methodName(value, "skill"))
+        : kind === "skill"
+          ? [name]
+          : [];
+      entries.push({
+        id: `${kind}:${name}`,
+        kind,
+        role: agent ? name : "main",
+        skills,
+        command: kind === "command" ? name : null,
+        model: resolved.model ?? null,
+        reasoningEffort: resolved.reasoningEffort ?? null,
+        description: text(data.description, "catalog description").slice(0, 200),
+        path,
+      });
+    }
+  }
+  for (const entry of entries) {
+    if (entry.skills.some((name) => !entries.some((item) => item.id === `skill:${name}`)))
+      throw new Error("unknown required skill");
+  }
+  return entries;
+}
+
+function methodName(value, kind) {
+  let name = text(value, kind, 128).replace(/^graph-powers:/, "");
+  if (kind === "command") name = name.replace(/^\//, "");
+  if (!ROLE.test(name)) throw new Error(`invalid ${kind}`);
+  return name;
+}
+
 function resolveCandidates(rawCandidates, settings) {
   if (
     !Array.isArray(rawCandidates) ||
-    rawCandidates.length === 0 ||
+    !rawCandidates.length ||
     rawCandidates.length > MAX_CANDIDATES
-  ) {
+  )
     throw new Error("invalid candidates");
-  }
+  const catalog = new Map(routingCatalog(settings).map((entry) => [entry.id, entry]));
   const ids = new Set();
-  return rawCandidates.map((candidate) => {
+  const actions = new Set();
+  const candidates = [];
+  for (const candidate of rawCandidates) {
     if (
       !isObject(candidate) ||
-      Object.keys(candidate).some((key) => !["id", "role", "capability"].includes(key))
-    ) {
-      throw new Error("invalid candidate");
-    }
-    const id = text(candidate.id, "candidate id", 128);
-    const role = text(candidate.role, "candidate role", 64);
-    if (!ID.test(id) || !ROLE.test(role) || ids.has(id) || !isObject(candidate.capability)) {
-      throw new Error("invalid candidate identity");
-    }
-    if (!Object.hasOwn(CODEX_AGENT_PROFILES, role)) throw new Error("unknown candidate role");
-    ids.add(id);
-    const capability = candidate.capability;
-    if (
-      Object.keys(capability).some(
-        (key) => !["model", "reasoningEffort", "status", "evidence"].includes(key),
+      Object.keys(candidate).some(
+        (key) => !["id", "kind", "role", "skills", "command", "capability"].includes(key),
       )
-    ) {
-      throw new Error("invalid capability");
-    }
-    const capabilityModel = text(capability.model, "capability model", MAX_ITEM);
-    const capabilityEffort = text(capability.reasoningEffort, "capability effort", MAX_ITEM);
-    const capabilityEvidence = text(capability.evidence, "capability evidence", MAX_ITEM);
-    if (capability.status !== "SUPPORTED") throw new Error("unsupported capability");
-
-    let source;
-    try {
-      source = parseFrontmatter(
-        readFileSync(new URL(`../agents/${role}.md`, import.meta.url), "utf8"),
-      ).data;
-    } catch {
-      throw new Error("unknown candidate role");
-    }
-    const resolved = resolveCodexAgentPolicy(role, settings, source);
+    )
+      throw new Error("invalid candidate");
+    const id = text(candidate.id, "candidate id", 128);
+    if (!ID.test(id) || ids.has(id)) throw new Error("invalid candidate identity");
+    ids.add(id);
+    const kind = candidate.kind ?? "agent";
+    const role = text(candidate.role, "candidate role", 64);
+    if (!["agent", "skill", "command", "finish"].includes(kind)) throw new Error("invalid kind");
+    const source = kind === "agent" ? catalog.get(`agent:${role}`) : null;
+    if (kind === "agent" ? !source : role !== "main") throw new Error("unknown candidate role");
     if (
-      !resolved.model ||
-      !resolved.reasoningEffort ||
-      resolved.model !== capabilityModel ||
-      resolved.reasoningEffort !== capabilityEffort
-    ) {
-      throw new Error("capability mismatch");
-    }
-    return {
+      candidate.skills !== undefined &&
+      (!Array.isArray(candidate.skills) || candidate.skills.length > 32)
+    )
+      throw new Error("invalid skills");
+    const skills = [
+      ...new Set([
+        ...(source?.skills ?? []),
+        ...(candidate.skills ?? []).map((value) => methodName(value, "skill")),
+      ]),
+    ].sort();
+    if (skills.some((name) => !catalog.has(`skill:${name}`))) throw new Error("unknown skill");
+    const command = candidate.command == null ? null : methodName(candidate.command, "command");
+    if (command && !catalog.has(`command:${command}`)) throw new Error("unknown command");
+    if (
+      (kind === "skill" && (!skills.length || command)) ||
+      (kind === "command" && !command) ||
+      (kind === "finish" && (skills.length || command))
+    )
+      throw new Error("invalid action methods");
+    let capabilityEvidence;
+    if (source) {
+      const capability = candidate.capability;
+      if (
+        !isObject(capability) ||
+        Object.keys(capability).some(
+          (key) => !["model", "reasoningEffort", "status", "evidence"].includes(key),
+        )
+      )
+        throw new Error("invalid capability");
+      capabilityEvidence = text(capability.evidence, "capability evidence", MAX_ITEM);
+      if (capability.status !== "SUPPORTED") throw new Error("unsupported capability");
+      if (
+        !source.model ||
+        !source.reasoningEffort ||
+        source.model !== capability.model ||
+        source.reasoningEffort !== capability.reasoningEffort
+      )
+        throw new Error("capability mismatch");
+    } else if (candidate.capability != null) throw new Error("main does not select a model");
+    const identity = JSON.stringify([kind, role, skills, command]);
+    if (actions.has(identity)) continue;
+    actions.add(identity);
+    const legacy = ["kind", "skills", "command"].every((key) => !Object.hasOwn(candidate, key));
+    const descriptions = [
+      source?.description,
+      ...skills.map((name) => catalog.get(`skill:${name}`).description),
+      command && catalog.get(`command:${command}`).description,
+    ].filter(Boolean);
+    candidates.push({
       id,
       role,
-      model: resolved.model,
-      reasoningEffort: resolved.reasoningEffort,
+      model: source?.model ?? null,
+      reasoningEffort: source?.reasoningEffort ?? null,
+      ...(!legacy && { kind, skills, command }),
       capabilityEvidence,
-    };
-  });
+      criterion:
+        `${kind} ${role}; skills: ${skills.join(", ") || "none"}; command: ${command ?? "none"}. ${
+          kind === "finish"
+            ? "Finish only after the controller confirms completion and required evidence."
+            : descriptions.join(" ")
+        }`.slice(0, MAX_ITEM),
+    });
+  }
+  return candidates;
 }
 
 function requestFor(input, policy, candidates) {
@@ -168,29 +259,29 @@ function requestFor(input, policy, candidates) {
         type: "choice",
         instructions: text(input.question, "question"),
         criteria: Object.fromEntries(
-          candidates.map((candidate) => [
-            candidate.id,
-            `${candidate.role}: ${candidate.model} / ${candidate.reasoningEffort}; ${candidate.capabilityEvidence}`,
-          ]),
+          candidates.map((candidate) => [candidate.id, candidate.criterion]),
         ),
       },
     },
     candidates: candidates.map(
-      ({ capabilityEvidence: _capabilityEvidence, ...candidate }) => candidate,
+      ({ capabilityEvidence: _capabilityEvidence, criterion: _criterion, ...candidate }) =>
+        candidate,
     ),
     policy: {
       endpoint: policy.endpoint,
       timeoutMs: policy.timeoutMs,
       capabilities: Object.fromEntries(
-        candidates.map((candidate) => [
-          candidate.id,
-          {
-            model: candidate.model,
-            reasoningEffort: candidate.reasoningEffort,
-            status: "SUPPORTED",
-            evidence: candidate.capabilityEvidence,
-          },
-        ]),
+        candidates
+          .filter((candidate) => candidate.role !== "main")
+          .map((candidate) => [
+            candidate.id,
+            {
+              model: candidate.model,
+              reasoningEffort: candidate.reasoningEffort,
+              status: "SUPPORTED",
+              evidence: candidate.capabilityEvidence,
+            },
+          ]),
       ),
     },
   };
@@ -306,7 +397,11 @@ async function send(request, policy, fetchImpl, credential) {
     const response = await fetchImpl(policy.endpoint, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${credential}` },
-      body: JSON.stringify({ model: request.model, state: request.state, questions: request.questions }),
+      body: JSON.stringify({
+        model: request.model,
+        state: request.state,
+        questions: request.questions,
+      }),
       redirect: "error",
       signal: controller.signal,
     });
@@ -327,7 +422,9 @@ async function send(request, policy, fetchImpl, credential) {
       return {
         result: await Promise.race([
           response.json(),
-          new Promise((_, reject) => controller.signal.addEventListener("abort", reject, { once: true })),
+          new Promise((_, reject) =>
+            controller.signal.addEventListener("abort", reject, { once: true }),
+          ),
         ]),
       };
     } catch {
@@ -369,12 +466,6 @@ export async function evaluateRouting(
       throw new Error("invalid requester");
     if (input.depth !== 0) throw new Error("invalid depth");
     candidates = resolveCandidates(input.candidates, settings);
-    if (
-      new Set(candidates.map((candidate) => `${candidate.model}\u0000${candidate.reasoningEffort}`))
-        .size === 1
-    ) {
-      return skipped("EQUIVALENT_CANDIDATES");
-    }
     request = requestFor(input, policy, candidates);
     reservation = envelopeFor(input, request);
     reservation = ledger("reserve", paths, reservation);

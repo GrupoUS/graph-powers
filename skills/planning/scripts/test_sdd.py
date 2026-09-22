@@ -14,7 +14,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, TypeGuard
 from unittest import mock
 
 import sdd as sdd_module
@@ -45,6 +45,10 @@ class ValidationOutput(TypedDict):
 
 
 SCRIPT = Path(__file__).with_name("sdd.py")
+
+
+def _is_string_keyed_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(isinstance(key, str) for key in value)
 
 
 def gate(gate_id: str, *, checked: bool = False, check: str = "python -X utf8 -c \"print('gate ok')\"", expect: str = "gate ok", evidence: str = "pending") -> str:
@@ -400,6 +404,273 @@ class SddCliTests(unittest.TestCase):
             missing = self.run_status(root / "missing.md", cwd=root, watch=root)
             self.assertEqual(missing.returncode, 2)
             self.assertIn("no such plan file", missing.stderr)
+
+    def coordinate(self, root: Path, action: str, **payload: object) -> subprocess.CompletedProcess[str]:
+        return self.run_cli("coordinate", action, "--project", str(root), "--session", "test-session",
+                            "--request-json", json.dumps({"requesterRole": "parent", "depth": 0, **payload}))
+
+    def coordination_context(self) -> dict[str, object]:
+        return {"request": "Repair source", "taskId": "T2", "owns": ["src.py"],
+                "checks": [{"name": "focused", "argv": ["python3", "src.py"]}]}
+
+    def coordination_decision(
+        self, root: Path, context: dict[str, object], key: str, kind: str = "agent"
+    ) -> None:
+        request = self.jev_request(decision_key=key)
+        candidate = self.first_jev_candidate(request)
+        candidate.update(kind=kind, skills=["graph-powers:debugger"] if kind != "finish" else [], command=None)
+        if kind != "agent":
+            candidate.update(role="main", model=None, reasoningEffort=None)
+        context_path = context.get("contextPath")
+        if not isinstance(context_path, str):
+            raise AssertionError("coordination context is missing its path")
+        anchor = root / context_path
+        reserved = self.run_consult("reserve", anchor, request)
+        self.assertEqual(reserved.returncode, 0, reserved.stderr)
+        recorded = self.run_consult("record", anchor, self.jev_result(request))
+        self.assertEqual(recorded.returncode, 0, recorded.stderr)
+
+    @staticmethod
+    def first_jev_candidate(request: dict[str, object]) -> dict[str, object]:
+        evaluation_request = request.get("evaluationRequest")
+        if not _is_string_keyed_object(evaluation_request):
+            raise AssertionError("Jev request is missing its evaluation request")
+        candidates = evaluation_request.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            raise AssertionError("Jev request is missing its first candidate")
+        candidate = candidates[0]
+        if not _is_string_keyed_object(candidate):
+            raise AssertionError("Jev request candidate is not an object")
+        return candidate
+
+    @staticmethod
+    def coordination_verification(receipt: dict[str, object]) -> dict[str, object]:
+        verification = receipt.get("verification")
+        if not _is_string_keyed_object(verification):
+            raise AssertionError("coordination receipt is missing verification")
+        return verification
+
+    @staticmethod
+    def coordination_handoff(receipt: dict[str, object]) -> dict[str, object]:
+        handoff = receipt.get("handoff")
+        if not _is_string_keyed_object(handoff):
+            raise AssertionError("coordination receipt is missing its handoff")
+        return handoff
+
+    def coordination_receipt(self, ticket: str) -> dict[str, object]:
+        return {"ticket": ticket, "handoff": {"status": "COMPLETED", "confidence": 4,
+                "artifacts": [], "qualityGates": [{"name": "focused", "status": "PASS", "evidence": "ok"}],
+                "decisions": [], "risks": [], "nextAgent": "NONE", "resumeHint": "Verify"},
+                "verification": {"passed": True, "checks": [{"name": "focused", "exitCode": 0}],
+                                 "artifacts": [], "snapshot": "snapshot-a"}}
+
+    def test_coordination_restart_deduplicates_execution_and_requires_fresh_proof(self) -> None:
+        # Replayed selections cannot authorize a second worker; claims alone cannot close a run.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            before = self.status_snapshot(root)
+            self.assertEqual(self.coordinate(root, "status").returncode, 2)
+            self.assertEqual(self.status_snapshot(root), before)
+            initialized = self.coordinate(root, "init", **self.coordination_context())
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            context = json.loads(initialized.stdout)
+            self.assertEqual(context["status"], "READY")
+            self.assertEqual(context["sequence"], 0)
+            self.assertEqual(self.coordinate(root, "init", **self.coordination_context()).stdout, initialized.stdout)
+            changed = {**self.coordination_context(), "request": "Different"}
+            self.assertEqual(self.coordinate(root, "init", **changed).returncode, 2)
+            self.coordination_decision(root, context, "first")
+            first = self.coordinate(root, "select", decisionKey="first")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            pending = json.loads(first.stdout)
+            self.assertTrue(pending["executionAuthorized"])
+            ticket = pending["action"]["ticket"]
+            replay = self.coordinate(root, "select", decisionKey="first")
+            self.assertFalse(json.loads(replay.stdout)["executionAuthorized"])
+            self.assertEqual(json.loads(self.coordinate(root, "status").stdout)["action"]["ticket"], ticket)
+            self.assertEqual(self.coordinate(root, "select", decisionKey="other").returncode, 4)
+            receipt = self.coordination_receipt(ticket)
+            self.assertEqual(self.coordinate(root, "return", **{**receipt, "ticket": "wrong"}).returncode, 2)
+            self.assertEqual(self.coordinate(root, "return", **{**receipt, "verification": {}}).returncode, 2)
+            returned = self.coordinate(root, "return", **receipt)
+            self.assertEqual(returned.returncode, 0, returned.stderr)
+            self.assertEqual(json.loads(returned.stdout)["status"], "RETURNED")
+            self.assertEqual(self.coordinate(root, "return", **receipt).stdout, returned.stdout)
+            self.assertEqual(self.coordinate(root, "return", **{**receipt, "handoff": {}}).returncode, 2)
+            self.coordination_decision(root, context, "close", "finish")
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="stale").returncode, 4)
+            finished = self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a")
+            self.assertEqual(finished.returncode, 0, finished.stderr)
+            self.assertEqual(json.loads(finished.stdout)["status"], "COMPLETED")
+            self.assertFalse(json.loads(finished.stdout)["executionAuthorized"])
+
+    def test_coordination_rejects_initial_finish_and_workers_and_caps_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            config = root / ".graph-powers"
+            config.mkdir()
+            (config / "config.json").write_text(json.dumps({"graphGuardrails": {"maxSpawnsPerWorkflow": 1}}))
+            self.assertEqual(self.coordinate(root, "init", **self.coordination_context(), requesterRole="worker").returncode, 2)
+            context = json.loads(self.coordinate(root, "init", **self.coordination_context()).stdout)
+            self.coordination_decision(root, context, "initial-close", "finish")
+            self.assertEqual(self.coordinate(root, "select", decisionKey="initial-close", snapshot="snapshot-a").returncode, 4)
+            self.coordination_decision(root, context, "first", "skill")
+            selected = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
+            self.assertEqual(selected["action"]["candidate"]["role"], "main")
+            receipt = self.coordination_receipt(selected["action"]["ticket"])
+            verification = self.coordination_verification(receipt)
+            verification["passed"] = False
+            checks = verification.get("checks")
+            if not isinstance(checks, list) or not checks:
+                raise AssertionError("coordination receipt is missing its first check")
+            first_check = checks[0]
+            if not _is_string_keyed_object(first_check):
+                raise AssertionError("coordination receipt check is not an object")
+            first_check["exitCode"] = 1
+            self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 0)
+            self.assertEqual(self.coordinate(root, "select", decisionKey="initial-close", snapshot="snapshot-a").returncode, 4)
+            self.coordination_decision(root, context, "second")
+            self.assertEqual(self.coordinate(root, "select", decisionKey="second").returncode, 4)
+
+    def test_coordination_preserves_used_decisions_and_plan_completion(self) -> None:
+        # Finishing with unchecked plan records and replaying an older action must fail closed.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            context_request = {**self.coordination_context(), "planPath": "PLAN.md"}
+            context = json.loads(self.coordinate(root, "init", **context_request).stdout)
+            for key in ("first", "second"):
+                self.coordination_decision(root, context, key)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(
+                        lambda _, decision_key=key: self.coordinate(root, "select", decisionKey=decision_key),
+                        range(2),
+                    ))
+                selected = [json.loads(result.stdout) for result in results]
+                self.assertEqual(sum(item["executionAuthorized"] for item in selected), 1)
+                receipt = self.coordination_receipt(selected[0]["action"]["ticket"])
+                verification = self.coordination_verification(receipt)
+                missing = {**receipt, "verification": {**verification, "checks": []}}
+                self.assertEqual(self.coordinate(root, "return", **missing).returncode, 2)
+                self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 0)
+            replay = self.coordinate(root, "select", decisionKey="first")
+            self.assertFalse(json.loads(replay.stdout)["executionAuthorized"])
+            self.coordination_decision(root, context, "close", "finish")
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+            plan.write_text(plan_text(task("T1.1", checked=True, evidence="ok"),
+                                     gates=gate("G1.1", checked=True, evidence="gate ok")))
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 0)
+
+    def test_coordination_candidates_validate_methods_and_fingerprint_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            for number, changes in enumerate((
+                {"role": "missing-role"}, {"kind": "invented"}, {"skills": ["missing-skill"]},
+                {"command": "missing-command"}, {"skills": ["none"]}, {"unknown": True},
+                {"kind": "skill", "role": "main", "model": None, "reasoningEffort": None},
+            )):
+                request = self.jev_request(decision_key=f"invalid-{number}")
+                self.first_jev_candidate(request).update(changes)
+                self.assertEqual(self.run_consult("reserve", plan, request).returncode, 2)
+            request = self.jev_request()
+            self.first_jev_candidate(request).update(
+                kind="command", role="main", model=None, reasoningEffort=None, skills=["planning"], command="plan")
+            reserved = self.run_consult("reserve", plan, request)
+            self.assertEqual(reserved.returncode, 0, reserved.stderr)
+            self.first_jev_candidate(request)["command"] = "verify"
+            self.assertEqual(self.run_consult("reserve", plan, request).returncode, 2)
+
+    def test_coordination_readonly_baseline_is_bounded_and_immutable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            context = {**self.coordination_context(), "owns": [], "baseline": {"existing.py": "a" * 64, "missing.py": "MISSING"}}
+            result = self.coordinate(root, "init", **context)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["context"]["baseline"], context["baseline"])
+            self.assertEqual(self.coordinate(root, "init", **context).stdout, result.stdout)
+            for baseline in ({"../escape": "MISSING"}, {"existing.py": "invalid"}, {"existing.py": "b" * 64}):
+                self.assertEqual(self.coordinate(root, "init", **{**context, "baseline": baseline}).returncode, 2)
+            large = {f"source-{number}.py": "a" * 64 for number in range(300)}
+            blocked = self.coordinate(root, "init", **{**context, "baseline": large})
+            self.assertEqual(blocked.returncode, 4, blocked.stderr)
+            self.assertEqual(json.loads(blocked.stdout)["status"], "BLOCKED")
+            self.assertEqual(self.coordinate(root, "init", **context).stdout, result.stdout)
+
+    def test_coordination_receipt_accepts_declared_removal_and_https_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            context = json.loads(self.coordinate(root, "init", **self.coordination_context()).stdout)
+            self.coordination_decision(root, context, "first")
+            pending = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
+            receipt = self.coordination_receipt(pending["action"]["ticket"])
+            verification = self.coordination_verification(receipt)
+            verification["artifacts"] = [{"path": "src.py", "sha256": "MISSING"}]
+            self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 2)
+            handoff = self.coordination_handoff(receipt)
+            handoff["artifacts"] = [{"path": "src.py", "lines": "all", "action": "removed"}]
+            (root / "src.py").write_text("still present")
+            self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 2)
+            (root / "src.py").unlink()
+            artifacts = handoff.get("artifacts")
+            if not isinstance(artifacts, list):
+                raise AssertionError("coordination handoff artifacts are not a list")
+            artifacts.append(
+                {"path": "https://example.test/docs/../guide", "lines": "reference", "action": "read"})
+            returned = self.coordinate(root, "return", **receipt)
+            self.assertEqual(returned.returncode, 0, returned.stderr)
+            self.assertEqual(json.loads(returned.stdout)["status"], "RETURNED")
+
+    def test_coordination_finish_respects_configured_plan_task_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = self.consult_plan(root)
+            config = root / ".graph-powers"
+            config.mkdir()
+            (config / "config.json").write_text(json.dumps({"graphGuardrails": {"maxTasksPerPlan": 1}}))
+            plan.write_text(plan_text(task("T1.1", "one.py", checked=True, evidence="ok"),
+                                     task("T1.2", "two.py", checked=True, evidence="ok"),
+                                     gates=gate("G1.1", checked=True, evidence="gate ok")))
+            context = json.loads(self.coordinate(root, "init", **{**self.coordination_context(), "planPath": "PLAN.md"}).stdout)
+            self.coordination_decision(root, context, "first")
+            pending = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
+            self.assertEqual(self.coordinate(root, "return", **self.coordination_receipt(pending["action"]["ticket"])).returncode, 0)
+            self.coordination_decision(root, context, "close", "finish")
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+
+    def test_coordination_links_created_plan_once_and_enforces_its_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            context = json.loads(self.coordinate(root, "init", **self.coordination_context()).stdout)
+            self.assertTrue(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
+            plan = self.write_plan(root, plan_text(task("T1.1")))
+            self.assertEqual(self.coordinate(root, "link-plan", planPath="PLAN.md", requesterRole="worker").returncode, 2)
+            self.assertEqual(self.coordinate(root, "link-plan", planPath="../PLAN.md").returncode, 2)
+            linked = self.coordinate(root, "link-plan", planPath="PLAN.md")
+            self.assertEqual(linked.returncode, 0, linked.stderr)
+            self.assertEqual(json.loads(linked.stdout)["context"]["planPath"], "PLAN.md")
+            self.assertFalse(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
+            self.assertEqual(self.coordinate(root, "link-plan", planPath="PLAN.md").stdout, linked.stdout)
+            (root / "other.md").write_text(plan.read_text())
+            self.assertEqual(self.coordinate(root, "link-plan", planPath="other.md").returncode, 2)
+            self.coordination_decision(root, context, "first")
+            pending = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
+            self.assertEqual(self.coordinate(root, "return", **self.coordination_receipt(pending["action"]["ticket"])).returncode, 0)
+            self.coordination_decision(root, context, "close", "finish")
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+            plan.write_text(plan_text(task("T1.1", checked=True, evidence="pending"),
+                                     gates=gate("G1.1", checked=True, evidence="gate ok")))
+            self.assertFalse(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
+            plan.write_text(plan_text(task("T1.1", checked=True, evidence="ok"),
+                                     gates=gate("G1.1", checked=True, evidence="gate ok")))
+            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 0)
+            self.assertTrue(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
+            self.assertEqual(self.coordinate(root, "link-plan", planPath="PLAN.md").returncode, 2)
 
     def consult_request(
         self,

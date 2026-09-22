@@ -75,6 +75,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, NoReturn
+from urllib.parse import urlsplit
 
 if sys.platform == "win32":
     import msvcrt
@@ -428,7 +429,7 @@ DECISION_KEY = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 CONSULTATION_BACKENDS = {"advisor", "evaluator", "fable", "jev"}
 MAX_CONSULTATION_TEXT = 4096
 MAX_CONSULTATION_ITEM = 2048
-MAX_CONSULTATION_OPTIONS = 32
+MAX_CONSULTATION_OPTIONS = 64
 MAX_EVALUATION_JSON = 16384
 BOUNDED_EXIT = 4
 DISPATCH_KINDS = {"bootstrap", "writer", "evaluator", "correction", "confirmation"}
@@ -459,22 +460,22 @@ def _bounded_list(value: Any, name: str) -> list[str]:
     return result
 
 
-def _bounded_json_object(value: Any, name: str) -> dict[str, Any]:
+def _bounded_json_object(value: Any, name: str, limit: int = MAX_EVALUATION_JSON) -> dict[str, Any]:
     if not isinstance(value, dict) or not value:
         _consultation_error(f"{name} must be a non-empty JSON object")
     try:
         encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     except (TypeError, ValueError, RecursionError) as error:
         _consultation_error(f"{name} must contain finite JSON values: {error}")
-    if len(encoded) > MAX_EVALUATION_JSON:
-        _consultation_error(f"{name} exceeds {MAX_EVALUATION_JSON} characters")
+    if len(encoded.encode("utf-8")) > limit:
+        _consultation_error(f"{name} exceeds {limit} bytes")
     decoded = json.loads(encoded)
     assert isinstance(decoded, dict)
     return decoded
 
 
 def _validate_jev_request(value: Any) -> dict[str, Any]:
-    request = _bounded_json_object(value, "evaluationRequest")
+    request = _bounded_json_object(value, "evaluationRequest", 65536)
     if set(request) != {"model", "state", "questions", "candidates", "policy"}:
         _consultation_error("evaluationRequest must contain model, state, questions, candidates, and policy")
     if request["model"] != "typesafe-ai/jev":
@@ -484,27 +485,39 @@ def _validate_jev_request(value: Any) -> dict[str, Any]:
     candidates = request["candidates"]
     if not isinstance(candidates, list) or not candidates or len(candidates) > MAX_CONSULTATION_OPTIONS:
         _consultation_error(f"evaluationRequest candidates must contain 1-{MAX_CONSULTATION_OPTIONS} items")
-    normalized_candidates: list[dict[str, str]] = []
+    normalized_candidates: list[dict[str, Any]] = []
     candidate_ids: set[str] = set()
     for candidate in candidates:
-        if not isinstance(candidate, dict) or set(candidate) != {"id", "role", "model", "reasoningEffort"}:
-            _consultation_error("evaluationRequest candidate must contain id, role, model, and reasoningEffort")
+        required = {"id", "role", "model", "reasoningEffort"}
+        if not isinstance(candidate, dict) or not required <= set(candidate) or set(candidate) - required - {"kind", "skills", "command"}:
+            _consultation_error("evaluationRequest candidate has missing or unknown fields")
         candidate_id = candidate["id"]
-        if not isinstance(candidate_id, str) or not IDENTITY.fullmatch(candidate_id):
-            _consultation_error("evaluationRequest candidate id must be a bounded stable identifier")
-        if candidate_id in candidate_ids:
-            _consultation_error("evaluationRequest candidate ids must be unique")
+        if not isinstance(candidate_id, str) or not IDENTITY.fullmatch(candidate_id) or candidate_id in candidate_ids:
+            _consultation_error("evaluationRequest candidate id must be a unique bounded identifier")
         candidate_ids.add(candidate_id)
-        normalized_candidates.append(
-            {
-                "id": candidate_id,
-                "role": _bounded_text(candidate["role"], "evaluationRequest candidate role", MAX_CONSULTATION_ITEM),
-                "model": _bounded_text(candidate["model"], "evaluationRequest candidate model", MAX_CONSULTATION_ITEM),
-                "reasoningEffort": _bounded_text(
-                    candidate["reasoningEffort"], "evaluationRequest candidate reasoningEffort", MAX_CONSULTATION_ITEM,
-                ),
-            }
-        )
+        kind = candidate.get("kind", "agent")
+        role = _bounded_text(candidate["role"], "candidate role", MAX_CONSULTATION_ITEM)
+        skills = candidate.get("skills", [])
+        command = candidate.get("command")
+        if not isinstance(kind, str) or kind not in {"agent", "skill", "command", "finish"}:
+            _consultation_error("invalid candidate kind")
+        if not isinstance(skills, list) or len(skills) > 32 or any(
+            not isinstance(item, str) or not SKILL_ID.fullmatch(item) or item == "none" or not _skill_is_routable(item) for item in skills
+        ):
+            _consultation_error("candidate skills must name canonical skills")
+        if command is not None and (not isinstance(command, str) or not SKILL_ID.fullmatch(command)
+                                   or not (PLUGIN_ROOT / "commands" / f"{command.split(':')[-1]}.md").is_file()):
+            _consultation_error("candidate command must name a canonical command")
+        if kind == "agent":
+            if _agent_lane(role if role.startswith("graph-powers:") else f"graph-powers:{role}") == "unknown" or role == "main":
+                _consultation_error("candidate role must name a canonical agent")
+            for field in ("model", "reasoningEffort"):
+                _bounded_text(candidate[field], f"candidate {field}", MAX_CONSULTATION_ITEM)
+        elif role != "main" or candidate["model"] is not None or candidate["reasoningEffort"] is not None:
+            _consultation_error("main actions require role main and null model/effort")
+        if (kind == "skill" and not skills) or (kind == "command" and command is None) or (kind == "finish" and (skills or command)):
+            _consultation_error("candidate methods do not match its kind")
+        normalized_candidates.append(dict(candidate))
     questions = request["questions"]
     if not isinstance(questions, dict) or set(questions) != {"route"}:
         _consultation_error("evaluationRequest questions must contain route")
@@ -536,7 +549,7 @@ def _validate_jev_request(value: Any) -> dict[str, Any]:
 
 
 def _validate_jev_result(value: Any, request: dict[str, Any]) -> dict[str, Any]:
-    result = _bounded_json_object(value, "evaluationResult")
+    result = _bounded_json_object(value, "evaluationResult", 65536)
     if set(result) != {"model", "answers"} or result["model"] != "typesafe-ai/jev":
         _consultation_error("evaluationResult model must be typesafe-ai/jev with answers")
     answers = result["answers"]
@@ -973,6 +986,230 @@ def record_consultation(plan: Path, raw_json: str) -> tuple[dict[str, Any], int]
         task_decisions[envelope["decisionKey"]] = envelope
         _write_json_ledger(ledger_path, ledger, "consultation")
         return _consultation_response(envelope), _consultation_result_code(envelope)
+
+
+def _coordination_receipt(raw: dict[str, Any], context: dict[str, Any], root: Path) -> dict[str, Any]:
+    handoff = _bounded_json_object(raw.get("handoff"), "handoff")
+    verification = _bounded_json_object(raw.get("verification"), "verification")
+    if set(handoff) != {"status", "confidence", "artifacts", "qualityGates", "decisions", "risks", "nextAgent", "resumeHint"}:
+        _consultation_error("invalid handoff fields")
+    if handoff["status"] not in {"COMPLETED", "BLOCKED", "REVISION_REQUIRED"} or type(handoff["confidence"]) is not int or not 1 <= handoff["confidence"] <= 5:
+        _consultation_error("invalid handoff status/confidence")
+    for field, keys in (("artifacts", {"path", "lines", "action"}), ("qualityGates", {"name", "status", "evidence"}),
+                        ("decisions", {"what", "why"}), ("risks", {"desc", "mitigation"})):
+        items = handoff[field]
+        if not isinstance(items, list) or len(items) > 32:
+            _consultation_error(f"invalid handoff {field}")
+        for item in items:
+            if not isinstance(item, dict) or set(item) != keys:
+                _consultation_error(f"invalid handoff {field} item")
+            for key in keys:
+                _bounded_text(item[key], f"handoff {field}.{key}")
+            if field == "artifacts":
+                if item["path"].startswith("https://") and urlsplit(item["path"]).netloc:
+                    continue
+                _status_relative_path(root, item["path"])
+    for field in ("nextAgent", "resumeHint"):
+        _bounded_text(handoff[field], f"handoff {field}")
+    if set(verification) != {"passed", "checks", "artifacts", "snapshot"} or type(verification["passed"]) is not bool:
+        _consultation_error("invalid verification fields")
+    _bounded_text(verification["snapshot"], "verification snapshot")
+    checks = verification["checks"]
+    if not isinstance(checks, list) or any(not isinstance(item, dict) or set(item) != {"name", "exitCode"}
+                                         or type(item["exitCode"]) is not int for item in checks):
+        _consultation_error("invalid verification checks")
+    if [item["name"] for item in checks] != [item["name"] for item in context["checks"]]:
+        _consultation_error("verification checks must match the approved checks")
+    if verification["passed"] and any(item["exitCode"] != 0 for item in checks):
+        _consultation_error("passed verification requires zero exit codes")
+    artifacts = verification["artifacts"]
+    if not isinstance(artifacts, list) or len(artifacts) > 32:
+        _consultation_error("invalid verification artifacts")
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or set(artifact) != {"path", "sha256"} or not isinstance(artifact["sha256"], str) or (artifact["sha256"] != "MISSING" and not re.fullmatch(r"[a-f0-9]{64}", artifact["sha256"])):
+            _consultation_error("invalid verification artifact digest")
+        if not isinstance(artifact["path"], str) or "://" in artifact["path"]:
+            _consultation_error("verification artifacts must be filesystem paths")
+        path = root / _status_relative_path(root, artifact["path"])
+        if artifact["sha256"] == "MISSING":
+            declared = any(item["path"] == artifact["path"] and item["action"] in {"removed", "deleted"}
+                           for item in handoff["artifacts"])
+            if path.exists() or path.is_symlink() or not declared:
+                _consultation_error("missing artifact requires an absent path and declared removal")
+            continue
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != artifact["sha256"]:
+            _consultation_error("verification artifact changed or is missing")
+    return {"ticket": _bounded_text(raw.get("ticket"), "ticket", 128), "handoff": handoff, "verification": verification}
+
+
+def _coordination_plan_valid(root: Path, context: dict[str, Any], *, complete: bool) -> bool:
+    if not context.get("planPath"):
+        return True
+    plan = plan_file(str(root / _status_relative_path(root, context["planPath"])))
+    if repo_root(plan) != root:
+        _consultation_error("linked plan must belong to the coordination project")
+    config_path = root / ".graph-powers" / "config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    contract = json.loads(PLUGIN_SCHEMA.read_text(encoding="utf-8"))["properties"]["graphGuardrails"]["properties"]["maxTasksPerPlan"]
+    maximum = config.get("graphGuardrails", {}).get("maxTasksPerPlan", contract["default"])
+    if type(maximum) is not int or not contract["minimum"] <= maximum <= contract["maximum"]:
+        _consultation_error("invalid maxTasksPerPlan")
+    normalized, errors = validate_plan(plan, maximum)
+    return bool(not errors and normalized and (not complete or all(
+        item["checked"] and not _is_placeholder(item["evidence"])
+        for item in [*normalized["tasks"], *normalized["gates"]])))
+
+
+def coordinate(project: str, session: str, action: str, raw_json: str) -> tuple[dict[str, Any], int]:
+    """Persist parent-mediated native actions; Jev records choose, never execute, routes."""
+    if len(raw_json.encode("utf-8")) > MAX_EVALUATION_JSON:
+        return {"status": "BLOCKED", "executionAuthorized": False, "reason": "coordination payload exceeds 16384 bytes"}, BOUNDED_EXIT
+    raw = _bounded_json_object(json.loads(raw_json), "coordination request")
+    if raw.get("requesterRole") not in {"parent", "controller"} or type(raw.get("depth")) is not int or raw["depth"] != 0:
+        _consultation_error("coordination requires parent/controller at depth 0")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", session):
+        _consultation_error("invalid coordination session")
+    root = Path(project).resolve()
+    if Path(git_out(["rev-parse", "--show-toplevel"], root).strip()).resolve() != root:
+        _consultation_error("project must be the Git worktree root")
+    fields = {"init": {"request", "taskId", "owns", "checks", "planPath", "baseline"}, "status": set(),
+              "select": {"decisionKey", "snapshot"}, "finish": {"decisionKey", "snapshot"},
+              "return": {"ticket", "handoff", "verification"}, "link-plan": {"planPath"}}
+    if set(raw) - fields[action] - {"requesterRole", "depth"}:
+        _consultation_error("unknown coordination fields")
+    parts = (".graph-powers", "logs", "sdd", f"coord-{session}")
+    directory = _existing_secure_directory(root, *parts)
+    if directory is None and action != "init":
+        _consultation_error("coordination session does not exist")
+    context = (
+        {key: value for key, value in raw.items() if key not in {"requesterRole", "depth"}}
+        if action == "init"
+        else {}
+    )
+    if action == "init":
+        _bounded_text(context.get("request"), "request")
+        if not isinstance(context.get("taskId"), str) or not IDENTITY.fullmatch(context["taskId"]):
+            _consultation_error("invalid coordination taskId")
+        if not isinstance(context.get("owns"), list) or len(context["owns"]) > 32:
+            _consultation_error("owns must contain bounded relative paths")
+        context["owns"] = [_status_relative_path(root, path) for path in context["owns"]]
+        if "baseline" in context:
+            baseline = context["baseline"]
+            if not isinstance(baseline, dict):
+                _consultation_error("baseline must map relative paths to digests")
+            for path, digest in baseline.items():
+                _status_relative_path(root, path)
+                if not isinstance(digest, str) or (digest != "MISSING" and not re.fullmatch(r"[a-f0-9]{64}", digest)):
+                    _consultation_error("baseline requires sha256 or MISSING")
+        checks = context.get("checks")
+        if not isinstance(checks, list) or not checks or len(checks) > 32:
+            _consultation_error("checks must contain approved commands")
+        for check in checks:
+            if not isinstance(check, dict) or set(check) != {"name", "argv"}:
+                _consultation_error("invalid approved check")
+            _bounded_text(check["name"], "check name", 128)
+            if not isinstance(check["argv"], list):
+                _consultation_error("check argv must be a list")
+            _bounded_list(check["argv"], "check argv")
+        if len({check["name"] for check in checks}) != len(checks):
+            _consultation_error("check names must be unique")
+        if "planPath" in context:
+            context["planPath"] = _status_relative_path(root, context["planPath"])
+            plan_file(str(root / context["planPath"]))
+        directory = _secure_directory(root, *parts)
+    assert directory is not None
+    state_path = directory / "coordination.json"
+
+    def read_state() -> dict[str, Any] | None:
+        if state_path.is_symlink():
+            _consultation_error("refusing symlink coordination ledger")
+        if not state_path.exists():
+            return None
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict) or state.get("status") not in {"READY", "PENDING", "RETURNED", "COMPLETED"}:
+            _consultation_error("invalid coordination ledger")
+        return state
+
+    if action == "status":
+        state = read_state()
+        if state is None:
+            _consultation_error("coordination session does not exist")
+        return {**state, "executionAuthorized": False, "planComplete": _coordination_plan_valid(root, state["context"], complete=True)}, 0
+    with _ledger_lock(directory, "coordination", "coordination"):
+        state = read_state()
+        authorized, code = False, 0
+        if action == "init":
+            if state is not None and state["context"] != context:
+                _consultation_error("coordination context is immutable")
+            if state is None:
+                anchor = directory / f"coord-{session}.md"
+                _write_text_no_symlink(anchor, "# Coordination context\n")
+                workspace(anchor)
+                config_path = root / ".graph-powers" / "config.json"
+                config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+                maximum = _workflow_spawn_ceiling(config.get("graphGuardrails", {}).get("maxSpawnsPerWorkflow", 8))
+                state = {"context": context, "contextPath": anchor.relative_to(root).as_posix(), "status": "READY",
+                         "sequence": 0, "maxActions": maximum, "action": None, "handoffs": [], "selectedKeys": []}
+                _write_json_ledger(state_path, state, "coordination")
+        elif state is None:
+            _consultation_error("coordination session does not exist")
+        elif action == "link-plan":
+            linked = _status_relative_path(root, raw.get("planPath"))
+            if state["status"] == "COMPLETED" or state["context"].get("planPath", linked) != linked:
+                _consultation_error("cannot replace a linked plan or link after completion")
+            if state["context"].get("planPath") == linked:
+                return {**state, "executionAuthorized": False}, 0
+            context = _bounded_json_object({**state["context"], "planPath": linked}, "coordination context")
+            if not _coordination_plan_valid(root, context, complete=False):
+                _consultation_error("linked plan must pass structured plan validation")
+            state["context"] = context
+            _write_json_ledger(state_path, state, "coordination")
+        elif action == "return":
+            receipt = _coordination_receipt(raw, state["context"], root)
+            prior = next((item for item in state["handoffs"] if item["ticket"] == receipt["ticket"]), None)
+            if prior is not None:
+                if prior != receipt:
+                    _consultation_error("return differs from recorded receipt")
+            elif state["status"] != "PENDING" or state["action"]["ticket"] != receipt["ticket"]:
+                _consultation_error("return does not match the pending ticket")
+            else:
+                state["handoffs"].append(receipt)
+                state["status"] = "RETURNED"
+                _write_json_ledger(state_path, state, "coordination")
+        else:
+            key = raw.get("decisionKey")
+            if not isinstance(key, str) or not DECISION_KEY.fullmatch(key):
+                _consultation_error("invalid coordination decisionKey")
+            if key in state["selectedKeys"]:
+                return {**state, "executionAuthorized": False}, 0
+            if state["status"] in {"PENDING", "COMPLETED"}:
+                return {**state, "executionAuthorized": False}, BOUNDED_EXIT
+            ledger = _read_consultation_ledger(directory / "consultations.json")
+            decision = ledger["tasks"].get(state["context"]["taskId"], {}).get(key, {})
+            if decision.get("status") != "RECORDED" or decision.get("backend") != "jev":
+                _consultation_error("select requires a recorded Jev decision for this task")
+            request = _validate_jev_request(decision.get("evaluationRequest"))
+            result = _validate_jev_result(decision.get("evaluationResult"), request)
+            candidate = next(item for item in request["candidates"] if item["id"] == result["answers"]["route"]["choice"])
+            finish = candidate.get("kind", "agent") == "finish"
+            if action == "finish" and not finish:
+                _consultation_error("finish requires a recorded finish candidate")
+            if finish:
+                previous = state["handoffs"][-1] if state["handoffs"] else None
+                valid = previous and previous["handoff"]["status"] == "COMPLETED" and previous["verification"]["passed"] and raw.get("snapshot") == previous["verification"]["snapshot"]
+                if valid:
+                    valid = _coordination_plan_valid(root, state["context"], complete=True)
+                if not valid:
+                    return {**state, "executionAuthorized": False}, BOUNDED_EXIT
+            elif state["sequence"] >= state["maxActions"]:
+                return {**state, "executionAuthorized": False}, BOUNDED_EXIT
+            state["selectedKeys"].append(key)
+            state["sequence"] += 1
+            state["action"] = {"decisionKey": key, "candidate": candidate, "ticket": secrets.token_hex(16)}
+            state["status"] = "COMPLETED" if finish else "PENDING"
+            authorized = not finish
+            _write_json_ledger(state_path, state, "coordination")
+        return {**state, "executionAuthorized": authorized}, code
 
 
 def task_id(raw: str) -> str:
@@ -2358,7 +2595,20 @@ def main(argv: list[str] | None = None) -> int:
     p_record.add_argument("plan")
     p_record.add_argument("--result-json", required=True, help="canonical result envelope as JSON")
 
+    p_coordinate = sub.add_parser("coordinate", help="persist parent-mediated Jev coordination")
+    p_coordinate.add_argument("coordinate_action", choices=("init", "status", "select", "return", "finish", "link-plan"))
+    p_coordinate.add_argument("--project", required=True)
+    p_coordinate.add_argument("--session", required=True)
+    p_coordinate.add_argument("--request-json", required=True)
+
     args = parser.parse_args(argv)
+    if args.command == "coordinate":
+        try:
+            output, code = coordinate(args.project, args.session, args.coordinate_action, args.request_json)
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            fail(f"coordination: {error}", 2)
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return code
     if args.command == "status":
         try:
             output, code = status(args.plan, args.max_tasks, args.profile, args.session_id)

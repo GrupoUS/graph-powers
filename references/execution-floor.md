@@ -34,10 +34,11 @@ uses the Context Handoff in
 The parent checks scope, evidence and MUST DO/MUST NOT DO before using a result. Ordinary dispatch
 does not require the prompt-engineering skill; use it when changing this machinery.
 
-### §4a — Parent-mediated consultation ledger
+### §4a — Parent-mediated Jev coordination
 
-Only the parent/controller may reserve or record a consultation. The canonical envelope, status
-rules, capability fallback and `sdd.py consult reserve|record` interface are in
+Only the parent/controller operates Jev through catalog/init/next/return/status JSON stdin,
+executes its returned native route, and verifies each return before selecting again or finishing.
+Planning links its approved PLAN before Phase C. The canonical contract is in
 `${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a`.
 Workers never consult or spawn children; review calls are not ledger entries.
 
