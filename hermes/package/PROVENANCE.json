@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "24812f0be2066a9b581129c26a9d362bd80f05fe",
-    "version": "1.22.0+codex.20260922193943",
-    "dirty": false
+    "base_revision": "e032b03f5cc3fbbf4a06332644a02e6d130baa8b",
+    "version": "1.22.1+codex.20260922205001",
+    "dirty": true
   },
   "registrations": [
     {
@@ -245,9 +245,9 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "198a811aa7ba05e2b6075930ba3de097bacc630e43b0630fdac59f76f63555c9",
+      "sha256": "4e82858cce0715cd7b7d4ee67a34cf033dba4cb5b0185124d07e5c78dcbeb481",
       "base_sha256": "198a811aa7ba05e2b6075930ba3de097bacc630e43b0630fdac59f76f63555c9",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -263,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "dd93788e217fa54aa4ade760e71e930d8967d1dbab1925db30936d22ea3ae5be",
+      "sha256": "dba18de2c76d86bab6555e42d5690427ff4e6b3958e2ba6de461aa07a8aa1b71",
       "base_sha256": "dd93788e217fa54aa4ade760e71e930d8967d1dbab1925db30936d22ea3ae5be",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -1309,7 +1309,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "91861fbe36c6e0d9a1f304a5af7c83512b1484555717600ffe30ec65572003a9",
+      "sha256": "bdebe03d239c11369347ae5ac039d9a43b4ad066c4d96cd0f7b35f0bed0865b9",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1437,7 +1437,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "85eccdc3a4a2052519afdbbefe277c11c1d3de43d5776778d72b01745908b5d4",
+      "sha256": "2544702b8b2aab959a2eaa57c0bc965a19112cb0cb32422ea93c31896e41dbba",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -5611,6 +5611,11 @@
       {
         "from": "AGENT_SETUP.md",
         "reference": "codex/native-plugin.mjs",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "config.toml",
         "reason": "external URL or caller-resolved host path"
       },
       {

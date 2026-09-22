@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.1 — Guided first-time Jev setup
+
+AGENT_SETUP guides Vercel key creation, private entry, one global Codex credential, local opt-in,
+fresh-executor presence checks and an authorized evaluation/replay smoke. Missing keys stay explicit.
+
 ## 1.22.0 — Current Codex specialists and typed routing
 
 Codex judge, architect, executor and verifier defaults use GPT-6 Astra/high; scouts use

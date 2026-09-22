@@ -165,6 +165,7 @@ choices and account for the legacy `.claude/config.json` when present.
 | Branches, paths, gates and necessary exceptions | Target project's `.graph-powers/config.json` |
 
 Avoid repeating global defaults in each project. Keep project opt-in prefixes distinct.
+For first-time Codex/Jev activation, follow the checklist in Step 9c; never store a key in this config.
 Omit nonexistent layers. Configure a database only when present: status must be genuinely
 read-only, and `applyPolicy` remains `never` without explicit authorization. Setup never applies
 schema/data changes.
@@ -372,10 +373,40 @@ operator; setup does not change the session or global parent/default-subagent se
 The existing economic and Ultra profiles keep their top-level semantics and need their own smoke
 before use. Unsupported model/effort combinations remain BLOCKED without a silent fallback.
 
-Jev is separate opt-in typed routing through the parent consultation contract. Updating the plugin
-does not enable evaluation, supply a credential or authorize a paid request. See
-`skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a` for the executable call site,
-reservation/replay behavior and capability requirements. Jev never replaces the evaluator role.
+Jev is opt-in typed routing; installation alone authorizes no credentials or paid requests.
+The CLI, capability and replay contract lives in
+`skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a`.
+
+#### First installation — Vercel AI Gateway and Jev
+
+1. Ask whether to enable Jev now or skip only if undecided. Explain potential charges; reuse
+   existing consent and keys. Check presence only; never ask for or print the key in chat.
+2. Without a key, guide the user to Vercel dashboard **AI Gateway → API Keys → Create key**;
+   see [Vercel authentication](https://vercel.com/docs/ai-gateway/authentication-and-byok).
+   Use a private local editor or hidden input in the user's own terminal. Never put the key in chat,
+   argv, history, screenshots, the repository or reports; do not automate login.
+3. Store `AI_GATEWAY_API_KEY` once under `[shell_environment_policy.set]` in the active
+   `<CODEX_HOME>/config.toml`. Merge with existing entries; preserve models, permissions and other
+   settings. Protect the file with owner-only access (`0600` on Unix; equivalent Windows ACL).
+   Do not create a project secret copy or change the main agent's provider to AI Gateway.
+4. After credential setup is authorized, merge `{"codex":{"evaluation":{"enabled":true}}}` into
+   the host's `.graph-powers/config.json`. Keep the key global. If skipped or unavailable, leave
+   evaluation disabled, continue ordinary plugin setup and report Jev as not activated.
+5. Open a fresh Codex session/process. In its shell executor, check only presence:
+
+   ```bash
+   python -c "import os; print(bool(os.environ.get('AI_GATEWAY_API_KEY')))"
+   ```
+
+   If false, check the active home and environment filters without displaying values.
+   Send no request until the executor receives the key.
+6. After installation, follow §2a above with a disposable in-repo plan. Reuse a valid smoke or
+   obtain authorization for one synthetic evaluation, then replay the same decision offline.
+   Expect `typesafe-ai/jev`, a valid typed choice and zero new replay requests. Use evaluation,
+   never chat completions. On auth/availability/timeout failure, report BLOCKED without retry.
+
+Report key presence, opt-in and evaluation proof separately; an unrun smoke is NOT RUN.
+API success does not prove full agent/skill/handoff coordination.
 
 **Clone fallback**, only when native installation is unavailable or a project-scoped copy is needed:
 
@@ -599,6 +630,7 @@ Return a compact table: client, source/version/route, package proof, hook execut
 posture and reload result. Add project changes, focused gates, deliberate skips, unresolved
 requirements and backup locations. Distinguish `PASS`, `SKIPPED`, `UNVERIFIED` and
 `NOT ENFORCED`; never call partial installation complete.
+For Jev, include the Step 9c credential/environment/opt-in/smoke states, never the credential value.
 
 Leave reviewable changes in the working tree. No staging, commit, push, publication, new recurring
 automation, or additional cleanup follows setup without its own authorization.
