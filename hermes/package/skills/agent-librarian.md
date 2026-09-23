@@ -25,6 +25,6 @@ concise application recommendation. Repository discovery belongs to `explorer`.
   from `content/references/rubrics/librarian-rubric.md` in the dispatch; never read it locally.
 
 Return the canonical Context Handoff supplied by the parent from
-`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`. If that contract is missing,
+`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`; use its compact variant for a lookup. If that contract is missing,
 request it from the parent. After three focused searches without primary evidence, return `BLOCKED`
 with the knowledge gap and the next source needed.

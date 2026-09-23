@@ -89,6 +89,16 @@ def execution_floor() -> str:
     )
 
 
+def reply_discipline() -> str:
+    """One line of reply posture for the main thread, mirrored from execution-floor.md §7."""
+    return (
+        # mirror of execution-floor.md §7 — the reply posture, not the file
+        "Replies: lead with the result; no preamble or tool-call narration; quote only the decisive "
+        "log line; keep exact paths, commands, numbers and negations. Security warnings and "
+        "destructive confirmations stay in full prose."
+    )
+
+
 def solution_ladder() -> str:
     """One line that puts the solution ladder in force for the main thread.
 
@@ -216,7 +226,8 @@ def main() -> None:
     }
     additional_context = prefixes.get(source, f"{base_tag} | branch:{branch}")
     additional_context = (
-        f"{additional_context}\n{execution_floor()}\n{solution_ladder()}\n{lifecycle_pointer()}"
+        f"{additional_context}\n{execution_floor()}\n{reply_discipline()}\n{solution_ladder()}\n"
+        f"{lifecycle_pointer()}"
     )
     has_handoff = False
     try:

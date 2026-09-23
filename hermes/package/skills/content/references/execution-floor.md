@@ -64,6 +64,10 @@ impact. Findings at confidence 2 or below remain assumptions. Run or reuse the s
 gate under `content/references/shared/015-verification-gate.md` before reporting completion. Parallel-batch columns and
 recovery are owned by the handoff contracts.
 
+Replies: lead with the result; no preamble or tool-call narration; quote only the decisive log
+line; keep exact paths, commands, numbers and negations. Security warnings and destructive
+confirmations stay in full prose.
+
 ## §8 — Unresolved agent names
 
 Conditionally load `content/references/shared/035-agent-resolution-recovery.md` after a name fails. State the fallback

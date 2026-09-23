@@ -348,6 +348,21 @@ def session_context_lifecycle() -> None:
     check("...on codex too", "Execution floor in force" in tag(installed, harness="codex"), True)
     check("...naming the file, not copying it", "execution-floor.md" in installed_tag, True)
     check(
+        "the reply discipline reaches the session",
+        "Replies: lead with the result" in installed_tag,
+        True,
+    )
+    check(
+        "...on codex too",
+        "Replies: lead with the result" in tag(installed, harness="codex"),
+        True,
+    )
+    check(
+        "...keeping safety text in full prose",
+        "destructive confirmations stay in full prose" in installed_tag,
+        True,
+    )
+    check(
         "tier alone does not force a delegation",
         "L3+ delegates" in installed_tag,
         False,

@@ -26,5 +26,5 @@ Finder covers the assigned scope; FP-Filter validates only the supplied finding.
 - Read `${CLAUDE_PLUGIN_ROOT}/references/rubrics/security-reviewer-rubric.md` for scoring and precedent checks.
 
 Return the canonical Context Handoff from
-`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`. Stop after the report or
+`${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`; use its compact variant for findings. Stop after the report or
 return `BLOCKED` for missing essential evidence.

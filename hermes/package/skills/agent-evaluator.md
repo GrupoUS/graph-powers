@@ -30,7 +30,7 @@ and evidence. Review only; exploitability belongs to `security-reviewer`.
 - Apply the selected section of `content/references/rubrics/evaluator-rubric.md`; separate blocking defects
   from advice and cite reproducible evidence.
 - Return PASS, FAIL, or BLOCKED with criterion-level findings, then the canonical Context Handoff
-  from `content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`.
+  from `content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`; use its compact variant for findings.
 
 Stop after the verdict. Missing scope or evidence is `BLOCKED`; unresolved critical findings below
 confidence 3 remain `BLOCKED`.

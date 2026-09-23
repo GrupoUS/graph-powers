@@ -45,6 +45,10 @@ researcher receives the necessary facts and return/rubric excerpts in its prompt
 - **Resume hint:** <one sentence>
 ```
 
+**Compact variant.** A lookup returns `Status` plus one `path:line — symbol — note` row per hit; a
+review returns its verdict plus one `severity | path:line | problem | fix` row per finding, then
+only the Context Handoff fields that carry something. Security findings keep a plain-prose risk.
+
 Extend the existing fields, never the envelope keys: the list below applies to plan-bound or
 resumable returns. Ordinary returns fill only applicable fields in ≤ ~400 words; leave detail in
 existing artifacts.

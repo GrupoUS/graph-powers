@@ -25,5 +25,5 @@ browse or infer external behavior.
 - Read `content/references/rubrics/explorer-rubric.md` only for broad impact work.
 
 Return the canonical Context Handoff from
-`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`. Ask the parent to route to
+`content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md`; use its compact variant for a lookup. Ask the parent to route to
 `librarian` for external facts; return `BLOCKED` after an evidence-backed bounded search.
