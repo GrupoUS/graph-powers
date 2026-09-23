@@ -10,8 +10,8 @@
 
 ## Entry contract
 
-- Direct route: Phase A complete, with `<plan dir>/spec.md` user-approved and independently
-  GATE-1-approved when the tier requires it (L4+).
+- Direct: Phase A complete, `<plan dir>/spec.md` user-approved and GATE-1-approved when required
+  (ordinary L4).
 - Issue-improve fast path: a complete sanitized triage ledger plus verified repository evidence is
   the design authority for its plan-only deliverable. It writes `PLAN.md` directly, without a
   separate `spec.md`, Phase A, or approval to execute. L3+ still receives a separate
@@ -36,11 +36,9 @@
 
 - **trigger:** Phase A complete, tier L4+, explicit Gauntlet planning at L3, or the bounded
   issue-improve fast path above.
-- **goal (binary):** `PLAN.md` exists **AND** it carries every required section from Step 5
-  **AND** every task declares `Owns` and `Needs` **AND** explicit Gauntlet plans map every applicable
-  surface and producer/consumer edge **AND** Step 6 passes. User approval for execution is required
-  only when Phase C is requested. At L5+ and explicit Gauntlet L3+, GATE 2 must also meet the calibration anchors
-  (`content/skills/planning/references/loop-engineering.md § Calibration anchors`).
+- **goal (binary):** `PLAN.md` exists with Step 5 sections, every task has `Owns`/`Needs`,
+  Gauntlet maps applicable surfaces/edges, and Step 6 passes. Phase C needs user approval;
+  L5+/Gauntlet L3+ GATE 2 meets `content/skills/planning/references/loop-engineering.md § Calibration anchors`.
 - **body:** `graph-powers:project-planner` maps files and writes independently testable tasks →
   independent evaluator Mode 1 when required → one bounded correction.
 - **terminal:** goal PASS → approved plan or, for issue-improve, reviewed draft. Enter Phase C only
@@ -312,10 +310,10 @@ Fix inline once, then run the checklist once more:
 
 ## Step 7 — GATE 2 — evaluator Mode 1 (L5+ and Gauntlet L3+)
 
-Dispatch `graph-powers:evaluator` in Mode 1 with the seven-section prompt from
-`content/references/execution-floor.md § 4`. It reads the design authority and plan,
-checks the Step 6 list, scores the calibration anchors, writes nothing, and returns the canonical
-Context Handoff.
+Dispatch a separate `graph-powers:evaluator` Mode 1 review using the seven-section prompt from
+`content/references/execution-floor.md § 4`. Ordinary L5+ reviews `spec.md` and
+`PLAN.md` together against the destination, Step 6 and calibration anchors; Gauntlet reviews its
+design authority and plan. It writes nothing and returns the Context Handoff.
 
 At ordinary L4, skip this gate unless the user asks for a second review. At L5+ and explicit
 Gauntlet L3+, **PASS** → Step 8;

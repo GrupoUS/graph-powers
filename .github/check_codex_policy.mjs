@@ -376,7 +376,7 @@ for (const settings of [
   { agents: { evaluator: { model: "typesafe-ai/jev" } } },
   { profiles: { judge: { model: "typesafe-ai/jev" } } },
   { model: "typesafe-ai/jev" },
-  { models: { standard: "typesafe-ai/jev" } },
+  { models: { heavy: "typesafe-ai/jev" } },
 ]) {
   rejects(
     () =>

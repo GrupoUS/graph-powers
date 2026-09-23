@@ -9,9 +9,8 @@ contract they need, with provenance comments.
 
 ## §1 — Delegate only independently useful work
 
-`shared/020-complexity-routing.md` decides whether to delegate. L1-L2 implementation stays local;
-one `graph-powers:project-planner` is allowed for an explicit plan deliverable. L3 may use one existing
-specialist; L4-L5 use only the disjoint specialists that add value; L6+ needs a coordinator. Use
+`shared/020-complexity-routing.md` decides whether and what to delegate. L1-L2 implementation
+stays local; one `graph-powers:project-planner` is allowed for an explicit plan deliverable. Use
 fewer agents when fewer scopes exist. The assignment and skill authorities are
 `shared/030-agent-assignment-matrix.md` and `shared/060-skill-domain-matrix.md`.
 

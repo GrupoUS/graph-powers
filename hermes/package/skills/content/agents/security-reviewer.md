@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: "Use before shipping authentication, authorization, tenancy, secrets, user input, or payments. Finder traces exploitable risks; FP-Filter validates one finding. Report-only."
-model: opus
+model: sonnet
 color: orange
 role_type: evaluator
 effort: xhigh

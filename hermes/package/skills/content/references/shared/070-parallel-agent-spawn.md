@@ -2,14 +2,12 @@
 
 ## Section 7: Parallel Agent Spawn pattern
 
-Rules for every batch of two or more agents: one-message dispatch, distinct scopes, bounded width and
-total, one return contract, one writer per file and role-owned models.
+For batches of 2+ agents: distinct scopes, bounded width and total, one return contract, one
+writer per file and role-owned models.
 
-When invoking 2+ agents in parallel:
-
-1. **Single message** — all `delegate_task()` calls in the same response (concurrent execution).
-2. **Background flag** — `background=true` for read-only agents (`graph-powers:explorer`, `graph-powers:librarian`, audit dimensions, codex:codex-rescue diagnose).
-3. **Foreground only** when the agent must write/edit (`graph-powers:frontend-specialist`, `graph-powers:debugger` in fix mode).
+1. **Single message** — `delegate_task()` calls in one response run concurrently either way.
+2. **Read-only background** — `background=true` for `graph-powers:explorer`, `graph-powers:librarian`, audits and codex rescue diagnosis.
+3. **Write-capable: foreground by default.** Background only with disjoint `Owns` and independent parent work; background agents can write and permission prompts surface in the parent.
 4. **Distinct scope** — each agent prompt has non-overlapping investigation area; otherwise merge into one agent.
 5. **Same return contract** — all agents in a parallel batch return findings in the same format (table, columns, severity scale) so consolidation is mechanical.
 6. **Bounds are ceilings.** `maxParallelWave` limits concurrency; `maxSpawnsPerWorkflow` counts all
@@ -31,9 +29,9 @@ When invoking 2+ agents in parallel:
    agent when the matrix in §3 has the role.
 
 9. **Cluster by role and boundary.** Package compatible work for one existing specialist; never one
-   fixer/refuter per finding. Use one `graph-powers:evaluator` per plan, wave, PR or integrated
-   result and at most one material-correction re-review. Security and design roles fire only on
-   their surfaces; workflows consolidate configured lenses by role.
+   fixer/refuter per finding. Use one `graph-powers:evaluator` per plan review or integrated result;
+   a wave only under the Phase C early-review rule or Gauntlet's per-wave rule. Allow at most one material-correction re-review.
+   Security and design roles fire only on their surfaces; workflows consolidate configured lenses by role.
 
 **When not to parallelise.** Related failures, unresolved system-wide diagnosis or shared files/state
 get one agent or sequential work.

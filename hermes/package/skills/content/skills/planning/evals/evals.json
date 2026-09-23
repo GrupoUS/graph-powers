@@ -161,7 +161,7 @@
       "id": "pos-approved-plan-execution",
       "polarity": "positive",
       "prompt": "O plano estruturado L4 em docs/plans/example-default-l4/PLAN.md está aprovado. Execute-o explicitamente com /implement, revise cada tarefa e entregue a árvore de trabalho para verificação.",
-      "expected_output": "Phase C execution with validation, write lease, grouped writer lanes, one Evaluator review per wave and final verification.",
+      "expected_output": "Phase C execution with validation, write lease, grouped writer lanes, focused checks per task, an early wave Evaluator only under the risk rule, one final Evaluator review of the integrated result and quick verification.",
       "assertions": [
         {
           "id": "B00",
@@ -177,8 +177,20 @@
         },
         {
           "id": "B02",
-          "description": "Uses one consolidated Evaluator per wave and a separate final review",
-          "check": "regex: (?is)(one|um).*(Evaluator|avaliador).*(wave|onda).*(final[- ]review|revisão final|final reviewer)",
+          "description": "Reviews the integrated result once with a final Evaluator",
+          "check": "regex: (?is)(final[- ]review|revisão final|final reviewer|final Evaluator|Evaluator final|avaliador final)",
+          "critical": true
+        },
+        {
+          "id": "B05",
+          "description": "Does not require an Evaluator for every ordinary wave",
+          "check": "regex: (?is)\\A(?!.*\\b(one|um|uma)\\s+(consolidated\\s+|consolidado\\s+)?(Evaluator|avaliador)(\\s+review|\\s+revis\\w+)?\\s+(per|por|em cada|a cada)\\s+(wave|onda)).*\\Z",
+          "critical": true
+        },
+        {
+          "id": "B06",
+          "description": "Limits early wave review to the risk rule",
+          "check": "regex: (?is)(risk|risco).{0,300}(wave|onda)|(wave|onda).{0,300}(risk|risco)",
           "critical": true
         },
         {

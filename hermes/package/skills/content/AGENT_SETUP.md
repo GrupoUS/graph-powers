@@ -312,6 +312,12 @@ Skip marketplace registration/installation when already valid. Use the exact sco
 reported by the client. Prefer user scope; project/local scope is an explicit exception.
 The installer verifies the package before applying permissive posture. Restart Claude afterwards.
 
+Each agent's frontmatter alias (`opus`, `sonnet`, `haiku`) selects its model. `CLAUDE_CODE_SUBAGENT_MODEL`
+is only the fallback for agents without one; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every role,
+so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`;
+prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
+the alias alone.
+
 ### 9a — Codex settings
 
 Preserve the active `CODEX_HOME`, native installation, sandbox/approval settings and manual model

@@ -475,7 +475,7 @@ def main() -> int:
             "bun",
             "codex/native-plugin.mjs",
             "--models",
-            "standard=gpt-5.5",
+            "heavy=gpt-6-sol",
             "--out",
             str(custom_dir),
         ]
@@ -489,14 +489,14 @@ def main() -> int:
         evaluator_path = custom_dir / "evaluator.toml"
         if (
             custom.returncode != 0
-            or tomllib.loads(evaluator_path.read_text(encoding="utf-8")).get("model") != "gpt-5.5"
+            or tomllib.loads(evaluator_path.read_text(encoding="utf-8")).get("model") != "gpt-6-sol"
         ):
             print(custom.stderr)
             print("::error::native companion explicit model override was not emitted")
             return 1
         evaluator_path.write_text(
             'name = "evaluator"\ndescription = ""\n'
-            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n'
+            'model = "gpt-6-sol"\nmodel_reasoning_effort = "high"\n'
             "developer_instructions = '''\nstale instructions\n'''\n",
             encoding="utf-8",
         )
@@ -515,7 +515,7 @@ def main() -> int:
                 refreshed_values.get("model"),
                 refreshed_values.get("model_reasoning_effort"),
             )
-            != ("gpt-5.5", "high")
+            != ("gpt-6-sol", "high")
             or "stale instructions" in refreshed
         ):
             print(ordinary.stderr)
@@ -527,7 +527,7 @@ def main() -> int:
                 "bun",
                 "codex/native-plugin.mjs",
                 "--models",
-                "standard=gpt-5.6-luna",
+                "heavy=gpt-6-luna",
                 "--out",
                 str(custom_dir),
             ],
@@ -539,7 +539,7 @@ def main() -> int:
         if (
             explicit.returncode != 0
             or tomllib.loads(evaluator_path.read_text(encoding="utf-8")).get("model")
-            != "gpt-5.6-luna"
+            != "gpt-6-luna"
         ):
             print(explicit.stderr)
             print("::error::native companion explicit override did not beat saved model")
@@ -551,7 +551,7 @@ def main() -> int:
                 {
                     "agents": {
                         "evaluator": {
-                            "model": "gpt-5.6-terra",
+                            "model": "gpt-6-sol",
                             "reasoningEffort": "high",
                         }
                     }
@@ -577,7 +577,7 @@ def main() -> int:
         if configured.returncode != 0 or (
             config_values.get("model"),
             config_values.get("model_reasoning_effort"),
-        ) != ("gpt-5.6-terra", "high"):
+        ) != ("gpt-6-sol", "high"):
             print(configured.stderr)
             print("::error::native companion config override did not beat saved model")
             return 1
@@ -591,7 +591,7 @@ def main() -> int:
             ),
             (
                 "unsupported-effort",
-                'model = "gpt-5.5"\nmodel_reasoning_effort = "ultra"\n',
+                'model = "gpt-6-sol"\nmodel_reasoning_effort = "ultra"\n',
             ),
             (
                 "escaped-model",
@@ -603,17 +603,17 @@ def main() -> int:
             ),
             (
                 "duplicate-model",
-                'model = "gpt-5.5"\n model = "gpt-5.6-terra"\nmodel_reasoning_effort = "max"\n',
+                'model = "gpt-6-sol"\n model = "gpt-6-sol"\nmodel_reasoning_effort = "max"\n',
             ),
             (
                 "quoted-duplicate",
-                '"model" = "gpt-5.5"\nmodel = "gpt-5.6-terra"\nmodel_reasoning_effort = "max"\n',
+                '"model" = "gpt-6-sol"\nmodel = "gpt-6-sol"\nmodel_reasoning_effort = "max"\n',
             ),
             (
                 "multiline-fake-model",
-                'description = """\nmodel = "gpt-5.5"\n"""\nmodel_reasoning_effort = "max"\n',
+                'description = """\nmodel = "gpt-6-sol"\n"""\nmodel_reasoning_effort = "max"\n',
             ),
-            ("malformed", 'model = "gpt-5.5"\n'),
+            ("malformed", 'model = "gpt-6-sol"\n'),
         ):
             failure_dir = Path(tmp) / f"{name}-agents"
             seeded = subprocess.run(

@@ -483,15 +483,16 @@ def external_routes() -> list[str]:
 def orchestration_policy() -> list[str]:
     """Keep the verification route aligned with the always-on execution floor.
 
-    `/verify quick` is the deliberate low-resource path. Making *every* argument-less run quick,
-    however, lets an L3+ implementation reach handoff without the review batch the execution floor
-    requires. This is a semantic route, so a path/reference check cannot see it.
+    `/verify quick` is the deliberate low-resource path. Argument-less L3+ runs still cover the
+    review roles, reusing valid independent proof for the same snapshot and scope. This semantic
+    route cannot be seen by a path/reference check.
     """
     text = read("commands/verify.md")
     required = (
         "No arguments inherit the originating task's tier: **L1-L2 → `quick`; L3+ → `full`**.",
         "Explicit `/verify quick` always remains `quick`.",
-        "An unknown tier defaults to `full`; only an explicitly classified L1-L2 run may infer `quick`.",
+        "An unknown tier is classified from the change set by `020-complexity-routing.md`; a risk surface or second domain raises it, and a tier still unclear defaults to `full`.",
+        "An argument-less L3+ run reuses a valid independent review of the same snapshot and scope (for example Phase C's final Evaluator) and dispatches only uncovered reviewer roles; explicit `/verify full` always runs the batch.",
     )
     missing = [clause for clause in required if clause not in text]
     return [

@@ -2,8 +2,8 @@
 
 # Correction reviewer prompt
 
-Use one fresh, read-only `graph-powers:evaluator` after a grouped correction wave. It checks whether
-all cited findings were fixed and whether the integrated corrections introduced blocking breakage.
+Use at most one fresh, read-only `graph-powers:evaluator` after a grouped material correction.
+Review only the correction delta since the prior verdict for cited findings and new blocking breakage.
 
 ```text
 ## TASK
@@ -25,13 +25,14 @@ Correction review packages: [REVIEW PACKAGES]
 Correction reports and focused checks: [REPORTS]
 
 ## REQUIRED SKILLS & TOOLS
-Use Read, Grep, Glob and read-only Bash. Read the correction diff once; run a focused check only
-for a concrete doubt. Do not mutate the tree or dispatch an agent.
+Use Read, Grep, Glob and read-only Bash. Read the correction delta once; do not rerun suites,
+mutate the tree or dispatch an agent.
 
 ## MUST DO
-- Treat every report as unverified; compare every claim with the diff and output.
-- Do not re-review untouched code or expand scope. Run a focused check only when the report leaves
-  a concrete doubt unresolved.
+- Treat every report as unverified; compare every claim with the material delta and existing focused
+  check output. Match evidence to snapshot/scope/inputs; do not rerun unchanged suites.
+- Do not re-review untouched code or expand scope. Request a bounded affected check from the
+  controller only for a concrete unresolved doubt.
 - A finding remains open when the specific defect still exists, even if an attempted fix is present.
 
 ## MUST NOT DO

@@ -37,7 +37,7 @@ Every phase is an instance of this shape:
 LOOP <phase>:
   trigger:  <what enters this loop>
   goal:     <BINARY, checkable exit criterion — PASS/FAIL, never prose>
-  body:     generate → evaluate (a SEPARATE agent) → correct      (= the GEL, below)
+  body:     generate → evaluate (SEPARATE agent for judgment; deterministic check for mechanics) → correct
   guards:
     - HARD-STOP : max N iterations on the same artifact → escalate to user
     - GOAL-GUARD: do not start the loop if `goal` is not binary/observable
@@ -53,8 +53,8 @@ goal and the four guards wrapped around it.
 
 ## Generator-Evaluator Loop (GEL) — the body of every phase loop
 
-**The core insight:** Separate production from quality judgment. Never ask the same agent to
-generate AND evaluate its own work.
+**Core insight:** Separate author and judge when independent review is required. Mechanical steps
+use deterministic checks, not a new evaluator; an author's self-review is not independent proof.
 
 **Why self-review fails:** Agents default to "confidently praising work — even when quality is
 obviously mediocre." A generating agent is implicitly motivated to complete the task, which
@@ -251,9 +251,9 @@ read them as "all clauses true → exit".
 
 | Phase | Verifiable goal (binary) | Body | Guards |
 |---|---|---|---|
-| **A — Brainstorm** (`phase-a-brainstorm.md`) | spec file exists **AND** independent evaluator GATE 1 = PASS **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect only decisive facts → ask only blocking questions → `graph-powers:project-planner` authors → required evaluator reviews → bounded correction | HARD-STOP at configured correction cap · GOAL-GUARD (no observable destination → do not plan) |
-| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** planner authorship and self-check pass **AND** disjoint-file check passes on every `[PARALLEL-SAFE]` phase **AND** user approves execution when Phase C is requested; at L5+, GATE 2 meets the 4 anchors | `graph-powers:project-planner` maps files/interfaces and writes tasks → required independent evaluator review → bounded correction | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
-| **C — Execute** (`phase-c-executing-plans.md`) | per task: implementer PASS **AND** its wave Evaluator review PASS **AND** its `EVIDENCE` line carries real output; overall: every phase gate met **AND** `/verify quick` PASS **AND** `/evolve auto` done | rolling dispatch: grouped specialist lanes → one consolidated Evaluator per wave → grouped correction when needed → close verified tasks | correction cap `${graphGuardrails.maxRepatch}` · COST-GUARD width `graphGuardrails.maxParallelWave` and total `graphGuardrails.maxSpawnsPerWorkflow` · CTX-GUARD at client signals/task boundaries · then `/debug recover` |
+| **A — Brainstorm** (`phase-a-brainstorm.md`) | design returned **AND** GATE 1 PASS at ordinary L4 **AND** user approved **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled | inspect decisive facts → ask blockers → `graph-powers:project-planner` authors → review only when required → bounded correction | HARD-STOP at configured correction cap · GOAL-GUARD (no observable destination → do not plan) |
+| **B — Writing-plans** (`phase-b-writing-plans.md`) | plan file exists **AND** planner self-check and disjoint-file checks pass **AND** user approves execution when requested; at L5+, GATE 2 reviews spec and plan against 4 anchors | `graph-powers:project-planner` authors tasks → required evaluator reviews → bounded correction | HARD-STOP 3 plan revisions · COST-GUARD spawn/retry · CTX-GUARD on a large plan |
+| **C — Execute** (`phase-c-executing-plans.md`) | per task: focused `CHECK` PASS, paths ⊆ `Owns`, early verdict clean when required, real `EVIDENCE`; overall: final Evaluator covers uncovered tasks/integration **AND** phase gates and `/verify quick` PASS **AND** triggered `/evolve auto` done | grouped specialist lanes → early review only for risk/dependency waves (Gauntlet: every wave) → final integrated review → bounded corrections | correction cap `${graphGuardrails.maxRepatch}` · width `graphGuardrails.maxParallelWave` and total `graphGuardrails.maxSpawnsPerWorkflow` · CTX-GUARD at boundaries · then `/debug recover` |
 
 ---
 

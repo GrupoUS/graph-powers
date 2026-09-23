@@ -10,8 +10,8 @@
 1. **One writer per file.** Defined once in `${CLAUDE_PLUGIN_ROOT}/references/shared/070-parallel-agent-spawn.md`; Phase B declares it per task as `Owns:` and its self-review checks it (`phase-b-writing-plans.md § Step 3`).
 2. **Read-only agents background.** `graph-powers:explorer`, `graph-powers:librarian` MUST run `run_in_background: true`; `graph-powers:verification` too when alongside write-capable agents.
 3. **Caps.** In-flight width is `graphGuardrails.maxParallelWave`, not a literal; beyond it, checkpoint with the user. Correction rounds use only `${graphGuardrails.maxRepatch}`; after the cap, route to `/debug recover`.
-4. **Return budget < 2000 tokens.** Detail to `.claude/agent-memory/<agent>/`, summary index returned to main.
-5. **Subagent non-inheritance.** Agents do NOT auto-load project `CLAUDE.md` — embed critical rules in the agent prompt body or task block.
+4. **Return budget: ~400 words.** Detail stays in existing artifacts (plan, ledgers, changed files), never a new memory file; read-only agents cannot write.
+5. **Subagent context.** Non-fork subagents load the host's instruction files (Claude: `CLAUDE.md` and its imports; Codex: `AGENTS.md`), never the conversation. Embed task decisions, owned paths, applicable AGENTS.md and exact authority text.
 
 > Full stopping-conditions table: `../SKILL.md § Stopping & red flags`; Phase C adds its execution
 > constraints in `phase-c-executing-plans.md § Required invariants`.
@@ -33,7 +33,7 @@ Pick the agent and skill from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent
 | Staging E2E / agent-browser | **NEVER parallel** (single browser session) |
 | Plan / PRD synthesis · adversarial review · architecture analysis | No |
 | Codebase lookup (`graph-powers:explorer`) · external research (`graph-powers:librarian`) | **YES — and always background** |
-| Phase A evidence | `graph-powers:explorer` in background only for an independently useful lookup; add `graph-powers:librarian` only for a current external API, security or version fact. `graph-powers:project-planner` authors the spec; a separate `graph-powers:evaluator` owns L4+ GATE 1. |
+| Phase A evidence | `graph-powers:explorer` in background only for an independently useful lookup; add `graph-powers:librarian` only for a current external API, security or version fact. `graph-powers:project-planner` authors the spec; a separate `graph-powers:evaluator` owns GATE 1 at L4 and GATE 2 at L5+. |
 
 > **Ambiguous (task touches 2+ domains):** assign by the primary impact area shown by repository
 > evidence. If the tie changes ownership, expose it in the plan instead of forcing another tool.
@@ -64,8 +64,7 @@ Each parallel subagent returns:
   - Status: PASS | FAIL | BLOCKED
   - Changed paths: [list]
   - Validation evidence: [test output / type-check / lint result]
-  - Summary: < 2000 tokens
-  - Memory write: .claude/agent-memory/<agent>/<task-id>.md
+  - Summary: ≤ ~400 words
 ```
 
 Controller integration: read every summary → verify no overlapping changed paths (disjoint-file check) → `${tooling.commands.typeCheck}` + `${tooling.commands.lint}` on the integrated diff → any FAIL/BLOCKED → halt phase, escalate or re-dispatch the failed task only → all PASS → record a reviewed working-tree checkpoint. Stage/commit/push only when the user explicitly authorizes that Git action in the current turn.
@@ -74,5 +73,5 @@ Controller integration: read every summary → verify no overlapping changed pat
 
 Failures are **related** (one root cause — fix one reruns the others) · tasks share state (schema
 module, cross-cutting singletons, single browser session) · the batch would exceed
-`graphGuardrails.maxSpawnsPerWorkflow` after reserving its final Evaluator · subagent return would
-exceed 2000 tokens · user typed "one at a time" / "sequential".
+`graphGuardrails.maxSpawnsPerWorkflow` after reserving its final Evaluator · user typed "one at a
+time" / "sequential".

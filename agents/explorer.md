@@ -5,7 +5,7 @@ model: haiku
 color: cyan
 role_type: researcher
 background: true
-effort: medium
+effort: low
 memory: project
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit

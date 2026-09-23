@@ -52,14 +52,11 @@ this file covers the remaining architectural choices.
 
 ## 5. Model selection
 
-| Model | When | Typical agents |
-|---|---|---|
-| `opus` | Architecture, ambiguous reasoning, multi-lens evaluation | `graph-powers:evaluator`, `graph-powers:debugger`, `graph-powers:project-planner`, `graph-powers:verification`, write-capable specialists |
-| `sonnet` | Review and structured analysis against a clear rubric | `graph-powers:security-reviewer`, `graph-powers:skill-improver` |
-| `haiku` | Fast read-only lookup, low stakes | nothing in this plugin today — the two researchers judge what they find |
-| `inherit` | When agent should match parent's capability tier | rare |
-
-**Cost guidance:** prefer `haiku` for read-only research agents; tokens add up across parallel batches.
+Use the `model` field in each `${CLAUDE_PLUGIN_ROOT}/agents/*.md` frontmatter as the
+agent-to-model authority. Do not keep a second mapping here. `haiku` serves focused
+lookup; `sonnet` serves implementation, security review and routine verification;
+`opus` serves planning, design, harness audit and adversarial judgment. An explicit per-invocation
+model is a deliberate override of that agent's declared tier.
 
 ---
 

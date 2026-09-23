@@ -1,7 +1,7 @@
 ---
 name: evaluator
 description: "Use before accepting a plan, sprint, architecture decision, or branch. Adversarially reviews in plan, sprint, architecture, or PR mode; report-only."
-model: fable
+model: opus
 color: red
 role_type: evaluator
 effort: xhigh

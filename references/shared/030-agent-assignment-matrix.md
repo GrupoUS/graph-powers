@@ -2,8 +2,8 @@
 
 | Task type | Agent | Background? |
 |---|---|---|
-| Backend handler/service/auth/DB | `graph-powers:debugger` | No (write-capable) |
-| React/components/UI/styling | `graph-powers:frontend-specialist` | No (write-capable) |
+| Backend handler/service/auth/DB | `graph-powers:debugger` | Optional (write-capable) |
+| React/components/UI/styling | `graph-powers:frontend-specialist` | Optional (write-capable) |
 | Schema/migrations/indexes | `graph-powers:debugger` | No |
 | Tests/QA | `graph-powers:debugger` | No |
 | Performance/SEO implementation | `graph-powers:performance-optimizer` | No |
@@ -15,8 +15,6 @@
 | Plan synthesis / sprint breakdown | `graph-powers:project-planner` | Caller decides |
 | UI or user-flow verification, after the code lands | `graph-powers:verification` | No (drives a browser) |
 | Harness wiring verdict, dispatched by `skill-improve` Mode B | `graph-powers:skill-improver` | No (the caller gates the next phase on the verdict) |
-
-Read-only agents (`graph-powers:explorer`, `graph-powers:librarian`) **must** use `run_in_background: true`.
 
 **Explorer vs Librarian:**
 
@@ -39,7 +37,7 @@ and follow that route; do not load the failure-path reference during normal assi
 
 Use the matrix role, never a generic/dynamic name. Harder judgment changes the role.
 
-- Claude Agent: use canonical `agents/<role>.md` model without overrides.
+- Claude Agent: canonical `agents/<role>.md` alias, no override; a host gateway may route it elsewhere.
 - Claude Workflow: load `agents/*.md`; pass its model on each call; stop if missing.
 - Codex: derive eligible role/model/effort from `codex/model-policy.json`, preserving overrides.
 

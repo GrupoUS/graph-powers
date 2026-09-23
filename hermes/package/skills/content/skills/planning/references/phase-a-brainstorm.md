@@ -30,7 +30,7 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 ## Exit contract
 
 - **L3 default:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L3 Gauntlet and L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`content/references/shared/007-path-conventions.md`). `graph-powers:project-planner` authors the design. L4+ requires an independent evaluator Mode 1 PASS at GATE 1; Gauntlet's required evaluator review occurs in Phase B. User approval must cover Phase B. Proceed to `content/skills/planning/references/phase-b-writing-plans.md`.
+- **L3 Gauntlet and L4+:** `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` (`content/references/shared/007-path-conventions.md`). `graph-powers:project-planner` authors the design. Ordinary L4 requires an independent evaluator Mode 1 PASS at GATE 1; ordinary L5+ and Gauntlet review spec/plan at GATE 2. User approval covers Phase B; proceed to `content/skills/planning/references/phase-b-writing-plans.md`. Gauntlet's required evaluator review occurs in Phase B.
 
 ---
 
@@ -39,7 +39,7 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 > Phase A is a goal-gated loop. Model: `content/skills/planning/references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ in the authorized checkout.
-- **goal (binary):** design is returned (inline for ordinary L3; file for Gauntlet L3+/L4+) **AND** independent evaluator GATE 1 = PASS where required **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(Ordinary L3 has no file or GATE 1. Explicit Gauntlet L3 writes the spec and continues to Phase B.)*
+- **goal (binary):** design returned (inline for ordinary L3; file for Gauntlet L3+/L4+) **AND** GATE 1 PASS at ordinary L4 **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(Ordinary L3 has no file or GATE 1; ordinary L5+ and Gauntlet review in Phase B.)*
 - **body:** inspect only decision-relevant facts → ask only blocking questions → project-planner authors design → independent evaluator reviews when required → correct once per existing cap.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
   no design · no speculative feature or abstraction without a current requirement.
@@ -226,12 +226,13 @@ ledger, risk surfaces and explicit non-goals. Use the seven-section prompt from
 spec and checks coverage, evidence, consistency, assumptions and scope. For L3, return its concise
 three-section design inline; for L4+, retain `spec.md` under the plan directory.
 
-## Step 8 — GATE 1 — independent evaluator Mode 1 (L4+ mandatory)
+## Step 8 — GATE 1 — independent evaluator Mode 1 (ordinary L4 only)
 
-Dispatch a fresh `graph-powers:evaluator` with the seven-section prompt. It reviews the planner's
-spec against the destination, reuse ledger, repository evidence, scope, layer order, internal
-consistency and YAGNI. The evaluator is read-only and returns the canonical Context Handoff; the
-planner cannot review its own work.
+At ordinary L5+ and Gauntlet, skip GATE 1: GATE 2 reviews spec and plan. At ordinary L4:
+
+Dispatch a fresh `graph-powers:evaluator` with the seven-section prompt to judge the spec's
+destination, reuse, evidence, scope, layers, consistency and YAGNI. It is read-only and returns
+the Context Handoff; the planner cannot review its own work.
 
 **PASS** → Step 9. **FAIL** → the planner corrects against cited findings, then the evaluator
 reviews the changed spec once; **HARD-STOP at the configured correction cap** → escalate. **BLOCKED**
@@ -239,7 +240,7 @@ reviews the changed spec once; **HARD-STOP at the configured correction cap** �
 
 ## Step 9 — User approval
 
-> "Spec written to `<plan dir>/spec.md` and the planning review passed. Approve Phase B, which writes the implementation plan?"
+> "Spec written to `<plan dir>/spec.md` and any required GATE 1 review passed. Approve Phase B, which writes the implementation plan?"
 
 Ask only if existing session approval does not cover this design/transition. Otherwise proceed.
 On a change request, revise and repeat only reviews whose scope/evidence changed; retain the cap.

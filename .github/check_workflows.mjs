@@ -1039,7 +1039,28 @@ for (const file of files) {
         for (const capabilityStatus of ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]) {
           const fixtureArgs = capabilityFixtureArgs(meta.name, capabilityStatus);
           // oxlint-disable-next-line no-await-in-loop
-          const fixture = await dryRun(body, fixtureArgs);
+          const [canonical, fixture] = await Promise.all([
+            dryRun(body, fixtureArgs),
+            // Simulate a future canonical Fable declaration without changing today's agent files.
+            dryRun(body, fixtureArgs, {
+              respond: ({ opts }) => opts.label === "config:policy" ? {
+                scoutAgents: fixtureArgs.config.scoutAgents,
+                agentModels: fixtureArgs.config.agentModels,
+                evaluatorCapability: capabilityStatus,
+              } : undefined,
+            }),
+          ]);
+          const declaredEvaluator = agentModels.get("evaluator");
+          const canonicalExpected = declaredEvaluator === "fable" && capabilityStatus !== "SUPPORTED"
+            ? "opus" : declaredEvaluator;
+          const canonicalModels = canonical.spawned
+            .filter((spawn) => String(spawn.agentType).split(":").pop() === "evaluator")
+            .map((spawn) => String(spawn.model).toLowerCase());
+          if (!canonicalModels.length || canonicalModels.some((model) => model !== canonicalExpected)) {
+            console.error(`MODEL  ${path}: caller model map overrode canonical evaluator ${canonicalExpected}`);
+            failed++;
+            break;
+          }
           const evaluatorModels = fixture.spawned
             .filter((spawn) => String(spawn.agentType).split(":").pop() === "evaluator")
             .map((spawn) => String(spawn.model).toLowerCase());

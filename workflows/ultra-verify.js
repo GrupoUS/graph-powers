@@ -148,7 +148,7 @@ async function resolveConfig() {
   if (supplied) {
     const suppliedCapability = String(supplied.evaluatorCapability || '').toUpperCase()
     const policy = await dispatch(
-      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and the model field in each canonical agents/*.md frontmatter. Return scoutAgents from the Codex policy, agentModels as the complete agent-name to Claude-family map, and evaluatorCapability. Use SUPPORTED only when the caller supplies positive runtime/provider capability evidence for the Fable/advisor route; otherwise use UNKNOWN. When capability is UNKNOWN or UNSUPPORTED, keep the evaluator route on the safe Opus fallback and never emit Fable. Read-only; do not invent names or perform a live probe.`,
+      `Read ${supplied.pluginRoot || '<pluginRoot>'}/codex/model-policy.json and the model field in each canonical agents/*.md frontmatter. Return scoutAgents from the Codex policy, agentModels as the complete agent-name to Claude-family map, and evaluatorCapability. Use SUPPORTED only when the caller supplies positive runtime/provider capability evidence for the Fable/advisor route; otherwise use UNKNOWN. Preserve the evaluator model read from canonical frontmatter; only when it declares fable and capability is not SUPPORTED, return opus as the fallback. Read-only; do not invent names or perform a live probe.`,
       { agentType: AG('explorer'), phase: 'Gates', schema: SCOUT_POLICY_SHAPE, label: 'config:policy', model: 'haiku' }
     )
     return {
@@ -188,7 +188,7 @@ async function resolveConfig() {
       agentModels    <- read the model field from every canonical <pluginRoot>/agents/*.md frontmatter
       evaluatorCapability <- positive runtime/provider evidence supplied by the caller, else "UNKNOWN"; never probe live capability
 
-      If evaluatorCapability is not "SUPPORTED", use "opus" for agentModels.evaluator as the safe read-only fallback. Emit "fable" for that entry only when the caller has already supplied positive supported evidence.
+      Preserve agentModels.evaluator from canonical frontmatter. If it declares "fable", use "opus" unless evaluatorCapability is "SUPPORTED"; never introduce "fable" when frontmatter declares another model.
 
 Do not invent a value that is not in the file: an absent field is absent, never a plausible default of your own.`,
     { agentType: AG('explorer'), phase: 'Gates', schema: CONFIG_SHAPE, label: 'config', model: 'haiku' }

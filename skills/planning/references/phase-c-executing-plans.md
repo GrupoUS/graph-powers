@@ -16,8 +16,9 @@
 
 ## Exit contract
 
-Every task has implementation/evidence, every dispatched wave its consolidated adversarial review,
-and every phase gate passes. Default closes with `/verify quick`; Gauntlet with `/verify loop <PLAN_FILE>`.
+Every task has evidence; risk/dependency waves have clean early reviews and the final Evaluator
+covers the rest/integration. Gates pass. Default closes with `/verify quick`; Gauntlet with
+`/verify loop <PLAN_FILE>`.
 After PASS, `/evolve auto` requires its lifecycle trigger. Stop reviewed and unstaged; Git requires
 action/scope approval, retaining valid same-scope session approval.
 
@@ -98,29 +99,31 @@ Claude Code uses canonical frontmatter and Codex its semantic policy. Paste ever
 writes to their `Owns` union. Re-dispatch one grouped correction only on changed evidence;
 unresolved `BLOCKED` routes to `/debug recover`.
 
-After focused checks pass, package tasks from the common `TASK_BASE`. One fresh
-`graph-powers:evaluator` receives every task block, package and implementer report through
-`references/execution/task-reviewer-prompt.md`, returning per-task compliance/quality and one
-integration verdict. Preserve its snapshot as the next base. Group corrections by writer role and
-disjoint ownership; one fresh `graph-powers:evaluator` re-reviews the whole correction wave through
-`references/execution/correction-reviewer-prompt.md`. Never review per finding; exhaustion of
+After focused checks, package tasks from `TASK_BASE`. Default: dispatch one fresh
+`graph-powers:evaluator` via `references/execution/task-reviewer-prompt.md` only when a wave
+touches `chain.riskSurfaces` or a dependency whose later consumers a defect would block. Give it
+task blocks/packages/reports; retain verdict/snapshot. Other waves close on focused `CHECK` and
+changed paths ⊆ `Owns`; final review covers them. Gauntlet's per-wave rule stays in
+`gauntlet-loop.md`. Group corrections by writer role and disjoint `Owns`; at most one fresh
+correction re-review covers only material delta via
+`references/execution/correction-reviewer-prompt.md`. Never review per finding; cap
 `${graphGuardrails.maxRepatch}` routes to `/debug recover`.
 
-Close a task only when its focused `CHECK` passes, changed paths are a subset of `Owns`, and its
-wave Evaluator verdict is clean. The controller then replaces `EVIDENCE: pending` in `PLAN_FILE` with the deciding
-output (plus RED/GREEN/refactor evidence when TDD is required) and checks the task box. For either
-explicit exception status, retain its reason and run the applicable focused check. Implementers do
-not edit the plan. The controller appends workspace `task-reviews.md` rows: timestamp, task ID,
-snapshot, wave verdict, correction count, deciding check output, failed/blocked attempts and distinct
-hypotheses. The recovery protocol owns findings and contract changes.
+Close a task only when focused `CHECK` passes, changed paths ⊆ `Owns`, and, when the wave had an
+early review, its verdict is clean. The controller replaces `EVIDENCE: pending` in `PLAN_FILE` with output
+(and RED/GREEN/refactor proof if TDD), then checks the box. Keep exception reasons/checks;
+implementers do not edit the plan. Append `task-reviews.md` rows: timestamp, task ID, snapshot,
+early verdict or `final`, correction count, check output, failed/blocked attempts and distinct
+hypotheses. Recovery owns findings/contract changes.
 
 ### Inline fallback
 
 If the runtime has no Agent tool, review the plan critically and surface blocking concerns before
 code, then execute tasks sequentially in the main thread. Keep the same briefs, TDD status, focused
-checks, packages, evidence writes and stop conditions; self-review each wave against both verdicts
-in the task-reviewer prompt. Report independent review as unavailable and acceptance pending that
-required proof; author checks never count as independent review or full acceptance. If the Agent tool
+checks, packages, evidence writes and stop conditions; self-review early-risk waves against the
+reviewer prompt and note deferred final coverage. Report independent review as unavailable and
+acceptance pending that required proof; author checks never count as independent review or full
+acceptance. If the Agent tool
 exists but a declared write-capable lane does not resolve, stop — do not silently replace it with a
 general agent or the main thread.
 
@@ -140,25 +143,25 @@ passing result.
 
 ## Step 4 — Final review and close
 
-After all phase gates, resolve the merge base between the approved target branch and `HEAD`, then
-run `sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Give that complete review package, the plan and
-task-review ledger to a separate `graph-powers:evaluator` in
-`references/execution/final-reviewer-prompt.md`. Resolve Critical and Important findings; report
-Minor findings and triage deferred or parked items. The default profile then runs `/verify quick`,
+After gates, find the approved target branch/`HEAD` merge base; run
+`sdd.py package <PLAN_FILE> <MERGE_BASE> HEAD`. Send package, plan, ledger and early verdicts/snapshots to a separate `graph-powers:evaluator`
+using `references/execution/final-reviewer-prompt.md`. Reuse valid verdicts for matching scope/inputs;
+review only their delta, uncovered tasks and integration. Resolve Critical/Important; report Minor
+and deferred findings. Default then runs `/verify quick`,
 conditionally `/evolve auto` on PASS when triggered, then `sdd.py release <PLAN_FILE> --session-id <SESSION_ID>`. Gauntlet follows
 `gauntlet-loop.md § Final close` while the lease remains held. A failing final gate leaves the lease
 and working-tree state explicit until resolution or a safe abort.
 
-Wave acceptance and final acceptance remain distinct; reuse their valid evidence, never substitute
-one for the other. Apply the existing bounded material correction/confirmation policy and retained
-budgets. Stop once approved criteria, required independent reviews and gates cover the current
-snapshot and pass. Nits are informational; no cosmetic review loop. Reopen only for changed relevant
-inputs, new material findings/failures, or newly approved scope, invalidating only affected proof.
+Early and final acceptance differ; reuse valid proof. At most one fresh correction re-review covers
+material delta within caps. Stop when reviews, criteria and gates cover the snapshot and pass. Nits
+are informational; no cosmetic review loop. Reopen only for changed inputs, material findings or
+approved scope; invalidate affected proof.
 
 ## Required invariants
 
-- One consolidated Evaluator per dispatched wave; at most one fresh correction re-review; the final
-  Evaluator is a separate acceptance boundary.
+- Default: only risk/dependency waves get early review; others close on `CHECK`/`Owns` pending
+  final review of uncovered tasks, integration and early-review deltas. Gauntlet keeps per-wave
+  review; one fresh correction re-review at most covers material delta.
 - Every dispatch names an existing Graph Powers role and counts toward
   `graphGuardrails.maxSpawnsPerWorkflow`; width and total are ceilings, never quotas.
 - No task or phase gate is checked while `EVIDENCE` is pending.

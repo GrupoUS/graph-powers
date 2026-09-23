@@ -18,11 +18,12 @@ capacity, never a quota to fill. `025-solution-ladder.md` sizes the solution at 
 
 ### Model and effort per unit of work
 
-Tier by what the unit *is*, not by how big the task around it is. **Mechanical** — a rename sweep,
-fixtures, applying an already-decided pattern across files — takes the cheaper model or lower effort.
-**Design, integration and every verification pass** take the strong model, and so does the driver,
-always: a weak driver invalidates every verification below it.
+Tier by unit, not task. **Mechanical** units use a cheaper model/lower effort. The role's declared
+model (agent frontmatter; workflows pass `M(role)`) governs the driver and verification; neither
+upgrades by default. Escalate a single unit once only for material failure, contradictory evidence
+or demonstrated risk.
 
-Below roughly half an hour of real work, or when the work has no useful independent split, do not
-orchestrate at all: a subagent's context re-establishment costs more than the parallelism buys. Stay
-in one session, with the same gates. A one-line fix gets no plan and no gate.
+At L3+, delegate self-contained work when briefing costs less than doing it in the parent. Send
+multi-file reading, test/gate loops and mechanical sweeps to the matching specialist on its declared
+model. Without a useful independent split, stay in one session with the same gates.
+A one-line fix gets no plan and no gate.

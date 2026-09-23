@@ -47,19 +47,21 @@ researcher receives the necessary facts and return/rubric excerpts in its prompt
 - **Resume hint:** <one sentence>
 ```
 
-Extend the existing fields, never the envelope keys:
+Extend the existing fields, never the envelope keys: the list below applies to plan-bound or
+resumable returns. Ordinary returns fill only applicable fields in ≤ ~400 words; leave detail in
+existing artifacts.
 
-- **Artifacts:** touched/decisive sources, scoped query results and links to active plan, sprint,
-  snapshots and ledgers when present; name relevant new/removed files.
-- **Decisions:** objective and completed/pending work; choices and reasons; rejected attempts and
-  why not to repeat them; existing authorization's exact action/scope and provenance (user message
-  or approval artifact). Record project/worktree, branch/HEAD, relevant staged/unstaged state and
-  source/config/consumer digests; graph evidence also records provider/scope.
-- **Quality gates:** exact command, result/exit, evidence location and tested snapshot, including
-  relevant files, configuration, dependencies and environment; identify validity and invalidators.
-- **Risks:** critical restrictions, unresolved questions, missing evidence/authority and freshness
-  limits, each with mitigation or the bounded recheck.
-- **Resume hint:** exactly one next action, preserving its scope and prerequisites.
+- **Artifacts:** decisive sources, scoped results, plan/sprint/snapshot/ledger links and
+  new/removed files.
+- **Decisions:** objective, completed/pending work, choices/rejected attempts and reasons; exact
+  authorization action/scope and provenance (user message or approval artifact). Record project,
+  worktree, branch/HEAD, staged/unstaged state and source/config/consumer digests; graph evidence
+  also records provider/scope.
+- **Quality gates:** exact command, result/exit, evidence location and tested snapshot (files,
+  config, dependencies, environment), plus validity and invalidators.
+- **Risks:** restrictions, unresolved questions, missing evidence/authority and freshness limits,
+  each with mitigation or bounded recheck.
+- **Resume hint:** exactly one next action with scope and prerequisites.
 
 Unchanged SHA alone is insufficient. Reuse while relevant identities and freshness hold; invalidate
 dependent findings when they change. Keep structural and card/semantic evidence distinct. Record

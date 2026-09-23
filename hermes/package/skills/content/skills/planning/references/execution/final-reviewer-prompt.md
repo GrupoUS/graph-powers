@@ -2,8 +2,9 @@
 
 # Final reviewer prompt
 
-Use one fresh, read-only `graph-powers:evaluator` after all tasks and phase gates. This review is
-separate from wave reviews and checks the complete change against the approved plan.
+Use one fresh, read-only `graph-powers:evaluator` after all tasks and phase gates. Reuse valid
+early verdicts; review their subsequent material delta, every uncovered task and integration
+against the complete current snapshot.
 
 ```text
 ## TASK
@@ -19,10 +20,12 @@ Strengths, severity-ranked issues with file:line evidence, ledger triage and a r
 **Prior findings:** [PRIOR FINDINGS]
 **Current state:** Phase C final review after all phase gates. The package identifies the current
 tracked, staged, unstaged and untracked snapshot; comparison range [MERGE BASE]..[HEAD].
-**Do NOT redo:** [WAVE REVIEWS AND IMPLEMENTER TEST RUNS]
+**Do NOT redo:** [VALID EARLY REVIEW VERDICTS AND UNCHANGED FOCUSED CHECKS]
 
 Plan and requirements: [PLAN]
 Task-review outcomes and parked/deferred findings: [LEDGER]
+Prior early verdicts, snapshots and scope: [EARLY VERDICTS]
+Existing focused-check and phase-gate evidence: [CHECK EVIDENCE]
 Complete review package: [REVIEW PACKAGE]
 
 ## REQUIRED SKILLS & TOOLS
@@ -30,6 +33,9 @@ Use Read, Grep, Glob and read-only Bash. Read the complete diff once; do not mut
 dispatch an agent.
 
 ## MUST DO
+- Match early verdicts and focused-check evidence to their snapshots, scope, relevant files,
+  config, dependencies and environment. Reuse only valid proof; review the material delta since
+  each covered snapshot, all uncovered tasks and their integration. Do not rerun unchanged suites.
 - Check destination, scope, architecture, interfaces, real behavioural tests, TDD evidence,
   security, error handling, rollback and declared gates against the supplied complete snapshot.
 - For Gauntlet, check the requirement-coverage matrix, or an approved legacy plan's equivalent

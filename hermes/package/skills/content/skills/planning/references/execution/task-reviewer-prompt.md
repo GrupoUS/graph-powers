@@ -2,9 +2,9 @@
 
 # Wave Evaluator prompt
 
-Use one fresh, read-only `graph-powers:evaluator` after each writer wave. It reviews every task
-package in that wave in one acceptance boundary: compliance per task, then quality/KISS and
-integration. Do not create one reviewer per task, review unrelated files or dispatch another agent.
+Use one fresh, read-only `graph-powers:evaluator` for a default early/risk wave or each Gauntlet
+writer wave. Review its tasks in one acceptance boundary: compliance, quality/KISS and integration.
+Do not review unrelated files or dispatch another agent.
 
 ```text
 ## TASK
@@ -33,7 +33,8 @@ dispatch an agent.
    package/tree, relevant files (including dirty/untracked state), config, dependencies and
    environment under the shared verification gate. A checkbox or unchanged HEAD is insufficient.
    Reuse matching proof; for affected or unknown inputs report missing proof and the bounded
-   recheck/dependents to invalidate. The controller runs checks; do not run full gates yourself.
+   recheck/dependents to invalidate. Consume existing focused-check output; do not rerun unchanged
+   suites. The controller runs checks; do not run full gates yourself.
 2. Then check the real production seam, test behaviour rather than mocks, KISS/YAGNI, error
    handling and project rules. Nits are informational.
 3. Check integration across the wave without reopening untouched code. A missing requirement,
