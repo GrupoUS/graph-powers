@@ -43,6 +43,7 @@ HOST_PREFIXES = (".graph-powers/", ".claude/", ".codex/", ".agents/", ".zed/", "
 COMPUTED_INPUTS = {
     "skills/planning/scripts/sdd.py": {
         "paths": ["schema/config.schema.json"],
+        "imports": {"_config": "hooks/_config.py"},
         "globs": ["agents/*.md", "skills/*/SKILL.md", "commands/*.md"],
         "reason": "SOURCE_PLUGIN_ROOT, schema and canonical routing catalog reads",
     },
@@ -299,6 +300,10 @@ class PackageBuilder:
                     continue
                 for module, level in imports:
                     if not level and module.split(".")[0] in sys.stdlib_module_names:
+                        continue
+                    computed = declaration.get("imports", {}).get(module) if not level else None
+                    if computed is not None:
+                        self.edge(source, module, computed, "python-import")
                         continue
                     owner = self.root / path.parent
                     for _ in range(max(0, level - 1)):

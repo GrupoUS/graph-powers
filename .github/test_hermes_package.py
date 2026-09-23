@@ -174,6 +174,19 @@ class HermesPackageTests(unittest.TestCase):
                 plan["closure"]["host_references"],
             )
 
+    def test_planning_session_resolver_is_in_the_standalone_dependency_closure(self):
+        for relative in ("skills/planning/scripts/sdd.py", "hooks/_config.py", "schema/config.schema.json"):
+            self.put(relative, (ROOT / relative).read_text(encoding="utf-8"))
+        self.put("agents/debugger.md", "# Fixture debugger\n")
+        self.put("commands/probe.md", "---\ndescription: Fixture command\n---\n# Probe\n")
+        self.put("skills/demo/references/guide.md", "Read `skills/planning/scripts/sdd.py`.\n")
+        package, plan = self.emit()
+        helper = package / "skills/content/hooks/_config.py"
+        self.assertEqual(helper.read_bytes(), (ROOT / "hooks/_config.py").read_bytes())
+        self.assertIn({"from": "skills/planning/scripts/sdd.py", "reference": "_config",
+                       "to": "hooks/_config.py", "kind": "python-import"}, plan["closure"]["edges"])
+        self.assertFalse((package / "skills/content/hooks/graph_guardrails.py").exists())
+
     def test_hook_source_boundary_rejects_missing_or_escaping_hook_paths(self):
         for reference in ("hooks/missing.py", "hooks/../skills/demo/SKILL.md"):
             with self.subTest(reference=reference):

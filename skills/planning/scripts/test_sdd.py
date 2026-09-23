@@ -85,6 +85,14 @@ def task(task_id: str, owns: str = "src/main.py", needs: str = "none", *, accept
 
 
 class SddCliTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Fixtures must not inherit the operator's active chat identity.
+        identity = mock.patch.dict(os.environ, {name: "" for name in (
+            "CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "GROK_SESSION_ID",
+        )})
+        identity.start()
+        self.addCleanup(identity.stop)
+
     def run_cli(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, "-B", "-X", "utf8", str(SCRIPT.resolve()), *args],
@@ -1675,6 +1683,58 @@ class SddCliTests(unittest.TestCase):
             self.assertEqual(escaped_file.returncode, 2)
             self.assertIn("symlink", escaped_file.stderr)
             self.assertFalse(outside_file.exists())
+
+    def test_native_session_owns_cli_lease_and_hook_writes(self) -> None:
+        hook = SCRIPT.parents[3] / "hooks/graph_guardrails.py"
+        for variable in ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "GROK_SESSION_ID"):
+            with self.subTest(variable=variable), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                alpha, beta = self.session_plans(root, ("src/a.py", "src/b.py"))
+                with mock.patch.dict(os.environ, {variable: "chat-a"}):
+                    acquired = self.run_cli("acquire", str(alpha), "--max-tasks", "10")
+                    self.assertEqual(acquired.returncode, 0, acquired.stderr)
+                    lease = self.active_lease(alpha)
+                    self.assertEqual(json.loads(lease.read_text())["sessionId"], "chat-a")
+                    for payload_session, expected in ((None, None), ("chat-a", None), ("chat-b", "deny")):
+                        payload = {"cwd": str(root), "tool_name": "Edit",
+                                   "tool_input": {"file_path": str(root / "src/a.py")}}
+                        if payload_session is not None:
+                            payload["session_id"] = payload_session
+                        result = subprocess.run([sys.executable, "-B", str(hook)],
+                            input=json.dumps(payload), capture_output=True, encoding="utf-8",
+                            env={**os.environ, "CLAUDE_PROJECT_DIR": str(root)})
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        decision = json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"] if result.stdout else None
+                        self.assertEqual(decision, expected)
+                    status = self.run_cli("status", str(alpha), "--max-tasks", "10", cwd=root)
+                    self.assertEqual(status.returncode, 0, status.stderr)
+                    self.assertEqual(json.loads(status.stdout)["lease"]["state"], "MATCHING")
+                    self.assertEqual(self.run_cli("heartbeat", str(alpha)).returncode, 0)
+                with mock.patch.dict(os.environ, {variable: "chat-b"}):
+                    self.assertEqual(self.run_cli("acquire", str(beta), "--max-tasks", "10").returncode, 0)
+                    self.assertEqual(self.run_cli("release", str(alpha)).returncode, 2)
+                    self.assertTrue(lease.exists())
+                with mock.patch.dict(os.environ, {variable: "chat-a"}):
+                    self.assertEqual(self.run_cli("release", str(alpha)).returncode, 0)
+                    self.assertTrue(self.active_lease(beta).exists())
+
+    def test_explicit_session_overrides_native_identity_and_legacy_keeps_its_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            alpha, beta = self.session_plans(root, ("src/a.py", "src/b.py"))
+            logs = root / ".graph-powers/logs"
+            logs.mkdir(parents=True)
+            (logs / "write-lease.json").write_text(json.dumps({
+                "plan": "plans/alpha/PLAN.md", "paths": ["src/a.py"], "runId": "old-run",
+            }), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "chat-b"}):
+                acquired = self.run_cli("acquire", str(beta), "--max-tasks", "10", "--session-id", "explicit")
+                self.assertEqual(acquired.returncode, 0, acquired.stderr)
+                self.assertEqual(json.loads(self.active_lease(beta).read_text())["sessionId"], "explicit")
+                legacy = json.loads(self.active_lease(alpha).read_text())
+                self.assertEqual(legacy["sessionId"], "plan:plans/alpha/PLAN.md")
+                self.assertEqual(legacy["runId"], "old-run")
+                self.assertEqual(self.run_cli("release", str(alpha)).returncode, 2)
 
     def test_concurrent_disjoint_sessions_acquire_independent_leases(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

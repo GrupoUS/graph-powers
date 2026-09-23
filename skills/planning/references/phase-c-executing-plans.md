@@ -49,7 +49,7 @@ Only check/publication is serialized. Disjoint runs coexist; progress is plan-sc
 G4 names/denies foreign live claims; other writes/reads stay free. TTL: 45 minutes.
 Run `sdd.py heartbeat <PLAN_FILE> --session-id <SESSION_ID>` before waves and every 15 minutes;
 after expiry reacquire/recheck inputs. Once verified, replace `heartbeat` with `release`.
-No session: CLI uses plan identity; hooks never infer it. Migration keeps run ID.
+Without `--session-id`, CLI uses the hook's chat ID, then the plan ID; legacy claims keep their owner.
 `ALLOW_OFF_LEASE` stays. No worktree needed; leases cannot identify children, enforce shell writes
 or serialize Git's index.
 

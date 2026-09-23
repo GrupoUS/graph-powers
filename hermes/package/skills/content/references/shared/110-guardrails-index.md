@@ -38,7 +38,8 @@ The exact pre-commit cache artifact is self-excluded from its fingerprint; only 
 are cached, never failures, timeouts or unavailable tools.
 
 G4 denies live foreign path overlaps, naming the run; unclaimed writes and reads stay free.
-Planning Phase C owns session identity, heartbeat and expiry. G1 still stops every tool.
+Phase C owns renewal and expiry. CLI and hook share a chat ID; legacy claims keep their owner.
+G1 stops every tool.
 
 **Releasing a gate, on any operating system.** The hook looks for the literal text `<KEY>=1` in the
 command, or for the variable in the environment (`https://github.com/GrupoUS/graph-powers/blob/main/hooks/_config.py`, `opted_in`). It never asks the

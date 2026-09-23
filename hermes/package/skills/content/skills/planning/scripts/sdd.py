@@ -48,8 +48,8 @@ round packages `SNAPSHOT..HEAD` and the re-review sees only the fix.
 `status` reports recorded progress without executing checks or writing state; closed records still
 need final verification. It is not an atomic snapshot or approval proof: revalidate/acquire before
 writing. A lease conflict returns its JSON with exit 4.
-`acquire`, `status`, `heartbeat`, `release` and `dispatch reserve` accept `--session-id`; omit it
-only for the `plan:<relative-plan-path>` fallback. Acquire is idempotent, heartbeat extends the
+`acquire`, `status`, `heartbeat`, `release` and `dispatch reserve` accept `--session-id`; otherwise
+use the native chat environment, then `plan:<relative-plan-path>` when unavailable. Acquire is idempotent, heartbeat extends the
 45-minute TTL, and session identity must match the hook payload to authorize claimed writes.
 
 Exit codes, as upstream: 0 done · 2 usage or bad input · 3 task not found. Bounded dispatch or
@@ -1772,7 +1772,7 @@ def _read_lease(path: Path, root: Path) -> dict[str, Any]:
         # Legacy records have no clock or session. Their mtime bounds the transition; reading or
         # migrating one must not keep an abandoned run alive indefinitely.
         stamp = path.stat().st_mtime
-        value = {**value, "version": 1, "sessionId": _lease_session(value["plan"], None),
+        value = {**value, "version": 1, "sessionId": f"plan:{value['plan']}",
                  "runId": value.get("runId") or f"legacy:{value['plan']}",
                  "heartbeatAt": stamp, "expiresAt": stamp + LEASE_TTL}
         progress = f".graph-powers/logs/sdd/{plan_slug(root / value['plan'])}/progress.md"
@@ -1792,7 +1792,11 @@ def _read_lease(path: Path, root: Path) -> dict[str, Any]:
 
 def _lease_session(relative_plan: str, session_id: str | None) -> str:
     if session_id is None:
-        return f"plan:{relative_plan}"
+        # Resolve only for lease commands; validation must still report incomplete clones cleanly.
+        sys.path.insert(0, str(PLUGIN_ROOT / "hooks"))
+        import _config as gp
+
+        return gp.session_id(None) or f"plan:{relative_plan}"
     if not session_id.strip() or "\x00" in session_id:
         fail("session-id must be a non-empty identity", 2)
     return session_id

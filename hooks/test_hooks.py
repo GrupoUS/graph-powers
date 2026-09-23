@@ -137,6 +137,10 @@ def call(
         **os.environ,
         "HOME": str(EMPTY_HOME),
         "USERPROFILE": str(EMPTY_HOME),
+        "CODEX_THREAD_ID": "",
+        "CODEX_SESSION_ID": "",
+        "CLAUDE_CODE_SESSION_ID": "",
+        "GROK_SESSION_ID": "",
         **(env or {}),
     }
     body = dict(payload)
@@ -3043,6 +3047,19 @@ def main() -> int:
             check("foreign conflict names owning run", "run-" in raw, True)
     check("sessionId camel case owns its lease", call("graph_guardrails",
         {**write_to("src/a.py"), "sessionId": "session-a"}, ceil)[0], None)
+    native_ids = ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "GROK_SESSION_ID")
+    for index, variable in enumerate(native_ids):
+        native_env = {name: "session-b" for name in native_ids[index + 1:]}
+        native_env[variable] = "session-a"
+        check(f"{variable} owns its lease with native priority", call("graph_guardrails",
+            write_to("src/a.py"), ceil, env=native_env)[0], None)
+        check(f"payload foreign session overrides {variable}", call("graph_guardrails",
+            {**write_to("src/a.py"), "session_id": "session-b"}, ceil, env=native_env)[0], "deny")
+        check(f"{variable} respects foreign lease", call("graph_guardrails",
+            write_to("src/b.py"), ceil, env=native_env)[0], "deny")
+    check("malformed payload identity falls back to the native session", call("graph_guardrails",
+        {**write_to("src/a.py"), "session_id": []}, ceil,
+        env={"CODEX_THREAD_ID": "session-a"})[0], None)
     check("foreign claims never deny reads", call("graph_guardrails", {
         "tool_name": "Read", "tool_input": {"file_path": "src/a.py"}, "session_id": "session-b",
     }, ceil)[0], None)
