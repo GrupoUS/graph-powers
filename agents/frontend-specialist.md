@@ -1,7 +1,7 @@
 ---
 name: frontend-specialist
 description: "Use for user-visible web work: React/TSX, pages, forms, tables, responsive behavior, accessibility, design systems, and frontend refactors. Writes code."
-model: sonnet
+model: opus
 color: purple
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

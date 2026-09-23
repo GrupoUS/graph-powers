@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "05273497ee2596430d1d726a63c40a1af98a5480",
+    "base_revision": "99101174ac4e907805993dc127f68d498dc9b321",
     "version": "1.23.2+local.20260923042710",
     "dirty": true
   },
@@ -288,26 +288,26 @@
     {
       "path": "agents/evaluator.md",
       "sha256": "9cb595672e532d0c358147c3dcaed2ca7e7b6020d3839d523aeec5934ec0e9b8",
-      "base_sha256": "736af4fa2067461ef7a1c598baf5d899493d36d2d3b5d5906ea444cf44a39668",
-      "dirty": true
+      "base_sha256": "9cb595672e532d0c358147c3dcaed2ca7e7b6020d3839d523aeec5934ec0e9b8",
+      "dirty": false
     },
     {
       "path": "agents/explorer.md",
       "sha256": "40292e88cb3ce07afd61171965e5d767daf475259f1e12a2aca3f2712b1508c3",
-      "base_sha256": "bbfbfddbc047024c69067b76d6b35c7ddf4f56e115dbee1c91dc9139a8718254",
-      "dirty": true
+      "base_sha256": "40292e88cb3ce07afd61171965e5d767daf475259f1e12a2aca3f2712b1508c3",
+      "dirty": false
     },
     {
       "path": "agents/frontend-specialist.md",
-      "sha256": "2665cd817db2d8e4377507fec6c7c9a3db39162d92bbb91241dc26b4bfbd9c37",
+      "sha256": "1977c1f80652e61472100288df7369217f8cf77c2a686c423ced02cd7238d38e",
       "base_sha256": "2665cd817db2d8e4377507fec6c7c9a3db39162d92bbb91241dc26b4bfbd9c37",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "agents/librarian.md",
       "sha256": "12341fc1dc6867d56e3cf9f83faf92d0d6cf50cf07187afe9a26a60c416dfb45",
-      "base_sha256": "92dbf5c2126752bbbb5895a44598339d0cf383fc9894aef6bf23356c0320e740",
-      "dirty": true
+      "base_sha256": "12341fc1dc6867d56e3cf9f83faf92d0d6cf50cf07187afe9a26a60c416dfb45",
+      "dirty": false
     },
     {
       "path": "agents/mobile-developer.md",
@@ -330,8 +330,8 @@
     {
       "path": "agents/security-reviewer.md",
       "sha256": "763516dcbdbf75d71b16a0706a6b83bbcc3b795422e3d7c81fc8b777fdad977f",
-      "base_sha256": "f8a6ee98c6fa70dc4bf4642d376658bec8a67f55b4c5a14fdf4e82af001cf67d",
-      "dirty": true
+      "base_sha256": "763516dcbdbf75d71b16a0706a6b83bbcc3b795422e3d7c81fc8b777fdad977f",
+      "dirty": false
     },
     {
       "path": "agents/skill-improver.md",
@@ -510,8 +510,8 @@
     {
       "path": "references/execution-floor.md",
       "sha256": "faedce00ba7ea430a6b6de20bf8f5c82b15723ffd4add65a1052e4d069c934c8",
-      "base_sha256": "7941e84a77e11c4d3ef26b6f3551c1ab23b0e0d926bf945d048f01b424cdb8bb",
-      "dirty": true
+      "base_sha256": "faedce00ba7ea430a6b6de20bf8f5c82b15723ffd4add65a1052e4d069c934c8",
+      "dirty": false
     },
     {
       "path": "references/recovery-protocol.md",
@@ -1152,8 +1152,8 @@
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
       "sha256": "a6ec9d216cc146e8ca79d3cab192eb2d60875e2328cdc23ff977e972f0c95c52",
-      "base_sha256": "480f60d671b606d3008ced9232727ee5cd3ce1a018ce8934219cd8de0c36b424",
-      "dirty": true
+      "base_sha256": "a6ec9d216cc146e8ca79d3cab192eb2d60875e2328cdc23ff977e972f0c95c52",
+      "dirty": false
     },
     {
       "path": "skills/senior-prompt-engineer/references/agentic_system_design.md",
@@ -1371,7 +1371,7 @@
     },
     {
       "path": "skills/agent-frontend-specialist.md",
-      "sha256": "f96ff575deea8b419a60a11c492dadd5fe65787763f2c98d900b3d5cf6e27ade",
+      "sha256": "6438d00cef211ddf19dec8362749180b7f83b00103d8f51d126afc180a233c9a",
       "sources": [
         "agents/frontend-specialist.md"
       ],
@@ -1499,7 +1499,7 @@
     },
     {
       "path": "skills/content/agents/frontend-specialist.md",
-      "sha256": "f96ff575deea8b419a60a11c492dadd5fe65787763f2c98d900b3d5cf6e27ade",
+      "sha256": "6438d00cef211ddf19dec8362749180b7f83b00103d8f51d126afc180a233c9a",
       "sources": [
         "agents/frontend-specialist.md"
       ],
