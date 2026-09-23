@@ -1,0 +1,3 @@
+SYNTHETIC CONTRACT TRACE — no tools or agents were called.
+`graph-powers:project-planner` returns an inline L3 design: Architecture, Data shape and Validation.
+The request and repository facts are clear, so there are no extra questions, explorer, evaluator, plan file or implementation.

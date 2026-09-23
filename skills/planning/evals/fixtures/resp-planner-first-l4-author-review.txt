@@ -1,0 +1,4 @@
+SYNTHETIC CONTRACT TRACE — no tools or agents were called.
+The `graph-powers:project-planner` authors `spec.md`; a separate `graph-powers:evaluator` owns independent Mode 1 GATE 1.
+After the design transition is approved, `graph-powers:project-planner` authors `PLAN.md`.
+L4 stops with the plan. Phase C waits for execution approval.

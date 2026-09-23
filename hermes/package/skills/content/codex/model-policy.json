@@ -37,8 +37,8 @@
       "escalationProfile": "judge"
     },
     "executor": {
-      "model": "gpt-6-astra",
-      "reasoningEffort": "high",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "medium",
       "escalationProfile": "judge"
     },
     "verifier": {

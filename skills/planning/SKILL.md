@@ -14,18 +14,18 @@ decisions prevent a task list.
 |---|---|---|
 | L1-L2 | direct, bounded edit | focused proof passes |
 | L3 | `references/phase-a-brainstorm.md` light path | design is acknowledged |
-| L4+ | Phase A, then `references/phase-b-writing-plans.md` | approved executable plan exists |
+| L4+ | project-planner authors Phase A → B; evaluator reviews required gates | approved plan exists |
 | L5+ | Phase C via `references/phase-c-executing-plans.md` | tasks, gates and final review have evidence |
 
+Ordinary L1-L2 edits stay local; explicit plans may use one planner.
 Read only the phase being entered. Phase A owns design/spec; B owns task grammar, ownership and
 plan gates; C owns leases, writer waves, critics and close. A current approval covers its stated
 transition; pause again only for a new decision, authority, or material scope change.
 `references/loop-engineering.md` is for a loop that needs a cap or reset, and `references/dispatch-matrix.md`
 and `references/layer-map.md` are for Phase B assignments/order.
 
-`/gauntlet` is opt-in, never default: at L3+ it accepts either an objective or an approved plan. An
-objective enters Step 0 → Phase A → Phase B first; supplied plans use
-`references/gauntlet-loop.md`'s preflight before validation. Preserve its leases, independent critic, configured caps and evidence.
+`/gauntlet` is opt-in: objectives enter Step 0 → Phase A → Phase B; supplied plans use
+`references/gauntlet-loop.md`'s preflight. Preserve reviews, leases, caps and evidence.
 For a task marked `TDD: required`, read `references/execution/tdd-policy.md`; load the other
 execution prompts only for their dispatch/review event.
 

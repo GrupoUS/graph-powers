@@ -6,7 +6,7 @@
 
 | Tool | Purpose | When to use | When NOT to use | Edge cases |
 |---|---|---|---|---|
-| `delegate_task()` | Spawn subagent | L3+ tasks needing specialist | L1-L2 (overhead > value) | Background agents cannot Write/Edit |
+| `delegate_task()` | Spawn | L3+ specialist work or an explicit plan via `graph-powers:project-planner` | Direct L1-L2 edits | Background agents cannot Write/Edit |
 | `skill_view()` | Load domain context | User request or clear documented trigger | No clear match | Multiple skills OK; process skills before implementation skills |
 | Agent Team tools | Runtime-native agent teams | L6+ multi-service tasks with true parallelism and team tools available | Below L6, or when tools are unavailable | If unavailable, use a coordinator agent plus explicit phase gates |
 | `mcp__tavily__tavily_research` | Deep external research | A concrete unresolved decision needs multiple current sources and the tool is available | Tier alone or one fact; use a focused source lookup | Use the smallest available research capability that answers the gap |

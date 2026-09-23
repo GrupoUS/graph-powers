@@ -60,12 +60,13 @@ and returns nonzero pending separately approved native identity, exact-byte scan
 | 21 | Machine paths | `python3 .github/check_machine_paths.py` | a home directory reached a tracked file — cardinal 2 |
 | 22 | Placeholders | `python3 .github/check_placeholders.py` | a `${...}` placeholder names a field the schema does not declare, so it resolves to nothing |
 | 23 | CLI | `bun bin/graph-powers.mjs --help` | the installer entry point is broken |
-| 24 | Clone artefacts | `python3 .github/check_clone.py` | required files are missing, Git inventory is unavailable, source exceeds 4 MiB + 64 KiB, the self-contained Hermes package exceeds 2 MiB, or candidate files contain generated Python bytecode |
+| 24 | Clone artefacts | `python3 .github/check_clone.py` | required files are missing, Git inventory is unavailable, source exceeds 4 MiB + 192 KiB, the self-contained Hermes package exceeds 2 MiB, or candidate files contain generated Python bytecode |
 | 25 | Version | `python3 .github/check_version_bump.py` | a shipped file changed without a version bump. Installed machines compare versions, not commits, so the change reaches nobody |
 | 26 | Grok projection and configuration | `python3 .github/check_grok.py` | Grok metadata or configuration preservation/idempotence differs from its supported contract |
 | 27 | Cursor projection and context | `python3 .github/check_cursor.py` | Cursor metadata, generated hooks, native context output or configuration preservation regressed |
 | 28 | Issue plan comment | `python3 skills/issue-improve/scripts/test_issue_comment.py` | preview, scoped author/marker selection, pagination or safe retry/publication regressed |
 | 29 | Kilo projection and configuration | `python3 .github/check_kilo.py` | Kilo metadata, generated agents/commands/skills, model routing, permission boundaries, literal translation, deterministic output or JSONC-preserving config merge differs from its supported contract |
+| 30 | Bounded issue retrieval | `python3 skills/issue-improve/scripts/test_fetch_issue.py` | the issue fetch loses its one-call, canonical-target or timeout guarantees |
 
 One additional installation assertion needs fixture arguments and therefore runs in CI rather than
 here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` reports it as
@@ -77,7 +78,7 @@ here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` repor
   tools exist so a contributor's editor says the same thing on every machine. Reformatting the five
   `.mjs` files is a standalone change with its own commit, never a rider on somebody else's work.
 - The file count `python3 .github/check_clone.py` prints is informational. Its byte budgets are
-  gates: 4 MiB + 64 KiB for everything outside `hermes/package/` and 2 MiB for that independently verified,
+  gates: 4 MiB + 192 KiB for everything outside `hermes/package/` and 2 MiB for that independently verified,
   self-contained package. The total ceiling is therefore 6 MiB + 64 KiB, an explicit revision of the old
   4 MiB whole-clone budget after the Hermes distribution was added. This is not a size reduction.
   The check reports both groups and their actual aggregate; tracked files and non-ignored untracked

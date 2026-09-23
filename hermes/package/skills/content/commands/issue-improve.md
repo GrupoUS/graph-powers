@@ -9,4 +9,5 @@ description: "Turn a GitHub issue into a reviewed plan comment. Planning only."
 **ARGUMENTS:** the user-provided arguments.
 
 When an issue is supplied, read `content/skills/issue-improve/SKILL.md` and apply it
-with the original arguments. The method owns config and approval. Empty asks for an issue.
+with the original arguments. The skill acknowledges first and owns config, one bounded plan route and
+approval. On `BLOCKED`/cap, preserve state and stop without retry. Empty asks for an issue.

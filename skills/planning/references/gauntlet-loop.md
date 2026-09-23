@@ -7,7 +7,9 @@
 ## Activation and goal
 
 Only explicit `/gauntlet` may pass `profile: gauntlet`, after validation returns an eligible tier.
-Objectives use Step 0 → Phase A Step 2's grill/confirmation → Phase B and its required L3+ plan review.
+For objectives, `graph-powers:project-planner` authors Phase A and Phase B; an independent evaluator
+reviews the plan. Ask only blocking questions, then one shared-understanding confirmation. Phase A
+Step 2's cap persists across resumes.
 A direct approved-plan invocation covers Phase C for that plan; objectives cover only stated scope
 and approved transitions. New decisions/authority/scope pause. Neither authorizes another plan, Git
 or outward actions. A missing, invalid or out-of-worktree supplied path stops at `/plan`, never
@@ -30,9 +32,10 @@ payload-empty `Needs`. `Needs: none` and open-task `EVIDENCE: pending` are valid
 approved plan reuses settled decisions with no new grill or confirmation. For holes, reopen only
 those decisions and affected dependents through Phase A Step 2; confirm the repaired understanding,
 then Phase B repairs the plan and obtains a new Mode 1 verdict/`review-bind` for its changed bytes.
-Run `validate` and `review-check` before admission; any further edit, including a validation repair,
-invalidates the bind. Dry-run describes holes without live questions or effects; review-only reports
-holes and stops before repair. Other invalid grammar still returns to `/plan`.
+Reopen only affected decisions; these repairs consume Phase A's persistent cap. Do not repeat
+unchanged questions/searches. At cap, preserve holes and stop before bind/lease/writer. Validate and
+review-check before admission; any edit invalidates bind. Dry-run describes holes; review-only reports
+without repair. Invalid grammar stops and names `/plan` without invoking it.
 
 Phase C's validator owns grammar/lease: eligible `tier`, unique IDs, non-empty `Owns`, payload-bearing
 `Needs`, observable acceptance, decisive `CHECK`/`EXPECT`, `EVIDENCE`, valid TDD and routable

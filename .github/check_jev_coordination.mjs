@@ -73,6 +73,35 @@ function provider(choose, count) {
   };
 }
 
+const descriptionsFixture = fixture("full-descriptions");
+try {
+  await coordinate("init", descriptionsFixture.input, descriptionsFixture.settings);
+  const action = await coordinate(
+    "next",
+    { ...actor, capabilities },
+    {
+      ...descriptionsFixture.settings,
+      fetchImpl: provider(
+        (ids, body) => {
+          assert.match(
+            body.questions.route.criteria["skill:planning"],
+            /Not for a known single-file fix or diagnosis-only work\./,
+          );
+          assert.match(
+            body.questions.route.criteria["skill:uxmaster"],
+            /route visual styling to designer and implemented UI repair to design-fix\./,
+          );
+          return ids[0];
+        },
+        { calls: 0 },
+      ),
+    },
+  );
+  assert.equal(action.status, "PENDING");
+} finally {
+  descriptionsFixture.cleanup();
+}
+
 const cycleFixture = fixture("cycle");
 try {
   const start = await coordinate("init", cycleFixture.input, cycleFixture.settings);
@@ -81,10 +110,7 @@ try {
   const count = { calls: 0 };
   const settings = {
     ...cycleFixture.settings,
-    fetchImpl: provider(
-      (ids) => (ids.includes("finish") ? "finish" : "agent:frontend-specialist"),
-      count,
-    ),
+    fetchImpl: provider((_ids) => "agent:frontend-specialist", count),
   };
   const request = {
     ...actor,
@@ -116,10 +142,16 @@ try {
   );
   assert.equal(returned.status, "RETURNED");
   assert.equal(returned.handoffs.at(-1).verification.passed, true);
-  const finished = await coordinate("next", request, settings);
+  const finished = await coordinate("finish", actor, {
+    ...settings,
+    env: {},
+    fetchImpl: () => {
+      throw Error("no network");
+    },
+  });
   assert.equal(finished.status, "COMPLETED");
   assert.equal(finished.executionAuthorized, false);
-  const replay = await coordinate("next", request, {
+  const replay = await coordinate("finish", actor, {
     ...settings,
     env: {},
     fetchImpl: () => {
@@ -127,7 +159,7 @@ try {
     },
   });
   assert.equal(replay.status, "COMPLETED");
-  assert.equal(count.calls, 2);
+  assert.equal(count.calls, 1);
 } finally {
   cycleFixture.cleanup();
 }
@@ -168,18 +200,16 @@ await Promise.all(
       }
       if (scenario !== "stale") assert.equal(result.handoffs.at(-1).verification.passed, false);
       else writeFileSync(join(scenarioFixture.root, "result.txt"), "changed after proof");
-      let finishOffered = false;
-      await coordinate("next", request, {
+      const finish = await coordinate("finish", actor, {
         ...settings,
-        fetchImpl: provider(
-          (ids) => {
-            finishOffered = ids.includes("finish");
-            return ids[0];
-          },
-          { calls: 0 },
-        ),
+        env: {},
+        fetchImpl: () => {
+          throw Error("no network");
+        },
       });
-      assert.equal(finishOffered, false, scenario);
+      assert.equal(finish.status, "BLOCKED", scenario);
+      if (scenario === "stale") assert.equal(finish.reason, "STALE_PROOF");
+      assert.notEqual((await coordinate("status", actor, settings)).status, "COMPLETED", scenario);
     } finally {
       scenarioFixture.cleanup();
     }
@@ -234,9 +264,10 @@ try {
     ...fRace.settings,
     fetchImpl: provider(
       (ids, body) => {
+        assert(!ids.includes("finish"), "Jev should not select workflow completion");
         feedback = body.state.verification;
         writeFileSync(join(fRace.root, "result.txt"), "changed during request");
-        return "finish";
+        return ids[0];
       },
       { calls: 0 },
     ),
@@ -248,7 +279,7 @@ try {
   assert.equal(stale.reason, "STALE_DECISION");
   const status = await coordinate("status", actor, fRace.settings);
   assert.equal(status.status, "RETURNED");
-  // A changed snapshot gets a new bounded decision key, without replaying stale finish.
+  // A changed snapshot gets a new bounded decision key for normal routing.
   const corrected = await coordinate("next", request, {
     ...fRace.settings,
     fetchImpl: provider(
@@ -285,7 +316,7 @@ try {
   };
   const settings = {
     ...fRemoved.settings,
-    fetchImpl: provider((ids) => (ids.includes("finish") ? "finish" : ids[0]), { calls: 0 }),
+    fetchImpl: provider((ids) => ids[0], { calls: 0 }),
   };
   const action = await coordinate("next", request, settings);
   unlinkSync(join(fRemoved.root, "result.txt"));
@@ -299,7 +330,7 @@ try {
   );
   assert.equal(returned.status, "RETURNED");
   assert.equal(returned.handoffs.at(-1).verification.artifacts[0].sha256, "MISSING");
-  assert.equal((await coordinate("next", request, settings)).status, "COMPLETED");
+  assert.equal((await coordinate("finish", actor, settings)).status, "COMPLETED");
 } finally {
   fRemoved.cleanup();
 }
@@ -354,17 +385,14 @@ async function checkLinkedPlanScenario(completion) {
       { ...actor, ticket: action.action.ticket, handoff: handoff() },
       fPlan.settings,
     );
-    const result = await coordinate("next", request, {
+    const result = await coordinate("finish", actor, {
       ...fPlan.settings,
-      fetchImpl: provider(
-        (ids) => {
-          assert.equal(ids.includes("finish"), completion === "verified");
-          return completion === "verified" ? "finish" : ids[0];
-        },
-        { calls: 0 },
-      ),
+      env: {},
+      fetchImpl: () => {
+        throw Error("no network");
+      },
     });
-    assert.equal(result.status, completion === "verified" ? "COMPLETED" : "PENDING");
+    assert.equal(result.status, completion === "verified" ? "COMPLETED" : "BLOCKED");
   } finally {
     fPlan.cleanup();
   }

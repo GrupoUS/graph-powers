@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.1 — Preserve Jev routing criteria
+
+Jev now receives each catalog entry's complete canonical description within the existing request
+limits, preserving routing exclusions and specialist handoffs.
+
+Planning commands route design and plan authorship through `graph-powers:project-planner`, with
+independent evaluator gates where required. Codex executors default to Luna/medium with escalation
+to the Astra judge; `issue-improve` uses a bounded fetch and a direct plan-only route.
+The clone source allocation moves to 4 MiB + 192 KiB for the plan records and bounded issue tooling;
+the current candidate retains about 30 KiB of source headroom.
+
 ## 1.23.0 — Jev agent and method coordination
 
 Opt-in Jev selects canonical agents, skills and commands, including roles sharing a model.

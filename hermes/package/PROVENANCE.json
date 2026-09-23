@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "7adc0d3981ccb14e742b0d42f998331904f93b18",
-    "version": "1.23.0+codex.20260922214913",
+    "base_revision": "6a7a7ac791df91168dda578efbb950a9f1d2834d",
+    "version": "1.23.1+codex.20260922233444",
     "dirty": true
   },
   "registrations": [
@@ -148,7 +148,7 @@
     {
       "name": "issue-improve",
       "path": "skills/issue-improve.md",
-      "description": "Use to improve a GitHub issue into a concise plan comment. Not for implementing the issue.",
+      "description": "Use to turn a GitHub issue into a short, evidence-backed plan comment. Not for implementing it.",
       "source": "skills/issue-improve/SKILL.md"
     },
     {
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "fd7ce838e94d91046cb8bd440220e2c4542f312897cc09e5d1e75dcec8d8e411",
-      "base_sha256": "4e82858cce0715cd7b7d4ee67a34cf033dba4cb5b0185124d07e5c78dcbeb481",
+      "sha256": "525bd75263414a42103af40f4861ab651a10cdb3f3c1247c7b3a8b6fcd03c5ad",
+      "base_sha256": "fd7ce838e94d91046cb8bd440220e2c4542f312897cc09e5d1e75dcec8d8e411",
       "dirty": true
     },
     {
@@ -264,8 +264,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "e61411e17220a46f36f1d48dc71fd9483e5491938a2b48f5d3682338e7c89908",
-      "base_sha256": "dba18de2c76d86bab6555e42d5690427ff4e6b3958e2ba6de461aa07a8aa1b71",
-      "dirty": true
+      "base_sha256": "e61411e17220a46f36f1d48dc71fd9483e5491938a2b48f5d3682338e7c89908",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -276,8 +276,8 @@
     {
       "path": "NOTICE",
       "sha256": "0dc679388e75d470ef38cb2a27c375bab80361c29122c6fc90f2becc9cd898ff",
-      "base_sha256": "c1224979d0811bc13ed1869d264385d41fc22ad462dabbefdeb584cd52ed0d94",
-      "dirty": true
+      "base_sha256": "0dc679388e75d470ef38cb2a27c375bab80361c29122c6fc90f2becc9cd898ff",
+      "dirty": false
     },
     {
       "path": "agents/debugger.md",
@@ -348,19 +348,19 @@
     {
       "path": "agents/verification.md",
       "sha256": "8129481609440d85f04ba4eade1945324161aaa5e2248347494ebff0f458dff2",
-      "base_sha256": "5c918ea6b16600495494530292993b5ee0410323f979124d5ad94a96fd6130db",
-      "dirty": true
+      "base_sha256": "8129481609440d85f04ba4eade1945324161aaa5e2248347494ebff0f458dff2",
+      "dirty": false
     },
     {
       "path": "codex/coordinate.mjs",
-      "sha256": "c909768b294cc746c273e27f3784f5edf8ba34b98ff0fa6b18917c8f5b493978",
-      "base_sha256": null,
+      "sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
+      "base_sha256": "c909768b294cc746c273e27f3784f5edf8ba34b98ff0fa6b18917c8f5b493978",
       "dirty": true
     },
     {
       "path": "codex/evaluate.mjs",
-      "sha256": "0c3a3e49e26c383504eefd315bd2b06c9e1ebc3e4832cf6990734c3e90c68e1b",
-      "base_sha256": "27f960db4f06ce53f2c9ff5248cd0be4a37307f5e1237e5105fc925ffc521401",
+      "sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
+      "base_sha256": "0c3a3e49e26c383504eefd315bd2b06c9e1ebc3e4832cf6990734c3e90c68e1b",
       "dirty": true
     },
     {
@@ -377,15 +377,15 @@
     },
     {
       "path": "codex/model-policy.json",
-      "sha256": "672a386f0b971073b3a8e41a63a1bfd08ef05f823d53ffa10abe5d43f40988d1",
+      "sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
       "base_sha256": "672a386f0b971073b3a8e41a63a1bfd08ef05f823d53ffa10abe5d43f40988d1",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "codex/model-policy.mjs",
-      "sha256": "7e50b7bba69ba08d2d8c03f38aa9fb199176353ec644e3ecd0c1e3d4b09f8715",
+      "sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
       "base_sha256": "7e50b7bba69ba08d2d8c03f38aa9fb199176353ec644e3ecd0c1e3d4b09f8715",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/debug.md",
@@ -407,9 +407,9 @@
     },
     {
       "path": "commands/gauntlet.md",
-      "sha256": "7aaea7c73c3f76b21728895cd3d083e55a330f31a4aa71873e7743beb659cd52",
+      "sha256": "8e563afc0874e28c6ac6bf4d38a9e26cb2de4f26c9a58590a431cf42d495b53c",
       "base_sha256": "7aaea7c73c3f76b21728895cd3d083e55a330f31a4aa71873e7743beb659cd52",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/implement.md",
@@ -419,9 +419,9 @@
     },
     {
       "path": "commands/issue-improve.md",
-      "sha256": "396e8db5e9c4b0bf65834489612016d7b50b2da7d05baeecd6cb5014dfd1607e",
+      "sha256": "c783209b5ecccaa991ff9452a0a5a080f6f86497397b94e07ce3adbf013ac888",
       "base_sha256": "396e8db5e9c4b0bf65834489612016d7b50b2da7d05baeecd6cb5014dfd1607e",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/perf.md",
@@ -480,8 +480,8 @@
     {
       "path": "hermes/package_builder.py",
       "sha256": "9114ae3d2d0c606b9b0fe8659940bb7904c03737db51d6e93d83fa5912bd5f3e",
-      "base_sha256": "078b741ed61a86ba56a1d9b560f1ff8674b5d6284e2c07227f6fa6d264b4e9d5",
-      "dirty": true
+      "base_sha256": "9114ae3d2d0c606b9b0fe8659940bb7904c03737db51d6e93d83fa5912bd5f3e",
+      "dirty": false
     },
     {
       "path": "hermes/skills/graph-engineering/SKILL.md",
@@ -503,8 +503,8 @@
     },
     {
       "path": "references/execution-floor.md",
-      "sha256": "4d2156fc2a1289b25a6af595e0476ffed702c9ed9e2fa720726e37c17798497e",
-      "base_sha256": "4ce1e1f431568ec7251ccc53f5c6c6075e3bda9eb7b7ef62523b814f29a59684",
+      "sha256": "27a4c03055cc7aa0993ccbd636d8493cd8dc73e09a95faa8bfc68226cba87b6f",
+      "base_sha256": "4d2156fc2a1289b25a6af595e0476ffed702c9ed9e2fa720726e37c17798497e",
       "dirty": true
     },
     {
@@ -600,8 +600,8 @@
     {
       "path": "references/shared/005-method-bootstrap.md",
       "sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
-      "base_sha256": "4ec98e22b6a99cfbb8291af41271dbc1b012bfa69ba4315e6f9b95f8ef91706f",
-      "dirty": true
+      "base_sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
+      "dirty": false
     },
     {
       "path": "references/shared/007-path-conventions.md",
@@ -623,9 +623,9 @@
     },
     {
       "path": "references/shared/020-complexity-routing.md",
-      "sha256": "de4c586c9c969bfec7aee6f520ba9b4ab0923db71468fbd364d820b43984482d",
+      "sha256": "fef55393e3a1e8fb717858286ef64fbfb933148df7f519ccb6d03798fbcb840f",
       "base_sha256": "de4c586c9c969bfec7aee6f520ba9b4ab0923db71468fbd364d820b43984482d",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/025-solution-ladder.md",
@@ -636,8 +636,8 @@
     {
       "path": "references/shared/030-agent-assignment-matrix.md",
       "sha256": "b556e4b2c69f4d50aa6d400c2c443f39ce15bc4a0465368b9cebee41557d20de",
-      "base_sha256": "c0dc7b3ab2b83757f83d5d1e570a9a58ac138f2b2e6d0a375a74feb7968e7996",
-      "dirty": true
+      "base_sha256": "b556e4b2c69f4d50aa6d400c2c443f39ce15bc4a0465368b9cebee41557d20de",
+      "dirty": false
     },
     {
       "path": "references/shared/035-agent-resolution-recovery.md",
@@ -659,9 +659,9 @@
     },
     {
       "path": "references/shared/050-tool-usage.md",
-      "sha256": "6211035968d06749a820d0eba988e6d0afdfc87ac03bf38d54ee774453e74f3e",
+      "sha256": "389fcb1b041d2df18f0693fe0a963523195173283f7b6e87a80dd0bd41d6c72d",
       "base_sha256": "6211035968d06749a820d0eba988e6d0afdfc87ac03bf38d54ee774453e74f3e",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/060-skill-domain-matrix.md",
@@ -911,33 +911,45 @@
     },
     {
       "path": "skills/issue-improve/SKILL.md",
-      "sha256": "56ea97d4efae55ea7666ca3a5ded91ad09d5a7fd39b284d9dcfab0701a8d4882",
+      "sha256": "1dcb9f220f42ac303642915676abaa9ed994c06723dfd8b70b1d2bebbee3f5f2",
       "base_sha256": "56ea97d4efae55ea7666ca3a5ded91ad09d5a7fd39b284d9dcfab0701a8d4882",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/issue-improve/evals/evals.json",
-      "sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
+      "sha256": "94ea31e7cb20bee5fd81188bdddf46e77f5077f938819984936f611e53190821",
       "base_sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/issue-improve/learning.md",
-      "sha256": "1f42bf6ead254d0704584baa274af3eb94fd24744715d3370646247194edc4d4",
+      "sha256": "dda3924bd9044c5e065298ad561999804708518f6d4fa046efeb29900b129127",
       "base_sha256": "1f42bf6ead254d0704584baa274af3eb94fd24744715d3370646247194edc4d4",
-      "dirty": false
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/scripts/fetch_issue.py",
+      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "skills/issue-improve/scripts/issue_comment.py",
-      "sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
+      "sha256": "72862a375e93f8163a85193ebc6962eedb39b669caa02745b43efdfcd5a28869",
       "base_sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
-      "dirty": false
+      "dirty": true
+    },
+    {
+      "path": "skills/issue-improve/scripts/test_fetch_issue.py",
+      "sha256": "278bb0d3625b67378b3c37569dd515a490da29eae1f9527049d33283b78d8e28",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "skills/issue-improve/scripts/test_issue_comment.py",
-      "sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
+      "sha256": "589bae8cca9c8cc40d7fc69de06d512a74de34d84d8939e3487581bee5dd3e16",
       "base_sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/landing-page-design/SKILL.md",
@@ -989,21 +1001,21 @@
     },
     {
       "path": "skills/planning/SKILL.md",
-      "sha256": "0446ac4608b5cdd042292944924d5dfe81b5f9310e447a969517c64dece3a4c0",
+      "sha256": "83017ea3e0ec2d621f7b3807995b8e545eca46c1f4bde01c94aa843202eb321d",
       "base_sha256": "0446ac4608b5cdd042292944924d5dfe81b5f9310e447a969517c64dece3a4c0",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/evals/evals.json",
-      "sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
+      "sha256": "1bd067e117cf967363be796d88b60b1f88814c2ff36003b09e9f324e5160ef46",
       "base_sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
-      "sha256": "df8ab8e22b47b827f2f39cf0363bdb18a17b5bb4265cd269e20196fcc8edd419",
+      "sha256": "ea7b8a54edaf3a51168172bd9489daf787d1a20a23c7dc096abbbb97990fc19f",
       "base_sha256": "df8ab8e22b47b827f2f39cf0363bdb18a17b5bb4265cd269e20196fcc8edd419",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/execution/correction-reviewer-prompt.md",
@@ -1043,15 +1055,15 @@
     },
     {
       "path": "skills/planning/references/gauntlet-loop.md",
-      "sha256": "fe9d2427f1c4c23f01d32d9c33b88cf9edf8ed46afa14c5b47697435e4d2d6b7",
+      "sha256": "a95cbbde35f739aee55d88c6597b1425e4f120fa40d8a177caaf40ee4165ae82",
       "base_sha256": "fe9d2427f1c4c23f01d32d9c33b88cf9edf8ed46afa14c5b47697435e4d2d6b7",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/issue-triage.md",
-      "sha256": "e5cd32bbf5e2f5e5130a8e084faced296197c6911d523da1828a22d7d70820b6",
+      "sha256": "040989e046161dae9e02411ba142ab52f4fb224119c5d88b56604a0c8c924afd",
       "base_sha256": "e5cd32bbf5e2f5e5130a8e084faced296197c6911d523da1828a22d7d70820b6",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/layer-map.md",
@@ -1061,33 +1073,33 @@
     },
     {
       "path": "skills/planning/references/loop-engineering.md",
-      "sha256": "5578ac94d3de816fac22df0af3a842489ed0ae98aaf52e6aaf2050e48eef1fa2",
+      "sha256": "27022cd92a13a2f367a9fa9f00bf2c8359f5e6bfed8d8b72ec9c60d41ba07f41",
       "base_sha256": "5578ac94d3de816fac22df0af3a842489ed0ae98aaf52e6aaf2050e48eef1fa2",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-a-brainstorm.md",
-      "sha256": "54596effb3c5278db77e20e2e3a972f1e1cd02e8e5e4f2ac6e3cbc92b9460186",
+      "sha256": "a9c00f0e56ab5f0a9f95e1eb2027aab576ad94c7b8f3c2add5dde2ca5646940f",
       "base_sha256": "54596effb3c5278db77e20e2e3a972f1e1cd02e8e5e4f2ac6e3cbc92b9460186",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "9ce445502b7dc5fc7bed447f5235e6734bbe8cc116f77b58b3c321059a5f3b5b",
+      "sha256": "7e0f71d3a95ed187f97d0b204a5dba455d3b54fa888652d463e69b84264779a8",
       "base_sha256": "9ce445502b7dc5fc7bed447f5235e6734bbe8cc116f77b58b3c321059a5f3b5b",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
       "sha256": "5edc10b1dd932c2f5db8447fbed0826d874e22f238d63769658fb6f5f6c37c84",
-      "base_sha256": "a2e24af86d6ae425b525268487f73d14789cdd87d1e6449a5b87407c134dbb0a",
-      "dirty": true
+      "base_sha256": "5edc10b1dd932c2f5db8447fbed0826d874e22f238d63769658fb6f5f6c37c84",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
-      "sha256": "8794966ed90ddb8c7ea115eae007a5131309213d969afdaaea81125b63d3b0b9",
+      "sha256": "181229f205f8f38f79d506ea2b0dc4ebda559c9c43a2db0957631ab584d9c0b9",
       "base_sha256": "8794966ed90ddb8c7ea115eae007a5131309213d969afdaaea81125b63d3b0b9",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/wayfinding.md",
@@ -1097,8 +1109,8 @@
     },
     {
       "path": "skills/planning/scripts/sdd.py",
-      "sha256": "a3de1eab14209817a0169f6fde7c4445d1dbcf65020661cef887e3d2bacc6ead",
-      "base_sha256": "1e1754464bf3d690fbeb42408b928bcaf1e8b3384162e5db80031fb946416796",
+      "sha256": "320e4e22b6b3277527b53160f6fb50cac8aed1b5981918b0f81339a520890f72",
+      "base_sha256": "a3de1eab14209817a0169f6fde7c4445d1dbcf65020661cef887e3d2bacc6ead",
       "dirty": true
     },
     {
@@ -1133,8 +1145,8 @@
     },
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "8839fe0a5340666f86ab12b96d3d2dc16496677eb0ce2e4ff0e9e9628c81cb95",
-      "base_sha256": "2fa38cc57a60467a2c671a19ab08c62d730c04e34ad4d31a9a03fc75554f1518",
+      "sha256": "88c9cdfb26f388b279f0a6dcd4f64316fa8390367808a6d8ef64fab442e1eb8f",
+      "base_sha256": "8839fe0a5340666f86ab12b96d3d2dc16496677eb0ce2e4ff0e9e9628c81cb95",
       "dirty": true
     },
     {
@@ -1248,8 +1260,8 @@
     {
       "path": "skills/webapp-testing/SKILL.md",
       "sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
-      "base_sha256": "fd341ee317e958314055079e23103486e1b7c88ccaec8facb45ef58127dbd5c4",
-      "dirty": true
+      "base_sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
+      "dirty": false
     },
     {
       "path": "skills/webapp-testing/references/browser-setup.md",
@@ -1321,7 +1333,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "688965e570e12eaac834953db7edb347ded92289474350091aac9e64f40e80ff",
+      "sha256": "8eb9bdca96aa0427047493aeec5d5ae907383b287c7c421bc86105f96f0a12bb",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1553,7 +1565,7 @@
     },
     {
       "path": "skills/content/codex/coordinate.mjs",
-      "sha256": "c909768b294cc746c273e27f3784f5edf8ba34b98ff0fa6b18917c8f5b493978",
+      "sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
       "sources": [
         "codex/coordinate.mjs"
       ],
@@ -1561,7 +1573,7 @@
     },
     {
       "path": "skills/content/codex/evaluate.mjs",
-      "sha256": "0c3a3e49e26c383504eefd315bd2b06c9e1ebc3e4832cf6990734c3e90c68e1b",
+      "sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
       "sources": [
         "codex/evaluate.mjs"
       ],
@@ -1585,7 +1597,7 @@
     },
     {
       "path": "skills/content/codex/model-policy.json",
-      "sha256": "672a386f0b971073b3a8e41a63a1bfd08ef05f823d53ffa10abe5d43f40988d1",
+      "sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
       "sources": [
         "codex/model-policy.json"
       ],
@@ -1593,7 +1605,7 @@
     },
     {
       "path": "skills/content/codex/model-policy.mjs",
-      "sha256": "7e50b7bba69ba08d2d8c03f38aa9fb199176353ec644e3ecd0c1e3d4b09f8715",
+      "sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
       "sources": [
         "codex/model-policy.mjs"
       ],
@@ -1625,7 +1637,7 @@
     },
     {
       "path": "skills/content/commands/gauntlet.md",
-      "sha256": "c071a4d0421c27ac4d7e3f304bfa513c6d7e4204eca1fbddc6ea40b7bf276edd",
+      "sha256": "e6721811a2bee60f267d547e06b3c8e37235ce44c69f7aa6da23cd6c39dd427c",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -1641,7 +1653,7 @@
     },
     {
       "path": "skills/content/commands/issue-improve.md",
-      "sha256": "d15e245bb1bec5cfa86197ab34598cf890b8372928236e5a4956f5457fb08eca",
+      "sha256": "6bf1a1abf794e652e1580e5643bcab6932619feb67f102e3a425f92f345e8688",
       "sources": [
         "commands/issue-improve.md"
       ],
@@ -1737,7 +1749,7 @@
     },
     {
       "path": "skills/content/references/execution-floor.md",
-      "sha256": "d119e029f5bd8760536597ebfc360eba7efc147e8da7db5108598911928278de",
+      "sha256": "6ed4ef4f01210758c7e0a7235449a68ecd994402c0546cbd3c11664b79d7dd18",
       "sources": [
         "references/execution-floor.md"
       ],
@@ -1897,7 +1909,7 @@
     },
     {
       "path": "skills/content/references/shared/020-complexity-routing.md",
-      "sha256": "e5c02f444602cbf1cf05b8cb4777e3cca8e4421c864ff2cf6d56e449b6286546",
+      "sha256": "eca6fff378ef93ac4bb3f83075a6fed7205b110abee72a1b68e710c734b5762a",
       "sources": [
         "references/shared/020-complexity-routing.md"
       ],
@@ -1945,7 +1957,7 @@
     },
     {
       "path": "skills/content/references/shared/050-tool-usage.md",
-      "sha256": "51c0227c59753baefe7bd6bc9507ced9c894cfa8d8aed8b5b8c1800e8e7886be",
+      "sha256": "3d9a0e9bcaaf94c95e2151d26c4b68ee45dd9e3a90ab0ec42e0bef54e8f0e520",
       "sources": [
         "references/shared/050-tool-usage.md"
       ],
@@ -2281,7 +2293,7 @@
     },
     {
       "path": "skills/content/skills/issue-improve/SKILL.md",
-      "sha256": "eba57af585f5f3e00c9e20499ef493b11a5444fe22304e9609021463b6f019a7",
+      "sha256": "c4ba61375e20acd1d59932be333f02cbc2450049d80de699948dfcd60a4d06ec",
       "sources": [
         "skills/issue-improve/SKILL.md"
       ],
@@ -2289,7 +2301,7 @@
     },
     {
       "path": "skills/content/skills/issue-improve/evals/evals.json",
-      "sha256": "070783ab84da1afb343f47192c79749ed4c991f7fa5747353db458bb392ac7bf",
+      "sha256": "94ea31e7cb20bee5fd81188bdddf46e77f5077f938819984936f611e53190821",
       "sources": [
         "skills/issue-improve/evals/evals.json"
       ],
@@ -2297,23 +2309,39 @@
     },
     {
       "path": "skills/content/skills/issue-improve/learning.md",
-      "sha256": "212d53be8e7fc80e195e39cfcdd6a949db3af80e14090f1e6de3092587847ad6",
+      "sha256": "af7294f0d59aa90d740062beab1649bf6b01bb3c269eae1695b7852029236f5a",
       "sources": [
         "skills/issue-improve/learning.md"
       ],
       "kind": "content"
     },
     {
+      "path": "skills/content/skills/issue-improve/scripts/fetch_issue.py",
+      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
+      "sources": [
+        "skills/issue-improve/scripts/fetch_issue.py"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/skills/issue-improve/scripts/issue_comment.py",
-      "sha256": "9a95eb0dedebb2f18dc63e06f82075e14bc7e1fe9e8291c0f5d965896fa9e3eb",
+      "sha256": "72862a375e93f8163a85193ebc6962eedb39b669caa02745b43efdfcd5a28869",
       "sources": [
         "skills/issue-improve/scripts/issue_comment.py"
       ],
       "kind": "content"
     },
     {
+      "path": "skills/content/skills/issue-improve/scripts/test_fetch_issue.py",
+      "sha256": "278bb0d3625b67378b3c37569dd515a490da29eae1f9527049d33283b78d8e28",
+      "sources": [
+        "skills/issue-improve/scripts/test_fetch_issue.py"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/skills/issue-improve/scripts/test_issue_comment.py",
-      "sha256": "e3dcad567444d16bd570d6d12b93f284a385fa81ea6bc505b0de6cfac5415958",
+      "sha256": "589bae8cca9c8cc40d7fc69de06d512a74de34d84d8939e3487581bee5dd3e16",
       "sources": [
         "skills/issue-improve/scripts/test_issue_comment.py"
       ],
@@ -2385,7 +2413,7 @@
     },
     {
       "path": "skills/content/skills/planning/SKILL.md",
-      "sha256": "d15881c196016cea349c301cb3886271a4b527aaaa596a54d76ee882aa267683",
+      "sha256": "cbf05b37e67ff52b0d31a0d30f8c56343a879473a2c6ea4cd06729021194a4e8",
       "sources": [
         "skills/planning/SKILL.md"
       ],
@@ -2393,7 +2421,7 @@
     },
     {
       "path": "skills/content/skills/planning/evals/evals.json",
-      "sha256": "78aa6bfabc4110194ddccf2ff9d3acc8b2603545bf0086667d93ac63b98c8fee",
+      "sha256": "1bd067e117cf967363be796d88b60b1f88814c2ff36003b09e9f324e5160ef46",
       "sources": [
         "skills/planning/evals/evals.json"
       ],
@@ -2401,7 +2429,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/dispatch-matrix.md",
-      "sha256": "17edc43cbd90a97088cdf1c96f6266470bf1edbfd06af14c148576e2a7282381",
+      "sha256": "9911fb1525f686d070180fe9af4bafb1ae0703b0ebfbb5c107e6afd721340d72",
       "sources": [
         "skills/planning/references/dispatch-matrix.md"
       ],
@@ -2457,7 +2485,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/gauntlet-loop.md",
-      "sha256": "04b15c49bb48a988322ee5ea6140ae8ebdcedf7972380f45eb6b75656f0d0d8e",
+      "sha256": "23376338e544b405fb27702e0456b32bccb63324e324378e44e1a8656e744fa7",
       "sources": [
         "skills/planning/references/gauntlet-loop.md"
       ],
@@ -2465,7 +2493,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/issue-triage.md",
-      "sha256": "200aec6c858d43102502e4e0e7fb2b0070a0285fa17851c885d4797e7f0b6725",
+      "sha256": "778e358299d88f83ff761a302eaa705aa798cc68428dd5fb877f05b178cc4b82",
       "sources": [
         "skills/planning/references/issue-triage.md"
       ],
@@ -2481,7 +2509,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/loop-engineering.md",
-      "sha256": "e20727322a943d257296f4aa49233cc8abaa30b7229cf2a4385e6600a4ccaf76",
+      "sha256": "1375e20b8daf68f3c178be4f413240638836902975c4a9bd4cf034c751f6a834",
       "sources": [
         "skills/planning/references/loop-engineering.md"
       ],
@@ -2489,7 +2517,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-a-brainstorm.md",
-      "sha256": "c92c4a825f330f75bbcd034ec740e1b17ca52e7d9acf5a9883699e4d7ef944b8",
+      "sha256": "4db135e818154ec6877cede99eb6392cca67673826e24317d52193a79ede8e02",
       "sources": [
         "skills/planning/references/phase-a-brainstorm.md"
       ],
@@ -2497,7 +2525,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "363b417504079e044197cea0d2cb7c14ef0bb1351a64a332c2161f9f4fa22e31",
+      "sha256": "4d9de87c9251fceb4bd3bfd642c467b38f82679103a536fc9550125907483379",
       "sources": [
         "skills/planning/references/phase-b-writing-plans.md"
       ],
@@ -2513,7 +2541,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/step-0-inventory.md",
-      "sha256": "df1734dcd6b988718d3bbf74187a45448b4aecbb8b6e715d396ee17b78c07835",
+      "sha256": "5c4b1fc2eff0c6444cdc9affb7bef4ce0e300f62c048b08f835d21bc843b349a",
       "sources": [
         "skills/planning/references/step-0-inventory.md"
       ],
@@ -2529,7 +2557,7 @@
     },
     {
       "path": "skills/content/skills/planning/scripts/sdd.py",
-      "sha256": "a3de1eab14209817a0169f6fde7c4445d1dbcf65020661cef887e3d2bacc6ead",
+      "sha256": "320e4e22b6b3277527b53160f6fb50cac8aed1b5981918b0f81339a520890f72",
       "sources": [
         "skills/planning/scripts/sdd.py"
       ],
@@ -2577,7 +2605,7 @@
     },
     {
       "path": "skills/content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "fd3910abda4fe246e4e226ced89c6f6831b78b638e01cda7714c92a719534817",
+      "sha256": "a1c9abf9ac73e9927ed4aa7972bbcce35134843be8af5067b7c16184ed4757ed",
       "sources": [
         "skills/senior-prompt-engineer/references/agent-handoff-contracts.md"
       ],
@@ -2841,7 +2869,7 @@
     },
     {
       "path": "skills/gauntlet.md",
-      "sha256": "c071a4d0421c27ac4d7e3f304bfa513c6d7e4204eca1fbddc6ea40b7bf276edd",
+      "sha256": "e6721811a2bee60f267d547e06b3c8e37235ce44c69f7aa6da23cd6c39dd427c",
       "sources": [
         "commands/gauntlet.md"
       ],
@@ -2873,7 +2901,7 @@
     },
     {
       "path": "skills/issue-improve.md",
-      "sha256": "eba57af585f5f3e00c9e20499ef493b11a5444fe22304e9609021463b6f019a7",
+      "sha256": "c4ba61375e20acd1d59932be333f02cbc2450049d80de699948dfcd60a4d06ec",
       "sources": [
         "skills/issue-improve/SKILL.md"
       ],
@@ -2913,7 +2941,7 @@
     },
     {
       "path": "skills/planning.md",
-      "sha256": "d15881c196016cea349c301cb3886271a4b527aaaa596a54d76ee882aa267683",
+      "sha256": "cbf05b37e67ff52b0d31a0d30f8c56343a879473a2c6ea4cd06729021194a4e8",
       "sources": [
         "skills/planning/SKILL.md"
       ],
@@ -4996,14 +5024,20 @@
       },
       {
         "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md",
+        "to": "references/execution-floor.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md",
         "to": "references/shared/000-config-loader.md",
         "kind": "reference"
       },
       {
         "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/007-path-conventions.md",
-        "to": "references/shared/007-path-conventions.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/fetch_issue.py",
+        "to": "skills/issue-improve/scripts/fetch_issue.py",
         "kind": "reference"
       },
       {
@@ -5014,26 +5048,26 @@
       },
       {
         "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/test_fetch_issue.py",
+        "to": "skills/issue-improve/scripts/test_fetch_issue.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/test_issue_comment.py",
+        "to": "skills/issue-improve/scripts/test_issue_comment.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md",
         "to": "skills/planning/references/issue-triage.md",
         "kind": "reference"
       },
       {
         "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-a-brainstorm.md",
-        "to": "skills/planning/references/phase-a-brainstorm.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-b-writing-plans.md",
         "to": "skills/planning/references/phase-b-writing-plans.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/step-0-inventory.md",
-        "to": "skills/planning/references/step-0-inventory.md",
         "kind": "reference"
       },
       {
@@ -5050,27 +5084,21 @@
       },
       {
         "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/run_evals.py",
-        "to": "skills/skill-improve/scripts/run_evals.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "evals/evals.json",
-        "to": "skills/issue-improve/evals/evals.json",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
         "reference": "learning.md",
         "to": "skills/issue-improve/learning.md",
         "kind": "reference"
       },
       {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "scripts/test_issue_comment.py",
-        "to": "skills/issue-improve/scripts/test_issue_comment.py",
-        "kind": "reference"
+        "from": "skills/issue-improve/scripts/test_fetch_issue.py",
+        "reference": "fetch_issue",
+        "to": "skills/issue-improve/scripts/fetch_issue.py",
+        "kind": "python-import"
+      },
+      {
+        "from": "skills/issue-improve/scripts/test_issue_comment.py",
+        "reference": "issue_comment",
+        "to": "skills/issue-improve/scripts/issue_comment.py",
+        "kind": "python-import"
       },
       {
         "from": "skills/landing-page-design/SKILL.md",
@@ -5172,12 +5200,6 @@
         "from": "skills/planning/SKILL.md",
         "reference": "references/phase-a-brainstorm.md",
         "to": "skills/planning/references/phase-a-brainstorm.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/planning/SKILL.md",
-        "reference": "references/phase-b-writing-plans.md",
-        "to": "skills/planning/references/phase-b-writing-plans.md",
         "kind": "reference"
       },
       {
@@ -6957,6 +6979,16 @@
       },
       {
         "from": "skills/issue-improve/SKILL.md",
+        "reference": "PLAN.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
+        "reference": "spec.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "skills/issue-improve/SKILL.md",
         "reference": "AGENTS.md",
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
       },
@@ -7158,6 +7190,11 @@
       {
         "from": "skills/planning/references/phase-b-writing-plans.md",
         "reference": "PLAN.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "skills/planning/references/phase-b-writing-plans.md",
+        "reference": "spec.md",
         "reason": "host-project input or output, resolved by the caller"
       },
       {

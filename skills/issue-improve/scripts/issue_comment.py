@@ -8,10 +8,14 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
 MARKER = "<!-- graph-powers:issue-improve -->"
+API_TIMEOUT_SECONDS = 30
+PUBLISH_TIMEOUT_SECONDS = 30
+MAX_COMMENT_PAGES = 10
 
 
 class Blocked(Exception):
@@ -23,7 +27,7 @@ class Parser(argparse.ArgumentParser):
         raise Blocked("required arguments: --issue-url URL --body-file FILE [--publish]")
 
 
-def api(host, endpoint, method="GET", body=None):
+def api(host, endpoint, method="GET", body=None, timeout=API_TIMEOUT_SECONDS):
     argv = ["gh", "api", endpoint, "--hostname", host, "--method", method]
     payload = None
     if body is not None:
@@ -35,13 +39,17 @@ def api(host, endpoint, method="GET", body=None):
             input=payload,
             capture_output=True,
             encoding="utf-8",
-            timeout=30,
+            timeout=timeout,
             check=False,
         )
     except FileNotFoundError as error:
         raise Blocked("gh is unavailable; install or expose the existing CLI") from error
     except subprocess.TimeoutExpired as error:
-        raise Blocked(f"gh {method} timed out; rerun to read comments before any write") from error
+        if method == "GET":
+            message = "gh GET timed out; stop before any comment write"
+        else:
+            message = f"gh {method} timed out; the result may be ambiguous, so read again before retrying"
+        raise Blocked(message) from error
     except OSError as error:
         raise Blocked("gh could not start") from error
     if result.returncode:
@@ -59,6 +67,13 @@ def api(host, endpoint, method="GET", body=None):
 
 def positive_id(value):
     return type(value) is int and value > 0
+
+
+def remaining_timeout(deadline):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise Blocked("comment lookup exceeded its 30-second budget; no write was attempted")
+    return min(API_TIMEOUT_SECONDS, remaining)
 
 
 def comment_url(comment, issue_url):
@@ -112,16 +127,21 @@ def main():
         print(f"preview {args.issue_url}\n\n{body}", end="" if body.endswith("\n") else "\n")
         return 0
 
+    deadline = time.monotonic() + PUBLISH_TIMEOUT_SECONDS
+
     host = target.netloc
     repo = f"repos/{path[1]}/{path[2]}"
     comments_endpoint = f"{repo}/issues/{path[3]}/comments"
-    author = api(host, "user")
+    author = api(host, "user", timeout=remaining_timeout(deadline))
     if not isinstance(author, dict) or not positive_id(author.get("id")):
         raise Blocked("authenticated author is missing from gh api user")
     candidates = []
-    page = 1
-    while True:
-        comments = api(host, f"{comments_endpoint}?per_page=100&page={page}")
+    for page in range(1, MAX_COMMENT_PAGES + 1):
+        comments = api(
+            host,
+            f"{comments_endpoint}?per_page=100&page={page}",
+            timeout=remaining_timeout(deadline),
+        )
         if not isinstance(comments, list):
             raise Blocked("API returned an invalid comment page")
         for comment in comments:
@@ -139,7 +159,10 @@ def main():
                 candidates.append(comment)
         if len(comments) < 100:
             break
-        page += 1
+    else:
+        raise Blocked(
+            f"issue has at least {MAX_COMMENT_PAGES * 100} comments; pagination cap reached before any write"
+        )
     if len(candidates) > 1:
         raise Blocked("multiple own marked comments; resolve the duplicate targets before retrying")
     if candidates:
@@ -153,7 +176,7 @@ def main():
         endpoint, method, outcome = comments_endpoint, "POST", "created"
     # Single-writer ceiling: GitHub offers no transactional marker upsert across publishers.
     # If concurrent publishing becomes necessary, coordinate externally before invoking this CLI.
-    published = api(host, endpoint, method, body)
+    published = api(host, endpoint, method, body, timeout=remaining_timeout(deadline))
     if not isinstance(published, dict):
         raise Blocked("API returned an invalid write result; rerun with a fresh read")
     print(f"{outcome} {comment_url(published, args.issue_url)}")

@@ -88,8 +88,14 @@ jobs:
       - name: Structured planning and TDD contract
         run: python3 skills/planning/scripts/test_sdd.py
 
+      - name: Planner-first route contracts (synthetic fixtures)
+        run: python3 skills/skill-improve/scripts/run_evals.py --skill-path skills/planning --evals-path skills/planning/evals/evals.json --response-dir skills/planning/evals/fixtures --case-tag planner-first-contract --threshold 1.0
+
       - name: Skill eval runner contract
         run: python3 skills/skill-improve/scripts/test_run_evals.py
+
+      - name: Issue retrieval CLI (mocked gh)
+        run: python3 skills/issue-improve/scripts/test_fetch_issue.py
 
       - name: Issue plan comment CLI (mocked gh)
         run: python3 skills/issue-improve/scripts/test_issue_comment.py

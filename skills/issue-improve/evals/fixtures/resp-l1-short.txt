@@ -1,8 +1,9 @@
 SYNTHETIC RESPONSE TRACE — no commands in this fixture were executed.
 Issue #3 — CLI spelling; OPEN. L1; host risk surfaces: none.
+`graph-powers:project-planner` returns one concise plan from the sanitized ledger.
 <!-- graph-powers:issue-improve -->
 R1: correct the help label. Evidence: cli/help.txt:4 and consumer cli/main.py:12 (fixture).
-Owns: cli/help.txt; dependencies: none; reuse the existing label.
+Scope: reuse the existing help label; Owns: cli/help.txt.
 Acceptance: help prints the agreed spelling.
 TDD: not-applicable (literal copy edit).
 CHECK: python3 cli/main.py --help

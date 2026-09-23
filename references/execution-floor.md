@@ -9,9 +9,10 @@ contract they need, with provenance comments.
 
 ## §1 — Delegate only independently useful work
 
-`shared/020-complexity-routing.md` decides whether to delegate. L1-L2 stay local; L3 may use one
-existing specialist; L4-L5 use only the disjoint specialists that add value; L6+ needs a
-coordinator. Use fewer agents when fewer scopes exist. The assignment and skill authorities are
+`shared/020-complexity-routing.md` decides whether to delegate. L1-L2 implementation stays local;
+one `graph-powers:project-planner` is allowed for an explicit plan deliverable. L3 may use one existing
+specialist; L4-L5 use only the disjoint specialists that add value; L6+ needs a coordinator. Use
+fewer agents when fewer scopes exist. The assignment and skill authorities are
 `shared/030-agent-assignment-matrix.md` and `shared/060-skill-domain-matrix.md`.
 
 ## §2 — One message, background by default
@@ -36,9 +37,11 @@ does not require the prompt-engineering skill; use it when changing this machine
 
 ### §4a — Parent-mediated Jev coordination
 
-Only the parent/controller operates Jev through catalog/init/next/return/status JSON stdin,
-executes its returned native route, and verifies each return before selecting again or finishing.
-Planning links its approved PLAN before Phase C. The canonical contract is in
+Only the parent/controller operates Jev through catalog/init/link-plan/next/return/finish/status
+JSON stdin and executes its returned native route. After a return, it verifies the checks and
+snapshot; it calls `next` only when another route must be selected, and calls `finish` directly
+when the current proof and linked plan are complete. Planning links its approved PLAN before Phase C.
+The canonical contract is in
 `${CLAUDE_PLUGIN_ROOT}/skills/senior-prompt-engineer/references/agent-handoff-contracts.md §2a`.
 Workers never consult or spawn children; review calls are not ledger entries.
 

@@ -1073,7 +1073,7 @@ def coordinate(project: str, session: str, action: str, raw_json: str) -> tuple[
     if Path(git_out(["rev-parse", "--show-toplevel"], root).strip()).resolve() != root:
         _consultation_error("project must be the Git worktree root")
     fields = {"init": {"request", "taskId", "owns", "checks", "planPath", "baseline"}, "status": set(),
-              "select": {"decisionKey", "snapshot"}, "finish": {"decisionKey", "snapshot"},
+              "select": {"decisionKey", "snapshot"}, "finish": set(),
               "return": {"ticket", "handoff", "verification"}, "link-plan": {"planPath"}}
     if set(raw) - fields[action] - {"requesterRole", "depth"}:
         _consultation_error("unknown coordination fields")
@@ -1176,6 +1176,21 @@ def coordinate(project: str, session: str, action: str, raw_json: str) -> tuple[
                 state["handoffs"].append(receipt)
                 state["status"] = "RETURNED"
                 _write_json_ledger(state_path, state, "coordination")
+        elif action == "finish":
+            if state["status"] == "COMPLETED":
+                return {**state, "executionAuthorized": False}, 0
+            previous = state["handoffs"][-1] if state["handoffs"] else None
+            if state["status"] != "RETURNED" or previous is None:
+                return {**state, "executionAuthorized": False}, BOUNDED_EXIT
+            valid = (
+                previous["handoff"]["status"] == "COMPLETED"
+                and previous["verification"]["passed"]
+                and _coordination_plan_valid(root, state["context"], complete=True)
+            )
+            if not valid:
+                return {**state, "executionAuthorized": False}, BOUNDED_EXIT
+            state["status"] = "COMPLETED"
+            _write_json_ledger(state_path, state, "coordination")
         else:
             key = raw.get("decisionKey")
             if not isinstance(key, str) or not DECISION_KEY.fullmatch(key):
@@ -1192,22 +1207,15 @@ def coordinate(project: str, session: str, action: str, raw_json: str) -> tuple[
             result = _validate_jev_result(decision.get("evaluationResult"), request)
             candidate = next(item for item in request["candidates"] if item["id"] == result["answers"]["route"]["choice"])
             finish = candidate.get("kind", "agent") == "finish"
-            if action == "finish" and not finish:
-                _consultation_error("finish requires a recorded finish candidate")
             if finish:
-                previous = state["handoffs"][-1] if state["handoffs"] else None
-                valid = previous and previous["handoff"]["status"] == "COMPLETED" and previous["verification"]["passed"] and raw.get("snapshot") == previous["verification"]["snapshot"]
-                if valid:
-                    valid = _coordination_plan_valid(root, state["context"], complete=True)
-                if not valid:
-                    return {**state, "executionAuthorized": False}, BOUNDED_EXIT
-            elif state["sequence"] >= state["maxActions"]:
+                _consultation_error("finish is a parent-only direct action")
+            if state["sequence"] >= state["maxActions"]:
                 return {**state, "executionAuthorized": False}, BOUNDED_EXIT
             state["selectedKeys"].append(key)
             state["sequence"] += 1
             state["action"] = {"decisionKey": key, "candidate": candidate, "ticket": secrets.token_hex(16)}
-            state["status"] = "COMPLETED" if finish else "PENDING"
-            authorized = not finish
+            state["status"] = "PENDING"
+            authorized = True
             _write_json_ledger(state_path, state, "coordination")
         return {**state, "executionAuthorized": authorized}, code
 

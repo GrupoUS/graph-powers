@@ -7,7 +7,7 @@ prescribing more agents than the width cap allows.
 
 | Level | Indicators | Execution mode | Chain |
 |---|---|---|---|
-| L1-L2 | Single file, known pattern, trivial | Direct — no agents | direct edit, no plan file |
+| L1-L2 | Single file, known pattern, trivial | Direct local edit; one planner for explicit plan output | direct edit or concise plan |
 | L3 | Multi-file, single domain | at most 1 existing specialist, only for an independently useful scope | inline spec |
 | L4-L5 | Multi-domain, parallel changes | 2-3 existing specialists maximum, on disjoint files; fewer when fewer scopes exist | spec + plan file |
 | L6+ | Architecture, migration, multi-service, or any surface in `chain.riskSurfaces` | coordinator + only the necessary specialists; Agent Teams only when the runtime exposes them | + pre-mortem, ADR, architecture pass |

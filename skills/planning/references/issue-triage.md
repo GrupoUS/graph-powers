@@ -161,9 +161,15 @@ ran (`CUT` — "0 call sites" is evidence; "seems unused" is not), and a human o
 precondition that would resume it (`DEFER`). The grade is the evidence, not the confidence:
 5 = definition plus a caller or test, 3 = strong inference with the missing link named.
 
-Halt after printing the ledger. Nothing is written and no engine runs before the user approves.
-Use `AskUserQuestion` before proceeding in exactly two cases: (a) a `CUT`/`SIMPLIFY` touches
-auth / payment / PII / schema; (b) triage drops the level to L1-L2, i.e. planning is skipped.
+For `/issue-improve`, the completed ledger is the planner's input: continue directly to the
+requested plan when no blocker or material decision remains. Do not ask for approval merely to
+begin planning. A concise L1-L2 issue plan is still required because the command explicitly asks
+for a plan; it does not enter implementation. Keep the ordinary `/plan` tier route unchanged.
+
+Use `AskUserQuestion` only when a material answer is missing, including when a `CUT`/`SIMPLIFY`
+touches auth, payment, PII or schema, or when the issue is closed, duplicate, ambiguous or
+contradicted by human comments. Never ask only because an issue-improve request classifies as
+L1-L2.
 
 ## FF-7 — Tier ownership
 

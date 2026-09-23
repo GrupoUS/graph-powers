@@ -10,12 +10,17 @@
 
 ## Entry contract
 
-- Direct route: Phase A complete, with `<plan dir>/spec.md` user-approved and GATE-1-approved when
-  the tier requires that gate (L4+; explicit Gauntlet L3 proceeds without GATE 1).
+- Direct route: Phase A complete, with `<plan dir>/spec.md` user-approved and independently
+  GATE-1-approved when the tier requires it (L4+).
+- Issue-improve fast path: a complete sanitized triage ledger plus verified repository evidence is
+  the design authority for its plan-only deliverable. It writes `PLAN.md` directly, without a
+  separate `spec.md`, Phase A, or approval to execute. L3+ still receives a separate
+  `graph-powers:evaluator` Mode 1 review and validation; stop before Phase C.
 - `ultra-plan` route: the exact Step 0 handoff blocks and chosen approach are the design authority;
   the generated plan still waits for `/plan`'s human gate.
-- Task tier is **L4+**. Only an explicit request to prepare or run Gauntlet admits L3 to Phase B;
-  ordinary L3 still skips it. Tier ladder: `content/references/shared/020-complexity-routing.md`.
+- Task tier is **L4+** on the normal route. Explicit Gauntlet and the issue-improve fast path also
+  admit L3 to Phase B; ordinary L3 still skips it. Tier ladder:
+  `content/references/shared/020-complexity-routing.md`.
 - Preserve the authorized checkout; report a mismatch with `${git.workBranch}` instead of switching.
 
 ## Exit contract
@@ -29,15 +34,17 @@
 
 > Model: `content/skills/planning/references/loop-engineering.md`. Guards, caps and the anchors are defined there, once.
 
-- **trigger:** Phase A complete, tier L4+, or explicit Gauntlet planning at L3.
+- **trigger:** Phase A complete, tier L4+, explicit Gauntlet planning at L3, or the bounded
+  issue-improve fast path above.
 - **goal (binary):** `PLAN.md` exists **AND** it carries every required section from Step 5
   **AND** every task declares `Owns` and `Needs` **AND** explicit Gauntlet plans map every applicable
-  surface and producer/consumer edge **AND** Step 6 passes **AND** user approval covers execution.
-  At L5+ and explicit Gauntlet L3+, GATE 2 must also meet the calibration anchors
+  surface and producer/consumer edge **AND** Step 6 passes. User approval for execution is required
+  only when Phase C is requested. At L5+ and explicit Gauntlet L3+, GATE 2 must also meet the calibration anchors
   (`content/skills/planning/references/loop-engineering.md § Calibration anchors`).
-- **body:** map files and interfaces → write independently testable tasks → self-review → evaluator
-  Mode 1 → correct.
-- **terminal:** goal PASS → Phase C. Any guard trips → escalate to user.
+- **body:** `graph-powers:project-planner` maps files and writes independently testable tasks →
+  independent evaluator Mode 1 when required → one bounded correction.
+- **terminal:** goal PASS → approved plan or, for issue-improve, reviewed draft. Enter Phase C only
+  when separately requested and approved. Any guard trips → escalate to user.
 
 ---
 
@@ -205,6 +212,11 @@ found → re-split, or move the phase to `[SEQUENTIAL]`.
 One table, read before any task block, so the reader sees the graph before the prose.
 
 ## Step 5 — Write the plan
+
+`graph-powers:project-planner` authors `PLAN.md` from the approved design authority or the
+issue-improve fast-path ledger. Use this file's Step 6 self-check in that same authoring pass. The
+controller supplies verified facts, preserves scope and owns approval; it does not silently replace
+the planner as author.
 
 **Path:** `${paths.planDir}/YYYY-MM-DD-<slug>/PLAN.md` (today, UTC), one directory per plan.
 

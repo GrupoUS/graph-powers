@@ -20,7 +20,8 @@ python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" validate <
 python -X utf8 "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py" review-check <PLAN_FILE>
 ```
 
-Invalid → `/plan`; L1-L2 → `NOT ELIGIBLE FOR GAUNTLET` without profile/spawn.
+Invalid → report and stop; `/plan` requires a new request.
+L1-L2 → `NOT ELIGIBLE FOR GAUNTLET` without profile/spawn.
 
 `review-bind` follows the Mode 1 verdict in Phase B Step 7. `--review-only` validates, reviews,
 binds and stops before acquire, Phase C, lease or writer. Every dry-run names distinct `builder`

@@ -267,6 +267,25 @@ export async function coordinate(action, input, options = {}) {
         options,
       );
     }
+    if (action === "finish") {
+      if (state.status === "COMPLETED") return state;
+      const receipt = state.handoffs.at(-1);
+      if (
+        state.status !== "RETURNED" ||
+        !receipt ||
+        receipt.handoff.status !== "COMPLETED" ||
+        !receipt.verification.passed
+      )
+        return blocked("FINISH_NOT_READY");
+      const currentSnapshot = snapshot(projectDir, [
+        ...state.context.owns,
+        ...receipt.verification.artifacts.map((item) => item.path),
+      ]);
+      if (currentSnapshot !== receipt.verification.snapshot)
+        return blocked("STALE_PROOF");
+      const output = ledger("finish", actor(input), options);
+      return output.status === "COMPLETED" ? output : blocked("FINISH_NOT_READY");
+    }
     if (action !== "next") return blocked("INVALID_ACTION");
     if (["PENDING", "COMPLETED"].includes(state.status)) return state;
     const receipt = state.handoffs.at(-1);
@@ -274,11 +293,6 @@ export async function coordinate(action, input, options = {}) {
       ...state.context.owns,
       ...(receipt?.verification.artifacts ?? []).map((item) => item.path),
     ]);
-    const finishEligible =
-      receipt?.verification.passed &&
-      receipt.handoff.status === "COMPLETED" &&
-      receipt.verification.snapshot === currentSnapshot &&
-      state.planComplete;
     const allowed = input.allowed;
     if (
       allowed !== undefined &&
@@ -309,8 +323,6 @@ export async function coordinate(action, input, options = {}) {
         }
         return candidate;
       });
-    if (finishEligible)
-      candidates.push({ id: "finish", kind: "finish", role: "main", skills: [], command: null });
     const decisionKey = `route-${state.sequence + 1}-${hash(JSON.stringify({ currentSnapshot, candidates })).slice(0, 16)}`;
     const selected = await evaluateRouting(
       {
@@ -320,7 +332,7 @@ export async function coordinate(action, input, options = {}) {
         decisionKey,
         candidates,
         question:
-          "Choose the next eligible agent, skill or command for the request. Choose finish only when the verified task is complete.",
+          "Choose the next eligible agent, skill or command for the request.",
         evidence: ["Canonical routing catalog and parent-verified results"],
         risk: "Wrong method or unsupported completion",
         state: {
@@ -363,7 +375,7 @@ if (import.meta.main) {
   const [action, flag, projectDir, sessionFlag, sessionId] = process.argv.slice(2);
   if (flag !== "--project" || sessionFlag !== "--session" || !sessionId) {
     process.stderr.write(
-      "usage: coordinate.mjs catalog|init|link-plan|next|return|status --project ROOT --session ID (JSON stdin)\n",
+      "usage: coordinate.mjs catalog|init|link-plan|next|return|finish|status --project ROOT --session ID (JSON stdin)\n",
     );
     process.exitCode = 2;
   } else {

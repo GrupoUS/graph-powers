@@ -528,6 +528,64 @@ def debug_perf_routing(debug: str | None = None, perf: str | None = None) -> lis
     return problems
 
 
+def planning_authoring_policy() -> list[str]:
+    """Keep planner authorship, independent review and the issue fast path connected."""
+    if not Path("skills/planning/SKILL.md").is_file():
+        return []
+    contracts = {
+        "commands/plan.md": (
+            'This is the adapter for `Skill("graph-powers:planning")`',
+            "GitHub issue triage stays in the skill",
+        ),
+        "commands/gauntlet.md": (
+            'invoke `Skill("graph-powers:planning")`',
+            "Only for a supplied plan",
+        ),
+        "skills/issue-improve/SKILL.md": (
+            "Immediately tell the user you are retrieving the issue",
+            "fetch_issue.py",
+            "30-second timeout",
+            "graph-powers:project-planner",
+            "intermediate `spec.md` or enter Phase A",
+            "one focused correction",
+            "Every route stops before Phase C",
+        ),
+        "skills/planning/references/phase-a-brainstorm.md": (
+            "`graph-powers:project-planner` authors the design",
+            "independent evaluator Mode 1 PASS at GATE 1",
+            "Dispatch a fresh `graph-powers:evaluator`",
+        ),
+        "skills/planning/references/phase-b-writing-plans.md": (
+            "`graph-powers:project-planner` authors `PLAN.md`",
+            "separate `graph-powers:evaluator` Mode 1 review",
+            "issue-improve fast path",
+        ),
+        "skills/planning/references/gauntlet-loop.md": (
+            "`graph-powers:project-planner` authors Phase A and Phase B",
+            "A ready approved plan reuses settled decisions",
+        ),
+        "skills/planning/references/step-0-inventory.md": (
+            "The tier alone does not justify another agent",
+        ),
+        "references/execution-floor.md": (
+            "L1-L2 implementation stays local",
+            "one `graph-powers:project-planner` is allowed for an explicit plan deliverable",
+        ),
+    }
+    problems: list[str] = []
+    for path, clauses in contracts.items():
+        content = " ".join(read(path).split())
+        for clause in clauses:
+            if clause not in content:
+                problems.append(f"{path}: missing planning-route contract: {clause}")
+    phase_a = read("skills/planning/references/phase-a-brainstorm.md")
+    if "GATE 1 `graph-powers:project-planner`" in phase_a:
+        problems.append(
+            "skills/planning/references/phase-a-brainstorm.md: the spec author cannot own GATE 1"
+        )
+    return problems
+
+
 def main() -> int:
     agents, skills, workflows, rules = (
         have_agents(),
@@ -680,6 +738,7 @@ def main() -> int:
     problems += external_routes()
     problems += orchestration_policy()
     problems += debug_perf_routing()
+    problems += planning_authoring_policy()
     frontmatter = agent_frontmatter() + namespaced_spawns()
     for p in frontmatter:
         print(f"AGENT:   {p}")

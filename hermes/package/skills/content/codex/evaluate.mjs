@@ -137,7 +137,7 @@ export function routingCatalog(settings = {}) {
         command: kind === "command" ? name : null,
         model: resolved.model ?? null,
         reasoningEffort: resolved.reasoningEffort ?? null,
-        description: text(data.description, "catalog description").slice(0, 200),
+        description: text(data.description, "catalog description"),
         path,
       });
     }

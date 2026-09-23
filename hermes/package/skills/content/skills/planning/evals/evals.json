@@ -1,5 +1,6 @@
 {
   "skill_name": "planning",
+  "notes": "planner-first-contract fixtures are synthetic grader checks only. planner-first-live cases have no fabricated fixtures; they require captured native calls/returns and model metadata.",
   "evals": [
     {
       "id": "pos-multilayer-feature-plan",
@@ -25,6 +26,135 @@
           "check": "regex: (?i)check.*expect.*evidence",
           "critical": true
         }
+      ]
+    },
+    {
+      "id": "planner-first-l3-inline",
+      "tags": ["planner-first-contract"],
+      "polarity": "positive",
+      "prompt": "Use /plan for a bounded L3 change in one domain. The desired outcome, constraints and reuse are already clear; give the design, not implementation.",
+      "expected_output": "The project-planner writes the concise inline L3 design. No plan file, evaluator or extra agent is used.",
+      "assertions": [
+        {"id": "planner", "check": "contains: graph-powers:project-planner", "critical": true},
+        {"id": "inline", "check": "regex: (?is)project-planner.*inline.*(?:architecture|data shape|validation)", "critical": true},
+        {"id": "no-plan-file", "check": "not_contains: PLAN.md", "critical": true},
+        {"id": "no-extra-review", "check": "not_contains: graph-powers:evaluator", "critical": true}
+      ],
+      "parser_controls": {
+        "positive": [
+          "`graph-powers:project-planner` returns an inline L3 design: Architecture, Data shape and Validation. The facts are already clear, so no extra questions, explorer, evaluator, plan file or implementation is needed.",
+          "O `graph-powers:project-planner` prepara o design L3 inline com Arquitetura, Dados e Validação; sem arquivo de plano, avaliador, investigação extra ou implementação."
+        ],
+        "negative": [
+          "I will ask all five Phase A questions, spawn explorer and evaluator, and write PLAN.md for this clear L3 change.",
+          "Implement the change now without a planner-authored design."
+        ]
+      }
+    },
+    {
+      "id": "planner-first-l4-author-review",
+      "tags": ["planner-first-contract"],
+      "polarity": "positive",
+      "prompt": "For /plan, prepare an L4 implementation plan. Repository evidence and decisions are supplied. State who authors the spec and PLAN.md, who owns GATE 1, and when execution may start.",
+      "expected_output": "Project-planner authors the spec and plan; an independent evaluator owns L4 GATE 1. The plan stops before execution approval.",
+      "assertions": [
+        {"id": "author-and-gate", "check": "regex: (?is)graph-powers:project-planner.*(?:author|write|produces?).{0,100}spec.*graph-powers:evaluator.*GATE 1", "critical": true},
+        {"id": "plan-author", "check": "regex: (?is)graph-powers:project-planner.*(?:author|write|produces?).{0,100}PLAN\\.md", "critical": true},
+        {"id": "approval-boundary", "check": "regex: (?is)(?:before|until|waits for|aguarda).{0,80}(?:execution approval|approval for execution|aprovação para executar)", "critical": true}
+      ],
+      "parser_controls": {
+        "positive": [
+          "The `graph-powers:project-planner` authors `spec.md`; a separate `graph-powers:evaluator` owns independent Mode 1 GATE 1. After the design transition is approved, `graph-powers:project-planner` authors `PLAN.md`. L4 stops with the plan; Phase C waits for execution approval.",
+          "O `graph-powers:project-planner` escreve a spec; um `graph-powers:evaluator` independente faz o GATE 1 Mode 1. Depois da aprovação da transição de design, o planner escreve `PLAN.md`. A Phase C espera pela aprovação de execução."
+        ],
+        "negative": [
+          "The project-planner reviews its own spec at GATE 1, then writes PLAN.md and starts implementation immediately.",
+          "A main agent writes the plan and skips the independent GATE 1 review."
+        ]
+      }
+    },
+    {
+      "id": "planner-first-gauntlet-objective",
+      "tags": ["planner-first-contract"],
+      "polarity": "positive",
+      "prompt": "For an explicit L3 /gauntlet objective with no open decisions, state the bounded planning route before any writer.",
+      "expected_output": "Project-planner authors Phase A and Phase B; one concise confirmation and independent evaluator review precede Gauntlet validation/admission.",
+      "assertions": [
+        {"id": "planner-phases", "check": "regex: (?is)graph-powers:project-planner.*Phase A.*Phase B", "critical": true},
+        {"id": "review", "check": "regex: (?is)graph-powers:evaluator.*Mode 1.*(?:before|prior to|antes de).{0,100}(?:writer|lease|acquire)", "critical": true},
+        {"id": "bounded-confirmation", "check": "contains: one concise confirmation", "critical": true}
+      ],
+      "parser_controls": {
+        "positive": [
+          "`graph-powers:project-planner` authors Phase A and Phase B. With no open decisions, ask one concise confirmation; a separate `graph-powers:evaluator` Mode 1 reviews the Gauntlet plan before lease or writer. No repeated discovery loop.",
+          "O `graph-powers:project-planner` prepara a Phase A e a Phase B. Sem decisões pendentes, peça uma confirmação curta; o avaliador independente faz Mode 1 antes de lease ou writer."
+        ],
+        "negative": [
+          "Skip the planner and let the implementation agent plan during the first writer wave.",
+          "The planner also serves as its own evaluator; start the writer before review."
+        ]
+      }
+    },
+    {
+      "id": "planner-first-live-issue-l1",
+      "tags": ["planner-first-live"],
+      "polarity": "positive",
+      "prompt": "Use the current issue-improve candidate with sanitized pasted L1 content. Capture the native planner call/return and stop without publishing.",
+      "expected_output": "A captured project-planner Astra/high call returns a concise issue plan; no host edit or publication occurs.",
+      "assertions": [
+        {"id": "observed-planner", "check": "regex: (?is)OBSERVED ROLE: project-planner.*OBSERVED MODEL: gpt-6-astra.*OBSERVED EFFORT: high", "critical": true},
+        {"id": "short-plan", "check": "regex: (?is)CHECK:.*EXPECT:.*TDD:", "critical": true},
+        {"id": "no-side-effect", "check": "contains: host edits=0; publication=0", "critical": true}
+      ]
+    },
+    {
+      "id": "planner-first-live-plan-l4",
+      "tags": ["planner-first-live"],
+      "polarity": "positive",
+      "prompt": "Invoke the current /plan L4 route, capture the planner-authored spec, independent GATE 1 and planner-authored PLAN return; stop before Phase C.",
+      "expected_output": "Native evidence shows project-planner Astra/high authors both artifacts and a separate evaluator Astra/high completes GATE 1.",
+      "assertions": [
+        {"id": "author-model", "check": "contains: OBSERVED ROLE: project-planner; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
+        {"id": "review-model", "check": "contains: OBSERVED REVIEWER: evaluator; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
+        {"id": "two-artifacts", "check": "regex: (?is)spec author return.*GATE 1 PASS.*PLAN author return", "critical": true},
+        {"id": "stop", "check": "contains: Phase C=0", "critical": true}
+      ]
+    },
+    {
+      "id": "planner-first-live-gauntlet-l3",
+      "tags": ["planner-first-live"],
+      "polarity": "positive",
+      "prompt": "Invoke the current /gauntlet L3 objective after the user's shared-understanding confirmation. Capture planner authorship, independent Mode 1 review and review-bind; stop before lease/writer.",
+      "expected_output": "Native events show planner Astra/high authors Phase A and B; a separate evaluator Astra/high reviews and binds the plan.",
+      "assertions": [
+        {"id": "planner-model", "check": "contains: OBSERVED ROLE: project-planner; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
+        {"id": "evaluator-model", "check": "contains: OBSERVED REVIEWER: evaluator; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
+        {"id": "bind", "check": "contains: REVIEW-BIND: PASS", "critical": true},
+        {"id": "stop", "check": "contains: lease=0; writer=0", "critical": true}
+      ]
+    },
+    {
+      "id": "planner-first-live-executor-luna",
+      "tags": ["planner-first-live"],
+      "polarity": "positive",
+      "prompt": "Reuse only an actual completed executor dispatch from an authorized implementation wave; record its native call/return metadata. Do not spawn a probe.",
+      "expected_output": "A real executor event identifies a canonical executor role and observed Luna/medium; no synthetic or overridden model claim is accepted.",
+      "assertions": [
+        {"id": "observed-model", "check": "regex: (?is)OBSERVED ROLE: (debugger|frontend-specialist|mobile-developer|performance-optimizer).*OBSERVED MODEL: gpt-6-luna.*OBSERVED EFFORT: medium", "critical": true},
+        {"id": "call-return", "check": "regex: (?is)NATIVE CALL ID: .+NATIVE RETURN ID: .+TASK EVIDENCE: PASS", "critical": true}
+      ]
+    },
+    {
+      "id": "planner-first-live-recovery-mode5",
+      "tags": ["planner-first-live"],
+      "polarity": "positive",
+      "prompt": "Capture the same frozen recovery scenario before and after the authorized Mode 5 contract change. Record reservation, evaluator call/return and observed model; never admit a writer retry.",
+      "expected_output": "An actual fresh RESERVED Mode 5 evaluator Astra/high returns before any writer, with identity-bound baseline/candidate evidence.",
+      "assertions": [
+        {"id": "reservation", "check": "contains: RESERVATION: RESERVED", "critical": true},
+        {"id": "evaluator-model", "check": "regex: (?is)OBSERVED ROLE: evaluator.*OBSERVED MODEL: gpt-6-astra.*OBSERVED EFFORT: high", "critical": true},
+        {"id": "actual-return", "check": "regex: (?is)NATIVE CALL ID: .+NATIVE RETURN ID: .+MODE 5 RETURN: usable", "critical": true},
+        {"id": "no-retry", "check": "contains: writer retries=0", "critical": true}
       ]
     },
     {
@@ -1990,6 +2120,28 @@
           "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. I will repair Needs now.",
           "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. Vou perguntar a fronteira agora.",
           "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. I will start Phase C in this mode."
+        ]
+      }
+    },
+    {
+      "id": "gauntlet-neg-plan-hole-cap",
+      "polarity": "negative",
+      "prompt": "A supplied Gauntlet plan still has TBD and missing Needs after Phase A already used its 3 clarification/spec-revision rounds. No new evidence arrived. May the controller ask again or restart the repair loop?",
+      "expected_output": "Reuse Phase A's existing HARD-STOP across the plan-hole repair, preserve unresolved holes and stop without resetting or entering execution.",
+      "assertions": [
+        {"id": "same-cap", "check": "contains: Phase A's existing HARD-STOP", "critical": true},
+        {"id": "persist-count", "check": "regex: (?i)retain the count across resumes", "critical": true},
+        {"id": "no-repeat", "check": "regex: (?i)do not repeat unchanged questions or searches", "critical": true},
+        {"id": "stop-open", "check": "regex: (?is)preserve the remaining holes.*stop BLOCKED.*without a bind, lease or writer", "critical": true}
+      ],
+      "parser_controls": {
+        "positive": [
+          "Phase A's existing HARD-STOP also counts supplied-plan hole repairs. Retain the count across resumes, do not repeat unchanged questions or searches, and at the cap preserve the remaining holes and stop BLOCKED without a bind, lease or writer.",
+          "Aplique o HARD-STOP existente da Phase A aos reparos dos buracos do plano. Preserve a contagem entre retomadas, não repita perguntas nem buscas sem fatos novos e, no limite, mantenha as lacunas abertas e pare como BLOCKED, sem bind, lease ou writer."
+        ],
+        "negative": [
+          "There is no cap for approved-plan holes. Reset the counter and ask again until every field is filled.",
+          "The old plan approval settles every hole; ignore TBD and continue to acquire the lease."
         ]
       }
     }

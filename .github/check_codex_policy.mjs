@@ -27,10 +27,10 @@ const EXPECTED_POLICY = {
   "skill-improver": ["judge", "gpt-6-astra", "high"],
   "ui-ux-designer": ["judge", "gpt-6-astra", "high"],
   "project-planner": ["architect", "gpt-6-astra", "high"],
-  debugger: ["executor", "gpt-6-astra", "high"],
-  "frontend-specialist": ["executor", "gpt-6-astra", "high"],
-  "mobile-developer": ["executor", "gpt-6-astra", "high"],
-  "performance-optimizer": ["executor", "gpt-6-astra", "high"],
+  debugger: ["executor", "gpt-6-luna", "medium"],
+  "frontend-specialist": ["executor", "gpt-6-luna", "medium"],
+  "mobile-developer": ["executor", "gpt-6-luna", "medium"],
+  "performance-optimizer": ["executor", "gpt-6-luna", "medium"],
   verification: ["verifier", "gpt-6-astra", "high"],
   explorer: ["scout", "gpt-6-luna", "medium"],
   librarian: ["scout", "gpt-6-luna", "medium"],
@@ -167,7 +167,7 @@ for (const [name, settings, expected, warning] of [
   [
     "debugger",
     { profile: "native-economic" },
-    ["executor", "gpt-6-astra", "high"],
+    ["executor", "gpt-6-luna", "medium"],
     "topLevelProfileDowngraded",
   ],
 ]) {
@@ -679,7 +679,7 @@ await withAdapter(async ({ run }) => {
 const invalidCandidates = [
   {
     ...agentCandidate("debugger"),
-    capability: { ...agentCandidate("debugger").capability, model: "gpt-6-luna" },
+    capability: { ...agentCandidate("debugger").capability, model: "gpt-6-astra" },
   },
   ...[
     "missing",

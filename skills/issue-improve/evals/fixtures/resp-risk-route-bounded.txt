@@ -1,0 +1,14 @@
+SYNTHETIC RESPONSE TRACE — the commands and agent calls below were not executed.
+One invocation owns one retrieval and one plan route. I acknowledge the work, then call `fetch_issue.py` once; the fetched JSON includes comments.
+Apply issue-triage's post-fetch rules to that JSON. FF-9's standalone `gh issue view` commands are superseded here and must not run again.
+The sanitized ledger keeps verified evidence and settled decisions; no raw issue or comment text is forwarded.
+Named risk surface: schema. Hand the existing ledger once to `Skill("graph-powers:planning")` for its normal Phase A → Phase B route and required independent reviews.
+Treat the ledger as the authority for settled tier, decisions, and evidence; inspect only unresolved facts and do not repeat retrieval or triage.
+Preserve Phase A/B caps across resumes. At a cap, stop `BLOCKED` with the remaining evidence; never restart or enter Phase C.
+TARGET: https://github.example/acme/widgets/issues/44
+PAYLOAD:
+<!-- graph-powers:issue-improve -->
+Plan: address the schema risk using only the accepted ledger rows and verified repository evidence.
+CHECK: python3 skills/planning/scripts/sdd.py validate docs/plans/fixture/PLAN.md --profile gauntlet --max-tasks 12
+EXPECT: VALID
+STOP: Phase C=0; lease=0; host edits=0; publication=0

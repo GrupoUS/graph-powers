@@ -498,12 +498,12 @@ class SddCliTests(unittest.TestCase):
             self.assertEqual(json.loads(returned.stdout)["status"], "RETURNED")
             self.assertEqual(self.coordinate(root, "return", **receipt).stdout, returned.stdout)
             self.assertEqual(self.coordinate(root, "return", **{**receipt, "handoff": {}}).returncode, 2)
-            self.coordination_decision(root, context, "close", "finish")
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="stale").returncode, 4)
-            finished = self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a")
+            self.assertEqual(self.coordinate(root, "finish", snapshot="stale").returncode, 2)
+            finished = self.coordinate(root, "finish")
             self.assertEqual(finished.returncode, 0, finished.stderr)
             self.assertEqual(json.loads(finished.stdout)["status"], "COMPLETED")
             self.assertFalse(json.loads(finished.stdout)["executionAuthorized"])
+            self.assertEqual(self.coordinate(root, "finish").stdout, finished.stdout)
 
     def test_coordination_rejects_initial_finish_and_workers_and_caps_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -514,8 +514,7 @@ class SddCliTests(unittest.TestCase):
             (config / "config.json").write_text(json.dumps({"graphGuardrails": {"maxSpawnsPerWorkflow": 1}}))
             self.assertEqual(self.coordinate(root, "init", **self.coordination_context(), requesterRole="worker").returncode, 2)
             context = json.loads(self.coordinate(root, "init", **self.coordination_context()).stdout)
-            self.coordination_decision(root, context, "initial-close", "finish")
-            self.assertEqual(self.coordinate(root, "select", decisionKey="initial-close", snapshot="snapshot-a").returncode, 4)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 4)
             self.coordination_decision(root, context, "first", "skill")
             selected = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
             self.assertEqual(selected["action"]["candidate"]["role"], "main")
@@ -530,7 +529,7 @@ class SddCliTests(unittest.TestCase):
                 raise AssertionError("coordination receipt check is not an object")
             first_check["exitCode"] = 1
             self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 0)
-            self.assertEqual(self.coordinate(root, "select", decisionKey="initial-close", snapshot="snapshot-a").returncode, 4)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 4)
             self.coordination_decision(root, context, "second")
             self.assertEqual(self.coordinate(root, "select", decisionKey="second").returncode, 4)
 
@@ -557,11 +556,10 @@ class SddCliTests(unittest.TestCase):
                 self.assertEqual(self.coordinate(root, "return", **receipt).returncode, 0)
             replay = self.coordinate(root, "select", decisionKey="first")
             self.assertFalse(json.loads(replay.stdout)["executionAuthorized"])
-            self.coordination_decision(root, context, "close", "finish")
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 4)
             plan.write_text(plan_text(task("T1.1", checked=True, evidence="ok"),
                                      gates=gate("G1.1", checked=True, evidence="gate ok")))
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 0)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 0)
 
     def test_coordination_candidates_validate_methods_and_fingerprint_routes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -639,8 +637,7 @@ class SddCliTests(unittest.TestCase):
             self.coordination_decision(root, context, "first")
             pending = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
             self.assertEqual(self.coordinate(root, "return", **self.coordination_receipt(pending["action"]["ticket"])).returncode, 0)
-            self.coordination_decision(root, context, "close", "finish")
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 4)
 
     def test_coordination_links_created_plan_once_and_enforces_its_completion(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -661,14 +658,13 @@ class SddCliTests(unittest.TestCase):
             self.coordination_decision(root, context, "first")
             pending = json.loads(self.coordinate(root, "select", decisionKey="first").stdout)
             self.assertEqual(self.coordinate(root, "return", **self.coordination_receipt(pending["action"]["ticket"])).returncode, 0)
-            self.coordination_decision(root, context, "close", "finish")
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 4)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 4)
             plan.write_text(plan_text(task("T1.1", checked=True, evidence="pending"),
                                      gates=gate("G1.1", checked=True, evidence="gate ok")))
             self.assertFalse(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
             plan.write_text(plan_text(task("T1.1", checked=True, evidence="ok"),
                                      gates=gate("G1.1", checked=True, evidence="gate ok")))
-            self.assertEqual(self.coordinate(root, "finish", decisionKey="close", snapshot="snapshot-a").returncode, 0)
+            self.assertEqual(self.coordinate(root, "finish").returncode, 0)
             self.assertTrue(json.loads(self.coordinate(root, "status").stdout)["planComplete"])
             self.assertEqual(self.coordinate(root, "link-plan", planPath="PLAN.md").returncode, 2)
 

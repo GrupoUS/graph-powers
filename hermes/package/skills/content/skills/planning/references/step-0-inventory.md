@@ -76,9 +76,10 @@ Fallback and confirmation order:
 5. The project's script directory — automation frequently already exists.
 6. An existing handler or procedure on the same domain router, before adding a new one.
 
-At **L3+** dispatch this in ONE message, background: `graph-powers:explorer` for the codebase
-inventory, plus `graph-powers:librarian` only when an external API or version fact is genuinely in
-doubt.
+At **L3+**, use `graph-powers:explorer` only when the repository lookup is independently useful or
+too broad for the controller's targeted search. The tier alone does not justify another agent.
+Add `graph-powers:librarian` only when a current external API or version fact changes the decision;
+when both are needed, dispatch them in one message.
 
 ## 0.3 Reuse ledger — mandatory output
 

@@ -4,8 +4,8 @@
 name = "performance-optimizer"
 description = "Use when something is measurably slow, large, or exposed: runtime, CPU/memory, bundle, Core Web Vitals, OWASP baseline, or SEO/GEO. Writes the optimization."
 # Codex policy: profile=executor; model-source=semantic-default; effort-source=semantic-default
-model = "gpt-6-astra"
-model_reasoning_effort = "high"
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
 
 developer_instructions = '''
 

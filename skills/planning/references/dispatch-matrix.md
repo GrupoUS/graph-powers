@@ -33,7 +33,7 @@ Pick the agent and skill from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent
 | Staging E2E / agent-browser | **NEVER parallel** (single browser session) |
 | Plan / PRD synthesis · adversarial review · architecture analysis | No |
 | Codebase lookup (`graph-powers:explorer`) · external research (`graph-powers:librarian`) | **YES — and always background** |
-| Phase A evidence | `graph-powers:explorer` in background; add `graph-powers:librarian` in the same batch only when current external API, security or version behaviour affects the decision. GATE 1's `graph-powers:project-planner` supplies the second independent L4+ review lane. |
+| Phase A evidence | `graph-powers:explorer` in background only for an independently useful lookup; add `graph-powers:librarian` only for a current external API, security or version fact. `graph-powers:project-planner` authors the spec; a separate `graph-powers:evaluator` owns L4+ GATE 1. |
 
 > **Ambiguous (task touches 2+ domains):** assign by the primary impact area shown by repository
 > evidence. If the tie changes ownership, expose it in the plan instead of forcing another tool.

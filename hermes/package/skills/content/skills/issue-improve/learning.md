@@ -41,6 +41,25 @@ The response trace alone cannot prove live ordering, human approval or model com
 publication mechanics have CLI evidence; retrieval/plan-only behavior has the method and focused
 fixture contract evidence. Independent publishers remain a documented single-writer ceiling.
 
+## 2026-09-22 — bounded issue-improve route
+
+The command now acknowledges before retrieval, performs one issue fetch with a 30-second subprocess
+timeout, and skips Planning Step 0, the intermediate spec and Phase A on its no-risk plan-only
+route. L1-L2 gets one planner-authored short draft; L3+ gets a direct PLAN, one independent review,
+at most one correction, and validation. Comment lookup is capped at 10 pages and 30 seconds total.
+
+| Proof | Actual result |
+|---|---|
+| Bounded issue retrieval, mocked `gh` | `python3 skills/issue-improve/scripts/test_fetch_issue.py` exited 0: 4 tests, `OK`; checks the 30-second timeout and exactly one subprocess attempt |
+| Bounded comment selection, mocked `gh` | `python3 skills/issue-improve/scripts/test_issue_comment.py` exited 0: 17 tests, `OK`; includes the 10-page fail-closed cap and total operation deadline |
+| Method validation | `python3 skills/skill-improve/scripts/quick_validate.py skills/issue-improve` exited 0: `Skill is valid!` |
+| Synthetic route assertions | `run_evals.py` with `--threshold 1.0` exited 0: 6/6 cases, 29/29 assertions |
+| Wiring | `python3 .github/check_wiring.py` exited 0: 536 routing references, 0 unresolved |
+
+No live issue was supplied, so actual startup or end-to-end issue latency remains unmeasured. The
+fixture scores test assertion grading only; they do not prove live planner dispatch or Codex model
+activation.
+
 ## 2026-09-12 — final-review corrections
 
 Two Minor findings from the Gauntlet final review changed the helper: selection now requires the

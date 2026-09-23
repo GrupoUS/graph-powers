@@ -104,7 +104,7 @@ model substitution or retry.
 Pass JSON on stdin to:
 
 ```bash
-bun "content/codex/coordinate.mjs" <catalog|init|link-plan|next|return|status> --project . --session <ID>
+bun "content/codex/coordinate.mjs" <catalog|init|link-plan|next|return|finish|status> --project . --session <ID>
 ```
 
 Each object includes `{"requesterRole":"parent","depth":0}`. The minimum event payloads are:
@@ -116,9 +116,9 @@ Each object includes `{"requesterRole":"parent","depth":0}`. The minimum event p
 {"planPath":"<approved-plan-path>"}
 ```
 
-They are respectively `init`, `next`, `return` and `link-plan`; `catalog` and `status` need only
-the actor fields. Pass minimal non-sensitive snapshot/evidence data; the adapter collects no
-repository history automatically.
+They are respectively `init`, `next`, `return` and `link-plan`; `finish`, `catalog` and `status` need
+only the actor fields. The adapter captures the current snapshot for `finish`; pass minimal
+non-sensitive evidence otherwise. It collects no repository history automatically.
 
 1. `catalog` returns source-derived eligible actions. `init` persists request, task, owned paths,
    approved checks and a baseline before selection.
@@ -126,8 +126,9 @@ repository history automatically.
    records one choice and returns `executionAuthorized`, selected methods and a seven-section prompt.
    The parent executes that native agent dispatch or main skill/command method.
 3. `return` accepts the Context Handoff and runs approved checks afresh, hashes declared artifacts
-   and rejects scope drift. `status` exposes resumable state. The next `next` receives that verified
-   feedback; only a current verified result can offer `finish`.
+   and rejects scope drift. `status` exposes resumable state. The parent calls `next` only if another
+   route remains to choose. Once the return proof, current snapshot and linked plan are complete, the
+   parent calls `finish` directly; this does not make another Jev evaluation.
 4. Before approved implementation, the parent must use `link-plan` with the relative `planPath`
    before Phase C. Linked tasks and gates require real evidence before finish. Planning-only work
    may finish against its original checks without executing the proposed plan. The controller owns

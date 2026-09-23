@@ -13,6 +13,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import issue_comment
+
 SCRIPT = Path(__file__).with_name("issue_comment.py")
 MARKER = "<!-- graph-powers:issue-improve -->"
 URL = "https://github.example/acme/widgets/issues/20"
@@ -175,6 +177,29 @@ class IssueCommentTests(unittest.TestCase):
         ]
         self.state["comments"].append(self.comment(comment_id=92))
         self.assert_blocked(self.cli("--publish"))
+
+    def test_comment_scan_exceeding_safe_page_cap_blocks_before_write(self):
+        self.state["comments"] = [
+            self.comment(author=8, comment_id=n + 100) for n in range(1000)
+        ] + [self.comment()]
+        result = self.cli("--publish")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pagination cap", result.stderr)
+        self.assertFalse(
+            any(call["method"] in ("POST", "PATCH") for call in self.state["calls"])
+        )
+        page_reads = [
+            call for call in self.state["calls"] if "?per_page=100&page=" in call["endpoint"]
+        ]
+        self.assertEqual(len(page_reads), 10)
+
+    def test_remaining_timeout_respects_total_operation_deadline(self):
+        with patch("issue_comment.time.monotonic", return_value=29.75):
+            self.assertAlmostEqual(issue_comment.remaining_timeout(30), 0.25)
+        with patch("issue_comment.time.monotonic", return_value=30), self.assertRaises(
+            issue_comment.Blocked
+        ):
+            issue_comment.remaining_timeout(30)
 
     def test_invalid_or_noncanonical_targets_block_before_gh(self):
         for url in (

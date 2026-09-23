@@ -355,8 +355,8 @@ This companion step writes roles only; it does not install a second hook or skil
 and the clone fallback use the same resolver from `codex/model-policy.json`, so neither generated
 route inherits one session model for all twelve agents. The defaults preserve each specialist's role:
 
-- judges, architects, executors and the verifier: `gpt-6-astra` + `high`;
-- scouts: `gpt-6-luna` + `medium`.
+- judges, architects and the verifier: `gpt-6-astra` + `high`;
+- executors and scouts: `gpt-6-luna` + `medium`, with executor escalation to the Astra judge.
 
 The operator's parent stays a manual choice: the issue-27 mode is `gpt-6-luna` + `max`.
 At each model-policy update, revalidate the latest official model in the selected family and

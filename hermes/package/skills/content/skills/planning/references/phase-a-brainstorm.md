@@ -30,7 +30,7 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 ## Exit contract
 
 - **L3 default:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L3 Gauntlet and L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`content/references/shared/007-path-conventions.md`). L4+ requires GATE 1 (`graph-powers:project-planner`) PASS; Gauntlet's required evaluator review occurs in Phase B. User approval must cover Phase B. Proceed to `content/skills/planning/references/phase-b-writing-plans.md`.
+- **L3 Gauntlet and L4+:** spec at `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` in the working tree — one plan is one directory (`content/references/shared/007-path-conventions.md`). `graph-powers:project-planner` authors the design. L4+ requires an independent evaluator Mode 1 PASS at GATE 1; Gauntlet's required evaluator review occurs in Phase B. User approval must cover Phase B. Proceed to `content/skills/planning/references/phase-b-writing-plans.md`.
 
 ---
 
@@ -39,8 +39,8 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 > Phase A is a goal-gated loop. Model: `content/skills/planning/references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ in the authorized checkout.
-- **goal (binary):** spec file exists **AND** required GATE 1 `graph-powers:project-planner` = PASS **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(L3 default: inline 3-section spec acknowledged by user — no file, no GATE 1. Explicit Gauntlet L3 writes the spec and continues to Phase B.)*
-- **body:** inspect → clarify → compare approaches → present design → review → correct.
+- **goal (binary):** design is returned (inline for ordinary L3; file for Gauntlet L3+/L4+) **AND** independent evaluator GATE 1 = PASS where required **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(Ordinary L3 has no file or GATE 1. Explicit Gauntlet L3 writes the spec and continues to Phase B.)*
+- **body:** inspect only decision-relevant facts → ask only blocking questions → project-planner authors design → independent evaluator reviews when required → correct once per existing cap.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
   no design · no speculative feature or abstraction without a current requirement.
 - **terminal:** goal PASS → at default L3, return to the requested implementation path; at Gauntlet
@@ -76,12 +76,13 @@ independently useful repository investigation, not because the task is L3. Add `
 external API, security or version behaviour; when both are needed, dispatch them in one message.
 Every prompt follows `content/references/execution-floor.md § 4`.
 
-## Step 2 — Clarifying questions
+## Step 2 — Resolve only blocking questions
 
-Use `AskUserQuestion`. **One topic per question.** Prefer 2-4 multiple-choice options. Cover: **Purpose** (business/user outcome) · **Constraints** (deadlines, surfaces, must-keep-working) · **Success criteria** (observable "done") · **Reuse vs new** (which existing pattern/file to extend) · **Scope edges** (explicit non-goals).
-
-**Skip questions the user already answered** — re-asking burns trust. For a real L6 risk surface,
-ask which assumption would invalidate the preferred approach; do not add ceremony merely because of
+Use `AskUserQuestion` only when an answer changes scope, an interface, a safety boundary, or which
+approach can work. Ask one focused question at a time with a recommended option. Do not run a
+checklist or ask the user to repeat purpose, constraints, success criteria, reuse, or exclusions
+already clear from the request and repository. For a real L6 risk surface, ask only which missing
+decision or assumption could invalidate the chosen approach; do not add ceremony merely because of
 the label.
 
 **Explicit Gauntlet L3+ — grill:** keep a decision tree in the current conversation/spec, with
@@ -217,23 +218,24 @@ Run applicable Markdown/config checks. Staging/commit need action/scope approval
 keep approved specs unchanged: record new findings/failures in task-review state; contract changes
 return to planning.
 
-## Step 7 — Spec self-review
+## Step 7 — Planner authors and checks the spec
 
-Scan before GATE 1: every in-scope need is covered · no placeholder or invented detail · architecture,
-data flow and testing agree · scope is one coherent project · every ambiguity is resolved or lives
-under `## Not yet specified` · every assumption is `[ASSUMED]` · no design element serves an
-out-of-scope row.
-Fix inline once.
+Give `graph-powers:project-planner` the destination, verified evidence, settled answers, reuse
+ledger, risk surfaces and explicit non-goals. Use the seven-section prompt from
+`content/references/execution-floor.md § 4`. The planner writes only the assigned
+spec and checks coverage, evidence, consistency, assumptions and scope. For L3, return its concise
+three-section design inline; for L4+, retain `spec.md` under the plan directory.
 
-## Step 8 — GATE 1 — planning review (L4+ mandatory)
+## Step 8 — GATE 1 — independent evaluator Mode 1 (L4+ mandatory)
 
-Dispatch `graph-powers:project-planner` with the seven-section prompt from
-`content/references/execution-floor.md § 4`. It reviews only the spec against the
-destination, reuse ledger, repository evidence, scope, layer order, internal consistency and YAGNI.
-It is read-only and returns the canonical Context Handoff.
+Dispatch a fresh `graph-powers:evaluator` with the seven-section prompt. It reviews the planner's
+spec against the destination, reuse ledger, repository evidence, scope, layer order, internal
+consistency and YAGNI. The evaluator is read-only and returns the canonical Context Handoff; the
+planner cannot review its own work.
 
-**PASS** → Step 9. **FAIL** → revise inline against cited findings, then re-run; **HARD-STOP at 3
-iterations** → escalate. **BLOCKED** → surface to the user, do not retry blind.
+**PASS** → Step 9. **FAIL** → the planner corrects against cited findings, then the evaluator
+reviews the changed spec once; **HARD-STOP at the configured correction cap** → escalate. **BLOCKED**
+→ surface to the user, do not retry blind.
 
 ## Step 9 — User approval
 
@@ -253,11 +255,11 @@ Read `content/skills/planning/references/phase-b-writing-plans.md` next.
 
 ## L3 light path (truncated flow)
 
-For L3: (1) targeted repository inspection, with an explorer only for useful independent work · (2) one clarifying question
-only if it changes the design · (3) inline three-section spec (`Architecture`, `Data shape`,
-`Validation`) · (4) confirm approval covers this scope · (5) hand off to the requested implementation path. No file and no
-reviewer gate, unless explicit Gauntlet promotes the approved design into Phase B for its structured
-plan and evaluator review.
+For L3: (1) targeted repository inspection · (2) ask only for a decision that changes the design ·
+(3) `graph-powers:project-planner` writes an inline three-section spec (`Architecture`, `Data shape`,
+`Validation`) · (4) confirm approval covers this scope · (5) hand off to the requested implementation
+path. No file and no reviewer gate, unless explicit Gauntlet promotes the design into Phase B for its
+structured plan and evaluator review.
 
 ## L6+ extra
 

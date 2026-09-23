@@ -1462,15 +1462,17 @@ def test_clone_budgets_count_untracked_candidates_and_exact_package_prefix() -> 
     with tempfile.TemporaryDirectory(prefix="gp-clone-budgets-") as raw:
         source = clone_fixture(Path(raw))
         payload = source / "source-payload.bin"
-        payload.write_bytes(b"s" * 4259840)
+        source_limit = (4 * 1024 + 192) * 1024
+        payload.write_bytes(b"s" * source_limit)
         package_payload = source / "hermes/package/payload.bin"
         package_payload.write_bytes(b"h" * 2097152)
 
         result = run_clone_check(source)
         assert result.returncode == 0, (result.stdout, result.stderr)
-        assert "Source: 4259840 bytes (4160.00 KiB) / 4259840 bytes" in result.stdout, result.stdout
+        assert f"Source: {source_limit} bytes (4288.00 KiB) / {source_limit} bytes" in result.stdout, result.stdout
         assert "Hermes package: 2097152 bytes (2048.00 KiB) / 2097152 bytes" in result.stdout, result.stdout
-        assert "Total: 6356992 bytes (6208.00 KiB) / 6356992 bytes" in result.stdout, result.stdout
+        total_limit = source_limit + 2 * 1024 * 1024
+        assert f"Total: {total_limit} bytes (6336.00 KiB) / {total_limit} bytes" in result.stdout, result.stdout
 
         # A similarly named sibling belongs to source, never to the Hermes allocation.
         package_payload.write_bytes(b"")
@@ -1478,7 +1480,7 @@ def test_clone_budgets_count_untracked_candidates_and_exact_package_prefix() -> 
         sibling.write_bytes(b"s")
         result = run_clone_check(source)
         assert result.returncode != 0, result.stdout
-        assert "source grew past 4 MiB + 64 KiB" in result.stdout, result.stdout
+        assert "source grew past 4 MiB + 192 KiB" in result.stdout, result.stdout
         sibling.unlink()
 
         # Exceeding Hermes must fail even when the complete tree is below 4 MiB.
@@ -1493,7 +1495,8 @@ def test_clone_counts_tracked_ignored_files_and_rejects_compiled_python() -> Non
     with tempfile.TemporaryDirectory(prefix="gp-clone-ignored-") as raw:
         source = clone_fixture(Path(raw))
         (source / ".gitignore").write_bytes(b"*.bin\n*.pyc\n")
-        (source / "local.bin").write_bytes(b"l" * 4259841)
+        source_limit = (4 * 1024 + 192) * 1024
+        (source / "local.bin").write_bytes(b"l" * (source_limit + 1))
         result = run_clone_check(source)
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert "Source: 12 bytes" in result.stdout, result.stdout
@@ -1501,7 +1504,7 @@ def test_clone_counts_tracked_ignored_files_and_rejects_compiled_python() -> Non
         subprocess.run(["git", "add", "--force", "local.bin"], cwd=source, check=True)
         result = run_clone_check(source)
         assert result.returncode != 0, result.stdout
-        assert "source grew past 4 MiB + 64 KiB" in result.stdout, result.stdout
+        assert "source grew past 4 MiB + 192 KiB" in result.stdout, result.stdout
 
         (source / "local.bin").write_bytes(b"")
         (source / "compiled.pyc").write_bytes(b"bytecode")

@@ -1,0 +1,3 @@
+SYNTHETIC CONTRACT TRACE — no tools or agents were called.
+`graph-powers:project-planner` authors Phase A and Phase B. Ask one concise confirmation once the shared understanding is ready.
+A separate `graph-powers:evaluator` Mode 1 reviews the Gauntlet plan before lease or writer. No repeated discovery loop.

@@ -1,0 +1,5 @@
+SYNTHETIC RESPONSE TRACE — no commands, questions or agent calls were executed.
+Phase A's existing HARD-STOP also counts supplied-plan hole repairs. Retain the count across resumes.
+Do not repeat unchanged questions or searches; no new evidence means no new repair round.
+At the cap, preserve the remaining holes and stop BLOCKED without a bind, lease or writer.
+Do not auto-invoke `/plan` or reset the counter. Phase C=0; lease=0; writer=0.
