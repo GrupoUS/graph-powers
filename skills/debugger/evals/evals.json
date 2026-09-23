@@ -25,9 +25,9 @@
     },
     {
       "id": "A04",
-      "description": "Output prefers CDP attach for session-bound pages (agent-browser --cdp), not headless-only",
+      "description": "Output replays the saved test-user state headlessly for authenticated pages (agent-browser --restore), with CDP attach only as the fallback",
       "type": "behavioral",
-      "check": "contains_one_of: [\"--cdp\", \"CDP attach\", \"browser-setup\"]",
+      "check": "contains_one_of: [\"--restore\", \"saved test-user state\", \"browser-setup\"]",
       "critical": true
     },
     {
@@ -39,9 +39,9 @@
     },
     {
       "id": "A06",
-      "description": "Output uses agent-browser default browser session for public pages",
+      "description": "Output uses a named headless agent-browser session for public pages",
       "type": "behavioral",
-      "check": "contains_one_of: [\"agent-browser open\", \"bunx agent-browser open\", \"agent-browser\"]",
+      "check": "contains_one_of: [\"--session\", \"named session\", \"browser-setup\"]",
       "critical": false
     },
     {

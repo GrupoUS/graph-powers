@@ -1,12 +1,17 @@
 # Browser setup — operational runbook
 
-The `agent-browser` CLI ships the command reference. Load the version-matched `core` skill before
-using a command; this runbook records only the project decisions that upstream cannot know:
-target, mode, authentication, safety, evidence, resource limits, and fallback boundaries.
+The `agent-browser` CLI ships the command reference. Load the version-matched `core` skill once per
+run, before the first command; this runbook records only the project decisions that upstream cannot
+know: target, mode, authentication, safety, evidence, resource limits, and fallback boundaries.
 
 ```bash
-agent-browser skills get core --full
+agent-browser skills get core
 ```
+
+Keep `--full` out of the routine path. It appends every reference and template: on CLI `0.34.0`,
+measured 2026-09-23, `core` printed 29,574 bytes and `core --full` 119,944, about four times the
+context on every run. Fetch the full reference only when a command this run needs is missing from
+`core`.
 
 ## Version and pinning
 
@@ -27,7 +32,7 @@ agent-browser skills get core --full
 1. Read the host `.graph-powers/config.json`. Use `${project.stagingUrl}` as the target unless the
    person supplies another URL in the current task. A missing target is a blocker. Never replace an
    unavailable staging target with localhost without an explicit local-testing request.
-2. Run `agent-browser --version`, `agent-browser skills get core --full`, and
+2. Run `agent-browser --version`, `agent-browser skills get core`, and
    `agent-browser doctor --offline --quick`. Treat a missing binary, Chrome failure, malformed
    configuration, or stale daemon as an environment blocker. `doctor --fix` can repair or remove
    local state and is never an automatic step.
@@ -49,7 +54,8 @@ using it can hijack another agent's page or the person's browser.
 | Mode | Select it when | Required boundary |
 |---|---|---|
 | Headless Chrome | clean smoke, CI, or post-fix evidence | primary path; deterministic, ephemeral session |
-| CDP attach | any authenticated route or session-bound bug | attach to a browser the person already authenticated; never automate sign-in; never close |
+| Headless with saved test-user state | any authenticated route | encrypted `--restore` state of a dedicated test user, replayed with `--restore-save never`; never automate sign-in |
+| CDP attach | saved state is not allowed, or the bug is bound to the person's live session or an extension | attach to a browser the person already authenticated; never close |
 | Persistent profile or restore | persistence is explicitly part of the behavior | dedicated project/test-user state; never the default mode |
 | Lightpanda `domOnly` | an optional DOM/text/query check is useful | no visual, layout, screenshot, or fidelity verdict |
 
@@ -78,12 +84,49 @@ Recover with an explicitly selected tab or ask the person to reopen the route; n
 different tab by guesswork. A CDP session belongs to the person's browser, so its cleanup is to
 stop issuing commands, not `close`.
 
-## CDP attach — the canonical path for authenticated routes
+## Saved test-user state — the canonical path for authenticated routes
 
-The person opens a dedicated Chrome/Chromium instance with remote debugging and completes any
-sign-in, consent, OAuth, or 2FA interaction. The agent only attaches after that. Do not provide a
-credential, cookie, token, or profile secret in an argument, prompt, log, screenshot, HAR, or
-versioned file. Do not attach to the person's ordinary browsing profile.
+Authenticated routes run headless by replaying the saved state of a dedicated test user. The person
+signs in once; the agent never types a credential or automates sign-in, consent, OAuth, or 2FA. Do
+not provide a credential, cookie, token, encryption key, or profile secret in an argument, prompt,
+log, screenshot, HAR, or versioned file.
+
+1. The project's secret mechanism puts `AGENT_BROWSER_ENCRYPTION_KEY` (64 hex characters) in the
+   environment. Without it the CLI writes the state in plain text, so a missing key is a blocker,
+   not a reason to save unencrypted.
+2. One-time sign-in, run by the person — the only visible window in this runbook. Name
+   `<state-key>` after the project and test identity, one per worktree:
+
+```bash
+agent-browser --session <id> --restore <state-key> --headed open <sign-in-route>
+agent-browser --session <id> close
+```
+
+   The person completes sign-in in that window before `close`, which writes the state to the CLI's
+   own state directory, outside the repository; `agent-browser state list` marks it `[encrypted]`.
+3. Every run afterwards is headless and does not write the state back, so a test cannot overwrite
+   the signed-in state with whatever it left behind:
+
+```bash
+agent-browser --session <id> --restore <state-key> --restore-save never batch --bail "open <authenticated-route>" "get url"
+```
+
+4. `restore: missing` in the output, or a sign-in URL from `get url`, means the state is absent,
+   expired, or encrypted under another key. The CLI lands on sign-in and exits 0 in all three
+   cases, so the URL is the check. Stop and ask the person to repeat step 2; a run that skipped an
+   authenticated route is incomplete, not successful.
+
+Measured on CLI `0.34.0`, 2026-09-23, against a local cookie-auth fixture: the replay reached the
+authenticated route in 284 ms including browser launch; a missing state and a wrong key both landed
+on sign-in with exit 0. Preserve tenant isolation and use non-sensitive test data; read, cancel,
+and navigate away rather than confirming a shared-environment mutation.
+
+## CDP attach — fallback for authenticated routes
+
+Use it only when the project does not allow a saved state, or the bug is bound to the person's live
+session or an extension. The person opens a dedicated Chrome/Chromium instance with remote
+debugging and completes any sign-in interaction. The agent only attaches after that. Do not attach
+to the person's ordinary browsing profile.
 
 ```bash
 agent-browser --session <id> --cdp <port> --pin-tab get url
@@ -91,14 +134,12 @@ agent-browser --session <id> --cdp <port> --pin-tab open <authenticated-route>
 ```
 
 If the attached tab is a sign-in page or authentication expires, stop and ask the person to
-authenticate. A run that skipped an authenticated route is incomplete, not successful. Preserve
-tenant isolation and use non-sensitive test data; read, cancel, and navigate away rather than
-confirming a shared-environment mutation.
+authenticate.
 
 ## Persistent profile and restore
 
-Use `--profile` or `--restore` only when persistence itself is required, such as reproducing a bug
-that survives a browser restart. Give each worktree and test identity separate state. Prefer the
+Beyond the saved test-user replay above, use `--profile` or `--restore` only when persistence itself
+is required, such as reproducing a bug that survives a browser restart. Give each worktree and test identity separate state. Prefer the
 CLI's session restore mechanism over hand-built state files, and use an encryption key or the
 project's secure auth mechanism when state must be retained. State can contain session tokens and is
 never versioned or copied into evidence.
@@ -137,8 +178,11 @@ agent-browser --session <id> wait --fn "window.__appReady === true"
 agent-browser --session <id> wait --load domcontentloaded
 ```
 
-After the readiness signal, take `snapshot -i -c`, act, wait for the observable consequence, and
-take another snapshot. A timeout is a failed readiness contract that needs reporting or a narrower
+Assert state by reading it, not by driving the interface: `get url`, `get text <selector>`,
+`is visible <selector>`, `wait --url`/`--text`, and `snapshot -i -c` establish most criteria without
+a click and cannot mutate staging. Click or fill only when the interaction itself is the acceptance
+criterion; then, after the readiness signal, take `snapshot -i -c`, act, wait for the observable
+consequence, and take another snapshot. A timeout is a failed readiness contract that needs reporting or a narrower
 signal; it is not a reason to add arbitrary sleeps.
 
 ## Selector hierarchy and the ref loop
@@ -326,7 +370,7 @@ viewport/media settings, wait signal, evidence paths, errors, retries, and envir
 | `ref not found` or an interaction targets the wrong node | take a fresh snapshot and use new refs; never retry a stale ref |
 | SPA snapshot is empty or partial | wait for URL, ready text/element, or app-specific function; use `networkidle` only if justified |
 | CDP acts on another tab or returns `tab_gone` | keep `--pin-tab`, inspect tabs, rebind explicitly, or ask the person; never close the browser |
-| Auth route lands on sign-in | stop and ask the person to authenticate; do not automate login |
+| Auth route lands on sign-in | the saved state is missing, expired, or under another key: ask the person to repeat the one-time sign-in; do not automate login |
 | `--allowed-domains` is rejected | expected for CDP/profile/restore/state modes; choose a fresh Chrome containment run or document the security trade-off |
 | Console/network output is huge or sensitive | use `--content-boundaries`, `--max-output`, filters, JSON capture, and redaction; do not request full bodies by default |
 | Lightpanda disagrees with visual Chrome output | classify it as `domOnly` evidence and rerun the visual check in Chrome |

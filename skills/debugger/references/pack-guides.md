@@ -15,7 +15,7 @@ Per-pack deltas over the Step 0-6 chain, plus the Step 2 parallel-research templ
 
 Three of the four packs run the same eight moves; only the columns in the next table differ.
 
-1. Pre-flight (Step 0) — pack chosen, gates baselined, `bunx agent-browser --version` when the pack
+1. Pre-flight (Step 0) — pack chosen, gates baselined, `agent-browser --version` when the pack
    needs browser evidence.
 2. Build the reproducer (Step 1). **Nothing below starts before this command exists.**
 3. Dispatch the pack's sub-agents (Step 2 templates below) while the baseline gates run.
@@ -105,7 +105,7 @@ URL or procedure, and the affected files in the prompt.
 ### A — Evidence Collector (`frontend-debug`, `systematic-audit`)
 ```
 Public page  → headless: open "[URL]" → snapshot -i -c → screenshot → eval overlay → get title/url → close
-Authenticated → --cdp attach, same sequence, plus console + errors, and NO close
+Authenticated → saved-state replay, same sequence plus console + errors
 RETURN: mode used · screenshot path · framework error-overlay text if present · page URL + title. Fix nothing.
 ```
 

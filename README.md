@@ -294,7 +294,7 @@ plugin's `rescue` and `codex-result-handling` skills (invoked by `/debug` and `/
 second implementation pass is worth having).
 
 Some skills also expect MCP servers (Context7 for library docs, Tavily for research,
-sequential-thinking for multi-step reasoning) and `bunx agent-browser` for browser verification.
+sequential-thinking for multi-step reasoning) and the `agent-browser` CLI for headless browser verification.
 Each skill states what it needs; none is required for the guardrails.
 
 ---

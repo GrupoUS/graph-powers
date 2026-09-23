@@ -22,7 +22,7 @@ Construct a deterministic, agent-runnable pass/fail signal. Pick the highest-ran
 | **1** | Failing **vitest** test | `${tooling.commands.test} -t "<bug-name>"`, run from the workspace that owns the seam | Pure code logic; any API procedure or UI component bug |
 | **2** | **HTTP fixture** (curl) | `curl -sS -X POST ${project.stagingUrl}/api/<endpoint> -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '<json>' \| jq` | tRPC 500 / UNAUTHORIZED / payload edge case |
 | **3** | **CLI fixture** (Python stdlib, per cardinal rule #3) | `python scripts/<repro>.py --param ...` | Multi-step external API repro (payment provider, messaging platform, ad platform) |
-| **4** | **Browser smoke** | `bunx agent-browser open ${project.stagingUrl}/<route> && bunx agent-browser snapshot -i -c && bunx agent-browser console` | UI regressions, hydration mismatch, auth redirect; auth pages use `--cdp` attach — `Skill("webapp-testing")` |
+| **4** | **Browser smoke** | `agent-browser --session <id> batch --bail "open ${project.stagingUrl}/<route>" "snapshot -i -c" "console"` | UI regressions, hydration mismatch, auth redirect; auth pages replay the saved test-user state headlessly (`--restore <state-key> --restore-save never`) — `Skill("webapp-testing")` |
 | **5** | **Replay harness** | Recorded webhook JSON re-posted to the local API → expected DB delta | Webhook idempotency / signature / partial-failure bugs |
 | **6** | **Fuzz / differential** | Two-driver diff (HTTP vs WebSocket database driver), property test via `fast-check` | Driver-edge bugs, transaction semantics, race conditions |
 | **7** | **Log parse** | `python scripts/fetch_logs.py --filter "<error>"` against the project's CI and host log sources | Bug visible only via observability, no live trigger available |
@@ -51,12 +51,13 @@ it("repro: db.transaction() rejects on the HTTP driver", async () => {
 
 **Authenticated staging probe:**
 ```bash
-# Pre-req: an authenticated browser session. Attach to one the person already opened;
-# never automate the sign-in. See Skill("webapp-testing") for the attach pattern.
-bunx agent-browser snapshot -i -c -o ".graph-powers/logs/<bug>-snapshot.json"
-bunx agent-browser console > ".graph-powers/logs/<bug>-console.log"
-bunx agent-browser errors  > ".graph-powers/logs/<bug>-errors.log"
-bunx agent-browser network requests --filter "api-staging" > ".graph-powers/logs/<bug>-net.log"
+# Pre-req: the saved test-user state from Skill("webapp-testing") — the person signs in once;
+# never automate the sign-in. Replay it headless, without writing it back:
+agent-browser --session <id> --restore <state-key> --restore-save never open "${project.stagingUrl}/<route>"
+agent-browser --session <id> snapshot -i -c > ".graph-powers/logs/<bug>-snapshot.txt"
+agent-browser --session <id> console > ".graph-powers/logs/<bug>-console.log"
+agent-browser --session <id> errors  > ".graph-powers/logs/<bug>-errors.log"
+agent-browser --session <id> network requests --filter "api-staging" > ".graph-powers/logs/<bug>-net.log"
 ```
 
 **tRPC 500 repro:**

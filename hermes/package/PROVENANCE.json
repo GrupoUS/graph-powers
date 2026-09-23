@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "99101174ac4e907805993dc127f68d498dc9b321",
-    "version": "1.23.2+local.20260923042710",
+    "base_revision": "a6a35e4dce11184b60a004800d0f406dc97ad144",
+    "version": "1.23.3+local.20260923173328",
     "dirty": true
   },
   "registrations": [
@@ -245,9 +245,9 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "df95016fc564ff12350e7b553a408abfc7c68c22777de10723b0541a6d228e43",
+      "sha256": "4d721bc6f89e7337fcf7dcd59659a293de1f902064398f95f66971a63c01b0f1",
       "base_sha256": "df95016fc564ff12350e7b553a408abfc7c68c22777de10723b0541a6d228e43",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -300,8 +300,8 @@
     {
       "path": "agents/frontend-specialist.md",
       "sha256": "1977c1f80652e61472100288df7369217f8cf77c2a686c423ced02cd7238d38e",
-      "base_sha256": "2665cd817db2d8e4377507fec6c7c9a3db39162d92bbb91241dc26b4bfbd9c37",
-      "dirty": true
+      "base_sha256": "1977c1f80652e61472100288df7369217f8cf77c2a686c423ced02cd7238d38e",
+      "dirty": false
     },
     {
       "path": "agents/librarian.md",
@@ -779,9 +779,9 @@
     },
     {
       "path": "skills/debugger/evals/evals.json",
-      "sha256": "77dc28d2350acd7e83282073a807734cb5c85ac3121a6af72c028149175c2d34",
+      "sha256": "dc3db56fe90da36ef3f9561333e698434f78b9c208216c8ded2d7fae7a457798",
       "base_sha256": "77dc28d2350acd7e83282073a807734cb5c85ac3121a6af72c028149175c2d34",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/debugger/learning.md",
@@ -797,9 +797,9 @@
     },
     {
       "path": "skills/debugger/references/diagnose.md",
-      "sha256": "c6c44ec751be81c9cca1c26b970ccffa82a643233c75284516ba123d0df513f5",
+      "sha256": "853d399bfb55c9e1523ee204fb736c91dd9f1f4cf446b6cd7fa180b0ecf76748",
       "base_sha256": "c6c44ec751be81c9cca1c26b970ccffa82a643233c75284516ba123d0df513f5",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/debugger/references/methodology.md",
@@ -809,9 +809,9 @@
     },
     {
       "path": "skills/debugger/references/pack-guides.md",
-      "sha256": "77c5151abe9237237a8bdb96971c12e5c9ab6ba562206cde1b4f8b84726fce77",
+      "sha256": "107383ab7cc08008ab6f700ed8c4f3470b21aa0805c98a09db9f24776039fe8c",
       "base_sha256": "77c5151abe9237237a8bdb96971c12e5c9ab6ba562206cde1b4f8b84726fce77",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/debugger/references/structural-quality.md",
@@ -1265,15 +1265,15 @@
     },
     {
       "path": "skills/webapp-testing/SKILL.md",
-      "sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
+      "sha256": "3d350a28e88cc52ffd4324c0ab298534ba9e8c60be78136b3c4d47dce9cbf1f9",
       "base_sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/webapp-testing/references/browser-setup.md",
-      "sha256": "798563802f157efc1afb8a19da2e4756b1756c216248f7ebd49647770e37cecc",
+      "sha256": "a2c7a801c4bcf67245a89e5c53646c202f2d194c4d012181a0e55c2a311af70b",
       "base_sha256": "798563802f157efc1afb8a19da2e4756b1756c216248f7ebd49647770e37cecc",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/webapp-testing/scripts/with_server.py",
@@ -1339,7 +1339,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "debf6bf461f3f19e2b7c23446fc11f81e3d3afe532d1fbc6b572b1fd1857b3cc",
+      "sha256": "5d86012d29dd6650238a1aa7b9c16d4b13f8b1f08d165b86a92e3cf11e239bf4",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -2123,7 +2123,7 @@
     },
     {
       "path": "skills/content/skills/debugger/evals/evals.json",
-      "sha256": "77dc28d2350acd7e83282073a807734cb5c85ac3121a6af72c028149175c2d34",
+      "sha256": "dc3db56fe90da36ef3f9561333e698434f78b9c208216c8ded2d7fae7a457798",
       "sources": [
         "skills/debugger/evals/evals.json"
       ],
@@ -2147,7 +2147,7 @@
     },
     {
       "path": "skills/content/skills/debugger/references/diagnose.md",
-      "sha256": "75269c70dcd9f3bcb5b092f23f3c48fb950fc07625e244dace14fd15264e1627",
+      "sha256": "eed97aeeae141df53324f2bb469a9686929916d8ddb68207cf2ba09620e09162",
       "sources": [
         "skills/debugger/references/diagnose.md"
       ],
@@ -2163,7 +2163,7 @@
     },
     {
       "path": "skills/content/skills/debugger/references/pack-guides.md",
-      "sha256": "3579b9e1b3e69ebd97965914ac95b25c9d98284ac758849003acccae654192c2",
+      "sha256": "65d2ae480b926d53a08961b9d8cafe4383a726b2ecfc0808cb151867f6c92675",
       "sources": [
         "skills/debugger/references/pack-guides.md"
       ],
@@ -2771,7 +2771,7 @@
     },
     {
       "path": "skills/content/skills/webapp-testing/SKILL.md",
-      "sha256": "fa98bede2ee6bc38bf8f8610b5b7526ab5a278e9c681761cb4695b3fbc3b98c3",
+      "sha256": "37a646f4edb334d28b6d877f326831e1a931ab40506f21f48cb47a4757d54310",
       "sources": [
         "skills/webapp-testing/SKILL.md"
       ],
@@ -2779,7 +2779,7 @@
     },
     {
       "path": "skills/content/skills/webapp-testing/references/browser-setup.md",
-      "sha256": "4e86d87e1038ca29e724f02ea0bde69c7105e2014837f811bfc9895292216631",
+      "sha256": "42622ef89e08c3beb31475388ae186a0fea30f74da7f26ac612744f3a2cc998c",
       "sources": [
         "skills/webapp-testing/references/browser-setup.md"
       ],
@@ -3035,7 +3035,7 @@
     },
     {
       "path": "skills/webapp-testing.md",
-      "sha256": "fa98bede2ee6bc38bf8f8610b5b7526ab5a278e9c681761cb4695b3fbc3b98c3",
+      "sha256": "37a646f4edb334d28b6d877f326831e1a931ab40506f21f48cb47a4757d54310",
       "sources": [
         "skills/webapp-testing/SKILL.md"
       ],
@@ -6905,7 +6905,7 @@
       },
       {
         "from": "skills/debugger/references/diagnose.md",
-        "reference": "-snapshot.json",
+        "reference": "-snapshot.txt",
         "reason": "suffix of a caller-supplied path placeholder"
       },
       {

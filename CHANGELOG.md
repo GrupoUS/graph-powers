@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.23.3 — Headless browser verification for authenticated routes
+
+`webapp-testing` replays an encrypted, saved test-user state headlessly for authenticated routes;
+CDP attach becomes the fallback. Pre-flight loads `agent-browser skills get core` without `--full`
+(29,574 instead of 119,944 bytes on CLI 0.34.0), checks assert by reading before clicking, and the
+debugger's browser recipes use named sessions instead of `bunx` on the shared default session.
+
 ## 1.23.1 — Preserve Jev routing criteria
 
 Jev now receives each catalog entry's complete canonical description within the existing request
