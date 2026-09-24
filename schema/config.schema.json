@@ -44,6 +44,15 @@
         }
       },
       "additionalProperties": false
+    },
+    "jevEvaluation": {
+      "type": "object",
+      "description": "Client-specific opt-in for typed Jev routing; no credentials or model overrides belong here.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000, "default": 10000 }
+      },
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -272,6 +281,14 @@
         }
       }
     },
+    "claude": {
+      "type": "object",
+      "description": "Claude Code routing uses canonical agent frontmatter and an independent Jev opt-in; it never changes the native model or tool provider.",
+      "properties": {
+        "evaluation": { "$ref": "#/definitions/jevEvaluation" }
+      },
+      "additionalProperties": false
+    },
     "codex": {
       "type": "object",
       "description": "Codex CLI model routing and generated artefacts; ignored under Claude Code. Model chooses the intelligence/cost tier, reasoning effort chooses that model's single-agent budget, and Ultra is a separate top-level proactive orchestration mode rather than a subagent effort.",
@@ -307,15 +324,7 @@
           "$ref": "#/definitions/codexProfileName",
           "description": "Explicit global profile selection for generated subagents. Prefer a profile or agent override below when only part of the graph needs a different model. native-ultra is intentionally excluded because it is top-level-only."
         },
-        "evaluation": {
-          "type": "object",
-          "description": "Opt-in typed Jev routing. Independent of chat profiles and agent overrides; no reasoning effort or credential values belong here.",
-          "properties": {
-            "enabled": { "type": "boolean", "default": false },
-            "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000, "default": 10000 }
-          },
-          "additionalProperties": false
-        },
+        "evaluation": { "$ref": "#/definitions/jevEvaluation" },
         "profiles": {
           "type": "object",
           "description": "Operator overrides for semantic profiles. Terra may be selected here when the operator wants it; Graph Powers never inserts it as an automatic Luna -> Terra -> Sol retry.",

@@ -7,7 +7,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:p
 import { fileURLToPath } from "node:url";
 
 import { readCodexSettings } from "./install.mjs";
-import { asList, listDirs, listMarkdown, parseFrontmatter } from "./lib.mjs";
+import { asList, listDirs, listMarkdown, parseFrontmatter, readJson } from "./lib.mjs";
 import {
   CODEX_MODEL_POLICY,
   resolveCodexAgentPolicy,
@@ -105,8 +105,27 @@ function state(value) {
   return value;
 }
 
+/** Keep Codex's policy as default; Claude has its own project opt-in and source agent models. */
+export function routingSettings(projectDir, client = "codex") {
+  if (client === "codex") return readCodexSettings(projectDir);
+  if (client !== "claude") throw new Error("invalid routing client");
+  const config =
+    readJson(join(projectDir, ".graph-powers/config.json")) ??
+    readJson(join(projectDir, ".claude/config.json")) ??
+    {};
+  const claude = config.claude;
+  if (
+    claude !== undefined &&
+    (!claude || typeof claude !== "object" || Array.isArray(claude) ||
+      Object.keys(claude).some((key) => key !== "evaluation"))
+  )
+    throw new Error("invalid Claude routing settings");
+  return { evaluation: claude?.evaluation };
+}
+
 /** Source-derived actions; method names are bare, with optional graph-powers: or /command input. */
-export function routingCatalog(settings = {}) {
+export function routingCatalog(settings = {}, client = "codex") {
+  if (client !== "codex" && client !== "claude") throw new Error("invalid routing client");
   const entries = [];
   for (const [kind, paths] of [
     ["skill", listDirs(join(SOURCE_ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`)],
@@ -123,7 +142,14 @@ export function routingCatalog(settings = {}) {
         kind === "skill" ? posix.basename(posix.dirname(path)) : posix.basename(path, ".md");
       if (!ROLE.test(name)) throw new Error("invalid catalog name");
       const agent = kind === "agent";
-      const resolved = agent ? resolveCodexAgentPolicy(name, settings, data) : {};
+      const resolved = !agent
+        ? {}
+        : client === "claude"
+          ? {
+              model: text(data.model, "Claude agent model", 128),
+              reasoningEffort: text(data.effort, "Claude agent effort", 128),
+            }
+          : resolveCodexAgentPolicy(name, settings, data);
       const skills = agent
         ? asList(data.skills).map((value) => methodName(value, "skill"))
         : kind === "skill"
@@ -156,14 +182,14 @@ function methodName(value, kind) {
   return name;
 }
 
-function resolveCandidates(rawCandidates, settings) {
+function resolveCandidates(rawCandidates, settings, client) {
   if (
     !Array.isArray(rawCandidates) ||
     !rawCandidates.length ||
     rawCandidates.length > MAX_CANDIDATES
   )
     throw new Error("invalid candidates");
-  const catalog = new Map(routingCatalog(settings).map((entry) => [entry.id, entry]));
+  const catalog = new Map(routingCatalog(settings, client).map((entry) => [entry.id, entry]));
   const ids = new Set();
   const actions = new Set();
   const candidates = [];
@@ -440,14 +466,14 @@ async function send(request, policy, fetchImpl, credential) {
 /** Evaluate a material routing doubt. `fetchImpl` and `env` exist solely for bounded local tests. */
 export async function evaluateRouting(
   input,
-  { projectDir, planPath, fetchImpl = fetch, env = process.env } = {},
+  { projectDir, planPath, client = "codex", fetchImpl = fetch, env = process.env } = {},
 ) {
   let paths;
   let settings;
   let policy;
   try {
     paths = projectPaths(projectDir, planPath);
-    settings = readCodexSettings(paths.root);
+    settings = routingSettings(paths.root, client);
     policy = resolveCodexEvaluationPolicy(settings);
   } catch {
     return blocked("INVALID_CONFIGURATION");
@@ -465,8 +491,14 @@ export async function evaluateRouting(
     if (input.requesterRole !== "parent" && input.requesterRole !== "controller")
       throw new Error("invalid requester");
     if (input.depth !== 0) throw new Error("invalid depth");
-    candidates = resolveCandidates(input.candidates, settings);
-    request = requestFor(input, policy, candidates);
+    candidates = resolveCandidates(input.candidates, settings, client);
+    request = requestFor(
+      client === "claude"
+        ? { ...input, state: { ...state(input.state), routingClient: client } }
+        : input,
+      policy,
+      candidates,
+    );
     reservation = envelopeFor(input, request);
     reservation = ledger("reserve", paths, reservation);
   } catch (error) {

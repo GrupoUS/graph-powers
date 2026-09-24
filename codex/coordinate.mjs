@@ -6,12 +6,14 @@ import { existsSync, readFileSync, realpathSync, readdirSync, statSync } from "n
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { evaluateRouting, routingCatalog } from "./evaluate.mjs";
-import { readCodexSettings } from "./install.mjs";
+import { evaluateRouting, routingCatalog, routingSettings } from "./evaluate.mjs";
 
 const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SDD = fileURLToPath(new URL("../skills/planning/scripts/sdd.py", import.meta.url));
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+// Keep Jev's choice narrow; widen this shortlist only if real routing cases need it.
+const MAX_SHORTLIST = 8;
+const MIN_ROUTE_CONFIDENCE = 0.7;
 const actor = (input) => ({ requesterRole: input.requesterRole, depth: input.depth });
 const blocked = (reason) => ({ status: "BLOCKED", reason, executionAuthorized: false });
 
@@ -179,7 +181,7 @@ function feedback(state, env = process.env) {
   };
 }
 
-function prepare(state, root, env) {
+function prepare(state, root, env, client) {
   const candidate = state.action.candidate;
   const methods = (candidate.skills ?? []).map((name) => ({
     name,
@@ -215,6 +217,11 @@ function prepare(state, root, env) {
     role: candidate.role,
     methods,
     prompt,
+    ...(client === "claude" && {
+      nativeRoute: candidate.role === "main"
+        ? { tool: "Skill", skill: `graph-powers:${candidate.command ?? candidate.skills[0]}` }
+        : { tool: "Agent", subagent_type: `graph-powers:${candidate.role}` },
+    }),
   };
 }
 
@@ -223,9 +230,11 @@ export async function coordinate(action, input, options = {}) {
   try {
     if (!input || !["parent", "controller"].includes(input.requesterRole) || input.depth !== 0)
       return blocked("PARENT_REQUIRED");
+    const client = options.client ?? "codex";
+    if (client !== "codex" && client !== "claude") return blocked("INVALID_CLIENT");
     const projectDir = realpathSync(options.projectDir);
-    options = { ...options, projectDir };
-    const catalog = routingCatalog(readCodexSettings(projectDir));
+    options = { ...options, projectDir, client };
+    const catalog = routingCatalog(routingSettings(projectDir, client), client);
     if (action === "catalog") return { status: "CATALOG", actions: catalog };
     if (action === "init") {
       let existing;
@@ -289,20 +298,22 @@ export async function coordinate(action, input, options = {}) {
     if (action !== "next") return blocked("INVALID_ACTION");
     if (["PENDING", "COMPLETED"].includes(state.status)) return state;
     const receipt = state.handoffs.at(-1);
+    const allowed = input.allowed;
+    if (!Array.isArray(allowed) || !allowed.length || allowed.length > MAX_SHORTLIST)
+      return blocked("BOUNDED_ACTION_SET_REQUIRED");
+    if (
+      new Set(allowed).size !== allowed.length ||
+      allowed.some((id) => !catalog.some((item) => item.id === id))
+    )
+      return blocked("INVALID_ACTION_SET");
+    if (allowed.length === 1)
+      return { status: "SKIPPED", reason: "NO_MATERIAL_DOUBT", executionAuthorized: false };
     const currentSnapshot = snapshot(projectDir, [
       ...state.context.owns,
       ...(receipt?.verification.artifacts ?? []).map((item) => item.path),
     ]);
-    const allowed = input.allowed;
-    if (
-      allowed !== undefined &&
-      (!Array.isArray(allowed) ||
-        !allowed.length ||
-        allowed.some((id) => !catalog.some((item) => item.id === id)))
-    )
-      return blocked("INVALID_ACTION_SET");
     const candidates = catalog
-      .filter((entry) => !allowed || allowed.includes(entry.id))
+      .filter((entry) => allowed.includes(entry.id))
       .map((entry) => {
         const candidate = {
           id: entry.id,
@@ -323,7 +334,10 @@ export async function coordinate(action, input, options = {}) {
         }
         return candidate;
       });
-    const decisionKey = `route-${state.sequence + 1}-${hash(JSON.stringify({ currentSnapshot, candidates })).slice(0, 16)}`;
+    const keyState = client === "codex"
+      ? { currentSnapshot, candidates }
+      : { client, currentSnapshot, candidates };
+    const decisionKey = `route-${state.sequence + 1}-${hash(JSON.stringify(keyState)).slice(0, 16)}`;
     const selected = await evaluateRouting(
       {
         ...actor(input),
@@ -343,9 +357,11 @@ export async function coordinate(action, input, options = {}) {
           planComplete: state.planComplete,
         },
       },
-      { projectDir, planPath: state.contextPath, fetchImpl: options.fetchImpl, env: options.env },
+      { projectDir, planPath: state.contextPath, client, fetchImpl: options.fetchImpl, env: options.env },
     );
     if (selected.status !== "RECORDED") return { ...selected, executionAuthorized: false };
+    if (selected.evaluationResult.answers.route.probabilities[selected.verdict] < MIN_ROUTE_CONFIDENCE)
+      return { status: "SKIPPED", reason: "LOW_CONFIDENCE", executionAuthorized: false };
     if (
       snapshot(projectDir, [
         ...state.context.owns,
@@ -358,7 +374,7 @@ export async function coordinate(action, input, options = {}) {
       { ...actor(input), decisionKey, snapshot: currentSnapshot },
       options,
     );
-    if (output.executionAuthorized) output.handoff = prepare(output, projectDir, options.env);
+    if (output.executionAuthorized) output.handoff = prepare(output, projectDir, options.env, client);
     return output;
   } catch (error) {
     return blocked(
@@ -372,10 +388,15 @@ export async function coordinate(action, input, options = {}) {
 }
 
 if (import.meta.main) {
-  const [action, flag, projectDir, sessionFlag, sessionId] = process.argv.slice(2);
-  if (flag !== "--project" || sessionFlag !== "--session" || !sessionId) {
+  const argv = process.argv.slice(2);
+  const [action, flag, projectDir, sessionFlag, sessionId, clientFlag, client] = argv;
+  if (
+    flag !== "--project" || sessionFlag !== "--session" || !sessionId ||
+    (argv.length !== 5 &&
+      (argv.length !== 7 || clientFlag !== "--client" || !["codex", "claude"].includes(client)))
+  ) {
     process.stderr.write(
-      "usage: coordinate.mjs catalog|init|link-plan|next|return|finish|status --project ROOT --session ID (JSON stdin)\n",
+      "usage: coordinate.mjs catalog|init|link-plan|next|return|finish|status --project ROOT --session ID [--client codex|claude] (JSON stdin)\n",
     );
     process.exitCode = 2;
   } else {
@@ -383,6 +404,7 @@ if (import.meta.main) {
       const result = await coordinate(action, JSON.parse(readFileSync(0, "utf8")), {
         projectDir,
         sessionId,
+        client: client ?? "codex",
       });
       process.stdout.write(`${JSON.stringify(result)}\n`);
       process.exitCode =

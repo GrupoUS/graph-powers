@@ -92,30 +92,37 @@ capability or an unavailable fallback returns `BLOCKED` without a spawn or retry
 through `sdd.py consult reserve|record` in the plan's existing workspace; retain the ledger on resume.
 Optional `fallback` and bounded `reason` record that routing.
 
-### Codex typed coordination (optional Jev)
+### Claude Code and Codex typed coordination (optional Jev)
 
-Only the parent/controller at depth zero uses `codex/coordinate.mjs`; required reviews remain named
-and separate. When enabled, Jev may choose one catalogued agent, skill, command or `main` method,
-including same-model specialists. It selects a route only: it never authorizes,
+Only the parent/controller at depth zero uses `codex/coordinate.mjs` (the existing shared adapter);
+required reviews remain named and separate. When enabled, Jev may choose one catalogued agent,
+skill or command, including same-model specialists. It selects a route only: it never authorizes,
 dispatches, reviews or completes work.
 
-Three authorizations are distinct: enable `codex.evaluation.enabled` in host configuration;
-authorize configuring `AI_GATEWAY_API_KEY` in the active global Codex environment; then authorize
-the bounded paid evaluation batch. Installation, a credential, prior result or replay grants none of the
+Three authorizations are distinct: enable `claude.evaluation.enabled` for Claude Code or
+`codex.evaluation.enabled` for Codex in the host project; authorize making
+`AI_GATEWAY_API_KEY` available in that client's executor environment; then authorize the bounded
+paid evaluation batch. Installation, a credential, prior result or replay grants none of the
 others. Optional `timeoutMs` is 100–60000 (default 10000). No credential discovery, chat fallback,
 model substitution or retry.
 
 Pass JSON on stdin to:
 
 ```bash
-bun "${CLAUDE_PLUGIN_ROOT}/codex/coordinate.mjs" <catalog|init|link-plan|next|return|finish|status> --project . --session <ID>
+bun "${CLAUDE_PLUGIN_ROOT}/codex/coordinate.mjs" <catalog|init|link-plan|next|return|finish|status> --project . --session <ID> [--client claude]
 ```
+
+Without `--client`, Codex keeps its existing policy and replay keys. Claude Code passes
+`--client claude` on **every** event for the same session; its catalog reads canonical agent
+frontmatter (`model`/`effort`) and `handoff.nativeRoute` names the native `Agent` subtype or
+`Skill` to invoke. Do not override that agent's model. The client's identity is bound into Claude
+consultations so a skill-only route cannot replay a Codex decision.
 
 Each object includes `{"requesterRole":"parent","depth":0}`. The minimum event payloads are:
 
 ```json
 {"request":"<scope>","taskId":"T1","owns":["<path>"],"checks":[{"name":"<check>","argv":["<runner>","<arg>"]}]}
-{"allowed":["agent:verification"],"capabilities":[{"model":"<resolved>","reasoningEffort":"<resolved>","status":"SUPPORTED","evidence":"<smoke>"}]}
+{"allowed":["agent:debugger","agent:frontend-specialist"],"capabilities":[{"model":"<resolved>","reasoningEffort":"<resolved>","status":"SUPPORTED","evidence":"<smoke>"}]}
 {"ticket":"<ticket>","handoff":{"status":"COMPLETED","confidence":4,"artifacts":[],"qualityGates":[],"decisions":[],"risks":[],"nextAgent":"NONE","resumeHint":"<next action>"}}
 {"planPath":"<approved-plan-path>"}
 ```
@@ -126,9 +133,17 @@ non-sensitive evidence otherwise. It collects no repository history automaticall
 
 1. `catalog` returns source-derived eligible actions. `init` persists request, task, owned paths,
    approved checks and a baseline before selection.
-2. `next` accepts the bounded allowed set plus real `SUPPORTED` model/effort capability evidence,
-   records one choice and returns `executionAuthorized`, selected methods and a seven-section prompt.
-   The parent executes that native agent dispatch or main skill/command method.
+2. `next` requires two to eight distinct, eligible actions in `allowed`, plus real `SUPPORTED`
+   model/effort capability evidence for agents. With one evident route, the parent uses its native
+   method without calling Jev; a missing or overly broad shortlist is rejected before any paid call.
+   A recorded choice below 0.7 probability returns `SKIPPED/LOW_CONFIDENCE` without dispatch; the
+   parent applies the existing assignment matrix, not a second Jev call. On `SKIPPED`, the optional
+   coordinator keeps its previous `READY`/`RETURNED` state and creates no ticket: continue the
+   ordinary native workflow with its checks, without inventing a `return` for the skipped route.
+   A confident choice returns `executionAuthorized`, selected methods and a seven-section prompt;
+   the parent executes that native agent dispatch or main skill/command method. In Claude Code,
+   invoke `Agent` with `nativeRoute.subagent_type` and the handoff prompt, or `Skill` with
+   `nativeRoute.skill`; a route is never an automatic tool call.
 3. `return` accepts the Context Handoff and runs approved checks afresh, hashes declared artifacts
    and rejects scope drift. `status` exposes resumable state. The parent calls `next` only if another
    route remains to choose. Once the return proof, current snapshot and linked plan are complete, the
@@ -143,7 +158,7 @@ transient `callAuthorized: true` sends one request. The Jev cap is three evaluat
 coordination actions use `graphGuardrails.maxSpawnsPerWorkflow` (default 8). Duplicates, pending or
 failed decisions do not resend; replays need no credential or traffic. `evaluationResult` retains
 model, choice and probabilities; `evaluationError` has a bounded generic reason. Unknown capability
-blocks without fallback. The parent uses no probability threshold and owns the next action. CLI exits
+blocks without fallback. A choice below 0.7 defers routing to the parent, never authorization. CLI exits
 are 0 success/skipped, 2 invalid input/configuration, 4 blocked/capped/pending, and 1 unexpected
 failure. Plans resolve in the host Git root, including symlinks; recorded verdict equals typed choice.
 

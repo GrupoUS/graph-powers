@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "a6a35e4dce11184b60a004800d0f406dc97ad144",
-    "version": "1.23.3+local.20260923173328",
+    "base_revision": "c3756bda3dbc089711efd039d68d5d8cf1c28d7f",
+    "version": "1.23.4+local.20260924135941",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "4d721bc6f89e7337fcf7dcd59659a293de1f902064398f95f66971a63c01b0f1",
-      "base_sha256": "df95016fc564ff12350e7b553a408abfc7c68c22777de10723b0541a6d228e43",
+      "sha256": "7d2af9d09e290a513c8e40062c0c9d6c7a6826cbb2508fead8d33eb22fb0a5c8",
+      "base_sha256": "4d721bc6f89e7337fcf7dcd59659a293de1f902064398f95f66971a63c01b0f1",
       "dirty": true
     },
     {
@@ -263,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "db706bd32ef6967ebd8449d5995851a37ab2985e7df46dda1fe2b8806118722e",
+      "sha256": "39bcdf2fb918c9bbd9b31ed6e9c7053bb4e8de33243b9bf6267f60da245d29cc",
       "base_sha256": "db706bd32ef6967ebd8449d5995851a37ab2985e7df46dda1fe2b8806118722e",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -353,15 +353,15 @@
     },
     {
       "path": "codex/coordinate.mjs",
-      "sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
+      "sha256": "d1f39bfce5e5b377329777fcfada62ff388e59937850b8339a50e7f0dd5d5fb0",
       "base_sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "codex/evaluate.mjs",
-      "sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
+      "sha256": "a3902379d969c694af6d4dabfbcb540fd834abe34bc9359634bdc4a97cc908ac",
       "base_sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "codex/install.mjs",
@@ -509,9 +509,9 @@
     },
     {
       "path": "references/execution-floor.md",
-      "sha256": "faedce00ba7ea430a6b6de20bf8f5c82b15723ffd4add65a1052e4d069c934c8",
+      "sha256": "16c85793aa6e2a131e7ca91d0587b310341434b762c9eaf3c09a2aa912f8cf10",
       "base_sha256": "faedce00ba7ea430a6b6de20bf8f5c82b15723ffd4add65a1052e4d069c934c8",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/recovery-protocol.md",
@@ -605,9 +605,9 @@
     },
     {
       "path": "references/shared/005-method-bootstrap.md",
-      "sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
+      "sha256": "683a981abe11d9fbf495b415e5c686c59ee6021fb910863865ce714d6a5322e0",
       "base_sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/007-path-conventions.md",
@@ -737,9 +737,9 @@
     },
     {
       "path": "schema/config.schema.json",
-      "sha256": "d3e1d5ba2bfd2d5bff2e23f7bd57e11eb0a084de9f31de2a978fac489fb3f09a",
+      "sha256": "f3e2632c23d1c9b503fef847eb0e91bddd5e666bf619bda6a240069094b1c1a5",
       "base_sha256": "d3e1d5ba2bfd2d5bff2e23f7bd57e11eb0a084de9f31de2a978fac489fb3f09a",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/animate/SKILL.md",
@@ -780,8 +780,8 @@
     {
       "path": "skills/debugger/evals/evals.json",
       "sha256": "dc3db56fe90da36ef3f9561333e698434f78b9c208216c8ded2d7fae7a457798",
-      "base_sha256": "77dc28d2350acd7e83282073a807734cb5c85ac3121a6af72c028149175c2d34",
-      "dirty": true
+      "base_sha256": "dc3db56fe90da36ef3f9561333e698434f78b9c208216c8ded2d7fae7a457798",
+      "dirty": false
     },
     {
       "path": "skills/debugger/learning.md",
@@ -798,8 +798,8 @@
     {
       "path": "skills/debugger/references/diagnose.md",
       "sha256": "853d399bfb55c9e1523ee204fb736c91dd9f1f4cf446b6cd7fa180b0ecf76748",
-      "base_sha256": "c6c44ec751be81c9cca1c26b970ccffa82a643233c75284516ba123d0df513f5",
-      "dirty": true
+      "base_sha256": "853d399bfb55c9e1523ee204fb736c91dd9f1f4cf446b6cd7fa180b0ecf76748",
+      "dirty": false
     },
     {
       "path": "skills/debugger/references/methodology.md",
@@ -810,8 +810,8 @@
     {
       "path": "skills/debugger/references/pack-guides.md",
       "sha256": "107383ab7cc08008ab6f700ed8c4f3470b21aa0805c98a09db9f24776039fe8c",
-      "base_sha256": "77c5151abe9237237a8bdb96971c12e5c9ab6ba562206cde1b4f8b84726fce77",
-      "dirty": true
+      "base_sha256": "107383ab7cc08008ab6f700ed8c4f3470b21aa0805c98a09db9f24776039fe8c",
+      "dirty": false
     },
     {
       "path": "skills/debugger/references/structural-quality.md",
@@ -1097,9 +1097,9 @@
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "5b8a379807cfd7c013c1d68a9d9e737796c86000641483a5b0e662ff8d012886",
+      "sha256": "dde40bac0db76afa79e8bf1e34d7b72515062564671d356991b61f02b79e8ebe",
       "base_sha256": "5b8a379807cfd7c013c1d68a9d9e737796c86000641483a5b0e662ff8d012886",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1151,9 +1151,9 @@
     },
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "a6ec9d216cc146e8ca79d3cab192eb2d60875e2328cdc23ff977e972f0c95c52",
+      "sha256": "b01c19517f7f919dd469d61fa1f567ae120e952cdf516da9bccd91bbbd225728",
       "base_sha256": "a6ec9d216cc146e8ca79d3cab192eb2d60875e2328cdc23ff977e972f0c95c52",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/senior-prompt-engineer/references/agentic_system_design.md",
@@ -1266,14 +1266,14 @@
     {
       "path": "skills/webapp-testing/SKILL.md",
       "sha256": "3d350a28e88cc52ffd4324c0ab298534ba9e8c60be78136b3c4d47dce9cbf1f9",
-      "base_sha256": "1b5cb7e07dcd00ffb862973f1ec8316166ba0c86fb32c4557255986423286c9f",
-      "dirty": true
+      "base_sha256": "3d350a28e88cc52ffd4324c0ab298534ba9e8c60be78136b3c4d47dce9cbf1f9",
+      "dirty": false
     },
     {
       "path": "skills/webapp-testing/references/browser-setup.md",
       "sha256": "a2c7a801c4bcf67245a89e5c53646c202f2d194c4d012181a0e55c2a311af70b",
-      "base_sha256": "798563802f157efc1afb8a19da2e4756b1756c216248f7ebd49647770e37cecc",
-      "dirty": true
+      "base_sha256": "a2c7a801c4bcf67245a89e5c53646c202f2d194c4d012181a0e55c2a311af70b",
+      "dirty": false
     },
     {
       "path": "skills/webapp-testing/scripts/with_server.py",
@@ -1339,7 +1339,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "5d86012d29dd6650238a1aa7b9c16d4b13f8b1f08d165b86a92e3cf11e239bf4",
+      "sha256": "54aca81c84a9b128deb207aaf94f16f1a307c8d5131f23c8823b9eac9a689f01",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1467,7 +1467,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "56c4899e9be240442a7cb635efcf6f0070e50589ecfb1dd683e1c1960b462bfa",
+      "sha256": "c15403bdc47775de0193ad20f6b74fad7068f6bac57e6f947e92f90a6dd07399",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1571,7 +1571,7 @@
     },
     {
       "path": "skills/content/codex/coordinate.mjs",
-      "sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
+      "sha256": "d1f39bfce5e5b377329777fcfada62ff388e59937850b8339a50e7f0dd5d5fb0",
       "sources": [
         "codex/coordinate.mjs"
       ],
@@ -1579,7 +1579,7 @@
     },
     {
       "path": "skills/content/codex/evaluate.mjs",
-      "sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
+      "sha256": "a3902379d969c694af6d4dabfbcb540fd834abe34bc9359634bdc4a97cc908ac",
       "sources": [
         "codex/evaluate.mjs"
       ],
@@ -1763,7 +1763,7 @@
     },
     {
       "path": "skills/content/references/execution-floor.md",
-      "sha256": "3204796fb3e04e89588549b244bfbe6ff2c1dc4543e7d01e66437e8b8f4a3a03",
+      "sha256": "78a298452e82449c594a7e067edde12b3749ab59428e134b6dfc7942b327a240",
       "sources": [
         "references/execution-floor.md"
       ],
@@ -1891,7 +1891,7 @@
     },
     {
       "path": "skills/content/references/shared/005-method-bootstrap.md",
-      "sha256": "67ae83fb91ec1651ba1922af376f96c942862c2eb407fbb5e06b77fb710839e8",
+      "sha256": "60949a81b1e5efb3b739dc6f7a73031844624664caa778e2530b571c332a5128",
       "sources": [
         "references/shared/005-method-bootstrap.md"
       ],
@@ -2067,7 +2067,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "2bfa04bd7bc22d09e352ffa6026834a135772e01417dccb10ed85b6ab22fff68",
+      "sha256": "94081539856183b614dbe2dbea53c30a82cd53b161aef2181b83345c8f5a9973",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2547,7 +2547,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-c-executing-plans.md",
-      "sha256": "58b57d496e7db1b8fee2ef99b2347345dd6778814624d5206d789b6ea499932e",
+      "sha256": "8db3d7ff261a2b69cf66e723ea79fce230c21e72b4223cf734e0c7792e722461",
       "sources": [
         "skills/planning/references/phase-c-executing-plans.md"
       ],
@@ -2619,7 +2619,7 @@
     },
     {
       "path": "skills/content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "d51a723497054e7f6a535de935d18fe69148135a391200e3569531038063dd8f",
+      "sha256": "83f9c6681ca903b3d77e82354acabecb65e16a9d4b40213c46757344c3d74a56",
       "sources": [
         "skills/senior-prompt-engineer/references/agent-handoff-contracts.md"
       ],
@@ -3148,6 +3148,12 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "codex/coordinate.mjs",
+        "to": "codex/coordinate.mjs",
+        "kind": "reference"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "codex/evaluate.mjs",
         "to": "codex/evaluate.mjs",
         "kind": "reference"
@@ -3654,12 +3660,6 @@
         "from": "codex/coordinate.mjs",
         "reference": "./evaluate.mjs",
         "to": "codex/evaluate.mjs",
-        "kind": "javascript-import"
-      },
-      {
-        "from": "codex/coordinate.mjs",
-        "reference": "./install.mjs",
-        "to": "codex/install.mjs",
         "kind": "javascript-import"
       },
       {

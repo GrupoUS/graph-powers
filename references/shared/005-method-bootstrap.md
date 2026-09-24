@@ -12,8 +12,8 @@ review feedback. Full ordering is `120-skill-invocation-order.md`.
 
 - Execute an approved plan only through `/implement` and planning Phase C; do not invent a parallel
   task loop.
-- With Codex evaluation enabled and paid scope authorized, main starts/resumes coordination before
-  route selection via `execution-floor.md §4a`; Phase C still implements.
+- With client Jev opt-in and paid batch approval, main starts/resumes only for ambiguous routes
+  via `execution-floor.md §4a`; Phase C implements.
 - Behaviour changes follow `skills/planning/references/execution/tdd-policy.md`.
 - `025-solution-ladder.md`: only what the plan and failing test require.
 - Completion evidence follows `015-verification-gate.md`; an agent report or visual inspection is

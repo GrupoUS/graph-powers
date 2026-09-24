@@ -13,13 +13,10 @@ const capabilities = ["high", "medium"].map((reasoningEffort) => ({
   status: "SUPPORTED",
   evidence: "synthetic account capability fixture",
 }));
-function fixture(name) {
+function fixture(name, config = { codex: { evaluation: { enabled: true } } }) {
   const root = mkdtempSync(join(tmpdir(), "gp-coordinate-"));
   mkdirSync(join(root, ".graph-powers"));
-  writeFileSync(
-    join(root, ".graph-powers/config.json"),
-    JSON.stringify({ codex: { evaluation: { enabled: true } } }),
-  );
+  writeFileSync(join(root, ".graph-powers/config.json"), JSON.stringify(config));
   assert.equal(spawnSync("git", ["init", "-q"], { cwd: root }).status, 0);
   const settings = { projectDir: root, sessionId: name, env: { AI_GATEWAY_API_KEY: "fixture" } };
   const input = {
@@ -50,7 +47,7 @@ const handoff = () => ({
   nextAgent: "NONE",
   resumeHint: "Verify result",
 });
-function provider(choose, count) {
+function provider(choose, count, confidence = 1) {
   return async (_url, init) => {
     count.calls++;
     const body = JSON.parse(init.body);
@@ -64,7 +61,9 @@ function provider(choose, count) {
           route: {
             type: "choice",
             choice,
-            probabilities: Object.fromEntries(ids.map((id) => [id, id === choice ? 1 : 0])),
+            probabilities: Object.fromEntries(
+              ids.map((id) => [id, id === choice ? confidence : (1 - confidence) / (ids.length - 1)]),
+            ),
           },
         },
       }),
@@ -78,7 +77,7 @@ try {
   await coordinate("init", descriptionsFixture.input, descriptionsFixture.settings);
   const action = await coordinate(
     "next",
-    { ...actor, capabilities },
+    { ...actor, capabilities, allowed: ["skill:planning", "skill:uxmaster"] },
     {
       ...descriptionsFixture.settings,
       fetchImpl: provider(
@@ -102,6 +101,82 @@ try {
   descriptionsFixture.cleanup();
 }
 
+const shortlistFixture = fixture("bounded-shortlist");
+try {
+  await coordinate("init", shortlistFixture.input, shortlistFixture.settings);
+  const offline = {
+    ...shortlistFixture.settings,
+    fetchImpl: () => {
+      throw Error("Jev must not be called without a shortlist");
+    },
+  };
+  const missing = await coordinate("next", { ...actor, capabilities }, offline);
+  assert.equal(missing.status, "BLOCKED");
+  assert.equal(missing.reason, "BOUNDED_ACTION_SET_REQUIRED");
+  const single = await coordinate(
+    "next",
+    { ...actor, capabilities, allowed: ["agent:debugger"] },
+    offline,
+  );
+  assert.equal(single.status, "SKIPPED");
+  assert.equal(single.reason, "NO_MATERIAL_DOUBT");
+  const broad = await coordinate(
+    "next",
+    {
+      ...actor,
+      capabilities,
+      allowed: [
+        "agent:debugger", "agent:frontend-specialist", "agent:verification",
+        "skill:planning", "skill:debugger", "skill:uxmaster",
+        "command:debug", "command:design", "command:verify",
+      ],
+    },
+    offline,
+  );
+  assert.equal(broad.status, "BLOCKED");
+  assert.equal(broad.reason, "BOUNDED_ACTION_SET_REQUIRED");
+  assert.equal((await coordinate("status", actor, offline)).status, "READY");
+} finally {
+  shortlistFixture.cleanup();
+}
+
+const uncertainFixture = fixture("uncertain-route");
+try {
+  await coordinate("init", uncertainFixture.input, uncertainFixture.settings);
+  const count = { calls: 0 };
+  const settings = {
+    ...uncertainFixture.settings,
+    fetchImpl: async () => {
+      count.calls++;
+      return new Response(JSON.stringify({
+        model: "typesafe-ai/jev",
+        answers: {
+          route: {
+            type: "choice",
+            choice: "agent:debugger",
+            probabilities: { "agent:debugger": 0.69, "agent:frontend-specialist": 0.31 },
+          },
+        },
+      }), { status: 200 });
+    },
+  };
+  const request = {
+    ...actor,
+    capabilities,
+    allowed: ["agent:debugger", "agent:frontend-specialist"],
+  };
+  const uncertain = await coordinate("next", request, settings);
+  assert.equal(uncertain.status, "SKIPPED");
+  assert.equal(uncertain.reason, "LOW_CONFIDENCE");
+  assert.equal(uncertain.executionAuthorized, false);
+  assert.equal((await coordinate("status", actor, settings)).status, "READY");
+  const replay = await coordinate("next", request, settings);
+  assert.equal(replay.status, "SKIPPED");
+  assert.equal(count.calls, 1, "uncertain decisions must not be sent again");
+} finally {
+  uncertainFixture.cleanup();
+}
+
 const cycleFixture = fixture("cycle");
 try {
   const start = await coordinate("init", cycleFixture.input, cycleFixture.settings);
@@ -110,7 +185,7 @@ try {
   const count = { calls: 0 };
   const settings = {
     ...cycleFixture.settings,
-    fetchImpl: provider((_ids) => "agent:frontend-specialist", count),
+    fetchImpl: provider((_ids) => "agent:frontend-specialist", count, 0.7),
   };
   const request = {
     ...actor,
@@ -401,6 +476,122 @@ async function checkLinkedPlanScenario(completion) {
 await checkLinkedPlanScenario("pending");
 await checkLinkedPlanScenario("todo");
 await checkLinkedPlanScenario("verified");
+
+const claudeOnly = fixture("claude-disabled");
+try {
+  await coordinate("init", claudeOnly.input, { ...claudeOnly.settings, client: "claude" });
+  const disabled = await coordinate(
+    "next",
+    { ...actor, allowed: ["skill:planning", "skill:uxmaster"] },
+    {
+      ...claudeOnly.settings,
+      client: "claude",
+      fetchImpl: () => { throw Error("Codex opt-in cannot authorize Claude routing"); },
+    },
+  );
+  assert.equal(disabled.status, "SKIPPED");
+  assert.equal(disabled.reason, "EVALUATION_DISABLED");
+} finally {
+  claudeOnly.cleanup();
+}
+
+const claudeConfig = {
+  codex: { evaluation: { enabled: true } },
+  claude: { evaluation: { enabled: true } },
+};
+const claudeFixture = fixture("claude-agent-route", claudeConfig);
+try {
+  const settings = { ...claudeFixture.settings, client: "claude" };
+  await coordinate("init", claudeFixture.input, settings);
+  const count = { calls: 0 };
+  const offline = { ...settings, fetchImpl: () => { throw Error("no Jev call expected"); } };
+  assert.equal((await coordinate("next", { ...actor }, offline)).reason, "BOUNDED_ACTION_SET_REQUIRED");
+  assert.equal((await coordinate("next", { ...actor, allowed: ["agent:debugger"] }, offline)).reason, "NO_MATERIAL_DOUBT");
+  const request = {
+    ...actor,
+    allowed: ["agent:debugger", "agent:security-reviewer"],
+    capabilities: [{ model: "sonnet", reasoningEffort: "xhigh", status: "SUPPORTED", evidence: "native role fixture" }],
+  };
+  const action = await coordinate("next", request, {
+    ...settings,
+    fetchImpl: provider((ids, body) => {
+      assert.deepEqual(ids, ["agent:debugger", "agent:security-reviewer"]);
+      assert.equal(body.state.routingClient, "claude");
+      return "agent:security-reviewer";
+    }, count, 0.7),
+  });
+  assert.equal(action.status, "PENDING");
+  assert.equal(action.executionAuthorized, true);
+  assert.equal(action.action.candidate.model, "sonnet");
+  assert.equal(action.action.candidate.reasoningEffort, "xhigh");
+  assert.deepEqual(action.handoff.nativeRoute, {
+    tool: "Agent", subagent_type: "graph-powers:security-reviewer",
+  });
+  assert.equal(count.calls, 1);
+  writeFileSync(join(claudeFixture.root, "result.txt"), "ok");
+  const returned = await coordinate("return", {
+    ...actor, ticket: action.action.ticket, handoff: handoff(),
+  }, settings);
+  assert.equal(returned.handoffs.at(-1).verification.passed, true);
+  assert.equal((await coordinate("finish", actor, settings)).status, "COMPLETED");
+  const cli = spawnSync("bun", ["codex/coordinate.mjs", "catalog", "--project", claudeFixture.root,
+    "--session", "claude-cli", "--client", "claude"], {
+      encoding: "utf8", input: JSON.stringify(actor),
+    });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).actions.find((item) => item.id === "agent:debugger").model, "sonnet");
+} finally {
+  claudeFixture.cleanup();
+}
+
+await Promise.all(
+  ["skill:planning", "command:debug"].map(async (target) => {
+    const methodFixture = fixture(`claude-${target.replace(":", "-")}`, claudeConfig);
+    try {
+      const settings = { ...methodFixture.settings, client: "claude" };
+      await coordinate("init", methodFixture.input, settings);
+      const action = await coordinate("next", {
+        ...actor, allowed: ["skill:planning", "command:debug"],
+      }, {
+        ...settings, fetchImpl: provider(() => target, { calls: 0 }),
+      });
+      assert.equal(action.executionAuthorized, true);
+      assert.deepEqual(action.handoff.nativeRoute, {
+        tool: "Skill", skill: `graph-powers:${target.split(":")[1]}`,
+      });
+    } finally {
+      methodFixture.cleanup();
+    }
+  }),
+);
+
+const clientIsolation = fixture("two-client-ledger", claudeConfig);
+try {
+  const claude = { ...clientIsolation.settings, client: "claude" };
+  await coordinate("init", clientIsolation.input, claude);
+  const allowed = ["skill:planning", "skill:uxmaster"];
+  const claudeCalls = { calls: 0 };
+  const uncertain = await coordinate("next", { ...actor, allowed }, {
+    ...claude,
+    fetchImpl: provider(() => "skill:planning", claudeCalls, 0.69),
+  });
+  assert.equal(uncertain.reason, "LOW_CONFIDENCE");
+  assert.equal(uncertain.executionAuthorized, false);
+  assert.equal((await coordinate("next", { ...actor, allowed }, {
+    ...claude, fetchImpl: () => { throw Error("Claude replay sent twice"); },
+  })).reason, "LOW_CONFIDENCE");
+  assert.equal(claudeCalls.calls, 1);
+  const codexCalls = { calls: 0 };
+  const codex = await coordinate("next", { ...actor, allowed }, {
+    ...clientIsolation.settings,
+    fetchImpl: provider(() => "skill:uxmaster", codexCalls),
+  });
+  assert.equal(codex.status, "PENDING");
+  assert.equal(codex.action.candidate.id, "skill:uxmaster");
+  assert.equal(codexCalls.calls, 1, "Codex must not replay Claude's skill-only decision");
+} finally {
+  clientIsolation.cleanup();
+}
 
 console.log(
   "jev-coordination: routing, methods, handoff, fresh checks, resume and browser lane passed",

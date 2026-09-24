@@ -27,10 +27,12 @@ native plugin, invoke verification as `$graph-powers:verify quick`, or open `/sk
 `/verify` spelling belongs to Claude Code; Codex rejects unknown slash commands before a plugin can
 route them.
 
-Optional Jev coordination selects a catalogued agent, skill, command or main method. The parent
-executes the native route, verifies its handoff afresh, and leaves implementation to Phase C. Host
-opt-in, global credential setup and each bounded paid evaluation batch need separate authorization; the
-[setup playbook](AGENT_SETUP.md) has the two-evaluation smoke.
+Optional Jev coordination in Claude Code and Codex chooses among a short list of eligible agents,
+skills or commands when routing is genuinely ambiguous; low-confidence choices fall back to the
+parent's native routing. It does not intercept Bash/Read or change either client's provider.
+The parent executes the native route, verifies its handoff afresh, and leaves implementation to
+Phase C. Each client has its own host opt-in; credential availability and each bounded paid
+evaluation batch need separate authorization. See the [setup playbook](AGENT_SETUP.md).
 
 **Cursor** — install the plugin from the marketplace, then once per machine write the IDE Run Mode
 (this is the file Auto-review actually reads; `cli-config.json` is only `cursor-agent`):

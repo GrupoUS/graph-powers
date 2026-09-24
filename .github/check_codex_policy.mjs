@@ -388,8 +388,10 @@ for (const settings of [
   );
 }
 assert(
-  schema.properties.codex.properties.evaluation.additionalProperties === false,
-  "evaluation schema must reject chat-only fields",
+  schema.properties.codex.properties.evaluation.$ref === "#/definitions/jevEvaluation" &&
+    schema.properties.claude.properties.evaluation.$ref === "#/definitions/jevEvaluation" &&
+    schema.definitions.jevEvaluation.additionalProperties === false,
+  "evaluation schema must reject chat-only fields for both clients",
 );
 
 const { evaluateRouting, routingCatalog } = await import("../codex/evaluate.mjs");

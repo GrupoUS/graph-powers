@@ -39,7 +39,11 @@ does not require the prompt-engineering skill; use it when changing this machine
 ### §4a — Parent-mediated Jev coordination
 
 Only the parent/controller operates Jev through catalog/init/link-plan/next/return/finish/status
-JSON stdin and executes its returned native route. After a return, it verifies the checks and
+JSON stdin and executes its returned native route. Claude Code uses the existing coordinator with
+`--client claude` only when `claude.evaluation.enabled` and the paid evaluation batch have separate
+approval; Codex keeps the default client and its own opt-in. Select two to eight genuinely eligible
+actions; an evident route stays native, and a low-confidence choice defers to the assignment matrix.
+After a return, the parent verifies the checks and
 snapshot; it calls `next` only when another route must be selected, and calls `finish` directly
 when the current proof and linked plan are complete. Planning links its approved PLAN before Phase C.
 The canonical contract is in

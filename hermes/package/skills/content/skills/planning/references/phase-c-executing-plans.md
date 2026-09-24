@@ -12,8 +12,8 @@
   explicit Gauntlet admits an approved L3+ plan. L1-L2 never enter Phase C.
 - Use the authorized current checkout and honor protected-branch hooks; never switch branches or
   infer a protected-branch opt-in from plan approval.
-- With Codex Jev enabled, link the approved PLAN before this phase; Phase C stays
-  the only implementation engine.
+- With the current client's Jev evaluation enabled and the paid batch authorized, link the
+  approved PLAN before this phase; Phase C stays the only implementation engine.
 - When and only when successful validation passed `profile: gauntlet`, read `content/skills/planning/references/gauntlet-loop.md` and apply its delta; a missing profile is always default.
 
 ## Exit contract

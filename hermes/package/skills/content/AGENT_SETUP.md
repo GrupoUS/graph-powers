@@ -318,6 +318,17 @@ so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SO
 prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
 the alias alone.
 
+**Optional Claude Code Jev routing:** After separate authorization for opt-in, credential availability
+and the paid evaluation batch, set `{"claude":{"evaluation":{"enabled":true}}}` in the host
+`.graph-powers/config.json` (or its supported `.claude/config.json` alternative). Provide
+`AI_GATEWAY_API_KEY` through the Claude Code executor's existing private environment; never read it
+from Codex's config, paste it into chat or store it in the repository or Claude settings. Confirm
+presence only, without displaying its value. In a fresh session, the parent may call the existing
+`content/codex/coordinate.mjs` with `--client claude` on a genuine two-to-eight-route ambiguity; its
+`nativeRoute` names the Claude `Agent` or `Skill` invocation. The default remains native routing;
+no raw tool-call interception, provider/proxy change or forced `tool_choice` is installed. A live
+paid smoke needs its own authorization; fixture tests alone do not prove the external endpoint.
+
 ### 9a — Codex settings
 
 Preserve the active `CODEX_HOME`, native installation, sandbox/approval settings and manual model
