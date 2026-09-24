@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "c3756bda3dbc089711efd039d68d5d8cf1c28d7f",
-    "version": "1.23.4+local.20260924135941",
+    "base_revision": "cabfae04838b1f99b03a52982406e700a1de96a7",
+    "version": "1.23.5+local.20260924142717",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "7d2af9d09e290a513c8e40062c0c9d6c7a6826cbb2508fead8d33eb22fb0a5c8",
-      "base_sha256": "4d721bc6f89e7337fcf7dcd59659a293de1f902064398f95f66971a63c01b0f1",
+      "sha256": "ae688f2ddd8899fe6ff36f79095604b90ae54cce96acf4df98c2d5bcdbf74a32",
+      "base_sha256": "7d2af9d09e290a513c8e40062c0c9d6c7a6826cbb2508fead8d33eb22fb0a5c8",
       "dirty": true
     },
     {
@@ -263,8 +263,8 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "39bcdf2fb918c9bbd9b31ed6e9c7053bb4e8de33243b9bf6267f60da245d29cc",
-      "base_sha256": "db706bd32ef6967ebd8449d5995851a37ab2985e7df46dda1fe2b8806118722e",
+      "sha256": "1ba2bef31ec3a70b64befcd2750b4c3bdeb622bdc26df15a1a0dcfa30bd103e5",
+      "base_sha256": "39bcdf2fb918c9bbd9b31ed6e9c7053bb4e8de33243b9bf6267f60da245d29cc",
       "dirty": true
     },
     {
@@ -353,14 +353,14 @@
     },
     {
       "path": "codex/coordinate.mjs",
-      "sha256": "d1f39bfce5e5b377329777fcfada62ff388e59937850b8339a50e7f0dd5d5fb0",
-      "base_sha256": "280b322bde46f6dd25062c3500ca95a63ef48758aa9b7c27331019b0a48c769a",
+      "sha256": "a447ca6484d95a54a991d2722ced3d8e5aad8124c0f672798f074b53f647d395",
+      "base_sha256": "d1f39bfce5e5b377329777fcfada62ff388e59937850b8339a50e7f0dd5d5fb0",
       "dirty": true
     },
     {
       "path": "codex/evaluate.mjs",
-      "sha256": "a3902379d969c694af6d4dabfbcb540fd834abe34bc9359634bdc4a97cc908ac",
-      "base_sha256": "5655baf96f8c3dcbb5f31045e946626aa934da129887f44e83934df2755f1a74",
+      "sha256": "5b107e11ef492167417447b4b5a03812ce114d4cb3479f837275920cc73da7fb",
+      "base_sha256": "a3902379d969c694af6d4dabfbcb540fd834abe34bc9359634bdc4a97cc908ac",
       "dirty": true
     },
     {
@@ -491,9 +491,9 @@
     },
     {
       "path": "hooks/_config.py",
-      "sha256": "e9c29d9b8f8189b5d2b99b68ee138984195547796efa221d6beb51bfe8cbbfc1",
+      "sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
       "base_sha256": "e9c29d9b8f8189b5d2b99b68ee138984195547796efa221d6beb51bfe8cbbfc1",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "kilo/model-policy.json",
@@ -510,8 +510,8 @@
     {
       "path": "references/execution-floor.md",
       "sha256": "16c85793aa6e2a131e7ca91d0587b310341434b762c9eaf3c09a2aa912f8cf10",
-      "base_sha256": "faedce00ba7ea430a6b6de20bf8f5c82b15723ffd4add65a1052e4d069c934c8",
-      "dirty": true
+      "base_sha256": "16c85793aa6e2a131e7ca91d0587b310341434b762c9eaf3c09a2aa912f8cf10",
+      "dirty": false
     },
     {
       "path": "references/recovery-protocol.md",
@@ -606,8 +606,8 @@
     {
       "path": "references/shared/005-method-bootstrap.md",
       "sha256": "683a981abe11d9fbf495b415e5c686c59ee6021fb910863865ce714d6a5322e0",
-      "base_sha256": "b12692fb3673cadbe5e834897fa9c6fd2e04a75b71b330567ca694e32549437f",
-      "dirty": true
+      "base_sha256": "683a981abe11d9fbf495b415e5c686c59ee6021fb910863865ce714d6a5322e0",
+      "dirty": false
     },
     {
       "path": "references/shared/007-path-conventions.md",
@@ -737,8 +737,8 @@
     },
     {
       "path": "schema/config.schema.json",
-      "sha256": "f3e2632c23d1c9b503fef847eb0e91bddd5e666bf619bda6a240069094b1c1a5",
-      "base_sha256": "d3e1d5ba2bfd2d5bff2e23f7bd57e11eb0a084de9f31de2a978fac489fb3f09a",
+      "sha256": "9f61a9dc9266aaa2645a457d8197f5058682b0feb9d6d9093d1f77ccdb1456f2",
+      "base_sha256": "f3e2632c23d1c9b503fef847eb0e91bddd5e666bf619bda6a240069094b1c1a5",
       "dirty": true
     },
     {
@@ -1098,8 +1098,8 @@
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
       "sha256": "dde40bac0db76afa79e8bf1e34d7b72515062564671d356991b61f02b79e8ebe",
-      "base_sha256": "5b8a379807cfd7c013c1d68a9d9e737796c86000641483a5b0e662ff8d012886",
-      "dirty": true
+      "base_sha256": "dde40bac0db76afa79e8bf1e34d7b72515062564671d356991b61f02b79e8ebe",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1151,8 +1151,8 @@
     },
     {
       "path": "skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "b01c19517f7f919dd469d61fa1f567ae120e952cdf516da9bccd91bbbd225728",
-      "base_sha256": "a6ec9d216cc146e8ca79d3cab192eb2d60875e2328cdc23ff977e972f0c95c52",
+      "sha256": "782252e712aa9602562ea172305470a4002f6959a91f32e665fbb177e8d7db2d",
+      "base_sha256": "b01c19517f7f919dd469d61fa1f567ae120e952cdf516da9bccd91bbbd225728",
       "dirty": true
     },
     {
@@ -1339,7 +1339,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "54aca81c84a9b128deb207aaf94f16f1a307c8d5131f23c8823b9eac9a689f01",
+      "sha256": "8a4a58f4944a9552063cc6d6e5b6d837dc7df384f5e10a63ab56f84e67e1b435",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1467,7 +1467,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "c15403bdc47775de0193ad20f6b74fad7068f6bac57e6f947e92f90a6dd07399",
+      "sha256": "9baea999e44cfdf689e21a1f40dc55b6f213f26774b052be265a7997baeedfca",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1571,7 +1571,7 @@
     },
     {
       "path": "skills/content/codex/coordinate.mjs",
-      "sha256": "d1f39bfce5e5b377329777fcfada62ff388e59937850b8339a50e7f0dd5d5fb0",
+      "sha256": "a447ca6484d95a54a991d2722ced3d8e5aad8124c0f672798f074b53f647d395",
       "sources": [
         "codex/coordinate.mjs"
       ],
@@ -1579,7 +1579,7 @@
     },
     {
       "path": "skills/content/codex/evaluate.mjs",
-      "sha256": "a3902379d969c694af6d4dabfbcb540fd834abe34bc9359634bdc4a97cc908ac",
+      "sha256": "5b107e11ef492167417447b4b5a03812ce114d4cb3479f837275920cc73da7fb",
       "sources": [
         "codex/evaluate.mjs"
       ],
@@ -1739,7 +1739,7 @@
     },
     {
       "path": "skills/content/hooks/_config.py",
-      "sha256": "e9c29d9b8f8189b5d2b99b68ee138984195547796efa221d6beb51bfe8cbbfc1",
+      "sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
       "sources": [
         "hooks/_config.py"
       ],
@@ -2067,7 +2067,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "94081539856183b614dbe2dbea53c30a82cd53b161aef2181b83345c8f5a9973",
+      "sha256": "1c2e32669752a215598de42cc924df498e276049695a4bbb1ca5fe265c77ec1d",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2619,7 +2619,7 @@
     },
     {
       "path": "skills/content/skills/senior-prompt-engineer/references/agent-handoff-contracts.md",
-      "sha256": "83f9c6681ca903b3d77e82354acabecb65e16a9d4b40213c46757344c3d74a56",
+      "sha256": "f455b20e068a4a986a998cd709555d628cae44600c619a060ff9e7c90ace0f71",
       "sources": [
         "skills/senior-prompt-engineer/references/agent-handoff-contracts.md"
       ],
@@ -6226,6 +6226,11 @@
       {
         "from": "AGENT_SETUP.md",
         "reference": ".github/test_hermes.py",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": ".graph-powers/config.json",
         "reason": "external URL or caller-resolved host path"
       },
       {

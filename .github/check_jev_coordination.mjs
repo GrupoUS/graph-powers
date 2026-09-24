@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { coordinate } from "../codex/coordinate.mjs";
+import { routingSettings } from "../codex/evaluate.mjs";
 
 const actor = { requesterRole: "parent", depth: 0 };
 const capabilities = ["high", "medium"].map((reasoningEffort) => ({
@@ -18,7 +19,12 @@ function fixture(name, config = { codex: { evaluation: { enabled: true } } }) {
   mkdirSync(join(root, ".graph-powers"));
   writeFileSync(join(root, ".graph-powers/config.json"), JSON.stringify(config));
   assert.equal(spawnSync("git", ["init", "-q"], { cwd: root }).status, 0);
-  const settings = { projectDir: root, sessionId: name, env: { AI_GATEWAY_API_KEY: "fixture" } };
+  const settings = {
+    projectDir: root,
+    sessionId: name,
+    env: { AI_GATEWAY_API_KEY: "fixture" },
+    userConfigPath: join(root, "global-config.json"),
+  };
   const input = {
     ...actor,
     request: "Produce the requested verified result",
@@ -591,6 +597,23 @@ try {
   assert.equal(codexCalls.calls, 1, "Codex must not replay Claude's skill-only decision");
 } finally {
   clientIsolation.cleanup();
+}
+
+const globalFixture = fixture("global-claude-opt-in");
+try {
+  writeFileSync(globalFixture.settings.userConfigPath,
+    JSON.stringify({ claude: { evaluation: { enabled: true } } }));
+  const settings = { ...globalFixture.settings, client: "claude" };
+  await coordinate("init", globalFixture.input, settings);
+  const action = await coordinate("next", {
+    ...actor, allowed: ["skill:planning", "skill:uxmaster"],
+  }, { ...settings, fetchImpl: provider(() => "skill:planning", { calls: 0 }) });
+  assert.equal(action.status, "PENDING");
+  writeFileSync(join(globalFixture.root, ".graph-powers/config.json"),
+    JSON.stringify({ claude: { evaluation: { enabled: false } } }));
+  assert.equal(routingSettings(globalFixture.root, "claude", settings.userConfigPath).evaluation.enabled, false);
+} finally {
+  globalFixture.cleanup();
 }
 
 console.log(

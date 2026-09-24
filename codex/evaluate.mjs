@@ -3,6 +3,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -105,14 +106,7 @@ function state(value) {
   return value;
 }
 
-/** Keep Codex's policy as default; Claude has its own project opt-in and source agent models. */
-export function routingSettings(projectDir, client = "codex") {
-  if (client === "codex") return readCodexSettings(projectDir);
-  if (client !== "claude") throw new Error("invalid routing client");
-  const config =
-    readJson(join(projectDir, ".graph-powers/config.json")) ??
-    readJson(join(projectDir, ".claude/config.json")) ??
-    {};
+function claudeEvaluation(config) {
   const claude = config.claude;
   if (
     claude !== undefined &&
@@ -120,7 +114,25 @@ export function routingSettings(projectDir, client = "codex") {
       Object.keys(claude).some((key) => key !== "evaluation"))
   )
     throw new Error("invalid Claude routing settings");
-  return { evaluation: claude?.evaluation };
+  if (claude?.evaluation !== undefined)
+    resolveCodexEvaluationPolicy({ evaluation: claude.evaluation });
+  return claude?.evaluation;
+}
+
+/** Codex keeps its policy; Claude merges personal opt-in under project overrides. */
+export function routingSettings(
+  projectDir,
+  client = "codex",
+  userConfigPath = join(homedir(), ".graph-powers/config.json"),
+) {
+  if (client === "codex") return readCodexSettings(projectDir);
+  if (client !== "claude") throw new Error("invalid routing client");
+  const config =
+    readJson(join(projectDir, ".graph-powers/config.json")) ??
+    readJson(join(projectDir, ".claude/config.json")) ??
+    {};
+  const userConfig = readJson(userConfigPath) ?? {};
+  return { evaluation: { ...claudeEvaluation(userConfig), ...claudeEvaluation(config) } };
 }
 
 /** Source-derived actions; method names are bare, with optional graph-powers: or /command input. */
@@ -466,14 +478,14 @@ async function send(request, policy, fetchImpl, credential) {
 /** Evaluate a material routing doubt. `fetchImpl` and `env` exist solely for bounded local tests. */
 export async function evaluateRouting(
   input,
-  { projectDir, planPath, client = "codex", fetchImpl = fetch, env = process.env } = {},
+  { projectDir, planPath, client = "codex", userConfigPath, fetchImpl = fetch, env = process.env } = {},
 ) {
   let paths;
   let settings;
   let policy;
   try {
     paths = projectPaths(projectDir, planPath);
-    settings = routingSettings(paths.root, client);
+    settings = routingSettings(paths.root, client, userConfigPath);
     policy = resolveCodexEvaluationPolicy(settings);
   } catch {
     return blocked("INVALID_CONFIGURATION");

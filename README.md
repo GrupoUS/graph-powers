@@ -31,8 +31,8 @@ Optional Jev coordination in Claude Code and Codex chooses among a short list of
 skills or commands when routing is genuinely ambiguous; low-confidence choices fall back to the
 parent's native routing. It does not intercept Bash/Read or change either client's provider.
 The parent executes the native route, verifies its handoff afresh, and leaves implementation to
-Phase C. Each client has its own host opt-in; credential availability and each bounded paid
-evaluation batch need separate authorization. See the [setup playbook](AGENT_SETUP.md).
+Phase C. Claude may opt in per project or, explicitly, per user; Codex opts in per project.
+Credential availability and each bounded paid evaluation batch need separate authorization. See the [setup playbook](AGENT_SETUP.md).
 
 **Cursor** — install the plugin from the marketplace, then once per machine write the IDE Run Mode
 (this is the file Auto-review actually reads; `cli-config.json` is only `cursor-agent`):

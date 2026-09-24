@@ -78,7 +78,8 @@ USER_CONFIG_PATHS = (".graph-powers/config.json",)
 # design: two repositories sharing a prefix would make an approval typed in one of them release
 # the same gate in the other, and `test_hooks.py` proves that isolation. A user-level prefix
 # would delete the guarantee for every project at once.
-USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate")
+# Claude Jev evaluation is an explicit personal opt-in; a project may override it with false.
+USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate", "claude")
 
 DEFAULTS: dict[str, Any] = {
     # Optional code context backend; only an explicit project selection enables Graft.

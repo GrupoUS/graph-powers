@@ -316,16 +316,13 @@ so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SO
 prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
 the alias alone.
 
-**Optional Claude Code Jev routing:** After separate authorization for opt-in, credential availability
-and the paid evaluation batch, set `{"claude":{"evaluation":{"enabled":true}}}` in the host
-`.graph-powers/config.json` (or its supported `.claude/config.json` alternative). Provide
-`AI_GATEWAY_API_KEY` through the Claude Code executor's existing private environment; never read it
-from Codex's config, paste it into chat or store it in the repository or Claude settings. Confirm
-presence only, without displaying its value. In a fresh session, the parent may call the existing
-`codex/coordinate.mjs` with `--client claude` on a genuine two-to-eight-route ambiguity; its
-`nativeRoute` names the Claude `Agent` or `Skill` invocation. The default remains native routing;
-no raw tool-call interception, provider/proxy change or forced `tool_choice` is installed. A live
-paid smoke needs its own authorization; fixture tests alone do not prove the external endpoint.
+**Optional Claude Code Jev routing:** Distinct opt-in, credential and paid-batch approvals are
+required. Set `{"claude":{"evaluation":{"enabled":true}}}` in the host config or, with
+machine-wide consent, `~/.graph-powers/config.json` (project `enabled:false` wins). Global use
+sends context to Vercel and incurs charges. Keep `AI_GATEWAY_API_KEY` private: never print, paste
+into chat or store in the repository; copy between client configs only on explicit request, keeping
+owner-only permissions. In a fresh session the parent calls `codex/coordinate.mjs --client claude`
+for a two-to-eight-route ambiguity; `nativeRoute` names `Agent` or `Skill`.
 
 ### 9a — Codex settings
 

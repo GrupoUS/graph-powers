@@ -234,7 +234,7 @@ export async function coordinate(action, input, options = {}) {
     if (client !== "codex" && client !== "claude") return blocked("INVALID_CLIENT");
     const projectDir = realpathSync(options.projectDir);
     options = { ...options, projectDir, client };
-    const catalog = routingCatalog(routingSettings(projectDir, client), client);
+    const catalog = routingCatalog(routingSettings(projectDir, client, options.userConfigPath), client);
     if (action === "catalog") return { status: "CATALOG", actions: catalog };
     if (action === "init") {
       let existing;
@@ -357,7 +357,8 @@ export async function coordinate(action, input, options = {}) {
           planComplete: state.planComplete,
         },
       },
-      { projectDir, planPath: state.contextPath, client, fetchImpl: options.fetchImpl, env: options.env },
+      { projectDir, planPath: state.contextPath, client, userConfigPath: options.userConfigPath,
+        fetchImpl: options.fetchImpl, env: options.env },
     );
     if (selected.status !== "RECORDED") return { ...selected, executionAuthorized: false };
     if (selected.evaluationResult.answers.route.probabilities[selected.verdict] < MIN_ROUTE_CONFIDENCE)

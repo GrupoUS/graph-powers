@@ -101,7 +101,8 @@ required reviews remain named and separate. When enabled, Jev may choose one cat
 skill or command, including same-model specialists. It selects a route only: it never authorizes,
 dispatches, reviews or completes work.
 
-Three authorizations are distinct: enable `claude.evaluation.enabled` for Claude Code or
+Three authorizations are distinct: enable `claude.evaluation.enabled` for Claude Code in the host
+or, with explicit machine-wide consent, user config (project `enabled:false` overrides), or enable
 `codex.evaluation.enabled` for Codex in the host project; authorize making
 `AI_GATEWAY_API_KEY` available in that client's executor environment; then authorize the bounded
 paid evaluation batch. Installation, a credential, prior result or replay grants none of the

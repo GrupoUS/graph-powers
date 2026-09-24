@@ -4755,6 +4755,14 @@ def main() -> int:
     d, _ = call("smart_bash_approver", read_cmd, bare, env=as_home(home_none))
     check("...as it is without any home file at all", d, "ask")
 
+    home_jev = mkhome({"claude": {"evaluation": {"enabled": True}}})
+    with patch.dict(os.environ, as_home(home_jev)):
+        check("user Claude Jev opt-in reaches a bare repository",
+              config_module.load(bare).get("claude", {}).get("evaluation", {}).get("enabled"), True)
+        project_off = mkproj({"claude": {"evaluation": {"enabled": False}}})
+        check("a project may disable user Claude Jev opt-in",
+              config_module.load(project_off)["claude"]["evaluation"]["enabled"], False)
+
     # The project outranks the person, and now so does the plugin's own default: `autonomous` is a
     # word the repository it applies to has to carry, where a reviewer sees it.
     strict = mkproj({"autonomy": {"level": "guarded"}})
