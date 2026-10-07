@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "e8b9390d33646a36f4267fce3447ed24ca453c0a",
+    "base_revision": "fb94364679cb1cfd29e035bab6b242d1401a7634",
     "version": "1.23.5+local.20260924142717",
-    "dirty": true
+    "dirty": false
   },
   "registrations": [
     {
@@ -264,8 +264,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
-      "base_sha256": "1ba2bef31ec3a70b64befcd2750b4c3bdeb622bdc26df15a1a0dcfa30bd103e5",
-      "dirty": true
+      "base_sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -276,8 +276,8 @@
     {
       "path": "NOTICE",
       "sha256": "37d7f5a47c7d810e77f451c8559911424bbe92990b957e394d4fafa918fbb120",
-      "base_sha256": "7f3c3af406f23c54218477f75f25fc58170d351597c9c6b09afcf1b1010356ed",
-      "dirty": true
+      "base_sha256": "37d7f5a47c7d810e77f451c8559911424bbe92990b957e394d4fafa918fbb120",
+      "dirty": false
     },
     {
       "path": "agents/debugger.md",
@@ -420,8 +420,8 @@
     {
       "path": "commands/issue-improve.md",
       "sha256": "88b713f8afc3986735d857573fcd495d61acd3cb099f6203497e3f8a20947745",
-      "base_sha256": "c783209b5ecccaa991ff9452a0a5a080f6f86497397b94e07ce3adbf013ac888",
-      "dirty": true
+      "base_sha256": "88b713f8afc3986735d857573fcd495d61acd3cb099f6203497e3f8a20947745",
+      "dirty": false
     },
     {
       "path": "commands/perf.md",
@@ -432,8 +432,8 @@
     {
       "path": "commands/plan.md",
       "sha256": "1804bf2fb359cbd5c0ba14fbda568cbf973d31e62840407aa2207f32acd5384d",
-      "base_sha256": "d78b4cdfb2dd4983348326fcfac89090ee06e4e08f4c6c57a494e62991577f22",
-      "dirty": true
+      "base_sha256": "1804bf2fb359cbd5c0ba14fbda568cbf973d31e62840407aa2207f32acd5384d",
+      "dirty": false
     },
     {
       "path": "commands/pr-review.md",
@@ -672,8 +672,8 @@
     {
       "path": "references/shared/060-skill-domain-matrix.md",
       "sha256": "13a7d3495a2e9c3a9cc944132c37828134f51d9f2b2d17d83961ba7e5c80b163",
-      "base_sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
-      "dirty": true
+      "base_sha256": "13a7d3495a2e9c3a9cc944132c37828134f51d9f2b2d17d83961ba7e5c80b163",
+      "dirty": false
     },
     {
       "path": "references/shared/070-parallel-agent-spawn.md",
@@ -708,8 +708,8 @@
     {
       "path": "references/shared/120-skill-invocation-order.md",
       "sha256": "5d6007aeb58fffd6d828ac65e877a8637f0dec75bc2f4e8b5617f62beb9af3cf",
-      "base_sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
-      "dirty": true
+      "base_sha256": "5d6007aeb58fffd6d828ac65e877a8637f0dec75bc2f4e8b5617f62beb9af3cf",
+      "dirty": false
     },
     {
       "path": "references/shared/125-change-set.md",
@@ -972,8 +972,8 @@
     {
       "path": "skills/planning/evals/evals.json",
       "sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
-      "base_sha256": "add55eada0b493888c3d8b1ce31e917f2ac2995c5e86c2c86a722cafec76f886",
-      "dirty": true
+      "base_sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -1026,8 +1026,8 @@
     {
       "path": "skills/planning/references/issue-triage.md",
       "sha256": "34f35fa0416f6394fc1cacc1e806b4fd5937dafbc2183b88b0d4ee89ee008039",
-      "base_sha256": "040989e046161dae9e02411ba142ab52f4fb224119c5d88b56604a0c8c924afd",
-      "dirty": true
+      "base_sha256": "34f35fa0416f6394fc1cacc1e806b4fd5937dafbc2183b88b0d4ee89ee008039",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/layer-map.md",
@@ -1050,8 +1050,8 @@
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
       "sha256": "cc6622a9396a9982a3b22111b3884821936e9dbde64410e7711f34382527a30f",
-      "base_sha256": "74a89803a377480503a1360ad7c68078ce68a0615d5cbe32fada552898d4ae67",
-      "dirty": true
+      "base_sha256": "cc6622a9396a9982a3b22111b3884821936e9dbde64410e7711f34382527a30f",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
@@ -1074,14 +1074,14 @@
     {
       "path": "skills/planning/scripts/fetch_issue.py",
       "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
+      "dirty": false
     },
     {
       "path": "skills/planning/scripts/issue_comment.py",
       "sha256": "19bb00abc8a3ad376b95eac4cc51412a4781697d8e3ab52310ead48438906e4b",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "19bb00abc8a3ad376b95eac4cc51412a4781697d8e3ab52310ead48438906e4b",
+      "dirty": false
     },
     {
       "path": "skills/planning/scripts/sdd.py",
