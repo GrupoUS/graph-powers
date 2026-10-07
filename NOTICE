@@ -311,10 +311,11 @@ Original issue-to-plan adaptation — no external source redistributed
 ================================================================================
 
   commands/issue-improve.md
-  skills/issue-improve/
+  skills/planning/scripts/fetch_issue.py, issue_comment.py and their tests
 
 Original Graph Powers implementation (2026-09-11), adapting the in-repository Planning
 issue-triage, Step 0 and Phase A/B contracts into a planning-only entry and an author-scoped,
 marked-comment helper. Python standard library and the existing gh CLI supply the mechanics;
-no external source code was copied. The focused evaluation records are synthetic fixtures,
-not fresh-model trigger telemetry or proof of an installed client runtime.
+no external source code was copied. Since 2026-10-06 the entry is `/plan <issue>`
+(`skills/planning/references/issue-triage.md`), the helpers moved from `skills/issue-improve/`
+into Planning, and `commands/issue-improve.md` only redirects there.

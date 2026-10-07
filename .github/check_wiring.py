@@ -530,27 +530,38 @@ def debug_perf_routing(debug: str | None = None, perf: str | None = None) -> lis
 
 
 def planning_authoring_policy() -> list[str]:
-    """Keep planner authorship, independent review and the issue fast path connected."""
+    """Keep planner authorship, independent review and the `/plan <issue>` entry connected."""
     if not Path("skills/planning/SKILL.md").is_file():
         return []
     contracts = {
         "commands/plan.md": (
             'This is the adapter for `Skill("graph-powers:planning")`',
             "GitHub issue triage stays in the skill",
+            "takes the skill's issue entry",
+            "close the issue with the result; it never asks again to publish",
         ),
         "commands/implement.md": (
             'invoke `Skill("graph-powers:planning")`',
             "Hand off once to `/plan --plan-only` and stop",
             "Phase C with `profile: gauntlet`",
         ),
-        "skills/issue-improve/SKILL.md": (
-            "Immediately tell the user you are retrieving the issue",
+        "commands/issue-improve.md": (
+            "Moved: tell the user to run `/plan <N|#N|issue URL>`",
+            "Do not fetch, triage, plan or comment here",
+        ),
+        "skills/planning/references/issue-triage.md": (
+            "## Issue entry — `/plan <issue>`",
             "fetch_issue.py",
             "30-second timeout",
-            "graph-powers:project-planner",
-            "intermediate `spec.md` or enter Phase A",
-            "one focused correction",
-            "Every route stops before Phase C",
+            "`graph-powers:project-planner` writes",
+            "No route adds `ultra-plan` or an extra evaluator",
+            "Publish without asking again",
+            "this request is the plan's approval",
+            "within `${chain.maxFixRounds}` rounds shared with `/implement`'s own closing loop",
+            "Ask once first when a task touches a named `chain.riskSurfaces` surface",
+            "when `chain.enabled` is `false`",
+            "--publish --close",
+            "It does not authorize staging, commit, push or merge",
         ),
         "skills/planning/references/phase-a-brainstorm.md": (
             "`graph-powers:project-planner` authors the design",
@@ -560,7 +571,7 @@ def planning_authoring_policy() -> list[str]:
         "skills/planning/references/phase-b-writing-plans.md": (
             "`graph-powers:project-planner` authors `PLAN.md`",
             "separate `graph-powers:evaluator` Mode 1 review",
-            "issue-improve fast path",
+            "Issue entry (`/plan <issue>`",
         ),
         "skills/planning/references/gauntlet-loop.md": (
             "Only `/implement` passes `profile: gauntlet`, and only for an approved L4+ plan",

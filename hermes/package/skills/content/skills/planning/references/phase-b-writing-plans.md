@@ -12,14 +12,14 @@
 
 - Direct: Phase A complete, `<plan dir>/spec.md` user-approved and GATE-1-approved when required
   (ordinary L4).
-- Issue-improve fast path: a complete sanitized triage ledger plus verified repository evidence is
-  the design authority for its plan-only deliverable. It writes `PLAN.md` directly, without a
-  separate `spec.md`, Phase A, or approval to execute. L3+ still receives a separate
-  `graph-powers:evaluator` Mode 1 review and validation; stop before Phase C.
+- Issue entry (`/plan <issue>`, `content/skills/planning/references/issue-triage.md § Issue entry`): at L1-L3 the sanitized triage
+  ledger plus verified repository evidence (L3: and its light-path design) is the design authority
+  for a short `PLAN.md`, without `spec.md` or an evaluator; L4+ takes the direct route. Every tier
+  hands the validated plan to `/implement`, which owns Phase C.
 - `ultra-plan` route: the exact Step 0 handoff blocks and chosen approach are the design authority;
   the generated plan still waits for `/plan`'s human gate.
-- Task tier is **L4+** on the normal route. The issue-improve fast path also admits L3 to Phase B;
-  ordinary L3 still skips it. Tier ladder:
+- Task tier is **L4+** on the normal route. The issue entry also admits L1-L3 to this grammar;
+  ordinary L1-L3 still skip it. Tier ladder:
   `content/references/shared/020-complexity-routing.md`.
 - Preserve the authorized checkout; report a mismatch with `${git.workBranch}` instead of switching.
 
@@ -34,14 +34,15 @@
 
 > Model: `content/skills/planning/references/loop-engineering.md`. Guards, caps and the anchors are defined there, once.
 
-- **trigger:** Phase A complete, tier L4+, or the bounded issue-improve fast path above.
+- **trigger:** Phase A complete, tier L4+, or the issue entry above.
 - **goal (binary):** `PLAN.md` exists with Step 5 sections, every task has `Owns`/`Needs`,
   L4+ maps applicable surfaces/edges, and Step 6 passes. Phase C needs user approval;
   L5+ GATE 2 meets `content/skills/planning/references/loop-engineering.md § Calibration anchors`.
 - **body:** `graph-powers:project-planner` maps files and writes independently testable tasks →
   independent evaluator Mode 1 when required → one bounded correction.
-- **terminal:** goal PASS → approved plan or, for issue-improve, reviewed draft. Enter Phase C only
-  when separately requested and approved. Any guard trips → escalate to user.
+- **terminal:** goal PASS → approved plan or, for the issue entry, a validated plan. Enter Phase C
+  only when separately requested and approved; for the issue entry, the `/plan <issue>` request is
+  that approval. Any guard trips → escalate to user.
 
 ---
 
@@ -211,7 +212,7 @@ One table, read before any task block, so the reader sees the graph before the p
 ## Step 5 — Write the plan
 
 `graph-powers:project-planner` authors `PLAN.md` from the approved design authority or the
-issue-improve fast-path ledger. Use this file's Step 6 self-check in that same authoring pass. The
+issue entry's ledger. Use this file's Step 6 self-check in that same authoring pass. The
 controller supplies verified facts, preserves scope and owns approval; it does not silently replace
 the planner as author.
 

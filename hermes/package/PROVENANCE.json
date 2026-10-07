@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "25237720369370682a1404df43c74d3a79e6f3e6",
+    "base_revision": "e8b9390d33646a36f4267fce3447ed24ca453c0a",
     "version": "1.23.5+local.20260924142717",
     "dirty": true
   },
@@ -148,8 +148,8 @@
     {
       "name": "issue-improve",
       "path": "skills/issue-improve.md",
-      "description": "Use to turn a GitHub issue into a short, evidence-backed plan comment. Not for implementing it.",
-      "source": "skills/issue-improve/SKILL.md"
+      "description": "Moved to /plan <issue>. Does not fetch, plan or comment.",
+      "source": "commands/issue-improve.md"
     },
     {
       "name": "landing-page-design",
@@ -172,7 +172,7 @@
     {
       "name": "plan",
       "path": "skills/plan.md",
-      "description": "Decide how to build a multi-step feature before code: scope, trade-offs, integrations, ordering, triage and a plan. Do not use to execute a plan or fix a known defect.",
+      "description": "Decide how to build a multi-step feature before code: scope, trade-offs, integrations, ordering, triage and a plan; `/plan <issue>` plans, implements, verifies and closes a GitHub issue. Do not use to execute a plan or fix a known defect.",
       "source": "commands/plan.md"
     },
     {
@@ -263,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "1ba2bef31ec3a70b64befcd2750b4c3bdeb622bdc26df15a1a0dcfa30bd103e5",
+      "sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
       "base_sha256": "1ba2bef31ec3a70b64befcd2750b4c3bdeb622bdc26df15a1a0dcfa30bd103e5",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -275,8 +275,8 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "7f3c3af406f23c54218477f75f25fc58170d351597c9c6b09afcf1b1010356ed",
-      "base_sha256": "0dc679388e75d470ef38cb2a27c375bab80361c29122c6fc90f2becc9cd898ff",
+      "sha256": "37d7f5a47c7d810e77f451c8559911424bbe92990b957e394d4fafa918fbb120",
+      "base_sha256": "7f3c3af406f23c54218477f75f25fc58170d351597c9c6b09afcf1b1010356ed",
       "dirty": true
     },
     {
@@ -408,20 +408,20 @@
     {
       "path": "commands/gauntlet.md",
       "sha256": "7785d19fb6ef46ba52f2d204a50a83c06ddae65c991ccba0a957fdbf2390a675",
-      "base_sha256": "8e563afc0874e28c6ac6bf4d38a9e26cb2de4f26c9a58590a431cf42d495b53c",
-      "dirty": true
+      "base_sha256": "7785d19fb6ef46ba52f2d204a50a83c06ddae65c991ccba0a957fdbf2390a675",
+      "dirty": false
     },
     {
       "path": "commands/implement.md",
       "sha256": "10aa70673c4e5ce8b5ba7edb1252b59d7d0b82c09c9a5d9a109a0d59bfbc8866",
-      "base_sha256": "66f3be00e47753e3e1669abc21040b8f5806401440434be182247d37c949ba99",
-      "dirty": true
+      "base_sha256": "10aa70673c4e5ce8b5ba7edb1252b59d7d0b82c09c9a5d9a109a0d59bfbc8866",
+      "dirty": false
     },
     {
       "path": "commands/issue-improve.md",
-      "sha256": "c783209b5ecccaa991ff9452a0a5a080f6f86497397b94e07ce3adbf013ac888",
+      "sha256": "88b713f8afc3986735d857573fcd495d61acd3cb099f6203497e3f8a20947745",
       "base_sha256": "c783209b5ecccaa991ff9452a0a5a080f6f86497397b94e07ce3adbf013ac888",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/perf.md",
@@ -431,8 +431,8 @@
     },
     {
       "path": "commands/plan.md",
-      "sha256": "d78b4cdfb2dd4983348326fcfac89090ee06e4e08f4c6c57a494e62991577f22",
-      "base_sha256": "42ef2a9ed974f28fcb0fb21bc2794e5d0c6c67a63689920e43167487fb5cf06b",
+      "sha256": "1804bf2fb359cbd5c0ba14fbda568cbf973d31e62840407aa2207f32acd5384d",
+      "base_sha256": "d78b4cdfb2dd4983348326fcfac89090ee06e4e08f4c6c57a494e62991577f22",
       "dirty": true
     },
     {
@@ -444,8 +444,8 @@
     {
       "path": "commands/prime.md",
       "sha256": "4893bc4b0c6a54d89e16d205fc6c128eed4bb9dd2e69c539fdf179f895640d13",
-      "base_sha256": "118ab1e4a711d7ea0be72d6a6b0c73bcf32c690b8276b592c990feb011efc0dc",
-      "dirty": true
+      "base_sha256": "4893bc4b0c6a54d89e16d205fc6c128eed4bb9dd2e69c539fdf179f895640d13",
+      "dirty": false
     },
     {
       "path": "commands/research.md",
@@ -486,8 +486,8 @@
     {
       "path": "hermes/skills/graph-engineering/SKILL.md",
       "sha256": "daa2eec5b5fe8690faa3c6294ac08904cc06878b55058f0a2128074e3f5b9684",
-      "base_sha256": "29d5b6b381cccb8e62251ec3d6e2dc4ce6c8036ab2a8cdfbc6b743d6ceb9e954",
-      "dirty": true
+      "base_sha256": "daa2eec5b5fe8690faa3c6294ac08904cc06878b55058f0a2128074e3f5b9684",
+      "dirty": false
     },
     {
       "path": "hooks/_config.py",
@@ -636,8 +636,8 @@
     {
       "path": "references/shared/025-solution-ladder.md",
       "sha256": "94977292d51b22bf8f35f0478f1dded5eeea718c3634c1abfc8234e9632d563f",
-      "base_sha256": "d4ceedec4d53dcc5dd13881f4a0616c1ade31dec6cc5c7a5c53b41403eb1e7fa",
-      "dirty": true
+      "base_sha256": "94977292d51b22bf8f35f0478f1dded5eeea718c3634c1abfc8234e9632d563f",
+      "dirty": false
     },
     {
       "path": "references/shared/030-agent-assignment-matrix.md",
@@ -671,9 +671,9 @@
     },
     {
       "path": "references/shared/060-skill-domain-matrix.md",
-      "sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
+      "sha256": "13a7d3495a2e9c3a9cc944132c37828134f51d9f2b2d17d83961ba7e5c80b163",
       "base_sha256": "9d86311734dd753d750a10b4f7e91d5904eb7e901dfc36143ecaa27353fc1c29",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/070-parallel-agent-spawn.md",
@@ -707,9 +707,9 @@
     },
     {
       "path": "references/shared/120-skill-invocation-order.md",
-      "sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
+      "sha256": "5d6007aeb58fffd6d828ac65e877a8637f0dec75bc2f4e8b5617f62beb9af3cf",
       "base_sha256": "ef1ac7843ff77d031b12b92fab89c3764540e7a7b8d7a27b0c5b9c245d7f500b",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/125-change-set.md",
@@ -916,48 +916,6 @@
       "dirty": false
     },
     {
-      "path": "skills/issue-improve/SKILL.md",
-      "sha256": "1dcb9f220f42ac303642915676abaa9ed994c06723dfd8b70b1d2bebbee3f5f2",
-      "base_sha256": "1dcb9f220f42ac303642915676abaa9ed994c06723dfd8b70b1d2bebbee3f5f2",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/evals/evals.json",
-      "sha256": "94ea31e7cb20bee5fd81188bdddf46e77f5077f938819984936f611e53190821",
-      "base_sha256": "94ea31e7cb20bee5fd81188bdddf46e77f5077f938819984936f611e53190821",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/learning.md",
-      "sha256": "dda3924bd9044c5e065298ad561999804708518f6d4fa046efeb29900b129127",
-      "base_sha256": "dda3924bd9044c5e065298ad561999804708518f6d4fa046efeb29900b129127",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/scripts/fetch_issue.py",
-      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
-      "base_sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/scripts/issue_comment.py",
-      "sha256": "72862a375e93f8163a85193ebc6962eedb39b669caa02745b43efdfcd5a28869",
-      "base_sha256": "72862a375e93f8163a85193ebc6962eedb39b669caa02745b43efdfcd5a28869",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/scripts/test_fetch_issue.py",
-      "sha256": "278bb0d3625b67378b3c37569dd515a490da29eae1f9527049d33283b78d8e28",
-      "base_sha256": "278bb0d3625b67378b3c37569dd515a490da29eae1f9527049d33283b78d8e28",
-      "dirty": false
-    },
-    {
-      "path": "skills/issue-improve/scripts/test_issue_comment.py",
-      "sha256": "589bae8cca9c8cc40d7fc69de06d512a74de34d84d8939e3487581bee5dd3e16",
-      "base_sha256": "589bae8cca9c8cc40d7fc69de06d512a74de34d84d8939e3487581bee5dd3e16",
-      "dirty": false
-    },
-    {
       "path": "skills/landing-page-design/SKILL.md",
       "sha256": "e1f027c1b3f51727182209ab6250a99dac0b81e27f39f979d7994a9c8cc2f8df",
       "base_sha256": "e1f027c1b3f51727182209ab6250a99dac0b81e27f39f979d7994a9c8cc2f8df",
@@ -1008,13 +966,13 @@
     {
       "path": "skills/planning/SKILL.md",
       "sha256": "7fb546ae4f3e4adb5079109efb7ba5ea4324ada5cc72a584b279a68f0e50fdee",
-      "base_sha256": "83017ea3e0ec2d621f7b3807995b8e545eca46c1f4bde01c94aa843202eb321d",
-      "dirty": true
+      "base_sha256": "7fb546ae4f3e4adb5079109efb7ba5ea4324ada5cc72a584b279a68f0e50fdee",
+      "dirty": false
     },
     {
       "path": "skills/planning/evals/evals.json",
-      "sha256": "add55eada0b493888c3d8b1ce31e917f2ac2995c5e86c2c86a722cafec76f886",
-      "base_sha256": "d9e37243c7b77177ca71c82b9c29ae3915f5d0f5d2a736ca96dc639ddfc49ae2",
+      "sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
+      "base_sha256": "add55eada0b493888c3d8b1ce31e917f2ac2995c5e86c2c86a722cafec76f886",
       "dirty": true
     },
     {
@@ -1062,14 +1020,14 @@
     {
       "path": "skills/planning/references/gauntlet-loop.md",
       "sha256": "f59c34040a4641b27a27402ecc65fb7f05c1025d2cf1124dd9bcadf8aace0226",
-      "base_sha256": "a95cbbde35f739aee55d88c6597b1425e4f120fa40d8a177caaf40ee4165ae82",
-      "dirty": true
+      "base_sha256": "f59c34040a4641b27a27402ecc65fb7f05c1025d2cf1124dd9bcadf8aace0226",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/issue-triage.md",
-      "sha256": "040989e046161dae9e02411ba142ab52f4fb224119c5d88b56604a0c8c924afd",
+      "sha256": "34f35fa0416f6394fc1cacc1e806b4fd5937dafbc2183b88b0d4ee89ee008039",
       "base_sha256": "040989e046161dae9e02411ba142ab52f4fb224119c5d88b56604a0c8c924afd",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/layer-map.md",
@@ -1086,20 +1044,20 @@
     {
       "path": "skills/planning/references/phase-a-brainstorm.md",
       "sha256": "eb94cc8a543804c5e1cb55343ae807b6d0899e7747e9a9acc7c3cc5c0f7307da",
-      "base_sha256": "39f6c1b61f233a049bd6340089ea638b2126a490614d5cd778524de21ca9e5b9",
-      "dirty": true
+      "base_sha256": "eb94cc8a543804c5e1cb55343ae807b6d0899e7747e9a9acc7c3cc5c0f7307da",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "74a89803a377480503a1360ad7c68078ce68a0615d5cbe32fada552898d4ae67",
-      "base_sha256": "a85873cf4d260e4322f246cbf4e1b2686fdb0a059b2cc327aee18285ec631df8",
+      "sha256": "cc6622a9396a9982a3b22111b3884821936e9dbde64410e7711f34382527a30f",
+      "base_sha256": "74a89803a377480503a1360ad7c68078ce68a0615d5cbe32fada552898d4ae67",
       "dirty": true
     },
     {
       "path": "skills/planning/references/phase-c-executing-plans.md",
       "sha256": "1dafafdadeaeabfb0a29d42d9b5c2e248249fafbc60698cd40896c563e8818a5",
-      "base_sha256": "dde40bac0db76afa79e8bf1e34d7b72515062564671d356991b61f02b79e8ebe",
-      "dirty": true
+      "base_sha256": "1dafafdadeaeabfb0a29d42d9b5c2e248249fafbc60698cd40896c563e8818a5",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/step-0-inventory.md",
@@ -1112,6 +1070,18 @@
       "sha256": "0d8b6c991022f86fc5888581930a52aecd56278c9fa4bf3b92f011d9915692ad",
       "base_sha256": "0d8b6c991022f86fc5888581930a52aecd56278c9fa4bf3b92f011d9915692ad",
       "dirty": false
+    },
+    {
+      "path": "skills/planning/scripts/fetch_issue.py",
+      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
+      "base_sha256": null,
+      "dirty": true
+    },
+    {
+      "path": "skills/planning/scripts/issue_comment.py",
+      "sha256": "19bb00abc8a3ad376b95eac4cc51412a4781697d8e3ab52310ead48438906e4b",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "skills/planning/scripts/sdd.py",
@@ -1323,7 +1293,7 @@
     },
     {
       "path": "NOTICE",
-      "sha256": "7f3c3af406f23c54218477f75f25fc58170d351597c9c6b09afcf1b1010356ed",
+      "sha256": "37d7f5a47c7d810e77f451c8559911424bbe92990b957e394d4fafa918fbb120",
       "sources": [
         "NOTICE"
       ],
@@ -1467,7 +1437,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "9baea999e44cfdf689e21a1f40dc55b6f213f26774b052be265a7997baeedfca",
+      "sha256": "fdbcf48fba8f6135a94efe3b7582f521dd70d85e8dde6d25abd9f342e53138fd",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1659,7 +1629,7 @@
     },
     {
       "path": "skills/content/commands/issue-improve.md",
-      "sha256": "6bf1a1abf794e652e1580e5643bcab6932619feb67f102e3a425f92f345e8688",
+      "sha256": "622faf238a8caf781e5c5623a49e631a7509748fe467f6cc6c36a075a081a807",
       "sources": [
         "commands/issue-improve.md"
       ],
@@ -1675,7 +1645,7 @@
     },
     {
       "path": "skills/content/commands/plan.md",
-      "sha256": "1755f3e3069eacb7022147f7173aaa6db39eb24955a6a890807e8416dd5517fb",
+      "sha256": "128bb9d866160ff91a220a96207d358c543f1aa282ac3b91f32a89a4173b7634",
       "sources": [
         "commands/plan.md"
       ],
@@ -1979,7 +1949,7 @@
     },
     {
       "path": "skills/content/references/shared/060-skill-domain-matrix.md",
-      "sha256": "cdaa863adda032ffe07622b72aed438f4290bd04e02073d54b7956bbc36b4234",
+      "sha256": "9f252e3197ff9e3578aed624be4e3194252965aa28285a2bd2c87bc59bccd824",
       "sources": [
         "references/shared/060-skill-domain-matrix.md"
       ],
@@ -2027,7 +1997,7 @@
     },
     {
       "path": "skills/content/references/shared/120-skill-invocation-order.md",
-      "sha256": "1def040a34fb8a4a00169f8cf23052f22d96ad981e507dd42b82ebae14beb9d5",
+      "sha256": "b0d904d2bf1ae1d3a936a5227cff5ddd59095b9dbd086c56818a15b532a741e3",
       "sources": [
         "references/shared/120-skill-invocation-order.md"
       ],
@@ -2306,62 +2276,6 @@
       "kind": "content"
     },
     {
-      "path": "skills/content/skills/issue-improve/SKILL.md",
-      "sha256": "c4ba61375e20acd1d59932be333f02cbc2450049d80de699948dfcd60a4d06ec",
-      "sources": [
-        "skills/issue-improve/SKILL.md"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/evals/evals.json",
-      "sha256": "94ea31e7cb20bee5fd81188bdddf46e77f5077f938819984936f611e53190821",
-      "sources": [
-        "skills/issue-improve/evals/evals.json"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/learning.md",
-      "sha256": "af7294f0d59aa90d740062beab1649bf6b01bb3c269eae1695b7852029236f5a",
-      "sources": [
-        "skills/issue-improve/learning.md"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/scripts/fetch_issue.py",
-      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
-      "sources": [
-        "skills/issue-improve/scripts/fetch_issue.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/scripts/issue_comment.py",
-      "sha256": "72862a375e93f8163a85193ebc6962eedb39b669caa02745b43efdfcd5a28869",
-      "sources": [
-        "skills/issue-improve/scripts/issue_comment.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/scripts/test_fetch_issue.py",
-      "sha256": "278bb0d3625b67378b3c37569dd515a490da29eae1f9527049d33283b78d8e28",
-      "sources": [
-        "skills/issue-improve/scripts/test_fetch_issue.py"
-      ],
-      "kind": "content"
-    },
-    {
-      "path": "skills/content/skills/issue-improve/scripts/test_issue_comment.py",
-      "sha256": "589bae8cca9c8cc40d7fc69de06d512a74de34d84d8939e3487581bee5dd3e16",
-      "sources": [
-        "skills/issue-improve/scripts/test_issue_comment.py"
-      ],
-      "kind": "content"
-    },
-    {
       "path": "skills/content/skills/landing-page-design/SKILL.md",
       "sha256": "5821dbc7a2bd850caad48a6f548865dadaba2fbb381372af4d09e3bcc9af1e23",
       "sources": [
@@ -2435,7 +2349,7 @@
     },
     {
       "path": "skills/content/skills/planning/evals/evals.json",
-      "sha256": "add55eada0b493888c3d8b1ce31e917f2ac2995c5e86c2c86a722cafec76f886",
+      "sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
       "sources": [
         "skills/planning/evals/evals.json"
       ],
@@ -2507,7 +2421,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/issue-triage.md",
-      "sha256": "778e358299d88f83ff761a302eaa705aa798cc68428dd5fb877f05b178cc4b82",
+      "sha256": "bbe9188425e2ca1f2c87950f5a0144be3541c8d85e9e5113b5f29d4ff724081e",
       "sources": [
         "skills/planning/references/issue-triage.md"
       ],
@@ -2539,7 +2453,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/phase-b-writing-plans.md",
-      "sha256": "07fbe5a524e4ec9d0e8f3233ea7044f63bf5ec0b368846d7d2df7ea27c9df2dd",
+      "sha256": "6e1e69fb64e40284cc9ee8b44c2371372c5b31fe24a74fe032f4698995149d08",
       "sources": [
         "skills/planning/references/phase-b-writing-plans.md"
       ],
@@ -2566,6 +2480,22 @@
       "sha256": "9da6542058d3bd3576cb3d4556c332840a7f39c7fa1a4aa8843ae9fe6d266d51",
       "sources": [
         "skills/planning/references/wayfinding.md"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/planning/scripts/fetch_issue.py",
+      "sha256": "09899861bee65514cd3e88e7c691a836be4edd95a7c8d1780300684c103445f6",
+      "sources": [
+        "skills/planning/scripts/fetch_issue.py"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/skills/planning/scripts/issue_comment.py",
+      "sha256": "19bb00abc8a3ad376b95eac4cc51412a4781697d8e3ab52310ead48438906e4b",
+      "sources": [
+        "skills/planning/scripts/issue_comment.py"
       ],
       "kind": "content"
     },
@@ -2915,9 +2845,9 @@
     },
     {
       "path": "skills/issue-improve.md",
-      "sha256": "c4ba61375e20acd1d59932be333f02cbc2450049d80de699948dfcd60a4d06ec",
+      "sha256": "622faf238a8caf781e5c5623a49e631a7509748fe467f6cc6c36a075a081a807",
       "sources": [
-        "skills/issue-improve/SKILL.md"
+        "commands/issue-improve.md"
       ],
       "kind": "registration"
     },
@@ -2947,7 +2877,7 @@
     },
     {
       "path": "skills/plan.md",
-      "sha256": "1755f3e3069eacb7022147f7173aaa6db39eb24955a6a890807e8416dd5517fb",
+      "sha256": "128bb9d866160ff91a220a96207d358c543f1aa282ac3b91f32a89a4173b7634",
       "sources": [
         "commands/plan.md"
       ],
@@ -3599,12 +3529,6 @@
       {
         "from": "codex/coordinate.mjs",
         "reference": "skills/*/SKILL.md",
-        "to": "skills/issue-improve/SKILL.md",
-        "kind": "computed-input"
-      },
-      {
-        "from": "codex/coordinate.mjs",
-        "reference": "skills/*/SKILL.md",
         "to": "skills/landing-page-design/SKILL.md",
         "kind": "computed-input"
       },
@@ -3845,12 +3769,6 @@
       {
         "from": "codex/evaluate.mjs",
         "reference": "skills/*/SKILL.md",
-        "to": "skills/issue-improve/SKILL.md",
-        "kind": "computed-input"
-      },
-      {
-        "from": "codex/evaluate.mjs",
-        "reference": "skills/*/SKILL.md",
         "to": "skills/landing-page-design/SKILL.md",
         "kind": "computed-input"
       },
@@ -4037,12 +3955,6 @@
       {
         "from": "commands/evolve.md",
         "reference": "evals/evals.json",
-        "to": "skills/issue-improve/evals/evals.json",
-        "kind": "selected-skill-evals"
-      },
-      {
-        "from": "commands/evolve.md",
-        "reference": "evals/evals.json",
         "to": "skills/landing-page-design/evals/evals.json",
         "kind": "selected-skill-evals"
       },
@@ -4110,12 +4022,6 @@
         "from": "commands/implement.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
         "to": "skills/planning/scripts/sdd.py",
-        "kind": "reference"
-      },
-      {
-        "from": "commands/issue-improve.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/SKILL.md",
-        "to": "skills/issue-improve/SKILL.md",
         "kind": "reference"
       },
       {
@@ -4572,6 +4478,12 @@
         "from": "references/shared/060-skill-domain-matrix.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/skills/designer/references/craft-passes.md",
         "to": "skills/designer/references/craft-passes.md",
+        "kind": "reference"
+      },
+      {
+        "from": "references/shared/060-skill-domain-matrix.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md",
+        "to": "skills/planning/references/issue-triage.md",
         "kind": "reference"
       },
       {
@@ -5049,84 +4961,6 @@
         "kind": "reference"
       },
       {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/references/execution-floor.md",
-        "to": "references/execution-floor.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/references/shared/000-config-loader.md",
-        "to": "references/shared/000-config-loader.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/fetch_issue.py",
-        "to": "skills/issue-improve/scripts/fetch_issue.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/issue_comment.py",
-        "to": "skills/issue-improve/scripts/issue_comment.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/test_fetch_issue.py",
-        "to": "skills/issue-improve/scripts/test_fetch_issue.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/test_issue_comment.py",
-        "to": "skills/issue-improve/scripts/test_issue_comment.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md",
-        "to": "skills/planning/references/issue-triage.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/phase-b-writing-plans.md",
-        "to": "skills/planning/references/phase-b-writing-plans.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
-        "to": "skills/planning/scripts/sdd.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/skill-improve/scripts/quick_validate.py",
-        "to": "skills/skill-improve/scripts/quick_validate.py",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "learning.md",
-        "to": "skills/issue-improve/learning.md",
-        "kind": "reference"
-      },
-      {
-        "from": "skills/issue-improve/scripts/test_fetch_issue.py",
-        "reference": "fetch_issue",
-        "to": "skills/issue-improve/scripts/fetch_issue.py",
-        "kind": "python-import"
-      },
-      {
-        "from": "skills/issue-improve/scripts/test_issue_comment.py",
-        "reference": "issue_comment",
-        "to": "skills/issue-improve/scripts/issue_comment.py",
-        "kind": "python-import"
-      },
-      {
         "from": "skills/landing-page-design/SKILL.md",
         "reference": "references/house-canon.md",
         "to": "skills/landing-page-design/references/house-canon.md",
@@ -5368,8 +5202,38 @@
       },
       {
         "from": "skills/planning/references/issue-triage.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md",
+        "to": "references/safety-floor.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/fetch_issue.py",
+        "to": "skills/planning/scripts/fetch_issue.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/issue_comment.py",
+        "to": "skills/planning/scripts/issue_comment.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/scripts/sdd.py",
+        "to": "skills/planning/scripts/sdd.py",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
         "reference": "../../debugger/references/structural-quality.md",
         "to": "skills/debugger/references/structural-quality.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "phase-b-writing-plans.md",
+        "to": "skills/planning/references/phase-b-writing-plans.md",
         "kind": "reference"
       },
       {
@@ -5514,6 +5378,12 @@
         "from": "skills/planning/references/phase-b-writing-plans.md",
         "reference": "dispatch-matrix.md",
         "to": "skills/planning/references/dispatch-matrix.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/phase-b-writing-plans.md",
+        "reference": "issue-triage.md",
+        "to": "skills/planning/references/issue-triage.md",
         "kind": "reference"
       },
       {
@@ -5838,12 +5708,6 @@
         "from": "skills/planning/scripts/sdd.py",
         "reference": "skills/*/SKILL.md",
         "to": "skills/intent-layer/SKILL.md",
-        "kind": "computed-input"
-      },
-      {
-        "from": "skills/planning/scripts/sdd.py",
-        "reference": "skills/*/SKILL.md",
-        "to": "skills/issue-improve/SKILL.md",
         "kind": "computed-input"
       },
       {
@@ -6850,6 +6714,11 @@
       },
       {
         "from": "references/shared/120-skill-invocation-order.md",
+        "reference": "PLAN.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "references/shared/120-skill-invocation-order.md",
         "reference": "AGENTS.md",
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
       },
@@ -6994,36 +6863,6 @@
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
       },
       {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "PLAN.md",
-        "reason": "external URL or caller-resolved host path"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": ".graph-powers/config.json",
-        "reason": "host-project input or output, resolved by the caller"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "PLAN.md",
-        "reason": "host-project input or output, resolved by the caller"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "spec.md",
-        "reason": "host-project input or output, resolved by the caller"
-      },
-      {
-        "from": "skills/issue-improve/SKILL.md",
-        "reference": "AGENTS.md",
-        "reason": "host-project instruction hierarchy, not installed plugin instructions"
-      },
-      {
-        "from": "skills/issue-improve/learning.md",
-        "reference": "historical ledger",
-        "reason": "historical paths/calls are evidence, not operational dependencies"
-      },
-      {
         "from": "skills/landing-page-design/references/house-canon.md",
         "reference": "SKILL.md",
         "reason": "host-project input or output, resolved by the caller"
@@ -7131,6 +6970,16 @@
       {
         "from": "skills/planning/references/gauntlet-loop.md",
         "reference": "task-reviews.md",
+        "reason": "host-project input or output, resolved by the caller"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "PLAN.md",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "PLAN.md",
         "reason": "host-project input or output, resolved by the caller"
       },
       {

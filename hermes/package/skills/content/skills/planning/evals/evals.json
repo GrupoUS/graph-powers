@@ -118,7 +118,7 @@
       "id": "planner-first-live-issue-l1",
       "tags": ["planner-first-live"],
       "polarity": "positive",
-      "prompt": "Use the current issue-improve candidate with sanitized pasted L1 content. Capture the native planner call/return and stop without publishing.",
+      "prompt": "Use the current /plan route with sanitized pasted L1 issue content, not an issue reference. Capture the native planner call/return and stop without publishing.",
       "expected_output": "A captured project-planner Astra/high call returns a concise issue plan; no host edit or publication occurs.",
       "assertions": [
         {"id": "observed-planner", "check": "regex: (?is)OBSERVED ROLE: project-planner.*OBSERVED MODEL: gpt-6-astra.*OBSERVED EFFORT: high", "critical": true},

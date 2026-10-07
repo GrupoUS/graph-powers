@@ -6,7 +6,7 @@ Single source of truth — used by `/implement`, `/design`, `/verify`, `/debug a
 |---|---|---|
 | Bug fix / runtime error / regression | `graph-powers:debugger` | `graph-powers:evaluator` Mode 5, the blind second opinion, when a fix keeps not sticking |
 | Plan / decompose / architecture decision | `planning` (via `/plan`) | `senior-architect`, `senior-prompt-engineer` when the feature is an LLM feature |
-| Improve a GitHub issue into a plan comment | `graph-powers:issue-improve` (via `/issue-improve`) | `planning` owns triage and plan grammar; publication needs target/payload approval |
+| Plan, implement and close a GitHub issue | `planning` (via `/plan <issue>`) | `${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md` § Issue entry owns the one fetch, the marked comment, the `/implement` → `/verify` chain and the close |
 | Delegation / who runs what | none — `references/execution-floor.md` is always in force, §4 carries the contract | — |
 | Existing implemented UI / production-readiness repair / design fix | `design-fix` (via `/design fix`) | `designer` only when the repair is structural; `uxmaster` for behavioral criteria |
 | UI / component / page / design system | `designer` — the direction, then the craft passes in `${CLAUDE_PLUGIN_ROOT}/skills/designer/references/craft-passes.md` — with the project's design rule | `uxmaster` for conversion, `animate` for motion, `graph-powers:debugger` if mid-fix |

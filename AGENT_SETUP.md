@@ -537,9 +537,9 @@ Optional operator timer (not installed by `--target grok`): copy
 `grok/graph-powers-grok-update.service` / `.timer`, replacing `PLUGIN_ROOT`. Interval is 15
 minutes. That directory should hold only this updater, not a copy of `hooks.json`.
 
-Grok command names on this client: `/issue-improve` is the skill (bare). While the Codex plugin
-is enabled, invoke `/graph-powers:setup`, `/graph-powers:debug` and `/graph-powers:plan` so they
-do not collide with Codex `setup` or Grok built-ins.
+Grok command names on this client: while the Codex plugin is enabled, invoke
+`/graph-powers:setup`, `/graph-powers:debug` and `/graph-powers:plan` so they do not collide with
+Codex `setup` or Grok built-ins.
 
 For Grok Bot, use the [client compatibility procedure](docs/client-compatibility.md#grok-bot).
 Confirm the Bot workspace and supported skills surface first. The local `--target grok` route

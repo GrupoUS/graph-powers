@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview, then explicitly publish one author-owned, marked issue-plan comment."""
+"""Preview, then explicitly publish one author-owned, marked issue-plan comment; optionally close."""
 
 from __future__ import annotations
 
@@ -24,15 +24,15 @@ class Blocked(Exception):
 
 class Parser(argparse.ArgumentParser):
     def error(self, message):
-        raise Blocked("required arguments: --issue-url URL --body-file FILE [--publish]")
+        raise Blocked("required arguments: --issue-url URL --body-file FILE [--publish [--close]]")
 
 
-def api(host, endpoint, method="GET", body=None, timeout=API_TIMEOUT_SECONDS):
+def api(host, endpoint, method="GET", data=None, timeout=API_TIMEOUT_SECONDS):
     argv = ["gh", "api", endpoint, "--hostname", host, "--method", method]
     payload = None
-    if body is not None:
+    if data is not None:
         argv.extend(["--input", "-"])
-        payload = json.dumps({"body": body}, ensure_ascii=False)
+        payload = json.dumps(data, ensure_ascii=False)
     try:
         result = subprocess.run(
             argv,
@@ -72,7 +72,7 @@ def positive_id(value):
 def remaining_timeout(deadline):
     remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise Blocked("comment lookup exceeded its 30-second budget; no write was attempted")
+        raise Blocked("operation exceeded its 30-second budget; read the issue again before retrying")
     return min(API_TIMEOUT_SECONDS, remaining)
 
 
@@ -92,7 +92,12 @@ def main():
     parser.add_argument(
         "--publish", action="store_true", help="caller has approved this exact target and payload"
     )
+    parser.add_argument(
+        "--close", action="store_true", help="after publishing, close the issue as completed"
+    )
     args = parser.parse_args()
+    if args.close and not args.publish:
+        raise Blocked("--close requires --publish")
     try:
         target = urlsplit(args.issue_url)
         path = re.fullmatch(
@@ -165,21 +170,33 @@ def main():
         )
     if len(candidates) > 1:
         raise Blocked("multiple own marked comments; resolve the duplicate targets before retrying")
+    write = (comments_endpoint, "POST", "created")
     if candidates:
         selected = candidates[0]
         url = comment_url(selected, args.issue_url)
+        write = (f"{repo}/issues/comments/{selected['id']}", "PATCH", "updated")
         if selected["body"] == body:
             print(f"unchanged {url}")
-            return 0
-        endpoint, method, outcome = f"{repo}/issues/comments/{selected['id']}", "PATCH", "updated"
-    else:
-        endpoint, method, outcome = comments_endpoint, "POST", "created"
-    # Single-writer ceiling: GitHub offers no transactional marker upsert across publishers.
-    # If concurrent publishing becomes necessary, coordinate externally before invoking this CLI.
-    published = api(host, endpoint, method, body, timeout=remaining_timeout(deadline))
-    if not isinstance(published, dict):
-        raise Blocked("API returned an invalid write result; rerun with a fresh read")
-    print(f"{outcome} {comment_url(published, args.issue_url)}")
+            write = None
+    if write:
+        endpoint, method, outcome = write
+        # Single-writer ceiling: GitHub offers no transactional marker upsert across publishers.
+        # If concurrent publishing becomes necessary, coordinate externally before invoking this CLI.
+        published = api(host, endpoint, method, {"body": body}, timeout=remaining_timeout(deadline))
+        if not isinstance(published, dict):
+            raise Blocked("API returned an invalid write result; rerun with a fresh read")
+        print(f"{outcome} {comment_url(published, args.issue_url)}")
+    if args.close:
+        closed = api(
+            host,
+            f"{repo}/issues/{path[3]}",
+            "PATCH",
+            {"state": "closed", "state_reason": "completed"},
+            timeout=remaining_timeout(deadline),
+        )
+        if not isinstance(closed, dict) or closed.get("state") != "closed":
+            raise Blocked("API did not confirm the issue closed; read it again before retrying")
+        print(f"closed {args.issue_url}")
     return 0
 
 

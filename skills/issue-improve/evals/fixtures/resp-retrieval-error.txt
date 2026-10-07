@@ -1,6 +1,0 @@
-SYNTHETIC RESPONSE TRACE — no commands in this fixture were executed.
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/issue-improve/scripts/fetch_issue.py" --repo "github.example/acme/widgets" --issue "https://github.example/acme/widgets/issues/404"
-One request; 30-second timeout; never retries.
-exit 1 (fixture)
-BLOCKED: issue fetch failed. Need the canonical issue URL or pasted content; pasted content cannot choose a publication target.
-requirements=0; target=none; publication=0

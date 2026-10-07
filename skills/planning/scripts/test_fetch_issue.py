@@ -6,14 +6,18 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import shlex
 import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import fetch_issue
 
 REPO = "github.example/acme/widgets"
 ISSUE_URL = "https://github.example/acme/widgets/issues/20"
+SCRIPT = Path(__file__).with_name("fetch_issue.py").resolve()
+METHOD = SCRIPT.parents[3] / "skills/planning/references/issue-triage.md"
 ISSUE = {
     "number": 20,
     "title": "Improve the report",
@@ -108,6 +112,21 @@ class IssueFetchTests(unittest.TestCase):
                 self.assertNotIn("private response details", stderr)
                 self.assertEqual(stdout, "")
                 self.assertEqual(self.call_count, 1)
+
+    def test_documented_fetch_is_the_only_issue_retrieval(self):
+        method = METHOD.read_text(encoding="utf-8")
+        lines = [line.strip() for line in method.splitlines()]
+        self.assertFalse([line for line in lines if line.startswith("gh issue view")])
+        commands = [line for line in lines if 'fetch_issue.py" ' in line]
+        self.assertEqual(len(commands), 1, commands)
+        command = commands[0].replace("${CLAUDE_PLUGIN_ROOT}", SCRIPT.parents[3].as_posix())
+        command = command.replace("<host/owner/repository>", REPO)
+        argv = shlex.split(command.replace("<original-argument>", "#20"), posix=True)
+        self.assertEqual(Path(argv[1]).resolve(), SCRIPT)
+        code, stdout, stderr = self.run_cli(argv[2:])
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(self.call_count, 1)
+        self.assertEqual(json.loads(stdout), ISSUE)
 
     def test_malformed_or_incomplete_json_blocks(self):
         for response in ("not json", {"number": 20}):

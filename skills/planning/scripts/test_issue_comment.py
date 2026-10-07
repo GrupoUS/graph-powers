@@ -16,6 +16,8 @@ from unittest.mock import patch
 import issue_comment
 
 SCRIPT = Path(__file__).with_name("issue_comment.py")
+PLUGIN_ROOT = SCRIPT.resolve().parents[3]
+METHOD = PLUGIN_ROOT / "skills/planning/references/issue-triage.md"
 MARKER = "<!-- graph-powers:issue-improve -->"
 URL = "https://github.example/acme/widgets/issues/20"
 COMMENT_URL = URL + "#issuecomment-91"
@@ -45,6 +47,10 @@ def fake_gh_runner():
             )
         if endpoint == "user":
             result = {"id": 7, "login": "fixture-author"}
+        elif endpoint == "repos/acme/widgets/issues/20" and method == "PATCH":
+            assert json.loads(kwargs["input"]) == {"state": "closed", "state_reason": "completed"}
+            state["closed"] = state.get("closed", 0) + 1
+            result = {"number": 20, "state": state.get("close_state", "closed"), "html_url": URL}
         elif method == "GET":
             assert (
                 endpoint.rpartition("=")[0]
@@ -283,10 +289,68 @@ class IssueCommentTests(unittest.TestCase):
         self.assertIn("unchanged", result.stdout)
         self.assertTrue(all(call["method"] == "GET" for call in self.state["calls"]))
 
+    def test_documented_commands_publish_the_plan_then_close_with_the_result(self):
+        method = METHOD.read_text(encoding="utf-8")
+        commands = [line.strip() for line in method.splitlines() if 'issue_comment.py" ' in line]
+        self.assertEqual(len(commands), 2, commands)
+        result_draft = self.root / "result draft.md"
+        result_draft.write_text(MARKER + "\n\nResult: done\n", encoding="utf-8")
+        outcomes = []
+        for command in commands:
+            command = command.replace("${CLAUDE_PLUGIN_ROOT}", PLUGIN_ROOT.as_posix())
+            command = command.replace("<fetched-canonical-url>", URL)
+            command = command.replace("<plan-draft>", self.draft.as_posix())
+            command = command.replace("<result-draft>", result_draft.as_posix())
+            argv = shlex.split(command, posix=True)
+            self.assertEqual(Path(argv[1]).resolve(), SCRIPT.resolve())
+            self.assertIn("--publish", argv)
+            result = self.cli(*argv[2:], required=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            outcomes.append(result.stdout)
+        self.assertIn("created", outcomes[0])
+        self.assertNotIn("closed", outcomes[0])
+        self.assertIn("updated", outcomes[1])
+        self.assertIn("closed " + URL, outcomes[1])
+        self.assertEqual(len(self.state["comments"]), 1)
+        self.assertEqual(self.state["comments"][0]["body"], result_draft.read_text(encoding="utf-8"))
+        self.assertEqual(self.state["closed"], 1)
+
+    def test_close_requires_publish_and_blocks_before_gh(self):
+        self.assert_blocked(self.cli("--close"))
+        self.assertEqual(self.state["calls"], [])
+
+    def test_unchanged_retry_still_closes_once(self):
+        self.state["comments"] = [self.comment(BODY)]
+        result = self.cli("--publish", "--close")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("unchanged", result.stdout)
+        self.assertIn("closed " + URL, result.stdout)
+        self.assertEqual(self.state["closed"], 1)
+        self.assertFalse(any(call["method"] == "POST" for call in self.state["calls"]))
+
+    def test_unconfirmed_close_blocks(self):
+        self.state["close_state"] = "open"
+        result = self.cli("--publish", "--close")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("did not confirm the issue closed", result.stderr)
+        self.assertNotIn("closed " + URL, result.stdout)
+
+    def test_close_runs_only_after_the_comment_write(self):
+        self.state["fail"] = "repos/acme/widgets/issues/20"
+        result = self.cli("--publish", "--close")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BLOCKED", result.stderr)
+        self.assertEqual(len(self.state["comments"]), 1)
+        self.assertNotIn("closed", self.state)
+        self.assertEqual(
+            [call["method"] for call in self.state["calls"]][-2:], ["POST", "PATCH"]
+        )
+
     def test_documented_validation_command_reaches_real_plan_validator(self):
-        plugin_root = SCRIPT.resolve().parents[3]
-        method = SCRIPT.parents[1].joinpath("SKILL.md").read_text(encoding="utf-8")
+        plugin_root = PLUGIN_ROOT
+        method = METHOD.read_text(encoding="utf-8")
         command = next(line for line in method.splitlines() if 'sdd.py" validate ' in line)
+        command = command.strip()
         plan = self.root / "PLAN.md"
         plan.write_text("# Deliberately invalid plan\n", encoding="utf-8")
         command = command.replace("${CLAUDE_PLUGIN_ROOT}", plugin_root.as_posix())
