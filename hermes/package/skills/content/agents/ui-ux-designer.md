@@ -4,7 +4,7 @@ description: "Use when an interface changes or appears: screenshots, mockups, CS
 tools: Read, Grep, Glob, WebFetch
 role_type: evaluator
 model: opus
-effort: high
+effort: xhigh
 disallowedTools: Write, Edit
 ---
 

@@ -10,7 +10,7 @@
     },
     "codexTopLevelReasoningEffort": {
       "type": "string",
-      "enum": ["low", "ultra"]
+      "enum": ["low", "medium", "ultra"]
     },
     "codexProfileName": {
       "type": "string",
@@ -355,6 +355,21 @@
                 "reasoningEffort": {
                   "type": "string",
                   "enum": ["low"]
+                }
+              },
+              "additionalProperties": false
+            },
+            "native-medium": {
+              "type": "object",
+              "description": "Explicit top-level Codex parent profile with medium reasoning effort, selected by codex --profile native-medium. It is never valid on a Graph Powers subagent; generated roles keep their own semantic effort, fan-out included.",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasoningEffort": {
+                  "type": "string",
+                  "enum": ["medium"]
                 }
               },
               "additionalProperties": false

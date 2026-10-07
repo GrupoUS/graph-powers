@@ -97,6 +97,7 @@ DISCOVERY / DISPATCH; see §9h). `--client all` exit 1 does not mean Grok failed
 | `.claude/rules/*` (`templates/rules/`) | Step 5 | three-way compare; project decisions win |
 | `.graph-powers/config.json` keys (`schema/config.schema.json`) | Step 3 | new keys merged; values preserved |
 | Product authorities (`DESIGN.md`, `PRODUCT.md`, `REVIEW.md` specifications) | Step 6 | gaps reported, not redesigned |
+| Codex role TOMLs emitted into `<CODEX_HOME>/agents` (`codex/model-policy.json`) | §9c model-policy update | previous generated defaults migrated; deliberate overrides kept |
 | Claude status line (`bin/statusline.py`) | Step 9, Claude Code § Status line | stable copy refreshed; an operator's own line kept unless adopted |
 | Claude mod (`hooks/claude-mod/`) | the plugin itself | loaded from the installed plugin; proven in step 5 |
 | Skills, agents, commands, references, workflows | the plugin itself | nothing to copy: projects read them from the installed plugin |
@@ -329,7 +330,6 @@ Skip marketplace registration/installation when already valid. Use the exact sco
 reported by the client. Prefer user scope; project/local scope is an explicit exception.
 The installer verifies the package before applying permissive posture. Restart Claude afterwards.
 
-Each agent's frontmatter alias (`opus`, `sonnet`, `haiku`) selects its model. `CLAUDE_CODE_SUBAGENT_MODEL`
 **Status line.** A plugin cannot set `statusLine`, and its cache path changes with every version, so
 the shipped line is installed as a stable copy:
 
@@ -343,10 +343,20 @@ operator configured is kept and reported; add `--adopt` only at the operator's r
 model, effort, directory, branch, the context used and what is left of the 5-hour and 7-day
 windows.
 
+Each agent's frontmatter alias (`opus`, `sonnet`, `haiku`) selects its model. `CLAUDE_CODE_SUBAGENT_MODEL`
 is only the fallback for agents without one; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every role,
 so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`;
 prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
 the alias alone.
+
+Effort splits the same way: each agent's `effort:` overrides the session level, so
+`graph-powers:project-planner`, `graph-powers:evaluator`, `graph-powers:security-reviewer` and
+`graph-powers:ui-ux-designer` run at `xhigh` whatever the window uses. A plugin cannot set the
+window's level. The recommended window is medium, but it stays the operator's choice: only on their
+request set `"effortLevel": "medium"` in `~/.claude/settings.json` and in each
+`modelSettings.<model>.effortLevel` that `/effort` saved, which wins over the top-level key. Report any
+`CLAUDE_CODE_EFFORT_LEVEL` in a settings `env` block and never set it: it outranks every agent's
+`effort:` and pulls the four reasoning roles down with the window.
 
 **Optional Claude Code Jev routing:** Distinct opt-in, credential and paid-batch approvals are
 required. Set `{"claude":{"evaluation":{"enabled":true}}}` in the host config or, with
@@ -412,12 +422,22 @@ override that exists only in an installed role file. Keep one native marketplace
 with `codex plugin add graph-powers@graph-powers`; a local source needs no Git pull or marketplace
 upgrade. Re-read the refreshed cache's guide and prove its version and bytes before reporting success.
 
-The current Codex policy uses Astra/high for judge, architect, executor and verifier, and Luna/medium
-for scouts. Revalidate the latest official family IDs before a model-policy change; the policy is
-the sole owner of literal defaults. The issue-27 parent target is Luna/max, selected manually by the
-operator; setup does not change the session or global parent/default-subagent settings.
-The existing economic and Ultra profiles keep their top-level semantics and need their own smoke
-before use. Unsupported model/effort combinations remain BLOCKED without a silent fallback.
+The current Codex policy uses Astra/high for judge, architect and verifier and Luna/medium for
+executors and scouts. Per-agent defaults put `graph-powers:project-planner`,
+`graph-powers:evaluator`, `graph-powers:security-reviewer`, `graph-powers:ui-ux-designer` and
+`graph-powers:frontend-specialist` on `gpt-6.1-sol`/xhigh; smoke that pair. Revalidate the latest
+official family IDs before a model-policy change; the policy is the sole owner of literal defaults.
+The recommended parent is medium — Codex `native-medium`, Claude `"effortLevel": "medium"` —
+selected manually by the operator; setup does not change the session or global
+parent/default-subagent settings. The economic, medium and Ultra profiles keep their top-level
+semantics and need their own smoke before use. When the operator asks for the medium window, emit
+it as a top-level profile — never as a role — and select it with `codex --profile native-medium`:
+
+```bash
+bun "<PLUGIN>/codex/native-plugin.mjs" --top-level-profile native-medium --out "<CODEX_HOME>"
+```
+
+Its effort never reaches a generated role; each role TOML keeps its own. Unsupported model/effort combinations remain BLOCKED without a silent fallback.
 
 Jev is opt-in typed routing; installation alone authorizes no credentials or paid requests.
 The CLI, capability and replay contract lives in

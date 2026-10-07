@@ -328,6 +328,15 @@ Agents, skills, commands and guardrails are live at the next session start. Noth
 unless you also use Codex, Cursor, Grok, Kilo or Hermes. Zed consumes instructions/editor settings only; this
 repository does not implement a Zed lifecycle/tool-hook target.
 
+Effort is per role: `graph-powers:project-planner`, `graph-powers:evaluator`,
+`graph-powers:security-reviewer` and `graph-powers:ui-ux-designer` declare `effort: xhigh`, which
+overrides the session level. A plugin cannot set the window's own level — its `settings` apply only
+`agent` and `subagentStatusLine` — so for a medium window set `"effortLevel": "medium"` once in
+`~/.claude/settings.json`, and the same value in every `modelSettings.<model>.effortLevel` that
+`/effort` saved there: a per-model entry wins over the top-level key. Never use
+`CLAUDE_CODE_EFFORT_LEVEL` for it: that variable outranks every subagent's `effort:` and drags the
+four reasoning roles down with the window.
+
 ### Codex CLI — native plugin (recommended)
 
 ```bash
@@ -358,9 +367,13 @@ and the clone fallback use the same resolver from `codex/model-policy.json`, so 
 route inherits one session model for all twelve agents. The defaults preserve each specialist's role:
 
 - judges, architects and the verifier: `gpt-6-astra` + `high`;
-- executors and scouts: `gpt-6-luna` + `medium`, with executor escalation to the Astra judge.
+- executors and scouts: `gpt-6-luna` + `medium`, with executor escalation to the Astra judge;
+- `agentDefaults` moves only `graph-powers:project-planner`, `graph-powers:evaluator`,
+  `graph-powers:security-reviewer`, `graph-powers:ui-ux-designer` and
+  `graph-powers:frontend-specialist` to `gpt-6.1-sol` + `xhigh`, leaving their shared profiles alone.
 
-The operator's parent stays a manual choice: the issue-27 mode is `gpt-6-luna` + `max`.
+The operator's parent stays a manual choice: the recommended window is the top-level
+`native-medium` profile below.
 At each model-policy update, revalidate the latest official model in the selected family and
 record its literal ID; never invent a `-latest` alias or silently change the runtime model.
 Smoke the resolved model and effort on the actual account before activation. An unavailable
@@ -422,10 +435,15 @@ node codex/native-plugin.mjs --top-level-profile native-ultra --out <codex-home>
 codex --profile native-ultra
 ```
 
+`native-medium` is the everyday window: emit it the same way and select it with
+`codex --profile native-medium`, or set `model_reasoning_effort = "medium"` in `~/.codex/config.toml`.
+Its effort never reaches a generated role; each role TOML keeps its own.
+
 The installed Codex build still decides whether the selected model/account can execute Ultra; a
 runtime rejection is reported rather than translated to another model. The existing top-level defaults
-are `native-ultra`: `gpt-6-sol`/`ultra`, and `native-economic`: `gpt-6-luna`/`low`.
-Neither changes the manually selected Luna/max parent. Judges remain on Astra/high.
+are `native-ultra`: `gpt-6-sol`/`ultra`, `native-medium`: `gpt-6.1-sol`/`medium`, and
+`native-economic`: `gpt-6-luna`/`low`. None changes the manually selected parent. Judges remain on
+Astra/high; the four reasoning roles and the frontend specialist run on Sol 6.1/xhigh.
 
 ### Cursor
 
@@ -619,7 +637,7 @@ One file per project, with a safe default for everything. The full contract is
 | `tooling.commands.*`                                                            | The literal command behind each gate — **and the tool it names has to be installed**, see below     |
 | `paths.*`                                                                       | Where code lives. An empty field means the project has no such layer, and plans must not invent one |
 | `project.stack`                                                                 | Turns on the stack-gated skills                                                                     |
-| `codex.profile` · `codex.profiles.*` · `codex.agents.*`                         | Semantic Codex model/effort overrides; per-agent wins, and `native-ultra` is top-level-only         |
+| `codex.profile` · `codex.profiles.*` · `codex.agents.*`                         | Semantic Codex model/effort overrides; per-agent wins; `native-*` profiles are top-level-only       |
 | `codex.model` · `codex.models.{heavy,standard,light}` · `codex.reasoningEffort` | Backward-compatible flat/tier/global overrides used before the semantic default                     |
 | `autonomy.*`                                                                    | How much runs without asking — see below                                                            |
 

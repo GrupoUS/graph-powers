@@ -4,7 +4,8 @@
  * Canonical agent Markdown remains Claude-oriented. Both Codex generators call this resolver,
  * and workflows read the adjacent JSON contract through their existing configuration bootstrap.
  * Model selection is semantic: judges, architects and verifiers use Astra; executors and scouts
- * use Luna. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
+ * use Luna; `agentDefaults` moves named roles (planner, evaluator, security, design, frontend) to
+ * Sol without changing the profile their peers share. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
  * proactive orchestration policy, not a larger single-agent reasoning budget.
  */
 
@@ -20,6 +21,7 @@ function deepFreeze(value) {
 
 export const CODEX_MODEL_POLICY = deepFreeze(raw);
 export const CODEX_AGENT_PROFILES = CODEX_MODEL_POLICY.agents;
+export const CODEX_AGENT_DEFAULTS = CODEX_MODEL_POLICY.agentDefaults ?? {};
 export const CODEX_PROFILE_DEFAULTS = CODEX_MODEL_POLICY.profiles;
 export const CODEX_REASONING_EFFORTS = CODEX_MODEL_POLICY.reasoningEfforts;
 export const CODEX_TOP_LEVEL_REASONING_EFFORTS = CODEX_MODEL_POLICY.topLevelReasoningEfforts;
@@ -173,6 +175,11 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
     throw new Error("Codex profile override must be an object");
   }
 
+  // A per-agent semantic default belongs to the role, so it rides only with the role's own profile.
+  const agentDefault = profile === CODEX_AGENT_PROFILES[name] ? CODEX_AGENT_DEFAULTS[name] : null;
+  const semanticModel = agentDefault?.model ?? profileDefault?.model;
+  const semanticEffort = agentDefault?.reasoningEffort ?? profileDefault?.reasoningEffort;
+
   const legacy = legacySource(sourceAgent);
   const modelChoice = firstModel([
     { value: override.model, source: "agent-override" },
@@ -182,7 +189,7 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
       source: legacy.tier ? `legacy-models.${legacy.tier}` : null,
     },
     { value: settings?.model, source: "legacy-model" },
-    { value: profileDefault?.model, source: "semantic-default" },
+    { value: semanticModel, source: "semantic-default" },
   ]);
   if (modelChoice?.source !== "semantic-default" && modelChoice?.source !== "session-inheritance") {
     warnings.push(CODEX_WARNING_CATEGORIES.modelOverrideUnverified);
@@ -196,12 +203,12 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
       source: "profile-override",
     },
     { value: settings?.reasoningEffort, source: "legacy-reasoning-effort" },
-    { value: profileDefault?.reasoningEffort, source: "semantic-default" },
+    { value: semanticEffort, source: "semantic-default" },
   ]) {
     const value = text(candidate.value).toLowerCase();
     if (!value) continue;
     if (value === "ultra") {
-      const safe = profileDefault?.reasoningEffort;
+      const safe = semanticEffort;
       if (!safe || safe === "ultra") {
         throw new Error("top-level-only Codex effort has no safe semantic fallback");
       }
@@ -222,7 +229,7 @@ export function resolveCodexAgentPolicy(agentName, settings = {}, sourceAgent = 
 
   let finalModel = modelChoice;
   if (effortChoice?.source === "ultra-safe-fallback") {
-    finalModel = { value: profileDefault.model, source: "ultra-safe-fallback" };
+    finalModel = { value: semanticModel, source: "ultra-safe-fallback" };
   }
 
   return {
@@ -281,6 +288,12 @@ if (Object.keys(CODEX_AGENT_PROFILES).length !== 12) {
 for (const [agent, profile] of Object.entries(CODEX_AGENT_PROFILES)) {
   if (!SUBAGENT_PROFILES.has(profile)) {
     throw new Error(`Codex agent ${agent} references non-subagent profile ${profile}`);
+  }
+}
+for (const [agent, value] of Object.entries(CODEX_AGENT_DEFAULTS)) {
+  if (!Object.hasOwn(CODEX_AGENT_PROFILES, agent) || !isCodexModelSlug(value?.model) ||
+    !SUBAGENT_EFFORTS.has(value?.reasoningEffort)) {
+    throw new Error(`Codex agent default for ${agent} is not a canonical Codex model and effort`);
   }
 }
 for (const agent of CODEX_LEAF_AGENTS) {

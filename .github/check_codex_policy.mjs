@@ -22,13 +22,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXPECTED_POLICY = {
-  evaluator: ["judge", "gpt-6-astra", "high"],
-  "security-reviewer": ["judge", "gpt-6-astra", "high"],
+  evaluator: ["judge", "gpt-6.1-sol", "xhigh"],
+  "security-reviewer": ["judge", "gpt-6.1-sol", "xhigh"],
   "skill-improver": ["judge", "gpt-6-astra", "high"],
-  "ui-ux-designer": ["judge", "gpt-6-astra", "high"],
-  "project-planner": ["architect", "gpt-6-astra", "high"],
+  "ui-ux-designer": ["judge", "gpt-6.1-sol", "xhigh"],
+  "project-planner": ["architect", "gpt-6.1-sol", "xhigh"],
   debugger: ["executor", "gpt-6-luna", "medium"],
-  "frontend-specialist": ["executor", "gpt-6-luna", "medium"],
+  "frontend-specialist": ["executor", "gpt-6.1-sol", "xhigh"],
   "mobile-developer": ["executor", "gpt-6-luna", "medium"],
   "performance-optimizer": ["executor", "gpt-6-luna", "medium"],
   verification: ["verifier", "gpt-6-astra", "high"],
@@ -106,8 +106,8 @@ const efforts = Array.from(CODEX_REASONING_EFFORTS ?? []);
 assert(efforts.includes("max"), `max is not accepted; efforts=${JSON.stringify(efforts)}`);
 const topLevelEfforts = Array.from(CODEX_TOP_LEVEL_REASONING_EFFORTS ?? []);
 assert(
-  topLevelEfforts.includes("low") && topLevelEfforts.includes("ultra"),
-  "top-level policy must accept both economical low and Ultra efforts",
+  ["low", "medium", "ultra"].every((effort) => topLevelEfforts.includes(effort)),
+  "top-level policy must accept economical low, parent medium and Ultra efforts",
 );
 
 for (const [name, expected] of Object.entries(EXPECTED_POLICY)) {
@@ -161,8 +161,25 @@ for (const [name, settings, expected, warning] of [
   [
     "evaluator",
     { reasoningEffort: "ultra" },
-    ["judge", "gpt-6-astra", "high"],
+    ["judge", "gpt-6.1-sol", "xhigh"],
     "topLevelEffortDowngraded",
+  ],
+  // An operator's profile override still outranks the per-agent semantic default.
+  [
+    "evaluator",
+    { profiles: { judge: { model: "gpt-6-astra", reasoningEffort: "medium" } } },
+    ["judge", "gpt-6-astra", "medium"],
+  ],
+  [
+    "frontend-specialist",
+    { agents: { "frontend-specialist": { reasoningEffort: "high" } } },
+    ["executor", "gpt-6.1-sol", "high"],
+  ],
+  [
+    "evaluator",
+    { profile: "executor" },
+    ["executor", "gpt-6-luna", "medium"],
+    "profileOverrideUnverified",
   ],
   [
     "debugger",
@@ -223,12 +240,13 @@ try {
   evaluatorUltra = null;
 }
 assert(
-  !evaluatorUltra || (evaluatorUltra.effort === "high" && evaluatorUltra.model === "gpt-6-astra"),
-  "leaf Ultra must reject or safely downgrade to Astra High",
+  !evaluatorUltra || (evaluatorUltra.effort === "xhigh" && evaluatorUltra.model === "gpt-6.1-sol"),
+  "leaf Ultra must reject or safely downgrade to Sol xhigh",
 );
 for (const [name, model, effort] of [
   ["native-ultra", "gpt-6-sol", "ultra"],
   ["native-economic", "gpt-6-luna", "low"],
+  ["native-medium", "gpt-6.1-sol", "medium"],
 ]) {
   const preset = CODEX_PROFILE_DEFAULTS[name];
   const resolved = resolveCodexTopLevelProfile(name);
@@ -257,10 +275,12 @@ assert(
   equal(schema.definitions?.codexTopLevelReasoningEffort?.enum, topLevelEfforts),
   "schema top-level effort enum drifted from model policy",
 );
-assert(
-  schema.properties?.codex?.properties?.profiles?.properties?.["native-economic"],
-  "schema does not expose native-economic profile overrides",
-);
+for (const name of ["native-economic", "native-medium"]) {
+  assert(
+    schema.properties?.codex?.properties?.profiles?.properties?.[name],
+    `schema does not expose ${name} profile overrides`,
+  );
+}
 
 // Exercise both renderers with non-default settings. Sharing the resolver is necessary but this
 // comparison proves neither renderer drops or renames the resolved fields on its own surface.
@@ -268,6 +288,10 @@ const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const [{ agentToToml, codexSettingsFromConfig }, { buildNativeAgents, topLevelProfileToToml }] =
   await Promise.all([import("../codex/install.mjs"), import("../codex/native-plugin.mjs")]);
 const ultraToml = topLevelProfileToToml("native-ultra");
+assert(
+  !/fan-out/.test(topLevelProfileToToml("native-medium")),
+  "native-medium profile file inherited the Ultra fan-out warning",
+);
 assert(
   /^model\s*=\s*"gpt-6-sol"$/m.test(ultraToml),
   "native-ultra profile file lost the Sol model",

@@ -11,6 +11,7 @@
   ],
   "topLevelReasoningEfforts": [
     "low",
+    "medium",
     "ultra"
   ],
   "warningCategories": {
@@ -64,12 +65,41 @@
       "topLevelOnly": true,
       "fallbackProfile": "executor",
       "escalationProfile": "judge"
+    },
+    "native-medium": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "topLevelOnly": true,
+      "fallbackProfile": "judge",
+      "escalationProfile": null
     }
   },
   "evaluation": {
     "model": "typesafe-ai/jev",
     "endpoint": "https://ai-gateway.vercel.sh/v1/evaluate",
     "timeoutMs": 10000
+  },
+  "agentDefaults": {
+    "evaluator": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh"
+    },
+    "frontend-specialist": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh"
+    },
+    "project-planner": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh"
+    },
+    "security-reviewer": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh"
+    },
+    "ui-ux-designer": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh"
+    }
   },
   "leafAgents": [
     "evaluator"

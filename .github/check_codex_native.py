@@ -23,13 +23,13 @@ from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_POLICY = {
-    "evaluator": ("judge", "gpt-6-astra", "high"),
-    "security-reviewer": ("judge", "gpt-6-astra", "high"),
+    "evaluator": ("judge", "gpt-6.1-sol", "xhigh"),
+    "security-reviewer": ("judge", "gpt-6.1-sol", "xhigh"),
     "skill-improver": ("judge", "gpt-6-astra", "high"),
-    "ui-ux-designer": ("judge", "gpt-6-astra", "high"),
-    "project-planner": ("architect", "gpt-6-astra", "high"),
+    "ui-ux-designer": ("judge", "gpt-6.1-sol", "xhigh"),
+    "project-planner": ("architect", "gpt-6.1-sol", "xhigh"),
     "debugger": ("executor", "gpt-6-luna", "medium"),
-    "frontend-specialist": ("executor", "gpt-6-luna", "medium"),
+    "frontend-specialist": ("executor", "gpt-6.1-sol", "xhigh"),
     "mobile-developer": ("executor", "gpt-6-luna", "medium"),
     "performance-optimizer": ("executor", "gpt-6-luna", "medium"),
     "verification": ("verifier", "gpt-6-astra", "high"),
@@ -38,6 +38,7 @@ EXPECTED_POLICY = {
 }
 EXPECTED_TOP_LEVEL_PROFILES = {
     "native-economic": ["gpt-6-luna", "low"],
+    "native-medium": ["gpt-6.1-sol", "medium"],
     "native-ultra": ["gpt-6-sol", "ultra"],
 }
 READ_ONLY_AGENTS = {
@@ -743,7 +744,7 @@ for (const file of Object.keys(agents)) {
   agentToToml(readFileSync(`agents/${file.replace(/\\.toml$/, ".md")}`, "utf8"), paritySettings,
     (warning) => cloneWarnings.push(warning));
 }
-const topLevelProfiles = Object.fromEntries(["native-economic", "native-ultra"].map((name) => {
+const topLevelProfiles = Object.fromEntries(["native-economic", "native-medium", "native-ultra"].map((name) => {
   const profile = resolveCodexTopLevelProfile(name);
   return [name, [profile.model, profile.reasoningEffort]];
 }));

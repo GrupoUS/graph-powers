@@ -8,8 +8,12 @@ import { coordinate } from "../codex/coordinate.mjs";
 import { routingSettings } from "../codex/evaluate.mjs";
 
 const actor = { requesterRole: "parent", depth: 0 };
-const capabilities = ["high", "medium"].map((reasoningEffort) => ({
-  model: reasoningEffort === "high" ? "gpt-6-astra" : "gpt-6-luna",
+const capabilities = [
+  ["gpt-6-astra", "high"],
+  ["gpt-6-luna", "medium"],
+  ["gpt-6.1-sol", "xhigh"],
+].map(([model, reasoningEffort]) => ({
+  model,
   reasoningEffort,
   status: "SUPPORTED",
   evidence: "synthetic account capability fixture",

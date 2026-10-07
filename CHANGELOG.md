@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.7 — Medium window, Sol xhigh reasoning roles
+
+`project-planner`, `evaluator`, `security-reviewer` and `ui-ux-designer` reason at `xhigh` on both
+clients: Claude through each agent's `effort:` and Codex through the per-agent `agentDefaults` map,
+which puts them — and `frontend-specialist` — on `gpt-6.1-sol`/`xhigh` while the shared `judge`,
+`architect` and `executor` profiles keep Astra/high and Luna/medium for their other roles.
+Codex gains a top-level `native-medium` parent profile (`gpt-6.1-sol`/`medium`). Claude's window is set
+with `effortLevel` and per-model `modelSettings`, never `CLAUDE_CODE_EFFORT_LEVEL`, which would override every subagent's effort.
+Existing Codex installs migrate their emitted roles through `AGENT_SETUP.md` §9c's model-policy
+update rule; the regenerated `codex/native-agents/` files alone do not change an installed role.
+
 ## 1.23.6 — Claude routing mod and machine-wide Update mode
 
 The Claude-only `prompt.context` mod under `hooks/claude-mod/`, declared by

@@ -119,7 +119,7 @@
       "tags": ["planner-first-live"],
       "polarity": "positive",
       "prompt": "Use the current /plan route with sanitized pasted L1 issue content, not an issue reference. Capture the native planner call/return and stop without publishing.",
-      "expected_output": "A captured project-planner Astra/high call returns a concise issue plan; no host edit or publication occurs.",
+      "expected_output": "A captured project-planner Sol/xhigh call returns a concise issue plan; no host edit or publication occurs.",
       "assertions": [
         {"id": "observed-planner", "check": "regex: (?is)OBSERVED ROLE: project-planner.*OBSERVED MODEL: gpt-6-astra.*OBSERVED EFFORT: high", "critical": true},
         {"id": "short-plan", "check": "regex: (?is)CHECK:.*EXPECT:.*TDD:", "critical": true},
@@ -131,7 +131,7 @@
       "tags": ["planner-first-live"],
       "polarity": "positive",
       "prompt": "Invoke the current /plan L4 route, capture the planner-authored spec, independent GATE 1 and planner-authored PLAN return; stop before Phase C.",
-      "expected_output": "Native evidence shows project-planner Astra/high authors both artifacts and a separate evaluator Astra/high completes GATE 1.",
+      "expected_output": "Native evidence shows project-planner Sol/xhigh authors both artifacts and a separate evaluator Sol/xhigh completes GATE 1.",
       "assertions": [
         {"id": "author-model", "check": "contains: OBSERVED ROLE: project-planner; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
         {"id": "review-model", "check": "contains: OBSERVED REVIEWER: evaluator; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
@@ -146,7 +146,7 @@
       ],
       "polarity": "positive",
       "prompt": "Invoke /implement on an approved L4 plan without a bound review. Capture the independent Mode 1 review and review-bind; stop before lease/writer.",
-      "expected_output": "Native events show a separate evaluator Astra/high reviews and binds the plan before any lease or writer.",
+      "expected_output": "Native events show a separate evaluator Sol/xhigh reviews and binds the plan before any lease or writer.",
       "assertions": [
         {
           "id": "evaluator-model",
@@ -181,7 +181,7 @@
       "tags": ["planner-first-live"],
       "polarity": "positive",
       "prompt": "Capture the same frozen recovery scenario before and after the authorized Mode 5 contract change. Record reservation, evaluator call/return and observed model; never admit a writer retry.",
-      "expected_output": "An actual fresh RESERVED Mode 5 evaluator Astra/high returns before any writer, with identity-bound baseline/candidate evidence.",
+      "expected_output": "An actual fresh RESERVED Mode 5 evaluator Sol/xhigh returns before any writer, with identity-bound baseline/candidate evidence.",
       "assertions": [
         {"id": "reservation", "check": "contains: RESERVATION: RESERVED", "critical": true},
         {"id": "evaluator-model", "check": "regex: (?is)OBSERVED ROLE: evaluator.*OBSERVED MODEL: gpt-6-astra.*OBSERVED EFFORT: high", "critical": true},

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "745fc707715e69b07d7cdeb0abebaba5095151e4",
-    "version": "1.23.6+local.20261007133558",
+    "base_revision": "022dd2fe61195ea793166ee550d3300e39d6cd51",
+    "version": "1.23.7+local.20261007175329",
     "dirty": true
   },
   "registrations": [
@@ -245,8 +245,8 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "4787fbfa29320f866cb2db8417759fb13a5b317f8087daca4136dd34176534bf",
-      "base_sha256": "ae688f2ddd8899fe6ff36f79095604b90ae54cce96acf4df98c2d5bcdbf74a32",
+      "sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
+      "base_sha256": "4787fbfa29320f866cb2db8417759fb13a5b317f8087daca4136dd34176534bf",
       "dirty": true
     },
     {
@@ -263,8 +263,8 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "2e7705358cd0bad77277a08f7772f6bf3d9473b269b063c29242e8c2fea19e40",
-      "base_sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
+      "sha256": "bfe7f2207a7fe1adc4d2927a26aaf53795cd5c9491b2a3f1221eaa0ac0d19ffd",
+      "base_sha256": "2e7705358cd0bad77277a08f7772f6bf3d9473b269b063c29242e8c2fea19e40",
       "dirty": true
     },
     {
@@ -341,9 +341,9 @@
     },
     {
       "path": "agents/ui-ux-designer.md",
-      "sha256": "5fb34efec6a36a8cdfdd86a919d60c71144261ccb6b12d76056edf058f741bc7",
+      "sha256": "dbda4e9208531714f7731426923742296e3aad321eb1b1c5259d62352696a5b0",
       "base_sha256": "5fb34efec6a36a8cdfdd86a919d60c71144261ccb6b12d76056edf058f741bc7",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "agents/verification.md",
@@ -354,8 +354,8 @@
     {
       "path": "bin/statusline.py",
       "sha256": "1dc8d84001ed7037662ac0e71de2e72aea6d61bdfb82ea33739dc96603c945e7",
-      "base_sha256": null,
-      "dirty": true
+      "base_sha256": "1dc8d84001ed7037662ac0e71de2e72aea6d61bdfb82ea33739dc96603c945e7",
+      "dirty": false
     },
     {
       "path": "codex/coordinate.mjs",
@@ -383,15 +383,15 @@
     },
     {
       "path": "codex/model-policy.json",
-      "sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
+      "sha256": "78dbccf4d91bf4afdadd06336d49a467225a1ca1c98ab466606218b8dabf9c86",
       "base_sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "codex/model-policy.mjs",
-      "sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
+      "sha256": "ce2e0762b8c4f48ea5cd056ff5e17da39e8f261cce1e38c68c3790b48bfec261",
       "base_sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/debug.md",
@@ -474,8 +474,8 @@
     {
       "path": "docs/client-compatibility.md",
       "sha256": "0bb3d24b08500be77f77302b241c7116e5b639d77ce002411a601ee306a44d92",
-      "base_sha256": "684fc514637025c906bffd10a1cae9890b887eb0cc1720d1f00b23fef8eafb64",
-      "dirty": true
+      "base_sha256": "0bb3d24b08500be77f77302b241c7116e5b639d77ce002411a601ee306a44d92",
+      "dirty": false
     },
     {
       "path": "hermes/install.mjs",
@@ -743,9 +743,9 @@
     },
     {
       "path": "schema/config.schema.json",
-      "sha256": "9f61a9dc9266aaa2645a457d8197f5058682b0feb9d6d9093d1f77ccdb1456f2",
+      "sha256": "81ebdb47a25f444a349148d97c55f0a828a2efbcadb90591c78abca3327948bc",
       "base_sha256": "9f61a9dc9266aaa2645a457d8197f5058682b0feb9d6d9093d1f77ccdb1456f2",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/animate/SKILL.md",
@@ -977,9 +977,9 @@
     },
     {
       "path": "skills/planning/evals/evals.json",
-      "sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
+      "sha256": "7b8efcf711c266b14f058f14bd077838596d43d93c8cb3652620b32301b896f4",
       "base_sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -1315,7 +1315,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "6f3ad51cff5745103adbb1125450506c600192c7773e9340da98c207036e90a7",
+      "sha256": "659c45075e6a95827057e10ab82791f91a98fede87508fba052ceaa72a125f63",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1403,7 +1403,7 @@
     },
     {
       "path": "skills/agent-ui-ux-designer.md",
-      "sha256": "f4112c0afdf571ffb2492a6a4ca70edfccfe3ccc5fe63f8f42bacc986dc943bb",
+      "sha256": "224766eb036aadec225b3576a182fcaaa91580dec8f12c1372322011f01d1e4f",
       "sources": [
         "agents/ui-ux-designer.md"
       ],
@@ -1443,7 +1443,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "a1dcd315b053435d8df24b8ba371ed1f7ecb1cf4b103d8a7179c4f68689d6527",
+      "sha256": "473afd3a827439c6cfd6969e1eb1be18647247bc919f633d69a4f42aa85bf412",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1531,7 +1531,7 @@
     },
     {
       "path": "skills/content/agents/ui-ux-designer.md",
-      "sha256": "f4112c0afdf571ffb2492a6a4ca70edfccfe3ccc5fe63f8f42bacc986dc943bb",
+      "sha256": "224766eb036aadec225b3576a182fcaaa91580dec8f12c1372322011f01d1e4f",
       "sources": [
         "agents/ui-ux-designer.md"
       ],
@@ -1587,7 +1587,7 @@
     },
     {
       "path": "skills/content/codex/model-policy.json",
-      "sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
+      "sha256": "78dbccf4d91bf4afdadd06336d49a467225a1ca1c98ab466606218b8dabf9c86",
       "sources": [
         "codex/model-policy.json"
       ],
@@ -1595,7 +1595,7 @@
     },
     {
       "path": "skills/content/codex/model-policy.mjs",
-      "sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
+      "sha256": "ce2e0762b8c4f48ea5cd056ff5e17da39e8f261cce1e38c68c3790b48bfec261",
       "sources": [
         "codex/model-policy.mjs"
       ],
@@ -2051,7 +2051,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "1c2e32669752a215598de42cc924df498e276049695a4bbb1ca5fe265c77ec1d",
+      "sha256": "f31464c8d65329a7244f6a89fc1d08f70d47f45d1aaadc7408f1c1daad2c87d7",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2363,7 +2363,7 @@
     },
     {
       "path": "skills/content/skills/planning/evals/evals.json",
-      "sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
+      "sha256": "7b8efcf711c266b14f058f14bd077838596d43d93c8cb3652620b32301b896f4",
       "sources": [
         "skills/planning/evals/evals.json"
       ],
@@ -3106,6 +3106,12 @@
         "from": "AGENT_SETUP.md",
         "reference": "codex/evaluate.mjs",
         "to": "codex/evaluate.mjs",
+        "kind": "reference"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "codex/model-policy.json",
+        "to": "codex/model-policy.json",
         "kind": "reference"
       },
       {
@@ -6110,6 +6116,11 @@
       {
         "from": "AGENT_SETUP.md",
         "reference": ".claude/scripts/graph-powers-statusline.py",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": ".claude/settings.json",
         "reason": "external URL or caller-resolved host path"
       },
       {
