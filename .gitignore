@@ -25,6 +25,10 @@ AGENT_STOP
 # `templates/rules/`. Committing that would be this repository duplicating itself.
 .codex/rules/
 
+# Claude Code writes this beside a mod loaded with --plugin-dir; it only extends the generated,
+# self-ignored `.claude-plugin/types/`. The repository has no TypeScript project of its own.
+/tsconfig.json
+
 # Packaging artefacts
 *.tgz
 node_modules/
