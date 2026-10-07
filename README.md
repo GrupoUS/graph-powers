@@ -240,21 +240,21 @@ project's own failure mode pointed the other way. Every entry added is recorded,
 standing. Cursor's permission file is operator posture and is not removed. Grok's `config.toml`
 is operator posture and is not removed.
 
-### Gauntlet execution
+### Implementation routes
 
-`/gauntlet <objective-or-plan-path> [--dry-run] [--review-only]` is the opt-in route from discovery and brainstorming
-through a reviewed structured plan to implementation and verification. It reuses valid planning
-evidence and existing scope approval; unresolved decisions return to planning before implementation.
-It keeps coupled work sequential, permits bounded
-parallel lanes only for disjoint ownership, and gives each lane a builder, focused check, fresh
-read-only critic and capped correction cycle before the final `/verify loop`. L1-L2 work stays on
-the normal local route. `--review-only` runs the independent plan review, binds its verdict to the
-plan's SHA-256 in the SDD workspace and stops before any lease or writer; an approved plan that
-changes afterwards needs a new review before Phase C. The dry run describes the planning route, or
-validates a supplied plan and prints its schedule, declaring builder and inspector as two distinct
-roles and without acquiring a lease, writing or spawning. Codex exposes the same command as the
-generated `$graph-powers:gauntlet` skill; Hermes translates the method but does not claim a
-`/gauntlet` slash-command surface.
+`/implement <objective-or-plan-path> [--dry-run]` takes the smallest route the tier allows. L1-L2
+is a direct edit with one focused check and no agent. L3 uses at most one writer: directly for an
+objective, through Phase C's default profile for a plan, closing with `/verify quick`. An L4+
+objective goes once to `/plan` and stops. An approved L4+ plan runs the Gauntlet profile: it keeps
+coupled work sequential, permits bounded parallel lanes only for disjoint ownership, and gives each
+wave a builder, focused checks, one fresh read-only critic and a capped correction cycle before the
+final `/verify loop`. Before any lease, the plan's independent review is bound to its SHA-256 in the
+SDD workspace; a plan without a current bound review gets one review first, and a plan that changes
+afterwards needs a new one. The dry run validates and prints the route and schedule, declaring
+builder and inspector as two distinct roles, without acquiring a lease, writing or spawning.
+`/gauntlet` remains only as a deprecated alias of `/implement`. Codex exposes the command as the
+generated `$graph-powers:implement` skill; Hermes translates the method but does not claim a
+slash-command surface.
 
 ---
 

@@ -30,7 +30,7 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 ## Exit contract
 
 - **L3 default:** inline 3-section spec (architecture / data / validation) printed in chat. No file. Skip to direct edit.
-- **L3 Gauntlet and L4+:** `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` (`content/references/shared/007-path-conventions.md`). `graph-powers:project-planner` authors the design. Ordinary L4 requires an independent evaluator Mode 1 PASS at GATE 1; ordinary L5+ and Gauntlet review spec/plan at GATE 2. User approval covers Phase B; proceed to `content/skills/planning/references/phase-b-writing-plans.md`. Gauntlet's required evaluator review occurs in Phase B.
+- **L4+:** `${paths.planDir}/YYYY-MM-DD-<slug>/spec.md` (`content/references/shared/007-path-conventions.md`). `graph-powers:project-planner` authors the design. Ordinary L4 requires an independent evaluator Mode 1 PASS at GATE 1; ordinary L5+ reviews spec/plan at GATE 2. User approval covers Phase B; proceed to `content/skills/planning/references/phase-b-writing-plans.md`.
 
 ---
 
@@ -39,12 +39,12 @@ the destination and tier, so Phase A starts from evidence rather than reopening 
 > Phase A is a goal-gated loop. Model: `content/skills/planning/references/loop-engineering.md`.
 
 - **trigger:** task classified L3+ in the authorized checkout.
-- **goal (binary):** design returned (inline for ordinary L3; file for Gauntlet L3+/L4+) **AND** GATE 1 PASS at ordinary L4 **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(Ordinary L3 has no file or GATE 1; ordinary L5+ and Gauntlet review in Phase B.)*
+- **goal (binary):** design returned (inline for ordinary L3; file for L4+) **AND** GATE 1 PASS at ordinary L4 **AND** user approval covers the next transition **AND** zero TBD/placeholder tokens **AND** every `[ASSUMED]` labeled. *(Ordinary L3 has no file or GATE 1; ordinary L5+ reviews in Phase B.)*
 - **body:** inspect only decision-relevant facts → ask only blocking questions → project-planner authors design → independent evaluator reviews when required → correct once per existing cap.
 - **guards:** HARD-STOP 3 spec revisions → escalate · GOAL-GUARD: no observable destination means
   no design · no speculative feature or abstraction without a current requirement.
-- **terminal:** goal PASS → at default L3, return to the requested implementation path; at Gauntlet
-  L3 or L4+, continue to Phase B. Any guard trips → escalate to user.
+- **terminal:** goal PASS → at default L3, return to the requested implementation path; at L4+,
+  continue to Phase B. Any guard trips → escalate to user.
 
 ---
 
@@ -55,7 +55,7 @@ Step 0 has already chosen the path:
 | Path | Planning depth | Output |
 |---|---|---|
 | **Spike** | `/research`; the answer is the deliverable | Evidence-backed recommendation; any artifact is throwaway |
-| **L3 bounded** | Existing flow, one domain | Short design in chat; no spec or plan file, except explicit Gauntlet promotes it to the reviewed plan path |
+| **L3 bounded** | Existing flow, one domain | Short design in chat; no spec or plan file |
 | **L4+ architectural** | New subsystem, cross-domain contract or structural change | Approved `spec.md`, then Phase B |
 
 Hidden complexity only moves upward: stop, state what changed, and reclassify. Do not downgrade a
@@ -84,28 +84,6 @@ checklist or ask the user to repeat purpose, constraints, success criteria, reus
 already clear from the request and repository. For a real L6 risk surface, ask only which missing
 decision or assumption could invalidate the chosen approach; do not add ceremony merely because of
 the label.
-
-**Explicit Gauntlet L3+ — grill:** keep a decision tree in the current conversation/spec, with
-settled answers, open branches and their dependencies. Inspect facts yourself using Step 1; do not
-ask the user to retrieve them. Pending factual research leaves its branch and dependent decisions
-open even when no question is ready; `[ASSUMED]` never settles a Gauntlet branch or closes its grill.
-
-In each round ask only the **ready frontier**: independent questions whose prerequisites are
-settled. Give each question a concrete recommendation and short rationale (emoji optional), using
-`AskUserQuestion`. Wait for the user's answers, record them, then recompute the frontier; never ask a
-dependent question prematurely or treat a recommendation as an answer. Reuse settled answers.
-
-After **all branches are settled**, summarize the resulting design and explicitly ask the user to
-confirm shared understanding. Wait for that confirmation before Phase B, Phase C, lease or any
-product writer. Earlier generic scope/execution approval does not replace it. Count clarification
-rounds and spec revisions against this Phase A's existing HARD-STOP ceiling; at exhaustion, retain
-open decisions and stop for user resolution, without assumed closure or a counter reset.
-
-For an approved plan, use `content/skills/planning/references/gauntlet-loop.md`'s hole preflight: a ready plan requires no fresh grill or
-confirmation; only explicit holes and their affected dependents reopen, followed by confirmation of
-the repair. `--dry-run` only describes this gate, with no live questions or effects; `--review-only`
-reports open branches/holes and stops rather than repairing or executing them. Ordinary planning
-keeps the clarification path above.
 
 ## Step 3 — Consolidate research findings
 
@@ -228,7 +206,7 @@ three-section design inline; for L4+, retain `spec.md` under the plan directory.
 
 ## Step 8 — GATE 1 — independent evaluator Mode 1 (ordinary L4 only)
 
-At ordinary L5+ and Gauntlet, skip GATE 1: GATE 2 reviews spec and plan. At ordinary L4:
+At ordinary L5+, skip GATE 1: GATE 2 reviews spec and plan. At ordinary L4:
 
 Dispatch a fresh `graph-powers:evaluator` with the seven-section prompt to judge the spec's
 destination, reuse, evidence, scope, layers, consistency and YAGNI. It is read-only and returns
@@ -259,8 +237,7 @@ Read `content/skills/planning/references/phase-b-writing-plans.md` next.
 For L3: (1) targeted repository inspection · (2) ask only for a decision that changes the design ·
 (3) `graph-powers:project-planner` writes an inline three-section spec (`Architecture`, `Data shape`,
 `Validation`) · (4) confirm approval covers this scope · (5) hand off to the requested implementation
-path. No file and no reviewer gate, unless explicit Gauntlet promotes the design into Phase B for its
-structured plan and evaluator review.
+path. No file and no reviewer gate.
 
 ## L6+ extra
 

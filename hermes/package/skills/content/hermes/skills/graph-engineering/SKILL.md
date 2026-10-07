@@ -65,14 +65,15 @@ seven-section prompt and Context Handoff from
 Read live `delegate_task` limits; do not hardcode concurrency or models. Children do not delegate,
 clarify, use memory, or message. They have their own working directory, so pass absolute paths.
 
-## 3. Gauntlet translation
+## 3. Implement and Gauntlet translation
 
-`/gauntlet` and `/verify loop` are **NOT SUPPORTED** Hermes slash commands. When requested, read
-`graph-powers:gauntlet` and `graph-powers:verify` and follow their entry contract. An objective first
-uses the canonical planning phases and their review/approval boundaries; reuse valid existing
-approval. Dry-run remains read-only and dispatches nobody. Before implementation, validate the approved plan with
-the packaged `content/skills/planning/scripts/sdd.py` with `validate ... --profile gauntlet`, and apply the normalized tier. L1-L2 is `NOT ELIGIBLE FOR
-GAUNTLET`; invalid input routes to planning. For a validated non-dry L3+ run, acquire the Gauntlet lease before writers,
+`/implement` and `/verify loop` are **NOT SUPPORTED** Hermes slash commands; `/gauntlet` is a
+deprecated alias of `/implement`. When requested, read `graph-powers:implement` and
+`graph-powers:verify` and follow their entry contract: route by tier, L1-L2 direct and L3 without the
+Gauntlet profile. An L4+ objective goes to the canonical planning phases first; reuse valid existing
+approval. Dry-run remains read-only and dispatches nobody. For an approved L4+ plan, validate with
+the packaged `content/skills/planning/scripts/sdd.py` with `validate ... --profile gauntlet`; invalid input
+routes to planning. For a validated non-dry L4+ run, acquire the Gauntlet lease before writers,
 use disjoint waves within live limits, run each focused CHECK, then an independent critic. A capped
 or blocked lane is not success. Release only after PASS.
 

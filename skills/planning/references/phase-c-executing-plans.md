@@ -6,13 +6,13 @@
 ## Entry contract
 
 - Phase B is complete: `<plan dir>/PLAN.md` passed its required review and the user approved it.
-- Tier is **L5+** for automatic transition. Explicit `/implement` admits an approved L4 plan;
-  explicit Gauntlet admits an approved L3+ plan. L1-L2 never enter Phase C.
+- Entry is through `/implement` with an approved L3+ plan; Phase B's L5+ transition continues
+  through it. L1-L2 never enter Phase C.
 - Use the authorized current checkout and honor protected-branch hooks; never switch branches or
   infer a protected-branch opt-in from plan approval.
 - With the current client's Jev evaluation enabled and the paid batch authorized, link the
   approved PLAN before this phase; Phase C stays the only implementation engine.
-- When and only when successful validation passed `profile: gauntlet`, read `references/gauntlet-loop.md` and apply its delta; a missing profile is always default.
+- `/implement` passes `profile: gauntlet` for an approved L4+ plan; only then read `references/gauntlet-loop.md` and apply its delta. A missing profile is always default.
 
 ## Exit contract
 

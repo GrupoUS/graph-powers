@@ -6,15 +6,10 @@
 
 ## Activation and goal
 
-Only explicit `/gauntlet` may pass `profile: gauntlet`, after validation returns an eligible tier.
-For objectives, `graph-powers:project-planner` authors Phase A and Phase B; an independent evaluator
-reviews the plan. Ask only blocking questions, then one shared-understanding confirmation. Phase A
-Step 2's cap persists across resumes.
-A direct approved-plan invocation covers Phase C for that plan; objectives cover only stated scope
-and approved transitions. New decisions/authority/scope pause. Neither authorizes another plan, Git
-or outward actions. A missing, invalid or out-of-worktree supplied path stops at `/plan`, never
-becomes an objective. L1-L2 is `NOT ELIGIBLE FOR GAUNTLET`; `/implement` retains its default profile
-and `/verify quick`. `--review-only` stops after independent plan review/bind, before execution.
+Only `/implement` passes `profile: gauntlet`, and only for an approved L4+ plan
+(`commands/implement.md § 2`). L1-L3 never use it; an objective goes to `/plan` first. The approved
+plan covers Phase C for that plan; new decisions, authority or scope pause, and nothing here
+authorizes another plan, Git or outward actions.
 
 The controller owns the loop. Its stable unit is:
 
@@ -27,38 +22,30 @@ lane with explicit state is equivalent; persistent subagent identity is never re
 
 ## Entry and dry-run
 
-**Before validating a supplied plan**, inspect unresolved `TBD`, `[ASSUMED]`, and missing or
-payload-empty `Needs`. `Needs: none` and open-task `EVIDENCE: pending` are valid, not holes. A ready
-approved plan reuses settled decisions with no new grill or confirmation. For holes, reopen only
-those decisions and affected dependents through Phase A Step 2; confirm the repaired understanding,
-then Phase B repairs the plan and obtains a new Mode 1 verdict/`review-bind` for its changed bytes.
-Reopen only affected decisions; these repairs consume Phase A's persistent cap. Do not repeat
-unchanged questions/searches. At cap, preserve holes and stop before bind/lease/writer. Validate and
-review-check before admission; any edit invalidates bind. Dry-run describes holes; review-only reports
-without repair. Invalid grammar stops and names `/plan` without invoking it.
+**Hole check, before the profile validation:** an unresolved `TBD`, or a missing or payload-empty
+`Needs`, routes the plan to `/plan` and stops; labeled `[ASSUMED]` decisions were shown at approval
+and are not holes; nothing is repaired here. `Needs: none` and open-task `EVIDENCE: pending` are
+valid, not holes. A ready approved plan reuses settled decisions with no new questions or
+confirmation. Validate and review-check before admission; any edit invalidates bind. Dry-run only
+reports holes. Invalid grammar stops and names `/plan` without invoking it.
 
-Phase C's validator owns grammar/lease: eligible `tier`, unique IDs, non-empty `Owns`, payload-bearing
-`Needs`, observable acceptance, decisive `CHECK`/`EXPECT`, `EVIDENCE`, valid TDD and routable
-writer/skill (or `none`). Before lease/writer, require a current independent evaluator Mode 1 review
-under § Review binding. It checks applicable database, API and client coverage from the Gauntlet
-matrix or approved legacy task/connection evidence. Missing/invalidated coverage or review returns
-to Phase B; reuse matching evidence and do not rewrite a green spec merely to add headings.
+Phase C's validator owns grammar/lease: eligible `tier`, unique IDs, non-empty `Owns`,
+payload-bearing `Needs`, observable acceptance, decisive `CHECK`/`EXPECT`, `EVIDENCE`, valid TDD and
+routable writer/skill (or `none`). Before lease/writer, require a current independent evaluator Mode
+1 review under § Review binding. It checks applicable database, API and client coverage from the
+Gauntlet matrix or approved legacy task/connection evidence. Missing coverage or a
+`REVISION_REQUIRED` review returns to `/plan`; an unreviewed or stale plan follows
+`commands/implement.md § 3`; reuse matching evidence and do not rewrite a green spec merely to add
+headings.
 
-For a plan `--dry-run`, validate read-only, then derive and display tier, task count, `Owns`, `Needs`,
+For `--dry-run`, validate read-only, then derive and display tier, task count, `Owns`, `Needs`,
 ready waves, writer and reviewer routes, every applicable cap and the final `/verify loop <PLAN_FILE>`.
-For an objective dry-run, describe Step 0 → Phase A frontier rounds/recommendations → explicit
-shared-understanding confirmation → Phase B → evaluator → approval → Phase C → verify, and artifact
-boundaries. Both forms name distinct `builder` (plan dispatch matrix, or the objective's task role
-from `${CLAUDE_PLUGIN_ROOT}/references/shared/030-agent-assignment-matrix.md`) and `inspector`
-(default `graph-powers:evaluator`). No live questions, bind, lease, workspace, writes or spawns;
-objective dry-run also forbids investigation, plan materialization/validation and checks.
-Reject unknown flags.
+Name distinct `builder` (the plan's dispatch matrix) and `inspector` (default
+`graph-powers:evaluator`). No live questions, bind, lease, workspace, writes or spawns.
 
 ## Scheduler
 
-- L3 uses exactly one sequential builder lane and one Evaluator review per completed wave. This is the explicit Gauntlet exception that
-  allows an approved structured L3 plan; ordinary L3 still uses Planning's inline path.
-- L4+ may fill a wave only with ready tasks whose `Owns` are pairwise disjoint. Cluster tasks owned
+- A wave holds only ready tasks whose `Owns` are pairwise disjoint. Cluster tasks owned
   by the same existing Graph Powers writer role into the fewest useful lane packages, bounded by
   `${graphGuardrails.maxParallelWave}`. Release paths only after the wave Evaluator closes the task.
 - One writer per file: parallel lanes never share an `Owns` path. Shared schema, migrations, global
@@ -101,7 +88,7 @@ and is never the `builder` id or `main`; `codex:codex-rescue` inspects only on a
 request in that turn, which the bind records.
 
 `review-check` writes nothing: it reads the raw bytes and gates the first `acquire`, where `0`
-authorizes the lease and `4` sends the plan back to Phase B for a new round, with no lease. A resume
+authorizes the lease and `4` follows `commands/implement.md § 3`, with no lease. A resume
 of this plan's own lease compares the plan without the structured task and gate `EVIDENCE:` fields
 and with their checkboxes normalized, so Phase C's own evidence writes are not drift; any other
 change is `STALE`.
@@ -192,19 +179,6 @@ with a literal.
 At any cap: stop the affected loop, persist attempts, hypotheses and evidence, return `NEEDS-WORK`
 or `BLOCKED`, and route persistent failure to `/debug recover`. A capped run is unfinished — never
 success — and receives no blind extra attempt.
-
-## Optional visual A/B
-
-This branch is available only for a visual task with a real stable permitted reference, declared
-viewport and state, and deterministic capture. Otherwise record `NOT AVAILABLE`; never fabricate a
-reference, screenshot or result.
-
-When available, use `graph-powers:verification` with `webapp-testing` and `agent-browser`; do not
-introduce Playwright. Capture candidate and reference with the same viewport, state, data and
-conditions, hide revealing labels, judge both `A/B` and `B/A`, and require consistent results. A
-position-dependent result goes to an objective rubric or a human decision, never the convenient
-order. A/B is complementary evidence: acceptance, behavior, accessibility, console/network errors,
-declared performance and project gates remain authoritative.
 
 ## Final close
 

@@ -216,8 +216,8 @@ export const COMMAND_ROUTING = {
   debug: ["debugger", "explorer", "frontend-specialist"],
   design: ["ui-ux-designer"],
   evolve: ["skill-improver"],
-  gauntlet: ["project-planner", "debugger", "evaluator"],
-  implement: ["debugger", "frontend-specialist", "mobile-developer", "performance-optimizer", "verification"],
+  gauntlet: [],
+  implement: ["debugger", "frontend-specialist", "mobile-developer", "performance-optimizer", "verification", "evaluator"],
   "issue-improve": ["project-planner", "evaluator"],
   perf: ["performance-optimizer"],
   plan: ["project-planner", "evaluator"],
@@ -325,7 +325,7 @@ export function buildRouterAgent(pluginRoot, { refs, agents }) {
         description:
           "Graph Powers router: runs the Graph Powers slash commands and dispatches the " +
           `${agents.length} specialists by exact name. Use for /plan, /implement, /debug, ` +
-          "/verify, /pr-review, /research, /design, /perf, /prime, /evolve, /gauntlet and " +
+          "/verify, /pr-review, /research, /design, /perf, /prime, /evolve and " +
           "/issue-improve. Not the built-in Kilo plan/debug/code agent.",
         mode: "primary",
       },

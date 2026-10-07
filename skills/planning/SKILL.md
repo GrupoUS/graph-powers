@@ -24,8 +24,9 @@ transition; pause again only for a new decision, authority, or material scope ch
 `references/loop-engineering.md` is for a loop that needs a cap or reset, and `references/dispatch-matrix.md`
 and `references/layer-map.md` are for Phase B assignments/order.
 
-`/gauntlet` is opt-in: objectives enter Step 0 → Phase A → Phase B; supplied plans use
-`references/gauntlet-loop.md`'s preflight. Preserve reviews, leases, caps and evidence.
+`/implement` routes by tier: L1-L2 direct, L3 default Phase C, L4+ plans through
+`references/gauntlet-loop.md`'s profile; it never chains an objective through A → B → C.
+Preserve reviews, leases, caps and evidence.
 For a task marked `TDD: required`, read `references/execution/tdd-policy.md`; load the other
 execution prompts only for their dispatch/review event.
 

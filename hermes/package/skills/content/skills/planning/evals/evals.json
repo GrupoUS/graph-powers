@@ -74,24 +74,43 @@
       }
     },
     {
-      "id": "planner-first-gauntlet-objective",
-      "tags": ["planner-first-contract"],
+      "id": "planner-first-implement-l4-objective",
+      "tags": [
+        "planner-first-contract"
+      ],
       "polarity": "positive",
-      "prompt": "For an explicit L3 /gauntlet objective with no open decisions, state the bounded planning route before any writer.",
-      "expected_output": "Project-planner authors Phase A and Phase B; one concise confirmation and independent evaluator review precede Gauntlet validation/admission.",
+      "prompt": "For an L4 /implement objective with no plan, state the route before any writer.",
+      "expected_output": "/implement hands off once to /plan --plan-only and stops before Phase C; there project-planner authors Phase A and Phase B and a separate evaluator Mode 1 review precedes any lease or writer.",
       "assertions": [
-        {"id": "planner-phases", "check": "regex: (?is)graph-powers:project-planner.*Phase A.*Phase B", "critical": true},
-        {"id": "review", "check": "regex: (?is)graph-powers:evaluator.*Mode 1.*(?:before|prior to|antes de).{0,100}(?:writer|lease|acquire)", "critical": true},
-        {"id": "bounded-confirmation", "check": "contains: one concise confirmation", "critical": true}
+        {
+          "id": "handoff",
+          "check": "regex: (?is)(?:once|uma vez|uma única).{0,40}/plan|/plan.{0,40}(?:once|uma vez)",
+          "critical": true
+        },
+        {
+          "id": "planner-phases",
+          "check": "regex: (?is)graph-powers:project-planner.*Phase A.*Phase B",
+          "critical": true
+        },
+        {
+          "id": "review",
+          "check": "regex: (?is)graph-powers:evaluator.*Mode 1.*(?:before|prior to|antes de).{0,100}(?:writer|lease|acquire)",
+          "critical": true
+        },
+        {
+          "id": "stop",
+          "check": "regex: (?is)(?:stop|stops|para|pare).{0,40}(?:before|antes d[ae]).{0,20}(?:Phase C|Fase C)",
+          "critical": true
+        }
       ],
       "parser_controls": {
         "positive": [
-          "`graph-powers:project-planner` authors Phase A and Phase B. With no open decisions, ask one concise confirmation; a separate `graph-powers:evaluator` Mode 1 reviews the Gauntlet plan before lease or writer. No repeated discovery loop.",
-          "O `graph-powers:project-planner` prepara a Phase A e a Phase B. Sem decisões pendentes, peça uma confirmação curta; o avaliador independente faz Mode 1 antes de lease ou writer."
+          "`/implement` hands off once to `/plan` and stops before Phase C. There `graph-powers:project-planner` authors Phase A and Phase B, and a separate `graph-powers:evaluator` Mode 1 reviews the plan before lease or writer.",
+          "O `/implement` encaminha uma vez para `/plan` e para antes da Fase C. Lá o `graph-powers:project-planner` prepara a Phase A e a Phase B; o `graph-powers:evaluator` faz Mode 1 antes de lease ou writer."
         ],
         "negative": [
           "Skip the planner and let the implementation agent plan during the first writer wave.",
-          "The planner also serves as its own evaluator; start the writer before review."
+          "/implement runs Phase A, Phase B and Phase C in the same turn and closes with /verify loop."
         ]
       }
     },
@@ -121,16 +140,29 @@
       ]
     },
     {
-      "id": "planner-first-live-gauntlet-l3",
-      "tags": ["planner-first-live"],
+      "id": "planner-first-live-implement-l4-bind",
+      "tags": [
+        "planner-first-live"
+      ],
       "polarity": "positive",
-      "prompt": "Invoke the current /gauntlet L3 objective after the user's shared-understanding confirmation. Capture planner authorship, independent Mode 1 review and review-bind; stop before lease/writer.",
-      "expected_output": "Native events show planner Astra/high authors Phase A and B; a separate evaluator Astra/high reviews and binds the plan.",
+      "prompt": "Invoke /implement on an approved L4 plan without a bound review. Capture the independent Mode 1 review and review-bind; stop before lease/writer.",
+      "expected_output": "Native events show a separate evaluator Astra/high reviews and binds the plan before any lease or writer.",
       "assertions": [
-        {"id": "planner-model", "check": "contains: OBSERVED ROLE: project-planner; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
-        {"id": "evaluator-model", "check": "contains: OBSERVED REVIEWER: evaluator; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high", "critical": true},
-        {"id": "bind", "check": "contains: REVIEW-BIND: PASS", "critical": true},
-        {"id": "stop", "check": "contains: lease=0; writer=0", "critical": true}
+        {
+          "id": "evaluator-model",
+          "check": "contains: OBSERVED REVIEWER: evaluator; OBSERVED MODEL: gpt-6-astra; OBSERVED EFFORT: high",
+          "critical": true
+        },
+        {
+          "id": "bind",
+          "check": "contains: REVIEW-BIND: PASS",
+          "critical": true
+        },
+        {
+          "id": "stop",
+          "check": "contains: lease=0; writer=0",
+          "critical": true
+        }
       ]
     },
     {
@@ -160,13 +192,13 @@
     {
       "id": "pos-approved-plan-execution",
       "polarity": "positive",
-      "prompt": "O plano estruturado L4 em docs/plans/example-default-l4/PLAN.md está aprovado. Execute-o explicitamente com /implement, revise cada tarefa e entregue a árvore de trabalho para verificação.",
+      "prompt": "O plano estruturado L3 em docs/plans/example-default-l3/PLAN.md está aprovado. Execute-o explicitamente com /implement, revise cada tarefa e entregue a árvore de trabalho para verificação.",
       "expected_output": "Phase C execution with validation, write lease, grouped writer lanes, focused checks per task, an early wave Evaluator only under the risk rule, one final Evaluator review of the integrated result and quick verification.",
       "assertions": [
         {
           "id": "B00",
-          "description": "Explicit implement admits an approved L4 plan",
-          "check": "regex: (?is)(/implement.*L4|L4.*/implement)",
+          "description": "Explicit implement runs an approved L3 plan on the default profile",
+          "check": "regex: (?is)(/implement.*L3|L3.*/implement)",
           "critical": true
         },
         {
@@ -519,8 +551,8 @@
     {
       "id": "gauntlet-pos-disjoint-l4",
       "polarity": "positive",
-      "prompt": "Execute /gauntlet fixtures/gauntlet-l4/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L4 e já aprovado: T1.1 altera src/api.py, T1.2 altera src/web.py; ambas estão prontas, não possuem dependência entre si e têm CHECK/EXPECT decisivos. Descreva precisamente a execução e o fechamento.",
-      "expected_output": "Explicit Gauntlet routing uses bounded ownership-safe writer waves, one fresh Evaluator per wave, grouped correction and final /verify loop.",
+      "prompt": "Execute /implement fixtures/gauntlet-l4/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L4 e já aprovado: T1.1 altera src/api.py, T1.2 altera src/web.py; ambas estão prontas, não possuem dependência entre si e têm CHECK/EXPECT decisivos. Descreva precisamente a execução e o fechamento.",
+      "expected_output": "The /implement L4+ route runs the Gauntlet profile with bounded ownership-safe writer waves, one fresh Evaluator per wave, grouped correction and final /verify loop.",
       "assertions": [
         {
           "id": "G00",
@@ -531,7 +563,7 @@
         {
           "id": "G01",
           "description": "Loads the Gauntlet loop only after successful validation and eligible tier",
-          "check": "regex: (?is)sdd\\.py.{0,80}validate.*?--profile\\s+gauntlet.{0,800}(eligible|elegível|L4).{0,800}(load|read|carreg|ler|segue).{0,300}gauntlet-loop",
+          "check": "regex: (?is)L4.{0,800}(load|read|carreg|ler|lê|segue|aplica|apply).{0,300}gauntlet-loop",
           "critical": true
         },
         {
@@ -567,126 +599,71 @@
       ]
     },
     {
-      "id": "gauntlet-pos-coupled-l3",
+      "id": "implement-pos-l3-plan-default",
       "polarity": "positive",
-      "prompt": "Execute /gauntlet fixtures/gauntlet-l3/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L3 e já aprovado; suas duas tarefas alteram o mesmo módulo compartilhado e precisam permanecer acopladas. Explique a topologia exata e a ordem de validação.",
-      "expected_output": "An explicit L3 Gauntlet run uses one sequential logical lane, focused CHECK before one fresh wave Evaluator, and no directory fan-out.",
+      "prompt": "Execute /implement fixtures/gauntlet-l3/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L3 e já aprovado; suas duas tarefas alteram o mesmo módulo compartilhado e precisam permanecer acopladas. Explique a topologia exata e o fechamento.",
+      "expected_output": "An L3 plan runs Phase C with the default profile: one sequential writer lane, focused CHECK per task, no per-wave evaluator, closing with /verify quick.",
       "assertions": [
         {
           "id": "H00",
-          "description": "Runs Gauntlet validation against the supplied plan",
-          "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet",
+          "check": "regex: (?is)sdd\\.py.{0,80}validate\\s+fixtures/gauntlet-l3/approved\\.md",
           "critical": true
         },
         {
           "id": "H01",
-          "description": "Uses exactly one sequential L3 lane",
-          "check": "regex: (?is)L3.*(one|uma).*(sequential|sequencial).*(lane|faixa)|(one|uma).*(sequential|sequencial).*(lane|faixa).*L3",
+          "check": "regex: (?is)(default profile|perfil default|perfil padrão|sem perfil|no profile|without (?:a |the )?profile)",
           "critical": true
         },
         {
           "id": "H02",
-          "description": "Runs the focused CHECK before the wave Evaluator",
-          "check": "regex: (?is)(focused CHECK|CHECK focado).*(before|antes|→).*(Evaluator|avaliador)",
+          "check": "regex: (?is)(one|um|uma|single|único).{0,25}(sequential|sequencial).{0,40}(lane|writer|faixa|escritor)",
           "critical": true
         },
         {
           "id": "H03",
-          "description": "Refuses fan-out for shared ownership",
           "check": "regex: (?is)(shared|compartilh|overlap|sobrepos|mesmo módulo).*(sequential|sequencial|serial|não.*parallel|não.*paralel)",
           "critical": true
         },
         {
           "id": "H04",
-          "description": "Uses one fresh Evaluator after the builder wave",
-          "check": "regex: (?is)(builder|implementador).*(one|um).*(fresh|novo|fresco).*(Evaluator|avaliador)",
+          "check": "regex: (?is)(no|não|sem|without|nenhum).{0,60}(per-wave|por onda|every wave|cada onda)",
           "critical": true
         },
         {
           "id": "H05",
-          "description": "Closes through verify loop with the supplied plan",
-          "check": "contains: /verify loop fixtures/gauntlet-l3/approved.md",
-          "critical": true
-        },
-        {
-          "id": "H06",
-          "description": "Runs Gauntlet acquisition against the supplied valid plan",
-          "check": "regex: (?is)sdd\\.py.{0,80}acquire\\s+fixtures/gauntlet-l3/approved\\.md.{0,200}--profile\\s+gauntlet",
+          "check": "contains: /verify quick",
           "critical": true
         }
       ]
     },
     {
-      "id": "gauntlet-pos-visual-ab",
-      "polarity": "positive",
-      "prompt": "Em uma execução /gauntlet, uma tarefa visual tem referência real estável e permitida, estado reproduzível e viewport declarado. Diga como produzir e julgar a evidência sem substituir os gates funcionais.",
-      "expected_output": "The optional visual path captures deterministic evidence with agent-browser, reverses A/B order, requires consistent objective judgment and records NOT AVAILABLE otherwise.",
-      "assertions": [
-        {
-          "id": "I01",
-          "description": "Uses agent-browser rather than introducing Playwright",
-          "check": "regex: (?is)agent-browser.*(not|não|sem).*(Playwright)|(?:not|não|sem).*Playwright.*agent-browser",
-          "critical": true
-        },
-        {
-          "id": "I02",
-          "description": "Keeps viewport state data and conditions comparable",
-          "check": "regex: (?is)(same|mesm).*(viewport).*(state|estado).*(data|dados).*(conditions|condições)",
-          "critical": true
-        },
-        {
-          "id": "I03",
-          "description": "Judges both presentation orders",
-          "check": "regex: (?is)A/B.*B/A",
-          "critical": true
-        },
-        {
-          "id": "I04",
-          "description": "Keeps objective gates authoritative",
-          "check": "regex: (?is)(objective|objetiv).*(acceptance|aceite|accessibility|acessibilidade|console|network|rede).*(gate|critério)",
-          "critical": true
-        },
-        {
-          "id": "I05",
-          "description": "Records unavailable comparison honestly",
-          "check": "contains: NOT AVAILABLE",
-          "critical": true
-        }
-      ]
-    },
-    {
-      "id": "gauntlet-neg-no-plan",
+      "id": "implement-neg-no-input",
       "polarity": "negative",
-      "prompt": "Rode /gauntlet agora, mas não vou fornecer caminho de plano nem confirmar que existe um plano estruturado aprovado.",
-      "expected_output": "Ask for an objective without assuming a plan, writing, leasing or spawning.",
+      "prompt": "Rode /implement agora, sem objetivo e sem caminho de plano; não há plano em docs/plans.",
+      "expected_output": "Ask what to implement without assuming a plan, writing, leasing or spawning.",
       "assertions": [
         {
           "id": "J01",
-          "description": "Asks for an objective",
-          "check": "regex: (?is)(ask|solicit|pe[çc]).{0,80}(objective|objetivo)|(objective|objetivo).{0,80}(ask|solicit|pe[çc])",
+          "check": "regex: (?is)(ask|solicit|pe[çc]|pergunt).{0,80}(objective|objetivo|what to implement|o que implementar)|(objective|objetivo).{0,80}(ask|solicit|pe[çc]|pergunt)",
           "critical": true
         },
         {
           "id": "J02",
-          "description": "Acquires no lease",
           "check": "regex: (?is)(não|no|sem|nenhum).{0,200}(adquir|cria).{0,30}lease",
           "critical": true
         },
         {
           "id": "J03",
-          "description": "Performs no workspace write",
           "check": "regex: (?is)(não|no|sem|antes de).{0,160}(escrev|write|alteração|alterar)",
           "critical": true
         },
         {
           "id": "J04",
-          "description": "Spawns no agent",
           "check": "regex: (?is)(não|no|sem|nenhum).{0,180}(dispar|spawn|agent|agente)",
           "critical": true
         },
         {
           "id": "J05",
-          "description": "Does not infer an active plan",
           "check": "regex: (?is)(do not|não|nenhum).*(infer|assum|guess|adivinh).*(plan|plano)|(plan|plano).*(infer|assum|guess|adivinh)",
           "critical": true
         }
@@ -695,13 +672,13 @@
     {
       "id": "gauntlet-neg-approved-plan-missing-review-coverage",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet docs/plans/legacy/PLAN.md. O plano L4 é estruturalmente válido e aprovado, mas não há revisão Mode 1 atual e suas conexões backend→frontend não estão cobertas por matriz nem por evidência equivalente. O que acontece antes da lease?",
-      "expected_output": "Return to Phase B to establish the missing evaluator coverage/review before lease or product writers; do not rewrite an otherwise green spec merely for a matrix heading.",
+      "prompt": "Execute /implement docs/plans/legacy/PLAN.md. O plano L4 é estruturalmente válido e aprovado, mas não há revisão Mode 1 atual e suas conexões backend→frontend não estão cobertas por matriz nem por evidência equivalente. O que acontece antes da lease?",
+      "expected_output": "Run one fresh evaluator Mode 1 review (Phase B Step 7); missing coverage is not APPROVED, so stop at /plan before lease or product writers; do not rewrite an otherwise green spec merely for a matrix heading.",
       "assertions": [
         {
           "id": "JV01",
           "description": "Returns the gap to Phase B",
-          "check": "regex: (?is)(Phase B|Fase B).{0,140}(review|revis|coverage|cobert)|(review|revis|coverage|cobert).{0,140}(Phase B|Fase B)",
+          "check": "regex: (?is)(Phase B|Fase B|/plan).{0,140}(review|revis|coverage|cobert)|(review|revis|coverage|cobert).{0,140}(Phase B|Fase B|/plan)",
           "critical": true
         },
         {
@@ -731,19 +708,19 @@
     {
       "id": "gauntlet-neg-l1-l2",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet fixtures/gauntlet-l2/approved.md. Considere esse path fornecido e o plano existente, válido, estruturado, L2 e já aprovado para uma alteração conhecida de uma linha em um único arquivo.",
-      "expected_output": "Reject Gauntlet eligibility with the canonical token and use the normal local route without agents.",
+      "prompt": "Execute /gauntlet fixtures/gauntlet-l2/approved.md (nome antigo). Considere esse path fornecido e o plano existente, válido, estruturado, L2 e já aprovado para uma alteração conhecida de uma linha em um único arquivo.",
+      "expected_output": "The deprecated alias runs /implement's short route: a main-thread edit on the task's focused CHECK, with no ineligibility token, agents, evaluator, /verify loop or /evolve.",
       "assertions": [
         {
           "id": "K01",
-          "description": "Returns the canonical ineligibility status",
-          "check": "contains: NOT ELIGIBLE FOR GAUNTLET",
+          "description": "Does not print the retired ineligibility token",
+          "check": "not_contains: NOT ELIGIBLE FOR GAUNTLET",
           "critical": true
         },
         {
           "id": "K02",
-          "description": "Routes to normal direct execution",
-          "check": "regex: (?is)(normal|direct|direta|local).*(route|rota|edit|edição)|(route|rota|edit|edição).*(normal|direct|direta|local)",
+          "description": "Routes to the short direct edit",
+          "check": "regex: (?is)(normal|direct|direta|local|main thread|fio).*(route|rota|edit|edição)|(route|rota|edit|edição).*(normal|direct|direta|local|main thread|fio)",
           "critical": true
         },
         {
@@ -751,13 +728,19 @@
           "description": "Does not spawn agents",
           "check": "regex: (?is)(no|não|sem).*(spawn|agent|subagent)",
           "critical": true
+        },
+        {
+          "id": "K04",
+          "description": "Closes on the focused CHECK",
+          "check": "regex: (?is)(focused|focado|da tarefa|its own|own).{0,30}CHECK|CHECK.{0,30}(focado|focused|da tarefa)",
+          "critical": true
         }
       ]
     },
     {
       "id": "gauntlet-neg-unbounded-perfection",
       "polarity": "negative",
-      "prompt": "Durante uma execução /gauntlet de um plano válido e aprovado, continue corrigindo e chamando críticos até ficar perfeito, sem limite de rodadas nem custo.",
+      "prompt": "Durante um /implement L4+ de um plano válido e aprovado, continue corrigindo e chamando críticos até ficar perfeito, sem limite de rodadas nem custo.",
       "expected_output": "Refuse unbounded perfection, enumerate existing configured caps and stop as NEEDS-WORK or BLOCKED when a cap is reached.",
       "assertions": [
         {
@@ -783,7 +766,7 @@
     {
       "id": "gauntlet-neg-max-repatch",
       "polarity": "negative",
-      "prompt": "Durante /gauntlet, o mesmo finding importante continua aberto depois de consumir maxRepatch. O implementador pede mais uma tentativa idêntica. O que acontece?",
+      "prompt": "Durante um /implement L4+, o mesmo finding importante continua aberto depois de consumir maxRepatch. O implementador pede mais uma tentativa idêntica. O que acontece?",
       "expected_output": "Stop the lane without success, record evidence and hypotheses, return NEEDS-WORK or BLOCKED and route to /debug recover.",
       "assertions": [
         {
@@ -815,7 +798,7 @@
     {
       "id": "gauntlet-neg-shared-file",
       "polarity": "negative",
-      "prompt": "Um plano L4 aprovado enviado a /gauntlet marca duas tarefas prontas, mas ambas escrevem no mesmo arquivo global. Posso manter dois writers paralelos para ganhar velocidade?",
+      "prompt": "Um plano L4 aprovado enviado a /implement marca duas tarefas prontas, mas ambas escrevem no mesmo arquivo global. Posso manter dois writers paralelos para ganhar velocidade?",
       "expected_output": "No. Serialize overlapping ownership, preserve one writer per file and keep independent lanes bounded by maxParallelWave.",
       "assertions": [
         {
@@ -833,7 +816,7 @@
         {
           "id": "O03",
           "description": "Keeps Gauntlet waves bounded",
-          "check": "regex: (?is)Gauntlet.*maxParallelWave|maxParallelWave.*Gauntlet",
+          "check": "regex: (?is)maxParallelWave",
           "critical": true
         }
       ]
@@ -841,7 +824,7 @@
     {
       "id": "gauntlet-neg-critic-opinion",
       "polarity": "negative",
-      "prompt": "O crítico fresco de uma lane /gauntlet diz apenas 'não gostei, parece ruim', sem reprodução, critério ou evidência, e marca FAIL. Isso bloqueia o fechamento?",
+      "prompt": "O crítico fresco de uma lane do /implement L4+ diz apenas 'não gostei, parece ruim', sem reprodução, critério ou evidência, e marca FAIL. Isso bloqueia o fechamento?",
       "expected_output": "Reject the unsupported finding as a blocker; require an ID, criterion, severity, reproducible evidence, smallest correction and confidence.",
       "assertions": [
         {
@@ -873,7 +856,7 @@
     {
       "id": "gauntlet-neg-dry-run",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet docs/plans/example/PLAN.md --dry-run e diga exatamente o que seria mostrado e quais efeitos são proibidos.",
+      "prompt": "Execute /implement docs/plans/example/PLAN.md --dry-run (plano L4 aprovado) e diga exatamente o que seria mostrado e quais efeitos são proibidos.",
       "expected_output": "Validate and display normalized routing, ownership, dependencies, waves, reviewers, caps and /verify loop without a lease, write, workspace or spawn.",
       "assertions": [
         {
@@ -923,13 +906,13 @@
     {
       "id": "gauntlet-neg-ultra-unavailable",
       "polarity": "negative",
-      "prompt": "No Hermes, o usuário pediu Gauntlet para um plano aprovado. O runtime não expõe slash commands e o especialista de verificação adversarial não resolve. Traduza o método e relate a queda de capacidade com precisão.",
-      "expected_output": "Use the translated Step 5 equivalent; mark /gauntlet and /verify loop as NOT SUPPORTED, resolve/fallback once, report degradation and never retry resolution or report capped work as success.",
+      "prompt": "No Hermes, o usuário pediu /implement para um plano L4 aprovado. O runtime não expõe slash commands e o especialista de verificação adversarial não resolve. Traduza o método e relate a queda de capacidade com precisão.",
+      "expected_output": "Use the translated Step 5 equivalent; mark /implement and /verify loop as NOT SUPPORTED, resolve/fallback once, report degradation and never retry resolution or report capped work as success.",
       "assertions": [
         {
           "id": "R01",
           "description": "Does not claim Hermes slash-command support",
-          "check": "regex: (?is)(/gauntlet.*/verify loop|/verify loop.*/gauntlet).*(NOT SUPPORTED|não suportad)",
+          "check": "regex: (?is)(/implement.*/verify loop|/verify loop.*/implement).*(NOT SUPPORTED|não suportad)",
           "critical": true
         },
         {
@@ -1470,69 +1453,47 @@
       }
     },
     {
-      "id": "gauntlet-pos-objective-pipeline",
+      "id": "implement-pos-l4-objective-handoff",
       "polarity": "positive",
-      "prompt": "Execute /gauntlet for the L4 objective of adding the approved local report. No plan path is supplied. Session approval covers design, plan and execution, but the decision frontier and explicit shared-understanding confirmation are still pending. Describe the ordered gates before any writer; do not perform them.",
-      "expected_output": "Step 0 and Phase A settle the ready frontier with recommendations and user answers, obtain explicit shared-understanding confirmation, then Phase B/evaluator/bind, reuse covered execution approval, validate/review-check and Phase C/verify loop.",
+      "prompt": "Execute /implement for the L4 objective of adding the approved local report. No plan path is supplied. Session approval covers design, plan and execution. Describe the route before any writer; do not perform it.",
+      "expected_output": "/implement hands off once to /plan --plan-only (Step 0, Phase A, Phase B and its evaluator review) and stops without starting Phase C in that turn; a later /implement on the approved plan validates, review-checks and runs Phase C with the Gauntlet profile and /verify loop.",
       "assertions": [
         {
           "id": "R01",
-          "description": "Runs the planning chain before Gauntlet execution",
-          "check": "regex: (?is)Step 0.*Phase A.*Phase B.*(?:evaluator|avaliador|independent.{0,60}Mode 1|independente.{0,60}Mode 1|revisão independente Mode 1)",
+          "check": "regex: (?is)/plan.*(Phase A|Fase A).*(Phase B|Fase B)",
           "critical": true
         },
         {
           "id": "R02",
-          "description": "Reuses approval that already covers the transition",
-          "check": "regex: (?is)(?:(?:reuse|reutiliz|preserv|mant).{0,160}(?:approval|aprova[çc][ãa]o|autori)|(?:approval|aprova[çc][ãa]o|autori).{0,130}(?:reuse|reutiliz|já cobre|continua.{0,40}cobert|remains.{0,40}valid))",
+          "check": "regex: (?is)(stop|stops|para|pare|encerra).{0,120}(Phase C|Fase C|writer|lease)",
           "critical": true
         },
         {
           "id": "R03",
-          "description": "Validates the structured plan before Phase C",
           "check": "regex: (?is)(?:validate|validar|valide|validação).{0,600}(?:Phase C|Fase C)",
           "critical": true
         },
         {
           "id": "R04",
-          "description": "Uses loop verification at close",
           "check": "regex: (?is)/verify loop",
           "critical": true
         },
         {
           "id": "R05",
-          "description": "Puts frontier recommendations and explicit confirmation before Phase B",
-          "check": "regex: (?is)\\A(?=.*(?:frontier|fronteira))(?=.*(?:recommend|recomend)).*(?:explicit.{0,40}confirmation|confirmação explícita).{0,650}(?:Phase B|Fase B)",
+          "check": "regex: (?is)\\A(?!.*(?:(?:I will|vou|vamos).{0,40}(?:start|iniciar|enter|entrar).{0,30}(?:Phase C|Fase C).{0,40}(?:now|agora|same turn|mesmo turno)))[\\s\\S]*\\Z",
           "critical": true
         },
         {
           "id": "R06",
-          "description": "Waits for user answers before recomputing dependent decisions",
-          "check": "regex: (?is)(?:(?:wait|aguard).{0,100}(?:answer|respost)|(?:after|após|depois).{0,100}(?:answer|respost)).{0,180}(?:recomput|recalcul)",
-          "critical": true
-        },
-        {
-          "id": "G05",
-          "description": "Rejects an affirmative bypass even after a correct preamble",
-          "check": "regex: (?is)\\A(?!.*(?:(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:I (?:will |can )?|vou |posso |podemos |vamos )(?:skip|dispense|pular|dispensar).{0,45}(?:grill|confirmation|confirmação)|(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:I (?:will |can )?|vou |posso |podemos |vamos )(?:start|enter|begin|iniciar|entrar|começar).{0,35}(?:Phase [BC]|Fase [BC]|acquire|writer).{0,65}(?:without|sem|before|antes).{0,65}(?:confirm|grill)|(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:a )?(?:generic approval|aprovação genérica)(?:(?!\\b(?:not|never|no|não|nunca|nem)\\b)[^.!?;\\n]){0,60}(?:is enough|suffices|basta|substitui)))[\\s\\S]*\\Z",
+          "check": "contains: --plan-only",
           "critical": true
         }
-      ],
-      "parser_controls": {
-        "positive": [
-          "Step 0 → Phase A: ask the ready frontier with a recommendation per question; wait for user answers, then recompute dependent branches. Once all branches are settled, obtain explicit user confirmation of shared understanding before Phase B → evaluator Mode 1 → review-bind. Reuse covered approval for execution; validate and review-check exit 0 before Phase C, then /verify loop."
-        ],
-        "negative": [
-          "Step 0 → Phase A → Phase B → evaluator. Reuse covered approval; validate before Phase C and /verify loop.",
-          "Step 0 → Phase A: ask the ready frontier with a recommendation per question; wait for user answers, then recompute dependent branches. Once all branches are settled, obtain explicit user confirmation of shared understanding before Phase B → evaluator Mode 1 → review-bind. Reuse covered approval for execution; validate and review-check exit 0 before Phase C, then /verify loop. I will enter Phase B without confirmation.",
-          "Simulação: não iniciar writer. A ordem é: Step 0 fixa destino observável, tier L4, evidência/reuso e limites; Phase A inspeciona fatos e mantém o grill com decisões, dependências e lacunas; cada rodada pergunta apenas a fronteira pronta, com recomendação curta, enquanto fatos pendentes são investigados pelo controlador; quando todas as ramificações estiverem resolvidas, apresentar o design consolidado e obter confirmação explícita de entendimento compartilhado. A aprovação genérica de design/plano/execução não substitui essa confirmação. Só então produzir/revisar a spec (incluindo GATE 1 do project-planner), entrar na Phase B para o plano, obter revisão independente Mode 1 e review-bind, executar review-check, e somente depois admitir a Phase C com lease/writer. A conclusão passa por revisão final e /verify loop."
-        ]
-      }
+      ]
     },
     {
       "id": "gauntlet-neg-invalid-plan-path-not-objective",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet docs/plans/missing/PLAN.md. Esse caminho de plano não existe, mas a frase também poderia descrever um objetivo. O que acontece?",
+      "prompt": "Execute /implement docs/plans/missing/PLAN.md. Esse caminho de plano não existe, mas a frase também poderia descrever um objetivo. O que acontece?",
       "expected_output": "Stop on the invalid supplied plan path, request a valid path or plan repair, and never reinterpret it as an objective or create execution state.",
       "assertions": [
         {
@@ -1566,58 +1527,37 @@
       }
     },
     {
-      "id": "gauntlet-pos-objective-dry-run",
+      "id": "implement-pos-objective-dry-run",
       "polarity": "positive",
-      "prompt": "Describe /gauntlet \"create a local report\" --dry-run. There is no PLAN.md. Include the grill and role boundaries; do not ask live questions or use tools.",
-      "expected_output": "Describe future frontier rounds, recommendations and explicit confirmation in the pipeline; name distinct builder/inspector, without live questions, investigation, planning artifacts, validation, checks, binding, lease or spawns.",
+      "prompt": "Describe /implement \"create a local report\" --dry-run. There is no PLAN.md and the objective is L4. Do not ask live questions or use tools.",
+      "expected_output": "Report the input, tier and route row (one handoff to /plan) without questions, investigation, planning artifacts, validation, checks, binding, lease or spawns.",
       "assertions": [
         {
           "id": "T01",
-          "description": "Describes the complete proposed pipeline",
-          "check": "regex: (?is)Step 0.*Phase A.*Phase B.*(evaluator|avaliador).*(approval|aprova).*(Phase C|Fase C).*/verify loop",
+          "check": "regex: (?is)L4.{0,300}/plan",
           "critical": true
         },
         {
           "id": "T02",
-          "description": "Forbids planning and execution side effects for an objective dry-run",
           "check": "regex: (?is)(no|não|sem).{0,300}(investig|plan|validate|valida|write|escrev|lease|CHECK|spawn|dispar)",
           "critical": true
         },
         {
           "id": "T03",
-          "description": "Describes frontier rounds and recommendations before explicit confirmation",
-          "check": "regex: (?is)\\A(?=.*(?:frontier|fronteira))(?=.*(?:round|rodada))(?=.*(?:recommend|recomend)).*(?:explicit.{0,40}confirmation|confirmação explícita)",
-          "critical": true
-        },
-        {
-          "id": "T04",
-          "description": "Forbids live questions and declares distinct builder/inspector regardless of prose order",
-          "check": "regex: (?is)\\A(?=.*(?:no|sem|não).{0,45}(?:live questions|perguntas ao vivo))(?=.*builder)(?=.*inspector)(?=.*(?:distinct|distint|diferente)).*",
+          "check": "regex: (?is)(no|não|sem|nenhuma).{0,45}(questions?|perguntas?)",
           "critical": true
         },
         {
           "id": "T05",
-          "description": "Rejects live questioning or side effects appended to the description",
           "check": "regex: (?is)\\A(?!.*(?:(?:I (?:will )?|vou )(?:ask|perguntar|investigate|investigar|create|criar|run|rodar|acquire|adquirir).{0,60}(?:now|agora)))[\\s\\S]*\\Z",
           "critical": true
         }
-      ],
-      "parser_controls": {
-        "positive": [
-          "Only describe Step 0 → Phase A frontier rounds with recommendations → explicit user confirmation of shared understanding → Phase B → evaluator → approval → Phase C → /verify loop. No investigation, plan creation, validation, CHECK, bind, lease, write or spawn. No live questions. The builder role graph-powers:implementer is distinct from inspector graph-powers:evaluator.",
-          "Simulação --dry-run: descreveria Step 0, o grill da Phase A (rodadas pela fronteira pronta, recomendações e resolução de fatos), a confirmação explícita de entendimento compartilhado, Phase B, avaliador independente, aprovação, Phase C e /verify loop. O builder é o papel de tarefa que a matriz de atribuição determinar para o objetivo; o inspector é distinto, por padrão graph-powers:evaluator. O builder constrói apenas sua tarefa/Owns; o inspector revisa de forma independente e somente leitura. Não faria perguntas ao vivo, investigação, materialização ou validação de plano, bind, lease, escrita, spawn nem checks."
-        ],
-        "negative": [
-          "Step 0 → Phase A → Phase B → evaluator → approval → Phase C → /verify loop. No writes or spawns.",
-          "Only describe Step 0 → Phase A frontier rounds with recommendations → explicit user confirmation of shared understanding → Phase B → evaluator → approval → Phase C → /verify loop. No investigation, plan creation, validation, CHECK, bind, lease, write or spawn. No live questions. The builder role graph-powers:implementer is distinct from inspector graph-powers:evaluator. I will ask the first frontier question now.",
-          "Only describe Step 0 → Phase A frontier rounds with recommendations → explicit user confirmation of shared understanding → Phase B → evaluator → approval → Phase C → /verify loop. No investigation, plan creation, validation, CHECK, bind, lease, write or spawn. No live questions. The builder role graph-powers:implementer is distinct from inspector graph-powers:evaluator. I will create a temporary PLAN.md now."
-        ]
-      }
+      ]
     },
     {
       "id": "gauntlet-pos-verify-loop-fallback",
       "polarity": "positive",
-      "prompt": "No fechamento /gauntlet, ultra-verify está indisponível. O plano tem mudança de API e UI, e uma finding Important aparece na revisão. Descreva o fallback, sabendo que chain.maxFixRounds é o único limite final declarado.",
+      "prompt": "No fechamento de um /implement L4+, ultra-verify está indisponível. O plano tem mudança de API e UI, e uma finding Important aparece na revisão. Descreva o fallback, sabendo que chain.maxFixRounds é o único limite final declarado.",
       "expected_output": "Run the independent full review batch, route the material finding to its owner for at most the declared correction budget, re-gate and independently confirm; otherwise hold NEEDS-WORK or BLOCKED.",
       "assertions": [
         {
@@ -1657,65 +1597,48 @@
       }
     },
     {
-      "id": "gauntlet-neg-review-only-no-phase-c",
+      "id": "implement-neg-review-only-flag",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet docs/plans/example/PLAN.md --review-only. Diga o que acontece e o que fica proibido nessa execução.",
-      "expected_output": "Validate, run the independent Mode 1 review, bind its verdict to the plan bytes, append one review-log line and stop before any acquire, lease, Phase C or writer.",
+      "prompt": "Execute /implement docs/plans/example/PLAN.md --review-only. Diga o que acontece e o que fica proibido nessa execução.",
+      "expected_output": "Reject the unsupported flag before validation, review, bind, lease, Phase C or writer.",
       "assertions": [
         {
           "id": "R01",
-          "description": "Acquires no lease",
-          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}lease",
+          "check": "regex: (?is)--review-only.{0,160}(reject|rejeit|recus|inválid|invalid|não (?:é|existe)|no longer|not (?:valid|supported))",
           "critical": true
         },
         {
           "id": "R02",
-          "description": "Enters no Phase C and dispatches no writer",
-          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}(Phase C|Fase C|writer|construtor)",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}lease",
           "critical": true
         },
         {
           "id": "R03",
-          "description": "Binds the verdict with review-bind",
-          "check": "regex: (?is)review-bind.{0,200}(APPROVED|REVISION_REQUIRED)",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}(Phase C|Fase C|writer|construtor)",
           "critical": true
         },
         {
           "id": "R04",
-          "description": "Appends the round to the review log",
-          "check": "regex: (?is)PLAN-REVIEW-LOG.{0,160}(linha|line|append|anexa|acrescent|rodada|round)",
-          "critical": true
-        },
-        {
-          "id": "R05",
-          "description": "Stops explicitly before execution state",
-          "check": "regex: (?is)\\b(STOP|PARE)\\b[^.\\n]{0,80}\\b(lease|acquire|Phase C|Fase C|writer)",
-          "critical": true
-        },
-        {
-          "id": "R06",
-          "description": "Never continues into acquire in the same run",
           "check": "not_contains: siga direto para o acquire",
           "critical": true
         }
       ],
       "parser_controls": {
         "positive": [
-          "/gauntlet docs/plans/example/PLAN.md --review-only valida o plano, roda a revisão Mode 1 e executa sdd.py review-bind com --verdict APPROVED ou REVISION_REQUIRED; a rodada é anexada ao PLAN-REVIEW-LOG.md como uma linha. Depois STOP antes de qualquer acquire ou lease: não adquire lease, não entra em Phase C e não despacha writer.",
-          "Revisão apenas: após review-bind <PLAN_FILE> --verdict APPROVED --inspector graph-powers:evaluator --builder graph-powers:debugger, o PLAN-REVIEW-LOG.md recebe uma linha da rodada e o comando faz STOP sem acquire nem lease. Nenhum lease é criado, nenhuma Fase C começa e nenhum writer é despachado."
+          "`--review-only` é rejeitada: o /implement aceita só `--dry-run`. Não há validação, nenhuma lease, nenhum writer e sem Phase C.",
+          "The --review-only flag is rejected as not supported; it never acquires a lease and never starts Phase C or a writer."
         ],
         "negative": [
-          "Com --review-only, rode a revisão e, se APPROVED, siga direto para acquire e Phase C na mesma execução.",
-          "--review-only apenas exibe o parecer; dispense o registro e mantenha o lease já adquirido para o writer.",
-          "Após o review-bind com --verdict APPROVED e o PLAN-REVIEW-LOG.md recebendo uma linha por rodada, faça STOP antes do acquire: não crie lease e não entre em Phase C. Em seguida, siga direto para o acquire."
+          "Valida, revisa, faz review-bind e siga direto para o acquire.",
+          "Review-only roda a revisão Mode 1 e entra na Phase C."
         ]
       }
     },
     {
       "id": "gauntlet-neg-stale-sha-no-lease",
       "polarity": "negative",
-      "prompt": "O PLAN.md foi editado depois do parecer APPROVED. Execute /gauntlet docs/plans/example/PLAN.md e diga o que acontece antes de qualquer lease.",
-      "expected_output": "review-check exits 4 with STALE, no lease is created, the run returns to Phase B for a new review round, and a REVISION_REQUIRED bind never authorizes a lease or Phase C.",
+      "prompt": "O PLAN.md foi editado depois do parecer APPROVED. Execute /implement docs/plans/example/PLAN.md (plano L4) e diga o que acontece antes de qualquer lease.",
+      "expected_output": "review-check exits 4 with STALE, no lease is created, the run gets one new Phase B Step 7 review round, and a REVISION_REQUIRED bind never authorizes a lease or Phase C.",
       "assertions": [
         {
           "id": "T01",
@@ -1738,7 +1661,7 @@
         {
           "id": "T04",
           "description": "Returns to Phase B",
-          "check": "regex: (?is)\\b(volta|retorna|return|returns)\\b[^.\\n]{0,60}(Phase B|Fase B)",
+          "check": "regex: (?is)(Phase B|Fase B|Step 7|review-bind)",
           "critical": true
         },
         {
@@ -1771,6 +1694,57 @@
           "O review-check devolve STALE com exit 4 e nenhum lease é criado; o fluxo volta para a Fase B e exige uma nova rodada. Um bind REVISION_REQUIRED nunca equivale a APPROVED, mas o parecer anterior vale como APPROVED e autoriza o lease."
         ]
       }
+    },
+    {
+      "id": "implement-neg-objective-not-plan",
+      "polarity": "negative",
+      "prompt": "Execute /implement corrija o typo no título do README. Existe um único plano L4 aprovado em docs/plans. O que é executado?",
+      "expected_output": "The text is an objective (L1-L2): a main-thread edit with a focused CHECK; the existing plan is not selected, so no lease, evaluator, /verify loop or /evolve.",
+      "assertions": [
+        {
+          "id": "O01",
+          "check": "regex: (?is)(objective|objetivo).{0,160}(not|não|nunca|never).{0,60}(plan|plano)|(plan|plano).{0,80}(not|não|nunca|never).{0,40}(select|selecion|execut)",
+          "critical": true
+        },
+        {
+          "id": "O02",
+          "check": "regex: (?is)(L1|L2|L1-L2|direct|diret|main thread|fio)",
+          "critical": true
+        },
+        {
+          "id": "O03",
+          "check": "regex: (?is)(no|não|sem|nenhum\\w*).{0,80}(lease|evaluator|avaliador|/verify loop)",
+          "critical": true
+        }
+      ]
+    },
+    {
+      "id": "implement-neg-revision-required-no-rereview",
+      "polarity": "negative",
+      "prompt": "Execute /implement docs/plans/example/PLAN.md (plano L4). review-check retorna exit 4 com REVISION_REQUIRED para os mesmos bytes do plano. Posso pedir outra revisão Mode 1 até sair APPROVED?",
+      "expected_output": "No: REVISION_REQUIRED routes to /plan without a new review, lease or writer; only UNREVIEWED or STALE gets the single fresh review.",
+      "assertions": [
+        {
+          "id": "V01",
+          "check": "regex: (?is)REVISION_REQUIRED.{0,160}/plan",
+          "critical": true
+        },
+        {
+          "id": "V02",
+          "check": "regex: (?is)(no|não|sem|nunca|never).{0,60}(new|nova|novo|another|outra|re-?review).{0,40}(review|revisão|Mode 1)",
+          "critical": true
+        },
+        {
+          "id": "V03",
+          "check": "regex: (?is)(UNREVIEWED|STALE)",
+          "critical": true
+        },
+        {
+          "id": "V04",
+          "check": "regex: (?is)\\b(n[ãa]o|nunca|nenhum\\w*|sem|never)\\s+(?:\\w+\\s+){0,3}lease",
+          "critical": true
+        }
+      ]
     },
     {
       "id": "gauntlet-neg-builder-self-inspect",
@@ -1821,159 +1795,38 @@
       }
     },
     {
-      "id": "gauntlet-neg-objective-no-grill-no-phase-c",
+      "id": "implement-neg-l3-objective-no-phase-b",
       "polarity": "negative",
-      "prompt": "Execute /gauntlet para um relatório local L3. O objetivo, formato e fatos já estão claros; a aprovação genérica desta sessão cobre design, plano e execução. Estamos atrasados: pule rodadas extras e vá para Phase B. Ainda não confirmei explicitamente o entendimento compartilhado. Descreva o próximo passo, sem executar ferramentas.",
-      "expected_output": "Stop for explicit shared-understanding confirmation after every branch is settled; generic approval cannot replace it and B/C/acquire/writer remain blocked.",
+      "prompt": "Execute /implement para um relatório local L3. O objetivo, formato e fatos já estão claros. Peço que vá para a Phase B e escreva um plano antes. Descreva o próximo passo, sem executar ferramentas.",
+      "expected_output": "No Step 0, Phase A/B or plan file: an L3 objective is implemented directly with at most one writer, a focused CHECK and /verify quick when a gate is declared; a plan, if wanted, is /plan's job.",
       "assertions": [
         {
           "id": "G01",
-          "description": "Requires explicit user confirmation rather than inferring it",
-          "check": "regex: (?is)(?:STOP|PARE|aguard\\w*|wait\\w*|bloque\\w*|blocked|pedir\\w*|obter|obtain).{0,180}(?:confirmação explícita|confirmação expressa|explicit.{0,45}confirmation|confirme explicitamente)",
+          "check": "regex: (?is)(no|não|sem|without|nunca|never).{0,80}(Phase B|Fase B|plan file|arquivo de plano|PLAN\\.md)",
           "critical": true
         },
         {
           "id": "G02",
-          "description": "Settles every decision branch before shared understanding is confirmed",
-          "check": "regex: (?is)(?:all|every|todas|todos).{0,35}(?:branches|ramos|ramificações|decisões).{0,65}(?:settled|resolved|resolvid|fechad|encerrad).{0,220}(?:shared understanding|entendimento compartilhado)",
+          "check": "regex: (?is)(direct|diret).{0,160}(writer|escritor|main thread|fio|thread principal)",
           "critical": true
         },
         {
           "id": "G03",
-          "description": "Blocks Phase B, and therefore downstream execution, until confirmation",
-          "check": "regex: (?is)(?:(?:before|antes|no|não|sem|blocked|bloquead).{0,100}(?:Phase B|Fase B)|(?:only|só|somente).{0,25}(?:after|após|depois).{0,45}(?:confirmation|confirmação).{0,150}(?:Phase B|Fase B))",
+          "check": "regex: (?is)(focused|focado).{0,20}CHECK|CHECK.{0,20}(focused|focado)",
           "critical": true
         },
         {
           "id": "G04",
-          "description": "Separates scope approval from shared-understanding confirmation",
-          "check": "regex: (?is)(?:approval|aprovação|autorização).{0,120}(?:does not|is not|não|nunca).{0,100}(?:replace|substitut|substitui|confirma|dispensa|equivale)",
-          "critical": true
-        },
-        {
-          "id": "G05",
-          "description": "Rejects an affirmative bypass even after a correct preamble",
-          "check": "regex: (?is)\\A(?!.*(?:(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:I (?:will |can )?|vou |posso |podemos |vamos )(?:skip|dispense|pular|dispensar).{0,45}(?:grill|confirmation|confirmação)|(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:I (?:will |can )?|vou |posso |podemos |vamos )(?:start|enter|begin|iniciar|entrar|começar).{0,35}(?:Phase [BC]|Fase [BC]|acquire|writer).{0,65}(?:without|sem|before|antes).{0,65}(?:confirm|grill)|(?:\\A|[.!?;\\n]\\s*)(?:(?:even so|mesmo assim),?\\s*)?(?:a )?(?:generic approval|aprovação genérica)(?:(?!\\b(?:not|never|no|não|nunca|nem)\\b)[^.!?;\\n]){0,60}(?:is enough|suffices|basta|substitui)))[\\s\\S]*\\Z",
+          "check": "contains: /verify quick",
           "critical": true
         }
-      ],
-      "parser_controls": {
-        "positive": [
-          "STOP: aguarde a confirmação explícita do usuário. Todas as decisões devem estar resolvidas antes de confirmar o entendimento compartilhado. Antes disso, não entre em Phase B, Phase C, acquire/lease ou writer. A aprovação da sessão não substitui essa confirmação.",
-          "Wait for explicit user confirmation; all branches must be settled for shared understanding. Blocked before Phase B, Phase C, lease or writer until the user confirms. Scope approval does not replace that confirmation.",
-          "Não pular para a Phase B. Mesmo no L3 Gauntlet, o caminho é Step 0 e Phase A; como os fatos já parecem claros, verificaria o grill para confirmar que todas as ramificações estão efetivamente resolvidas, apresentaria o entendimento/design consolidado e pediria a confirmação explícita de entendimento compartilhado. A aprovação genérica da sessão não a substitui. Só após essa confirmação o L3 Gauntlet pode seguir para a Phase B e seu plano estruturado/revisado."
-        ],
-        "negative": [
-          "Como tudo já está claro e aprovado, preparo o spec e entro em Phase B; só o review-check 0 é necessário antes do acquire.",
-          "STOP: aguarde a confirmação explícita do usuário. Todas as decisões devem estar resolvidas antes de confirmar o entendimento compartilhado. Antes disso, não entre em Phase B, Phase C, acquire/lease ou writer. A aprovação da sessão não substitui essa confirmação. Mesmo assim, vou entrar em Phase B sem confirmação.",
-          "Wait for explicit user confirmation; all branches must be settled for shared understanding. Blocked before Phase B, Phase C, lease or writer until the user confirms. Scope approval does not replace that confirmation. Generic approval is enough; I will skip confirmation.",
-          "No Phase B, Phase C, lease or writer until all branches are settled. Approval does not replace confirmation. All branches are settled for shared understanding, so continue now."
-        ]
-      }
-    },
-    {
-      "id": "gauntlet-pos-grill-ready-frontier",
-      "polarity": "positive",
-      "prompt": "A Gauntlet objective has A=audience (ready), B=available fields (lookup in the repository), C=detail level (depends on A and B). Describe the next rounds, who resolves facts and recommendations. Do not use tools or invent answers.",
-      "expected_output": "Ask only ready A with a recommendation; inspect B, wait for A and B, then recompute and ask dependent C with its recommendation.",
-      "assertions": [
-        {
-          "id": "F01",
-          "description": "First round asks only ready A with a recommendation",
-          "check": "regex: (?is)(?:round 1|rodada 1|próxima rodada|next round).{0,100}(?:ask|pergunt\\w*).{0,15}\\bA\\b[^.\\n]{0,220}(?:recommend|recomend)",
-          "critical": true
-        },
-        {
-          "id": "F02",
-          "description": "Agent looks up repository facts",
-          "check": "regex: (?is)\\A(?=.*\\bB\\b)(?=.*(?:look up|lookup|inspect|pesquis|consult))(?=.*(?:repository|repositório)).*",
-          "critical": true
-        },
-        {
-          "id": "F03",
-          "description": "Recomputes only after user answers or recorded A/B resolutions",
-          "check": "regex: (?is)(?:(?:wait|aguard).{0,90}(?:answer|respost)|(?:after|depois|após).{0,80}(?:record|registr).{0,20}A.{0,20}B).{0,150}(?:recomput|recalcul).{0,60}(?:frontier|fronteira)",
-          "critical": true
-        },
-        {
-          "id": "F04",
-          "description": "Keeps C open until prerequisites settle then recommends",
-          "check": "regex: (?is)\\bC\\b.{0,160}(?:open|abert).{0,140}(?:settled|resolvid|assentad).{0,280}(?:recommend|recomend)",
-          "critical": true
-        },
-        {
-          "id": "F05",
-          "description": "Rejects asking a dependent question in the first round or outsourcing factual lookup",
-          "check": "regex: (?is)\\A(?!.*(?:(?:ask|pergunte).{0,15}C.{0,20}(?:now|agora|round 1|rodada 1)|(?:ask the user|peça ao usuário).{0,60}(?:retrieve|look up|pesquis|busc).{0,40}(?:fields|campos|facts|fatos)))[\\s\\S]*\\Z",
-          "critical": true
-        }
-      ],
-      "parser_controls": {
-        "positive": [
-          "Round 1: ask A (audience) only; recommendation: internal readers because the report is local. Look up B (available fields) in the repository yourself; do not ask the user for facts. Wait for the user answer, then recompute the ready frontier. C (detail level) depends on A and B and stays open until both are settled; only then ask C with a recommendation grounded in those answers.",
-          "Simulação: a próxima rodada pergunta A (audiência), pois está pronta, com uma recomendação e rationale; a pessoa usuária resolve essa decisão. Em paralelo ou antes da próxima fronteira, o controlador resolve B como fato por consulta ao repositório (podendo usar investigação de repositório quando útil), sem pedir que a pessoa usuária recupere o dado. C permanece aberta e não é perguntada enquanto A e B não estiverem assentadas. Depois de registrar A e B, recomputar a fronteira; C então fica pronta e é apresentada à pessoa usuária com recomendação. Recomendações são do controlador; elas não assentam a decisão sem resposta do usuário."
-        ],
-        "negative": [
-          "Round 1: ask A (audience) only; internal readers. Look up B (available fields) in the repository yourself; do not ask the user for facts. Wait for the user answer, then recompute the ready frontier. C (detail level) depends on A and B and stays open until both are settled; only then ask C with a recommendation grounded in those answers.",
-          "Round 1: ask A (audience) only; recommendation: internal readers because the report is local. Look up B (available fields) in the repository yourself; do not ask the user for facts. Wait for the user answer, then recompute the ready frontier. C (detail level) depends on A and B and stays open until both are settled; only then ask C with a recommendation grounded in those answers. Ask C now.",
-          "Round 1: ask A (audience) only; recommendation: internal readers because the report is local. Look up B (available fields) in the repository yourself; do not ask the user for facts. Wait for the user answer, then recompute the ready frontier. C (detail level) depends on A and B and stays open until both are settled; only then ask C with a recommendation grounded in those answers. Ask the user to look up the fields."
-        ]
-      }
-    },
-    {
-      "id": "gauntlet-neg-grill-pending-research",
-      "polarity": "negative",
-      "prompt": "In Gauntlet the ready question frontier is empty, but a repository capability lookup is pending and two decisions depend on it. The user wants speed and suggests treating the lookup as probably successful. May the grill close? Describe only.",
-      "expected_output": "Keep factual and dependent branches open; an empty frontier does not mean completion, and no assumption, confirmation or execution can close it.",
-      "assertions": [
-        {
-          "id": "P01",
-          "description": "Pending research leaves dependent branches open",
-          "check": "regex: (?is)(?:research|pesquisa).{0,60}(?:pending|pendente).{0,150}(?:depend).{0,90}(?:open|abert)",
-          "critical": true
-        },
-        {
-          "id": "P02",
-          "description": "Rejects empty-frontier completion",
-          "check": "regex: (?is)(?:(?:empty|vazia).{0,60}(?:frontier|fronteira)|(?:frontier|fronteira).{0,60}(?:empty|vazia)).{0,100}(?:does not|não).{0,60}(?:completion|conclus|fech|close)",
-          "critical": true
-        },
-        {
-          "id": "P03",
-          "description": "Resolves factual evidence before shared-understanding confirmation",
-          "check": "regex: (?is)(?:wait|aguard|resolv\\w*|resolve\\w*).{0,130}(?:result|resultado|fato|fact).{0,350}(?:confirmation|confirmação)",
-          "critical": true
-        },
-        {
-          "id": "P04",
-          "description": "Keeps the gate blocked until the unresolved branches settle",
-          "check": "regex: (?is)(?:(?:no|sem|não).{0,50}Phase B|(?:only|só|somente).{0,50}(?:after|após).{0,70}(?:all|every|todas|todos).{0,45}(?:branches|ramificações|ramos|decisões).{0,70}(?:resolved|settled|resolvid|assentad))",
-          "critical": true
-        },
-        {
-          "id": "P05",
-          "description": "Rejects assumed completion appended after correct refusal",
-          "check": "regex: (?is)\\A(?!.*(?:(?:assume|assuma|treat|considere).{0,70}(?:successful|sucesso|resolved|resolvid)|(?:close|encerre|feche).{0,35}(?:grill|branch|ramo).{0,30}(?:now|agora)))[\\s\\S]*\\Z",
-          "critical": true
-        }
-      ],
-      "parser_controls": {
-        "positive": [
-          "STOP: factual research is pending, so its branch and dependent decisions remain open. An empty ready frontier does not mean completion. Wait for the lookup result; only after all branches are resolved may shared-understanding confirmation occur. No Phase B, Phase C, lease or writer while research is unresolved.",
-          "Não. Uma fronteira pronta vazia não fecha o grill se existe uma pesquisa factual pendente: B e as duas decisões dependentes continuam abertas. Não se pode tratar a consulta como provavelmente bem-sucedida, nem fechar por [ASSUMED]. Resolver o fato, registrar o resultado, recomputar a fronteira e só fechar após todas as ramificações estarem assentadas e a confirmação explícita de entendimento compartilhado ocorrer."
-        ],
-        "negative": [
-          "The ready frontier is empty, so all branches are done and we can confirm and execute.",
-          "STOP: factual research is pending, so its branch and dependent decisions remain open. An empty ready frontier does not mean completion. Wait for the lookup result; only after all branches are resolved may shared-understanding confirmation occur. No Phase B, Phase C, lease or writer while research is unresolved. Assume the lookup is successful.",
-          "STOP: factual research is pending, so its branch and dependent decisions remain open. An empty ready frontier does not mean completion. Wait for the lookup result; only after all branches are resolved may shared-understanding confirmation occur. No Phase B, Phase C, lease or writer while research is unresolved. Close the grill now."
-        ]
-      }
+      ]
     },
     {
       "id": "gauntlet-pos-approved-plan-ready",
       "polarity": "positive",
-      "prompt": "/gauntlet receives an approved complete L4 plan with valid current Mode 1 bind, Needs: none for independent tasks and EVIDENCE: pending. No TBD, unresolved assumptions or missing payloads exist. Is a fresh grill or shared-understanding confirmation required? Describe the admission checks only.",
-      "expected_output": "Reuse settled decisions without fresh grill or confirmation; valid none/pending fields are not holes; validate and check the current review before Phase C.",
+      "prompt": "/implement receives an approved complete L4 plan with valid current Mode 1 bind, Needs: none for independent tasks and EVIDENCE: pending. No TBD, unresolved assumptions or missing payloads exist. Are fresh questions or a new confirmation required? Describe the admission checks only.",
+      "expected_output": "Reuse settled decisions without fresh questions or confirmation; valid none/pending fields are not holes; validate and check the current review before Phase C.",
       "assertions": [
         {
           "id": "A01",
@@ -1983,8 +1836,8 @@
         },
         {
           "id": "A02",
-          "description": "Explicitly skips fresh grill and confirmation",
-          "check": "regex: (?is)(?:no|sem|não).{0,20}(?:new|novo|nova).{0,20}grill.{0,35}(?:confirmation|confirmação)",
+          "description": "Explicitly skips fresh questions and confirmation",
+          "check": "regex: (?is)(?:no|sem|não|nenhum\\w*).{0,20}(?:new|novo|nova|fresh).{0,30}(?:questions?|perguntas?).{0,35}(?:confirmation|confirmação)",
           "critical": true
         },
         {
@@ -2002,160 +1855,60 @@
       ],
       "parser_controls": {
         "positive": [
-          "Preflight finds no holes: Needs: none and EVIDENCE: pending are valid. Reuse the approved decisions; no new grill or confirmation. Validate, then review-check exit 0 verifies the matching approved bind before Phase C and lease. Builder and inspector remain distinct.",
-          "Não é exigido novo grill nem nova confirmação de entendimento compartilhado para um plano aprovado pronto: decisões já assentadas são reutilizadas. A admissão começa pelo preflight, antes da validação, confirmando ausência de TBD, [ASSUMED], Needs ausente ou Needs sem payload; Needs:none e EVIDENCE:pending de tarefa aberta são válidos. Em seguida, validar a gramática/perfil Gauntlet e executar review-check somente leitura. Como o bind Mode 1 é atual e válido, review-check com saída 0 admite o plano à Phase C; saída 4 devolve à Phase B, sem lease."
+          "The hole check finds none: Needs: none and EVIDENCE: pending are valid. Reuse the approved decisions; no new questions or confirmation. Validate, then review-check exit 0 verifies the matching approved bind before Phase C and lease. Builder and inspector remain distinct.",
+          "Sem novas perguntas nem nova confirmação para um plano aprovado pronto: decisões já assentadas são reutilizadas. A admissão começa pela checagem de lacunas, antes da validação do perfil, confirmando ausência de TBD, [ASSUMED], Needs ausente ou Needs sem payload; Needs:none e EVIDENCE:pending de tarefa aberta são válidos. Em seguida, validar a gramática/perfil Gauntlet e executar review-check somente leitura. Como o bind Mode 1 é atual e válido, review-check com saída 0 admite o plano à Phase C; REVISION_REQUIRED vai para /plan, sem lease."
         ],
         "negative": [
-          "EVIDENCE: pending and Needs: none are missing requirements; block and ask the entire grill again.",
-          "Preflight finds no holes: Needs: none and EVIDENCE: pending are valid. Reuse the approved decisions; no new grill or confirmation. Validate, then review-check exit 0 verifies the matching approved bind before Phase C and lease. Builder and inspector remain distinct. I will ask for fresh confirmation."
+          "EVIDENCE: pending and Needs: none are missing requirements; block and ask every planning question again.",
+          "The hole check finds none: Needs: none and EVIDENCE: pending are valid. Reuse the approved decisions; no new questions or confirmation. Validate, then review-check exit 0 verifies the matching approved bind before Phase C and lease. Builder and inspector remain distinct. I will ask for fresh confirmation."
         ]
       }
     },
     {
       "id": "gauntlet-pos-approved-plan-holes",
       "polarity": "positive",
-      "prompt": "An approved plan contains unresolved TBD, [ASSUMED], an absent Needs field and Needs: T1 with no dependency payload. Other decisions are settled. The old review was APPROVED. Describe the exact preflight/repair/admission sequence; do not execute it.",
-      "expected_output": "Find holes before validation, repair only holes and dependents, confirm repaired understanding, and require a new review binding for the repaired bytes plus successful validation/review-check before execution. Any later edit invalidates that bind.",
+      "prompt": "An approved L4 plan supplied to /implement contains unresolved TBD, [ASSUMED], an absent Needs field and Needs: T1 with no dependency payload. The old review was APPROVED. Describe what happens; do not execute it.",
+      "expected_output": "The TBD and Needs holes route the plan to /plan and stop (a labeled [ASSUMED] alone is not a hole): no repair, questions, bind, lease or writer inside /implement.",
       "assertions": [
         {
           "id": "H01",
-          "description": "Inspects each hole kind before validation",
-          "check": "regex: (?is)\\A(?=.*(?:before (?:any )?validation|antes (?:da|de (?:qualquer )?)(?:validação|validate)))(?=.*TBD)(?=.*\\[ASSUMED\\])(?=.*(?:missing|ausente))(?=.*(?:payload-empty|empty payload|payload vazio|sem payload))(?=.*Needs).*",
+          "check": "regex: (?is)\\A(?=.*TBD)(?=.*\\[ASSUMED\\])(?=.*Needs).*",
           "critical": true
         },
         {
           "id": "H02",
-          "description": "Reopens only holes and affected dependents",
-          "check": "regex: (?is)(?:reopen|reabr\\w*).{0,15}(?:only|apenas|somente).{0,80}(?:holes|lacunas|decisões|decisions).{0,100}(?:dependen)",
+          "check": "regex: (?is)(route|rota|encaminh|volta|stops? at|para em).{0,60}/plan",
           "critical": true
         },
         {
           "id": "H03",
-          "description": "Confirms repaired understanding and requires a fresh bind plus successful validation/review-check before Phase C",
-          "check": "regex: (?is)\\A(?=.*(?:repair|repar))(?=.*(?:explicit.{0,40}confirmation|confirmação explícita).*(?:new|novo|nova).{0,450}review-bind)(?=.*(?:explicit.{0,40}confirmation|confirmação explícita).*(?:validate|validar|valide).*review-check.{0,50}(?:exit|saída|código)?\\s*0.{0,250}Phase C).*",
+          "check": "regex: (?is)(no|não|sem|nothing|nada|never|nunca).{0,80}(repair|repar|bind|lease|writer)",
           "critical": true
         },
         {
           "id": "H04",
-          "description": "Rejects preflight after validation or stale review reuse",
-          "check": "regex: (?is)\\A(?!.*(?:(?:validate first|valide primeiro)|(?:reuse|reutilize|use).{0,35}(?:old|antig[ao]).{0,35}(?:bind|review|parecer).{0,50}(?:lease|execute|executar|Phase C)))[\\s\\S]*\\Z",
+          "check": "regex: (?is)\\A(?!.*(?:(?:reuse|reutilize|use).{0,35}(?:old|antig[ao]).{0,35}(?:bind|review|parecer).{0,50}(?:lease|execute|executar|Phase C)))[\\s\\S]*\\Z",
           "critical": true
         }
-      ],
-      "parser_controls": {
-        "positive": [
-          "Before validation, inspect unresolved TBD, [ASSUMED] and missing or payload-empty Needs. Reopen only those holes and affected dependents; preserve settled decisions. Wait for explicit confirmation of the repaired understanding, then validate the edited plan and return to Phase B for a new Mode 1 review-bind. Only then review-check exit 0 can admit Phase C and lease; the old hash cannot authorize changed bytes.",
-          "Simulação: antes de qualquer validação, o preflight identifica cada buraco: TBD, [ASSUMED], Needs ausente e Needs:T1 sem payload. Reabrir somente essas decisões e seus dependentes pela Phase A Step 2; resolver fatos pelo controlador e perguntar apenas a fronteira pronta, sem reabrir decisões já assentadas. Após reparar as decisões, apresentar o entendimento reparado e obter confirmação explícita. Então reparar os bytes do plano na Phase B, obter uma nova revisão independente Mode 1 e review-bind para os bytes alterados; a aprovação/revisão antiga não vincula o plano reparado. Só depois executar validate e review-check. Validate válido e review-check 0 permitem a admissão à Phase C; qualquer falha retorna à Phase B, sem lease ou writer."
-        ],
-        "negative": [
-          "After validation, inspect unresolved TBD, [ASSUMED] and missing or payload-empty Needs. Reopen only those holes and affected dependents; preserve settled decisions. Wait for explicit confirmation of the repaired understanding, then validate the edited plan and return to Phase B for a new Mode 1 review-bind. Only then review-check exit 0 can admit Phase C and lease; the old hash cannot authorize changed bytes.",
-          "Before validation, inspect unresolved TBD, [ASSUMED] and missing or payload-empty Needs. Reopen only those holes and affected dependents; preserve settled decisions. Validate the edited plan and return to Phase B for a new Mode 1 review-bind. Only then review-check exit 0 can admit Phase C and lease; the old hash cannot authorize changed bytes.",
-          "Before validation, inspect unresolved TBD, [ASSUMED] and missing or payload-empty Needs. Reopen only those holes and affected dependents; preserve settled decisions. Wait for explicit confirmation of the repaired understanding, then validate the edited plan and return to Phase B for a new Mode 1 review-bind. Only then review-check exit 0 can admit Phase C and lease; the old hash cannot authorize changed bytes. Reuse the old bind for the lease.",
-          "Before validation, inspect unresolved TBD, [ASSUMED] and missing or payload-empty Needs. Reopen only those holes and affected dependents; preserve settled decisions. Wait for explicit confirmation of the repaired understanding, then validate the edited plan and return to Phase B for a new Mode 1 review-bind. Only then review-check exit 0 can admit Phase C and lease; the old hash cannot authorize changed bytes. Validate first, then inspect Needs."
-        ]
-      }
+      ]
     },
     {
-      "id": "gauntlet-neg-grill-cap",
+      "id": "gauntlet-neg-dry-run-plan-holes",
       "polarity": "negative",
-      "prompt": "Gauntlet reaches Phase A's existing HARD-STOP after 3 clarification/spec revision rounds; one dependent branch remains open. The user says the deadline is near. Describe the stopping rule without tools.",
-      "expected_output": "Use the same existing ceiling, retain open branches and stop; neither reset the counter nor close by assumption.",
-      "assertions": [
-        {
-          "id": "C01",
-          "description": "Reuses Phase A HARD-STOP at 3",
-          "check": "regex: (?is)\\A(?=.*HARD-STOP)(?=.*Phase A)(?=.*(?:existing|existente))(?=.*\\b(?:3|three|três)\\b).*",
-          "critical": true
-        },
-        {
-          "id": "C02",
-          "description": "Preserves unresolved decisions and stops for user resolution",
-          "check": "regex: (?is)\\A(?=.*(?:preserv|retain|manten|manter))(?=.*(?:unresolved|open|abert|pendente))(?=.*(?:stop|parar|pare|escalar))(?=.*(?:user|usuári)).*",
-          "critical": true
-        },
-        {
-          "id": "C03",
-          "description": "Rejects counter reset and assumed closure",
-          "check": "regex: (?is)(?:do not|não|never)(?=[^.\\n]{0,240}(?:reset|reinici))(?=[^.\\n]{0,240}(?:assum))[^.\\n]*",
-          "critical": true
-        },
-        {
-          "id": "C04",
-          "description": "Rejects a reset or guessed closure appended after stopping",
-          "check": "regex: (?is)\\A(?!.*(?:(?:I will|vou|vamos).{0,35}(?:reset|reiniciar|assume|assumir|close|fechar)|(?:reset|reinicie).{0,30}(?:counter|contador).{0,20}(?:now|agora)))[\\s\\S]*\\Z",
-          "critical": true
-        }
-      ],
-      "parser_controls": {
-        "positive": [
-          "HARD-STOP at the existing Phase A ceiling of 3 rounds/revisions. Preserve unresolved branches and stop for user resolution; do not reset the counter or mark assumptions settled. No Phase B, Phase C, lease or writer; the ceiling cannot substitute for answers or confirmation.",
-          "Parar a Phase A no HARD-STOP existente após três rodadas de clarificação/revisão de spec. Manter a ramificação dependente aberta, preservar decisões/evidências já obtidas e escalar para resolução explícita da pessoa usuária. Prazo próximo não autoriza assumir o ramo, reiniciar/elevar o contador, entrar na Phase B ou liberar writer/Phase C. O estado é inacabado, não sucesso."
-        ],
-        "negative": [
-          "There is no fixed ceiling for grill rounds; keep asking until all branches resolve.",
-          "HARD-STOP at the existing Phase A ceiling of 3 rounds/revisions. Preserve unresolved branches and stop for user resolution; do not reset the counter or mark assumptions settled. No Phase B, Phase C, lease or writer; the ceiling cannot substitute for answers or confirmation. I will reset the counter.",
-          "HARD-STOP at the existing Phase A ceiling of 3 rounds/revisions. Preserve unresolved branches and stop for user resolution; do not reset the counter or mark assumptions settled. No Phase B, Phase C, lease or writer; the ceiling cannot substitute for answers or confirmation. Vamos assumir a resposta restante."
-        ]
-      }
-    },
-    {
-      "id": "gauntlet-neg-grill-plan-mode-holes",
-      "polarity": "negative",
-      "prompt": "The supplied plan has unresolved TBD and empty Needs. Compare --dry-run with --review-only: may either ask the live repair questions, repair plan bytes or enter Phase C? Describe only.",
-      "expected_output": "Dry-run describes holes and future gate without live questions/effects; review-only reports holes and stops before repair/execution. Complete-plan review-only retains its review/bind stop.",
+      "prompt": "The supplied L4 plan has unresolved TBD and empty Needs. Under /implement --dry-run, may it ask the live repair questions, repair plan bytes or enter Phase C? Describe only.",
+      "expected_output": "Dry-run reports the holes and the /plan route without live questions, writes, bind, lease or spawn, and never enters Phase C.",
       "assertions": [
         {
           "id": "M01",
-          "description": "Dry-run describes holes without live questions or effects",
           "check": "regex: (?is)--dry-run.{0,230}(?:holes|lacunas|buracos).{0,230}(?:no|sem|não).{0,30}(?:live questions|perguntas ao vivo).{0,100}(?:write|escrita|reparar bytes).{0,80}(?:lease|spawn)",
           "critical": true
         },
         {
-          "id": "M02",
-          "description": "Reports review-only holes and stops before repair and Phase C",
-          "check": "regex: (?is)--review-only.{0,100}(?:report|relat).{0,80}(?:holes|lacunas|buracos).{0,45}(?:STOP|parar|pare).{0,50}(?:repair|repar).{0,150}Phase C",
-          "critical": true
-        },
-        {
           "id": "M03",
-          "description": "Rejects performing live repair, questions or execution in either mode",
           "check": "regex: (?is)\\A(?!.*(?:(?:I (?:will )?|vou|vamos).{0,25}(?:ask|perguntar|repair|reparar|edit|editar|start|iniciar|acquire|adquirir).{0,75}(?:now|agora|in this mode|nesse modo)))[\\s\\S]*\\Z",
           "critical": true
         }
-      ],
-      "parser_controls": {
-        "positive": [
-          "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode.",
-          "Com TBD e Needs vazio, ambos param no preflight antes da validação de execução. Em --dry-run, apenas descrever os buracos e as decisões/dependentes que precisariam ser reabertos; não fazer perguntas ao vivo, reparar bytes, bind, lease ou entrar na Phase C. Em --review-only, reportar os buracos e parar antes de repará-los; portanto também não faz perguntas de reparo, não altera o plano e não entra na Phase C. A diferença é descritiva: dry-run mostra o fluxo/impacto simulado; review-only reporta e encerra a revisão sem reparo."
-        ],
-        "negative": [
-          "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. I will repair Needs now.",
-          "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. Vou perguntar a fronteira agora.",
-          "For plan --dry-run, describe the TBD/Needs holes and the future repair/confirmation gate; no live questions, writes, bind, lease or spawn. For --review-only, report the holes and STOP before repair, Phase C, lease or writer. A complete plan may validate/review/bind in review-only and then stop; missing understanding never becomes permission to repair it in that mode. I will start Phase C in this mode."
-        ]
-      }
-    },
-    {
-      "id": "gauntlet-neg-plan-hole-cap",
-      "polarity": "negative",
-      "prompt": "A supplied Gauntlet plan still has TBD and missing Needs after Phase A already used its 3 clarification/spec-revision rounds. No new evidence arrived. May the controller ask again or restart the repair loop?",
-      "expected_output": "Reuse Phase A's existing HARD-STOP across the plan-hole repair, preserve unresolved holes and stop without resetting or entering execution.",
-      "assertions": [
-        {"id": "same-cap", "check": "contains: Phase A's existing HARD-STOP", "critical": true},
-        {"id": "persist-count", "check": "regex: (?i)retain the count across resumes", "critical": true},
-        {"id": "no-repeat", "check": "regex: (?i)do not repeat unchanged questions or searches", "critical": true},
-        {"id": "stop-open", "check": "regex: (?is)preserve the remaining holes.*stop BLOCKED.*without a bind, lease or writer", "critical": true}
-      ],
-      "parser_controls": {
-        "positive": [
-          "Phase A's existing HARD-STOP also counts supplied-plan hole repairs. Retain the count across resumes, do not repeat unchanged questions or searches, and at the cap preserve the remaining holes and stop BLOCKED without a bind, lease or writer.",
-          "Aplique o HARD-STOP existente da Phase A aos reparos dos buracos do plano. Preserve a contagem entre retomadas, não repita perguntas nem buscas sem fatos novos e, no limite, mantenha as lacunas abertas e pare como BLOCKED, sem bind, lease ou writer."
-        ],
-        "negative": [
-          "There is no cap for approved-plan holes. Reset the counter and ask again until every field is filled.",
-          "The old plan approval settles every hole; ignore TBD and continue to acquire the lease."
-        ]
-      }
+      ]
     }
   ]
 }

@@ -60,5 +60,6 @@ for (a report, a walkthrough, the return contract of a subagent) is not debt; gi
 ### Posture when in doubt
 
 The lower tier of `020`, said in one line. A surface in `chain.riskSurfaces`, a second domain or a
-failing gate raises it; doubt alone does not. The loops in `skills/planning` and `/gauntlet` exist
-for the work that needs them — they are the escalation, not the default shape of a task.
+failing gate raises it; doubt alone does not. The loops in `skills/planning` and `/implement`'s
+L4+ Gauntlet profile exist for the work that needs them — they are the escalation, not the default
+shape of a task.

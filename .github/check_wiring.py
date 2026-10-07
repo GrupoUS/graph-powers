@@ -538,9 +538,10 @@ def planning_authoring_policy() -> list[str]:
             'This is the adapter for `Skill("graph-powers:planning")`',
             "GitHub issue triage stays in the skill",
         ),
-        "commands/gauntlet.md": (
+        "commands/implement.md": (
             'invoke `Skill("graph-powers:planning")`',
-            "Only for a supplied plan",
+            "Hand off once to `/plan --plan-only` and stop",
+            "Phase C with `profile: gauntlet`",
         ),
         "skills/issue-improve/SKILL.md": (
             "Immediately tell the user you are retrieving the issue",
@@ -562,7 +563,7 @@ def planning_authoring_policy() -> list[str]:
             "issue-improve fast path",
         ),
         "skills/planning/references/gauntlet-loop.md": (
-            "`graph-powers:project-planner` authors Phase A and Phase B",
+            "Only `/implement` passes `profile: gauntlet`, and only for an approved L4+ plan",
             "A ready approved plan reuses settled decisions",
         ),
         "skills/planning/references/step-0-inventory.md": (

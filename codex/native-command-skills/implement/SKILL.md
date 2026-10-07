@@ -1,6 +1,6 @@
 ---
 name: implement
-description: "Execute an approved implementation plan through planning Phase C. Supports only --dry-run; use $graph-powers:plan to decide and $graph-powers:verify to confirm."
+description: "Implement an objective or approved plan by tier: direct edit, one writer, or the L4+ Gauntlet profile. Only --dry-run; $graph-powers:plan decides, $graph-powers:verify confirms."
 ---
 
 # $graph-powers:implement

@@ -1600,13 +1600,13 @@ class SddCliTests(unittest.TestCase):
         sources = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (
-                Path("commands/gauntlet.md"),
+                Path("commands/implement.md"),
                 Path("skills/planning/references/gauntlet-loop.md"),
             )
         )
         absent = [
             token
-            for token in ("--review-only", "review-bind", "review-check", "STALE")
+            for token in ("review-bind", "review-check", "STALE")
             if token not in sources
         ]
         self.assertEqual(absent, [], f"the Gauntlet contract never names {absent}")

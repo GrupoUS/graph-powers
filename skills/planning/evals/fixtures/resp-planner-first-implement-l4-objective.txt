@@ -1,0 +1,4 @@
+SYNTHETIC CONTRACT TRACE — no tools or agents were called.
+`/implement` hands off once to `/plan --plan-only` and stops before Phase C.
+There `graph-powers:project-planner` authors Phase A and Phase B.
+A separate `graph-powers:evaluator` Mode 1 reviews the plan before lease or writer.

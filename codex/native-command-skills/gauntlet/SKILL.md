@@ -1,6 +1,6 @@
 ---
 name: gauntlet
-description: "Use only for $graph-powers:gauntlet objective/plan or --dry-run; excludes L1-L2/generic."
+description: "Deprecated alias of /implement."
 ---
 
 # $graph-powers:gauntlet

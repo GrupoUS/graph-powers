@@ -87,19 +87,6 @@ defaults so provenance remains inspectable.
 MIT — adapted material, not redistributed verbatim
 ================================================================================
 
-  skills/planning/references/phase-a-brainstorm.md § Step 2
-  skills/planning/references/gauntlet-loop.md § Entry and dry-run
-  commands/gauntlet.md
-
-Source-informed adaptation of Matt Pocock's `grilling` skill (MIT, Copyright (c) 2026 Matt Pocock),
-read 2026-09-12 at https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md
-(Git blob 8ca78c6d8f901aab0c5a1f896034b70e666ff2a3). Rewritten into Gauntlet's existing Phase A:
-ready decision-frontier rounds, recommendations, agent-owned factual lookup and explicit shared
-understanding. Graph Powers uses native AskUserQuestion (Hermes uses parent clarify), keeps
-emoji optional and reuses the existing HARD-STOP ceiling. Approved-plan hole repair, dry-run and
-review-only boundaries preserve this harness's admission/review contracts. No upstream skill,
-runtime or substantial source text is redistributed.
-
   skills/debugger/references/diagnose.md
   skills/debugger/references/methodology.md
 
@@ -200,7 +187,7 @@ read 2026-09-02: the seven-rung ladder, the never-simplified-away list and the o
 `SubagentStart` injection (the answer to its issue #252 — SessionStart context never reaches a
 subagent) became one Python hook that mirrors the ladder in a bounded paragraph. Its intensity
 levels, mode tracker, statusline, review/audit/debt skills and host adapters were not copied; the
-escalation this harness already has (`/gauntlet`, `/verify loop`) is the "ultra" here.
+escalation this harness already has (`/implement`'s L4+ Gauntlet profile, `/verify loop`) is the "ultra" here.
 
 ================================================================================
 MIT — source-informed synthesis, not verbatim redistribution
@@ -213,19 +200,19 @@ Written for Graph Powers after a comparative review of mshumer/Claude-of-Duty
 (https://github.com/duolahypercho/gauntlet-loop), both MIT-licensed. No upstream prompt or file is
 redistributed verbatim. The profile is a new synthesis for this harness: existing planning Phase C
 owns scheduling and state, while task lanes add bounded builder, independent critic, evidence-led
-correction and optional order-reversed visual comparison under the repository's existing caps.
+correction under the repository's existing caps.
 
   skills/planning/references/gauntlet-loop.md § Review binding
   skills/planning/references/phase-b-writing-plans.md § Step 7
   skills/planning/references/phase-c-executing-plans.md § Step 1
   references/shared/007-path-conventions.md
-  commands/gauntlet.md
+  commands/implement.md
   skills/planning/scripts/sdd.py § review-bind, review-check
 
-Four invariants were transferred from chaseai-yt/claudex-loop
+Three invariants were transferred from chaseai-yt/claudex-loop
 (https://github.com/chaseai-yt/claudex-loop, MIT, read 2026-09-12) into that existing profile: an
-approval bound to the SHA-256 of the plan bytes, a review-only request that stops before execution,
-an inspector role that is never the builder role, and an append-only review log. No upstream prompt,
+approval bound to the SHA-256 of the plan bytes, an inspector role that is never the builder role,
+and an append-only review log; a fourth, the review-only stop, was retired with `/gauntlet`. No upstream prompt,
 script or file is redistributed here; the loop, the state, the ledgers and the caps remain this
 repository's own.
 
