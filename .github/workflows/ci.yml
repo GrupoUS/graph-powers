@@ -184,7 +184,8 @@ jobs:
           import json, os, sys
           plugin = json.load(open(".claude-plugin/plugin.json"))
           d = json.load(open("hooks/hooks.json"))
-          assert "hooks" not in plugin, "plugin.json duplicates the canonical hooks/hooks.json"
+          assert plugin.get("hooks") in (None, "./hooks/claude-mod/hooks.json"), \
+              "plugin.json may name only the Claude-only mod file, never duplicate hooks/hooks.json"
           commands = [h["command"] for arr in d.get("hooks", {}).values()
                       for m in arr for h in m["hooks"]]
           assert len(commands) == 16, f"expected 16 native hook registrations, found {len(commands)}"
