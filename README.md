@@ -868,10 +868,11 @@ node ~/.graph-powers/src/bin/graph-powers.mjs --update  # the clone, and the Cod
 
 Both happen on their own at session start — this is only the manual form.
 
-What does not update itself is the project's instruction layer — the delimited block in
-`AGENTS.md`, `.claude/rules/`, `.graph-powers/config.json`, client posture — because it was
-written against the plugin version installed at the time. After a plugin update, open a session
-in the project and run the Update mode of [`AGENT_SETUP.md`](AGENT_SETUP.md):
+What does not update itself is what was written from the plugin — the project's instruction layer
+and the machine-wide layer (posture, the Claude status line); `AGENT_SETUP.md` § Update mode lists
+both. Each was written against the plugin version installed at the time. Until the Update mode of
+[`AGENT_SETUP.md`](AGENT_SETUP.md) records the installed version, every session start says so in one
+line. Open a session in the project and run it:
 
 ```
 Read AGENT_SETUP.md from the graph-powers plugin (https://github.com/GrupoUS/graph-powers) and run its Update mode for this project.

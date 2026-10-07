@@ -1,0 +1,4 @@
+{
+  "description": "Claude Code-only hooks module, declared by .claude-plugin/plugin.json; Codex, Cursor, Grok, Kilo and Hermes never read this file.",
+  "modules": ["./routing.js"]
+}

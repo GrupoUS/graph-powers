@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "fb94364679cb1cfd29e035bab6b242d1401a7634",
-    "version": "1.23.5+local.20260924142717",
-    "dirty": false
+    "base_revision": "745fc707715e69b07d7cdeb0abebaba5095151e4",
+    "version": "1.23.6+local.20261007133558",
+    "dirty": true
   },
   "registrations": [
     {
@@ -245,9 +245,9 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "ae688f2ddd8899fe6ff36f79095604b90ae54cce96acf4df98c2d5bcdbf74a32",
+      "sha256": "4787fbfa29320f866cb2db8417759fb13a5b317f8087daca4136dd34176534bf",
       "base_sha256": "ae688f2ddd8899fe6ff36f79095604b90ae54cce96acf4df98c2d5bcdbf74a32",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -263,9 +263,9 @@
     },
     {
       "path": "AGENT_SETUP.md",
-      "sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
+      "sha256": "2e7705358cd0bad77277a08f7772f6bf3d9473b269b063c29242e8c2fea19e40",
       "base_sha256": "710ac1a03627d8e13ef5dfa222bbaabd18ea6dbbb1faf075227a66e92f93ed75",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "LICENSE",
@@ -350,6 +350,12 @@
       "sha256": "8129481609440d85f04ba4eade1945324161aaa5e2248347494ebff0f458dff2",
       "base_sha256": "8129481609440d85f04ba4eade1945324161aaa5e2248347494ebff0f458dff2",
       "dirty": false
+    },
+    {
+      "path": "bin/statusline.py",
+      "sha256": "1dc8d84001ed7037662ac0e71de2e72aea6d61bdfb82ea33739dc96603c945e7",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "codex/coordinate.mjs",
@@ -467,9 +473,9 @@
     },
     {
       "path": "docs/client-compatibility.md",
-      "sha256": "684fc514637025c906bffd10a1cae9890b887eb0cc1720d1f00b23fef8eafb64",
+      "sha256": "0bb3d24b08500be77f77302b241c7116e5b639d77ce002411a601ee306a44d92",
       "base_sha256": "684fc514637025c906bffd10a1cae9890b887eb0cc1720d1f00b23fef8eafb64",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "hermes/install.mjs",
@@ -1309,7 +1315,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "8a4a58f4944a9552063cc6d6e5b6d837dc7df384f5e10a63ab56f84e67e1b435",
+      "sha256": "6f3ad51cff5745103adbb1125450506c600192c7773e9340da98c207036e90a7",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1437,7 +1443,7 @@
     },
     {
       "path": "skills/content/AGENT_SETUP.md",
-      "sha256": "fdbcf48fba8f6135a94efe3b7582f521dd70d85e8dde6d25abd9f342e53138fd",
+      "sha256": "a1dcd315b053435d8df24b8ba371ed1f7ecb1cf4b103d8a7179c4f68689d6527",
       "sources": [
         "AGENT_SETUP.md"
       ],
@@ -1536,6 +1542,14 @@
       "sha256": "eb4416214b177f5f65c9fafe7dd7145f6dfec47b3619dfc50df4442305fab20d",
       "sources": [
         "agents/verification.md"
+      ],
+      "kind": "content"
+    },
+    {
+      "path": "skills/content/bin/statusline.py",
+      "sha256": "1dc8d84001ed7037662ac0e71de2e72aea6d61bdfb82ea33739dc96603c945e7",
+      "sources": [
+        "bin/statusline.py"
       ],
       "kind": "content"
     },
@@ -1693,7 +1707,7 @@
     },
     {
       "path": "skills/content/docs/client-compatibility.md",
-      "sha256": "4e890f2873a9677000fda29130b287b57f88cd3dc211303b26080cc807da975b",
+      "sha256": "e855f59a7961aaa491cffbe66d348eed60de3df5a660c9cada4972a4fcbd01c0",
       "sources": [
         "docs/client-compatibility.md"
       ],
@@ -3074,6 +3088,12 @@
         "from": "AGENT_SETUP.md",
         "reference": "AGENT_SETUP.md",
         "to": "AGENT_SETUP.md",
+        "kind": "reference"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "bin/statusline.py",
+        "to": "bin/statusline.py",
         "kind": "reference"
       },
       {
@@ -6044,11 +6064,6 @@
     "host_references": [
       {
         "from": "AGENT_SETUP.md",
-        "reference": "hooks.json",
-        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
-      },
-      {
-        "from": "AGENT_SETUP.md",
         "reference": "hooks/AGENTS.md",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
@@ -6079,8 +6094,23 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "hooks/session_context.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "hooks/test_hooks.py",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": ".claude-plugin/plugin.json",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": ".claude/scripts/graph-powers-statusline.py",
+        "reason": "external URL or caller-resolved host path"
       },
       {
         "from": "AGENT_SETUP.md",
@@ -6114,6 +6144,11 @@
       },
       {
         "from": "AGENT_SETUP.md",
+        "reference": "bin/statusline.py",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
         "reference": "bin/verify-hook-clients.py",
         "reason": "external URL or caller-resolved host path"
       },
@@ -6140,6 +6175,11 @@
       {
         "from": "AGENT_SETUP.md",
         "reference": "hermes/install.mjs",
+        "reason": "external URL or caller-resolved host path"
+      },
+      {
+        "from": "AGENT_SETUP.md",
+        "reference": "hooks/session_context.py",
         "reason": "external URL or caller-resolved host path"
       },
       {
@@ -6360,6 +6400,11 @@
       {
         "from": "docs/client-compatibility.md",
         "reference": "git_commit_gate.py",
+        "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
+      },
+      {
+        "from": "docs/client-compatibility.md",
+        "reference": "hooks/claude-mod/hooks.json",
         "reason": "external Claude hook source for inspection; Hermes never copies or executes hooks"
       },
       {

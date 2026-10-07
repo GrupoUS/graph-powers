@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.23.6 — Claude routing mod and machine-wide Update mode
+
+The Claude-only `prompt.context` mod under `hooks/claude-mod/`, declared by
+`.claude-plugin/plugin.json` `hooks`, appends one constant block pointing to complexity routing and
+the execution floor. Claude Code ≥2.1.287 loads it natively; earlier CLIs need
+`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. This is prompt guidance, not a guarantee: `hooks/hooks.json`
+and every other client stay unchanged, and `test_hooks.py` guards the boundary.
+
+`AGENT_SETUP.md`'s Update mode now covers the machine-wide layer as well as the project: client
+packages and posture, the Claude status line and the Claude mod. The status line ships as
+`bin/statusline.py`; `--install` keeps a stable copy in `~/.claude/scripts/` and points
+`statusLine`/`subagentStatusLine` at it, keeping an operator's own line unless `--adopt` is given.
+The 5h and 7d windows show what is left; context and spend show what was used.
+Until `hooks/session_context.py --record-setup` stores the installed version in
+`~/.graph-powers/setup.json`, every session start prints one line asking for the Update mode.
+
 ## 1.23.3 — Headless browser verification for authenticated routes
 
 `webapp-testing` replays an encrypted, saved test-user state headlessly for authenticated routes;

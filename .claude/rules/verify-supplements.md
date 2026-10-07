@@ -67,6 +67,13 @@ and returns nonzero pending separately approved native identity, exact-byte scan
 | 28 | Issue plan comment | `python3 skills/planning/scripts/test_issue_comment.py` | preview, scoped author/marker selection, pagination or safe retry/publication regressed |
 | 29 | Kilo projection and configuration | `python3 .github/check_kilo.py` | Kilo metadata, generated agents/commands/skills, model routing, permission boundaries, literal translation, deterministic output or JSONC-preserving config merge differs from its supported contract |
 | 30 | Bounded issue retrieval | `python3 skills/planning/scripts/test_fetch_issue.py` | the issue fetch loses its one-call, canonical-target or timeout guarantees |
+| 31 | Claude mod manifest | `claude plugin validate .claude-plugin/plugin.json` | the manifest-declared module does not load, registers more than prompt.context, or calls something on $ |
+| 32 | Claude mod behaviour | `claude plugin test .` | the routing block is no longer appended once with constant text, or a typed prompt no longer passes through |
+| 33 | Status line | `python3 bin/test_statusline.py` | the shipped status line stopped rendering a field, or `--install` overwrote an operator's line, lost a setting or wrote over unreadable settings |
+
+Below Claude Code 2.1.287, both mod gates need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set in the
+shell's own syntax. Without it (no `hooks: prompt.context` line, or "hooks modules are not turned
+on"), `/verify` reports them **NOT RUN**, never passed.
 
 One additional installation assertion needs fixture arguments and therefore runs in CI rather than
 here: `python3 .github/check_codex.py <root> <project> <scope>`. `/verify` reports it as

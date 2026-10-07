@@ -25,6 +25,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -266,6 +267,137 @@ def check(label: str, got, want) -> None:
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}: {got!r} (expected {want!r})")
     if not ok:
         FAILS.append(label)
+
+
+def claude_mod_violations(shared, claude, mod, source, clients) -> list[str]:
+    """Name boundary drift without loading or executing the Claude-only module."""
+    violations = []
+    if not shared or not set(shared) <= {"description", "hooks"}:
+        violations.append("shared-keys")
+    if claude.get("hooks") != "./hooks/claude-mod/hooks.json":
+        violations.append("claude-pointer")
+    if mod.get("modules") != ["./routing.js"] or not set(mod) <= {"description", "modules"}:
+        violations.append("mod-file")
+    # Ponytail: regex over source text, not a parser; if the module grows, parse the authoritative
+    # load-time report from `claude plugin validate .claude-plugin/plugin.json` instead.
+    events = re.findall(r'\bon\s*\(\s*["\']([^"\']+)["\']', source)
+    if events != ["prompt.context"]:
+        violations.append("mod-events")
+    if re.search(r"\$\s*\.|\bimport\b", source):
+        violations.append("mod-calls")
+    expected_hooks = {
+        "codex": "./hooks/hooks.json",
+        "grok": "./hooks/hooks.json",
+        "cursor": "./hooks/hooks-cursor.json",
+    }
+    if any(clients.get(name, {}).get("hooks") != path for name, path in expected_hooks.items()):
+        violations.append("client-hooks")
+    return violations
+
+
+def claude_mod_contract() -> None:
+    """Check the shipped declarations and a fixture that violates every invariant."""
+    print("### Claude-only routing mod — manifest, event and client boundary")
+
+    def read_text(path: Path) -> str:
+        try:
+            return path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return ""
+
+    def read_json(path: Path) -> dict:
+        try:
+            value = json.loads(read_text(path))
+        except ValueError:
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    root = HOOKS.parent
+    check(
+        "Claude mod tree keeps all six boundary invariants",
+        claude_mod_violations(
+            read_json(HOOKS / "hooks.json"),
+            read_json(root / ".claude-plugin/plugin.json"),
+            read_json(HOOKS / "claude-mod/hooks.json"),
+            read_text(HOOKS / "claude-mod/routing.js"),
+            {
+                name: read_json(root / f".{name}-plugin/plugin.json")
+                for name in ("codex", "grok", "cursor")
+            },
+        ),
+        [],
+    )
+    check(
+        "Claude mod violating fixture names all six boundary invariants",
+        claude_mod_violations(
+            {"modules": []},
+            {},
+            {},
+            'import "fixture"; on("tool.call", () => $.tool.call({}));',
+            {},
+        ),
+        ["shared-keys", "claude-pointer", "mod-file", "mod-events", "mod-calls", "client-hooks"],
+    )
+
+
+def setup_marker_contract() -> None:
+    """The Update-mode pointer stays until `--record-setup` records the installed version."""
+    print("### session_context — AGENT_SETUP Update-mode pointer and --record-setup")
+    version = json.loads((HOOKS.parent / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))[
+        "version"
+    ]
+    home = Path(tempfile.mkdtemp(prefix="gp-setup-home-"))
+    env = {"HOME": str(home), "USERPROFILE": str(home)}
+    set_up = mkproj({"project": {"name": "demo"}})
+    other = mkproj({"project": {"name": "other"}})
+    bare = Path(tempfile.mkdtemp(prefix="gp-bare-"))
+    marker = home / ".graph-powers/setup.json"
+
+    def pointer(project: Path, harness: str = "claude") -> list[str]:
+        out, code = call_raw(
+            "session_context", {"source": "startup"}, project, env=env, harness=harness
+        )
+        check(f"{project.name}/{harness} session context exits 0", code, 0)
+        context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        return [line for line in context.splitlines() if "AGENT_SETUP.md" in line]
+
+    for harness in ("claude", "codex"):
+        lines = pointer(set_up, harness)
+        check(f"{harness}: an unrecorded machine and project get one pointer", len(lines), 1)
+        if lines:
+            check(f"{harness}: pointer names the version", version in lines[0], True)
+            check(f"{harness}: pointer names both scopes", "this machine or this project" in lines[0], True)
+            check(f"{harness}: pointer is bounded", len(lines[0].encode("utf-8")) <= 256, True)
+    check("a repository that never ran setup names only the machine",
+          ["this project" in line for line in pointer(bare)], [False])
+
+    out, code = call_raw("session_context", {}, set_up, env=env, hook_args=("--record-setup",))
+    check("--record-setup exits 0", code, 0)
+    check("--record-setup reports machine and project", "this machine and this project" in out, True)
+    recorded = json.loads(marker.read_text(encoding="utf-8"))
+    check("--record-setup writes the installed version for the machine", recorded["global"], [version])
+    check("--record-setup writes it for the set-up project", list(recorded["projects"].values()), [[version]])
+    check("a recorded machine and project get no pointer", pointer(set_up), [])
+    check("a set-up project still unrecorded gets a project-only pointer",
+          ["this project" in line and "this machine" not in line for line in pointer(other)], [True])
+    check("a repository that never ran setup is not nagged once the machine is recorded",
+          pointer(bare), [])
+
+    # Another client's cache may run a different version; recording one never undoes the other.
+    recorded["global"] = ["0.0.1-other-client"]
+    marker.write_text(json.dumps(recorded), encoding="utf-8")
+    check("a machine applied only at another client's version gets the pointer",
+          ["this machine" in line for line in pointer(set_up)], [True])
+    call_raw("session_context", {}, set_up, env=env, hook_args=("--record-setup",))
+    check("recording keeps the other client's applied version",
+          json.loads(marker.read_text(encoding="utf-8"))["global"], ["0.0.1-other-client", version])
+    check("both versions applied: no pointer", pointer(set_up), [])
+
+    marker.write_text("{not json", encoding="utf-8")
+    check("a malformed marker falls back to one pointer, never a traceback", len(pointer(set_up)), 1)
+
+    for directory in (home, set_up, other, bare):
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 def session_context_lifecycle() -> None:
@@ -802,6 +934,8 @@ def main() -> int:
             (result.returncode, result.stdout, result.stderr),
             (0, "", ""),
         )
+
+    claude_mod_contract()
 
     print(
         "### subagent_context — the solution ladder reaches every subagent, bounded, never blocking"
@@ -4094,6 +4228,7 @@ def main() -> int:
         )
 
     session_context_lifecycle()
+    setup_marker_contract()
 
     print("### ultracite — a tool that is not installed skips, and never blocks")
     fmt_absent = mkproj({"tooling": {"commands": {"format": "./oxfmt --write"}}})

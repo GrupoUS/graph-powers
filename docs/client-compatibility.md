@@ -119,4 +119,13 @@ The `permission.task` **allow-list** form is UNVERIFIED — a map form also repo
 `tools.task: false`, so the router keeps the default and names its specialists in the prompt. Only
 `permission.task: deny` (the evaluator leaf) is enforced and claimed.
 
+## Claude Code prompt-context mod
+
+Claude Code ≥2.1.287 only. Earlier CLIs need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`; without it,
+they print one notice and the command hooks keep running.
+
+The `prompt.context` block is prompt guidance, not a guarantee: hooks and approval gates enforce.
+Codex, Cursor, Grok, Kilo and Hermes never read `hooks/claude-mod/hooks.json`, and nothing projects
+it. The mod has no UI or command.
+
 Installation entry points and package checks remain in [AGENT_SETUP.md](../AGENT_SETUP.md).

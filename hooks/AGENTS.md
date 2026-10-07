@@ -5,11 +5,15 @@ belongs to `../schema/config.schema.json`; client projections belong to their ge
 
 ## Entry points
 
-- `hooks.json` is the only event/matcher/script declaration. Claude Code and Grok consume it;
+- `hooks.json` is the only command-hook declaration. Claude Code and Grok consume it;
   Codex and Cursor project it. Generate `hooks-cursor.json` through `../cursor/install.mjs`.
   Kilo reaches the same scripts through the generated `~/.kilo/plugin/graph-powers-guardrails.ts`,
   which carries only `PreToolUse`/`PostToolUse`; Kilo has no `Stop`, `PermissionRequest`,
   `Notification` or `SubagentStart` event, so those registrations are omitted, not emulated.
+- `claude-mod/hooks.json` is Claude Code-only, declared by `../.claude-plugin/plugin.json` `hooks`.
+  It stays out of `hooks.json`: Codex rejects unknown keys, Grok reads that file and Cursor's
+  projection is generated from it. `claude-mod/routing.js` registers only `prompt.context` and
+  calls nothing on `$`. `test_hooks.py` guards that boundary.
 - `_config.py` resolves project payload → environment → git root → cwd and merges project
   configuration over the permitted operator defaults. Use its `bash_command`, `canonical_tool`,
   `file_path_from_payload` and `project_dir` helpers across client payload shapes.
@@ -54,7 +58,9 @@ own worktree fingerprint.
   remains passive. Grok plugin PreToolUse is **UNVERIFIED** until the dispatcher expands
   `hooks/hooks.json` (`hook_name=plugin/graph-powers`); do not copy that file into the Grok
   user-hooks directory. No Git-native dispatcher or staged-snapshot execution is active.
-- `session_context.py` supplies gate discovery and short conditional pointers. `subagent_context.py`
+- `session_context.py` supplies gate discovery and short conditional pointers, including the
+  AGENT_SETUP Update-mode line until `--record-setup` stores the installed version in
+  `~/.graph-powers/setup.json`. `subagent_context.py`
   supplies the solution ladder to children; it never waits indefinitely for stdin. Keep their
   output bounds and mirrors consistent with the canonical references.
 - `graph_guardrails.py` counts spawns over the configured rolling window, not the session lifetime.

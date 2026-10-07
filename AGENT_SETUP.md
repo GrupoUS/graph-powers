@@ -33,16 +33,20 @@ integrations.
 - Prefer existing CLIs and native installations. Do not install another copy of a client to make
   a command work. When syntax differs, inspect that installed CLI's help once before proceeding.
 
-## Update mode — an installed project after a plugin update
+## Update mode — an existing installation after a plugin update
 
 Read this file from the verified target plugin version before updating an existing installation;
 the old installed guide is not evidence for the candidate's model policy or update steps.
 
-The plugin's bytes update on their own (`README.md` § Maintenance); the project's instruction
-layer does not. The delimited block in `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/rules/`,
-`.graph-powers/config.json` and client posture were written against one plugin version, and a
-later version can change what each of them should say. Run this mode when the user asks to re-read
-the plugin and update the project, or when the version a client reports is older than `<VERSION>`:
+The plugin's bytes update on their own (`README.md` § Maintenance); what was written from them does
+not. The machine-wide layer — client packages, posture, Codex roles, the Claude status line, the
+Claude mod — and the project's instruction layer — the delimited block in `AGENTS.md`,
+`.claude/CLAUDE.md`, `.claude/rules/`, `.graph-powers/config.json` — were written against one
+plugin version, and a later version can change what each of them should say. Run this mode when the
+user asks to re-read the plugin, when the version a client reports is older than `<VERSION>`, or
+when the session context says `Graph Powers <VERSION> is not yet applied`: that line is printed by
+`hooks/session_context.py` until step 6 records `<VERSION>` for this machine and, once the project
+has its own `.graph-powers/config.json`, for this project.
 
 ```bash
 python -X utf8 "<PLUGIN>/bin/verify-hook-clients.py" --client all --project-dir .
@@ -69,9 +73,22 @@ DISCOVERY / DISPATCH; see §9h). `--client all` exit 1 does not mean Grok failed
    template before, template now, the project's copy — keeping every project decision and
    replacing only generic process with a pointer to its plugin owner (Step 5); refresh authority
    links (Step 6), shadowing (Step 7) and the settings audit (Step 8).
-5. Finish with Step 10 at `<VERSION>` and report a drift table: surface · reported → target ·
-   action (rewritten by the installer / merged / kept / no change) · preserved project decision.
-   A surface you could not verify is reported as such, never as current.
+5. Refresh the machine-wide Claude surfaces when Claude is installed: re-run the status line
+   install (Step 9, Claude Code § Status line), and prove the mod on Claude Code ≥2.1.287 with
+   `claude plugin validate "<PLUGIN>/.claude-plugin/plugin.json"` (expect
+   `hooks: prompt.context` and `calls: nothing on $`). Below 2.1.287, without
+   `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`, the mod does not load: an expected `SKIPPED`.
+6. Finish with Step 10 at `<VERSION>` and report a drift table: surface · reported → target ·
+   action (rewritten by the installer / merged / kept / no change) · preserved project or operator
+   decision. Expected states are those this guide documents as a client's limit — the mod's
+   `SKIPPED` above, Grok `DISPATCH UNVERIFIED` (§9h), Hermes runtime `UNVERIFIED` and Hermes/Zed
+   `NOT ENFORCED` — and they do not block recording. A surface this update should have proven and
+   could not is reported, never as current, and leaves the version unrecorded so the
+   session-start line keeps asking. Otherwise record the applied version from the project root:
+
+   ```bash
+   python -X utf8 "<PLUGIN>/hooks/session_context.py" --record-setup
+   ```
 
 | Surface | Owner of the change | How it reaches the project |
 |---|---|---|
@@ -80,11 +97,13 @@ DISCOVERY / DISPATCH; see §9h). `--client all` exit 1 does not mean Grok failed
 | `.claude/rules/*` (`templates/rules/`) | Step 5 | three-way compare; project decisions win |
 | `.graph-powers/config.json` keys (`schema/config.schema.json`) | Step 3 | new keys merged; values preserved |
 | Product authorities (`DESIGN.md`, `PRODUCT.md`, `REVIEW.md` specifications) | Step 6 | gaps reported, not redesigned |
+| Claude status line (`bin/statusline.py`) | Step 9, Claude Code § Status line | stable copy refreshed; an operator's own line kept unless adopted |
+| Claude mod (`hooks/claude-mod/`) | the plugin itself | loaded from the installed plugin; proven in step 5 |
 | Skills, agents, commands, references, workflows | the plugin itself | nothing to copy: projects read them from the installed plugin |
 
 Never delete a project rule in this mode without the Step 5 approval and diff, and never rewrite a
 customized section to match a template. The result is a fresh setup on this version minus
-everything the project had already decided.
+everything the project and the operator had already decided.
 
 ## Step 0 — Establish source, target and current state
 
@@ -311,6 +330,19 @@ reported by the client. Prefer user scope; project/local scope is an explicit ex
 The installer verifies the package before applying permissive posture. Restart Claude afterwards.
 
 Each agent's frontmatter alias (`opus`, `sonnet`, `haiku`) selects its model. `CLAUDE_CODE_SUBAGENT_MODEL`
+**Status line.** A plugin cannot set `statusLine`, and its cache path changes with every version, so
+the shipped line is installed as a stable copy:
+
+```bash
+python -X utf8 "<PLUGIN>/bin/statusline.py" --install
+```
+
+It copies the script to `~/.claude/scripts/graph-powers-statusline.py` (under `CLAUDE_CONFIG_DIR`
+instead when that is set; the previous copy is kept as `.bak` when it differs) and points `statusLine` and `subagentStatusLine` at it. A line the
+operator configured is kept and reported; add `--adopt` only at the operator's request. It shows
+model, effort, directory, branch, the context used and what is left of the 5-hour and 7-day
+windows.
+
 is only the fallback for agents without one; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every role,
 so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`;
 prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
@@ -535,7 +567,7 @@ grok plugin update graph-powers
 Optional operator timer (not installed by `--target grok`): copy
 `<PLUGIN>/grok/update-graph-powers.py` and the systemd examples
 `grok/graph-powers-grok-update.service` / `.timer`, replacing `PLUGIN_ROOT`. Interval is 15
-minutes. That directory should hold only this updater, not a copy of `hooks.json`.
+minutes. That directory should hold only this updater, not a copy of `hooks/hooks.json`.
 
 Grok command names on this client: while the Codex plugin is enabled, invoke
 `/graph-powers:setup`, `/graph-powers:debug` and `/graph-powers:plan` so they do not collide with
@@ -644,7 +676,8 @@ installation. Reuse valid evidence until relevant files, config or environment c
 ## Step 11 — Report, and stop
 
 Return a compact table: client, source/version/route, package proof, hook execution/trust,
-posture and reload result. Add project changes, focused gates, deliberate skips, unresolved
+posture and reload result. After a verified setup, record it under Update mode step 6's rule so
+the session-start pointer clears. Add project changes, focused gates, deliberate skips, unresolved
 requirements and backup locations. Distinguish `PASS`, `SKIPPED`, `UNVERIFIED` and
 `NOT ENFORCED`; never call partial installation complete.
 For Jev, include the Step 9c credential/environment/opt-in/smoke states, never the credential value.

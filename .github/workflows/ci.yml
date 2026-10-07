@@ -74,6 +74,9 @@ jobs:
       - name: Guardrails — negative tests, every harness
         run: python3 hooks/test_hooks.py
 
+      - name: Status line renders and installs without overwriting operator settings
+        run: python3 bin/test_statusline.py
+
       - name: Installed client packages gate permissive posture
         run: python3 .github/test_hook_clients.py
 

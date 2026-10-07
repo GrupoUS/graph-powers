@@ -24,7 +24,7 @@ import subprocess
 import sys
 import threading
 import typing
-from pathlib import Path
+from pathlib import Path, PurePath
 
 # Project parameters come from _config, never hardcoded — this file is byte-for-byte
 # the same in every repository that installs the plugin.
@@ -139,6 +139,97 @@ def lifecycle_pointer() -> str:
     return f"{prefix}{relative}; use only the relevant mode."
 
 
+def plugin_version() -> str:
+    try:
+        manifest = Path(__file__).resolve().parent.parent / ".claude-plugin" / "plugin.json"
+        version = json.loads(manifest.read_text(encoding="utf-8")).get("version")
+        return version if isinstance(version, str) else ""
+    except Exception:
+        return ""
+
+
+def setup_marker() -> Path | None:
+    """Where AGENT_SETUP's Update mode records the plugin version it last applied."""
+    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
+    return Path(home) / ".graph-powers" / "setup.json" if home else None
+
+
+def read_setup_marker() -> dict[str, typing.Any]:
+    try:
+        marker = setup_marker()
+        data = json.loads(marker.read_text(encoding="utf-8")) if marker else {}
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def applied_versions(value: object) -> list[str]:
+    return [v for v in value if isinstance(v, str)] if isinstance(value, list) else []
+
+
+def is_set_up(project_dir: str) -> bool:
+    return (Path(project_dir) / ".graph-powers" / "config.json").is_file()
+
+
+def setup_pointer(project_dir: str) -> str:
+    """One line while the running plugin version has not been applied by Update mode.
+
+    Each client reads its own cache and may lag, so the marker keeps the recent applied versions
+    rather than one: a slower client never undoes a faster one's record. A project counts only once
+    it has its own `.graph-powers/config.json`, so a repository that never ran setup is not nagged.
+    """
+    try:
+        version = plugin_version()
+        if not version:
+            return ""
+        marker = read_setup_marker()
+        projects = marker.get("projects")
+        projects = projects if isinstance(projects, dict) else {}
+        stale = []
+        if version not in applied_versions(marker.get("global")):
+            stale.append("this machine")
+        key = PurePath(project_dir).as_posix()
+        if is_set_up(project_dir) and version not in applied_versions(projects.get(key)):
+            stale.append("this project")
+        if not stale:
+            return ""
+        return (
+            f"Graph Powers {version} is not yet applied to {' or '.join(stale)}: re-read the "
+            "plugin's AGENT_SETUP.md and run its Update mode."
+        )
+    except Exception:
+        return ""
+
+
+def record_setup() -> int:
+    """`--record-setup`: the last step of AGENT_SETUP's Update mode, run from the project root."""
+    version = plugin_version()
+    marker = setup_marker()
+    if not version or marker is None:
+        print("record-setup: plugin version or home directory unavailable; nothing recorded")
+        return 1
+    project_dir = get_project_dir({})
+    current = read_setup_marker()
+    projects = current.get("projects")
+    projects = dict(projects) if isinstance(projects, dict) else {}
+
+    def add(value: object) -> list[str]:
+        # Bounded: the last eight versions cover every client cache that can still lag behind.
+        return [v for v in applied_versions(value) if v != version][-7:] + [version]
+
+    if is_set_up(project_dir):
+        key = PurePath(project_dir).as_posix()
+        projects[key] = add(projects.get(key))
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(
+        json.dumps({"global": add(current.get("global")), "projects": projects}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    scope = " and this project" if is_set_up(project_dir) else ""
+    print(f"record-setup: {version} applied to this machine{scope}")
+    return 0
+
+
 def get_git_branch(project_dir: str) -> str:
     try:
         result = subprocess.run(
@@ -229,6 +320,9 @@ def main() -> None:
         f"{additional_context}\n{execution_floor()}\n{reply_discipline()}\n{solution_ladder()}\n"
         f"{lifecycle_pointer()}"
     )
+    setup = setup_pointer(project_dir)
+    if setup:
+        additional_context += f"\n{setup}"
     has_handoff = False
     try:
         handoff = Path(project_dir) / ".graph-powers" / "HANDOFF.md"
@@ -263,5 +357,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--record-setup"]:
+        sys.exit(record_setup())
     main()
     sys.exit(0)
