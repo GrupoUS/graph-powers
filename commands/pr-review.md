@@ -9,32 +9,30 @@ workflow_type: routing
 
 ## 0. Pre-flight
 
-Read `.graph-powers/config.json`, matching `${rulesDir}` and root `REVIEW.md` when present. Only for `full`, load `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md` and full review references. `--branch` has no PR metadata/comments.
+Read `.graph-powers/config.json`, matching `${rulesDir}` and root `REVIEW.md`. Only `full` loads `${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md` and full review references. `--branch` has no PR comments.
 
-For a PR, read body, checks, comments and threads (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`); unresolved ones are § 4.1 items.
+For a PR, read body, checks and unresolved threads (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`) as § 4.1 items.
 
-When resolving target/base and surfaces, read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md §§ A–B`.
-
-When structural risk remains unanswered, read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md § C`; decisive source needs no graph probe.
+When resolving target/base and surfaces, read `${CLAUDE_PLUGIN_ROOT}/references/shared/125-change-set.md §§ A–B`; § C only when structural risk stays unanswered.
 
 ## 1. Bounded review
 
-Dispatch read-only reviewers together: evaluator for correctness/plan/diff (except `--quick`), security-reviewer for auth/API/data/payment/secrets, ui-ux-designer for web. Fold compatible `chain.lenses` into these roles; report unresolved lenses. `--quick` skips evaluator/design, keeps applicable security and returns at most COMMENT.
+Dispatch read-only reviewers together: evaluator for correctness/diff (not `--quick`), security-reviewer for auth/API/data/payment/secrets, ui-ux-designer for web; fold compatible `chain.lenses` into them. `--quick` keeps only security, at most COMMENT.
 
-Read changed files whole with callers/tests (edge/error paths, contract drift, missing tests). Each finding needs opened `file:line`, severity, evidence and fix step; deduplicate and separate introduced regressions from pre-existing/out-of-scope.
+Read changed files whole with callers/tests. Each finding has opened `file:line`, severity, evidence and fix step; deduplicate.
 
-Only when changed rules, paths, commands, consumers or invariants could contradict instructions, load `Skill("graph-powers:intent-layer")` for its diff audit. Advisory only; never edit consumer rules.
+When changed rules, paths, commands or invariants could contradict instructions, load `Skill("graph-powers:intent-layer")` for its diff audit; advisory, never edit consumer rules.
 
 ## 2. Output
 
-Return target/base, scope, blocking/non-blocking tables, comment decisions, sensitive surfaces, skipped tracks, verdict, ready review comment and replies (posting needs approval). Structural rows carry provider/scope/freshness and capability gaps; unsupported risk/orphan operations use source/text, never a second backend. APPROVE requires evaluator evidence; disclose unreviewed sensitive surfaces.
+Fix mode reports after § 3: fixes with evidence, then skips with their § 4.1 reason. Findings alone only for `--no-fix`/`--quick`/head not checked out. Include target/base, comment decisions, sensitive surfaces, verdict and ready replies (posting needs approval). APPROVE requires evaluator evidence.
 
 ## 3. Fix
 
-Runs unless `--no-fix`/`--quick` or the target head is not checked out (never switch). Decide each item by § 4.1; `clarify` ones stay unfixed. Route accepted in-scope items and follow-ups by disjoint ownership: general/security → `graph-powers:debugger`; web → `graph-powers:frontend-specialist`; performance → `graph-powers:performance-optimizer`; mobile → `graph-powers:mobile-developer`. Mechanical fixes stay local. Run focused regression evidence per package, then one final gate. After `graphGuardrails.maxRepatch` failures on a file, use `/debug recover`. Re-review the fixed diff once with a fresh evaluator; P0/P1 remains REQUEST CHANGES. Report fixes, evidence and open follow-ups. Leave changes unstaged; never commit.
+Runs unless `--no-fix`/`--quick` or the head is not checked out (never switch). Fix every accepted item in this run without asking; never stop at a list. Route by disjoint ownership: general/security → `graph-powers:debugger`; web → `graph-powers:frontend-specialist`; performance → `graph-powers:performance-optimizer`; mobile → `graph-powers:mobile-developer`; mechanical fixes stay local. Focused tests per package, then one final gate; after `graphGuardrails.maxRepatch` failures on a file, `/debug recover`. Re-review once with a fresh evaluator; P0/P1 stays REQUEST CHANGES. Leave changes unstaged; never commit.
 
 ## 4. Modes
 
 ### 4.1 Feedback evaluation
 
-Implement evidenced in-scope defects; clarify missing evidence; push back on incorrect, pre-existing or out-of-scope feedback with file:line. Record decisions before edits.
+Verify each comment in code and its nearest test; gather missing evidence yourself. Fix what holds: defects, suggestions, nits, and defects in touched files. If the reason is wrong but the concern real (duplication, magic number, intent, a11y), fix the concern minimally. A failing guard found on the way is fixed too. Skip only what would regress, break a project rule/safety floor, or needs an unmade product/auth/payment/schema decision; record file:line and the check. Bot test pings need no change.

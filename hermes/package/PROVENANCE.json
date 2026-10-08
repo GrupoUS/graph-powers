@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "fbaa58782a475351c3fb6967e6dac5f76106f53c",
-    "version": "1.23.7+local.20261007175329",
+    "base_revision": "1ed0e9f03509fafc8fae747063d2b6bf4d942efa",
+    "version": "1.23.8+local.20261008213107",
     "dirty": true
   },
   "registrations": [
@@ -245,9 +245,9 @@
   "sources": [
     {
       "path": ".claude-plugin/plugin.json",
-      "sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
+      "sha256": "cf3fb2ee952bd1203eb53427a953ec99f43d338692a8c76d66e3f40250048d07",
       "base_sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -443,8 +443,8 @@
     },
     {
       "path": "commands/pr-review.md",
-      "sha256": "137703bbd646fe3fe0ca8f8c2ee36565d488145e1843a16554592faa018b49af",
-      "base_sha256": "2ebe365240f7a096759ea4a68544b24af289e8aea292924bd5d9815463e50d09",
+      "sha256": "6c18e50c79145882ca37fde50c11b302c82271d3c255d1897030d46f9c4f4b4b",
+      "base_sha256": "137703bbd646fe3fe0ca8f8c2ee36565d488145e1843a16554592faa018b49af",
       "dirty": true
     },
     {
@@ -498,8 +498,8 @@
     {
       "path": "hooks/_config.py",
       "sha256": "ed7660b8cf829a309ae63a0ed1cb77822df470f408e0663dc383bbff69c08b76",
-      "base_sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
-      "dirty": true
+      "base_sha256": "ed7660b8cf829a309ae63a0ed1cb77822df470f408e0663dc383bbff69c08b76",
+      "dirty": false
     },
     {
       "path": "kilo/model-policy.json",
@@ -744,8 +744,8 @@
     {
       "path": "schema/config.schema.json",
       "sha256": "229b750500f320bf51fc5aa2fa2a74376e875e993f68bb63b9889f49646af9d7",
-      "base_sha256": "81ebdb47a25f444a349148d97c55f0a828a2efbcadb90591c78abca3327948bc",
-      "dirty": true
+      "base_sha256": "229b750500f320bf51fc5aa2fa2a74376e875e993f68bb63b9889f49646af9d7",
+      "dirty": false
     },
     {
       "path": "skills/animate/SKILL.md",
@@ -1315,7 +1315,7 @@
     },
     {
       "path": "plugin.yaml",
-      "sha256": "659c45075e6a95827057e10ab82791f91a98fede87508fba052ceaa72a125f63",
+      "sha256": "51f7335e71f394ccd46b89bfa73716e6c0dd3ff3df0acfff12ebeda3c7dfc901",
       "sources": [
         ".claude-plugin/plugin.json"
       ],
@@ -1667,7 +1667,7 @@
     },
     {
       "path": "skills/content/commands/pr-review.md",
-      "sha256": "4c9007d252a2722dc173ea7fd01f0e90a5693434bfbd8e93e2944a87d2afb516",
+      "sha256": "51cae94e7e59921321cbfcd7d48581a3456281692f88ce88c089814409cdc6d4",
       "sources": [
         "commands/pr-review.md"
       ],
@@ -2907,7 +2907,7 @@
     },
     {
       "path": "skills/pr-review.md",
-      "sha256": "4c9007d252a2722dc173ea7fd01f0e90a5693434bfbd8e93e2944a87d2afb516",
+      "sha256": "51cae94e7e59921321cbfcd7d48581a3456281692f88ce88c089814409cdc6d4",
       "sources": [
         "commands/pr-review.md"
       ],
