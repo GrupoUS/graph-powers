@@ -1,5 +1,5 @@
 ---
-description: "Review a PR, branch or diff before merge. Read-only unless --fix; never approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --fix."
+description: "Review a PR, branch or diff and its comments, then fix accepted findings. Never commits, approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --no-fix."
 workflow_type: routing
 ---
 
@@ -7,35 +7,35 @@ workflow_type: routing
 
 # /pr-review
 
-**ARGUMENTS:** the user-provided arguments. Target: PR number, `--current` (default), or `--branch <name>`. Accept `full`, `--quick`, `--fix`; reject conflicting/unknown flags. Implementation uses `/implement`; gate proof uses `/verify`.
+**ARGUMENTS:** the user-provided arguments. Target: PR number, `--current` (default), or `--branch <name>`. Accept `full`, `--quick`, `--no-fix` (`--fix`: default); reject conflicting/unknown flags.
 
 ## 0. Pre-flight
 
 Read `.graph-powers/config.json`, matching `${rulesDir}` and root `REVIEW.md` when present. Only for `full`, load `content/references/safety-floor.md` and full review references. `--branch` has no PR metadata/comments.
 
+For a PR, read body, checks, comments and threads (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`); unresolved ones are § 4.1 items.
+
 When resolving target/base and surfaces, read `content/references/shared/125-change-set.md §§ A–B`.
 
-When structural risk remains unanswered, read `content/references/shared/125-change-set.md § C` for retrieval/fallback; decisive source needs no graph probe.
+When structural risk remains unanswered, read `content/references/shared/125-change-set.md § C`; decisive source needs no graph probe.
 
 ## 1. Bounded review
 
-Dispatch read-only reviewers together: evaluator for correctness/plan/diff (except `--quick`), security-reviewer for auth/API/data/payment/secrets, ui-ux-designer for web. Fold compatible `chain.lenses` into these roles; report unresolved lenses. `--quick` skips evaluator/design, retains applicable security, and can only return COMMENT.
+Dispatch read-only reviewers together: evaluator for correctness/plan/diff (except `--quick`), security-reviewer for auth/API/data/payment/secrets, ui-ux-designer for web. Fold compatible `chain.lenses` into these roles; report unresolved lenses. `--quick` skips evaluator/design, keeps applicable security and returns at most COMMENT.
 
-Every finding needs opened `file:line`, severity, evidence and a bounded recommendation. Deduplicate and distinguish introduced regressions from pre-existing/out-of-scope observations.
+Read changed files whole with callers/tests (edge/error paths, contract drift, missing tests). Each finding needs opened `file:line`, severity, evidence and fix step; deduplicate and separate introduced regressions from pre-existing/out-of-scope.
 
-Only when changed rules, paths, commands, consumers or invariants could contradict instructions, load `skill_view("graph-powers:intent-layer")` for its diff audit. Findings stay advisory even with `--fix`; do not edit consumer rules.
+Only when changed rules, paths, commands, consumers or invariants could contradict instructions, load `skill_view("graph-powers:intent-layer")` for its diff audit. Advisory only; never edit consumer rules.
 
 ## 2. Output
 
-Return target/base, scope, blocking/non-blocking tables, sensitive surfaces, skipped tracks, verdict and ready review comment. Structural rows carry provider/scope/freshness and capability gaps; unsupported risk/orphan operations use source/text, never a second backend. APPROVE requires evaluator evidence; disclose unreviewed sensitive surfaces.
+Return target/base, scope, blocking/non-blocking tables, comment decisions, sensitive surfaces, skipped tracks, verdict, ready review comment and replies (posting needs approval). Structural rows carry provider/scope/freshness and capability gaps; unsupported risk/orphan operations use source/text, never a second backend. APPROVE requires evaluator evidence; disclose unreviewed sensitive surfaces.
 
-## 3. `--fix`
+## 3. Fix
 
-First evaluate every item using § 4.1; any `clarify` item stops the fix wave. Under explicit `--fix`, package accepted in-scope P0/P1 findings by disjoint existing writer ownership: general/security → `graph-powers:debugger`; web UI → `graph-powers:frontend-specialist`; measured performance → `graph-powers:performance-optimizer`; mobile → `graph-powers:mobile-developer`. Never send a reviewer to fix or invent a role. Run focused regression evidence per package, then one final applicable gate; reuse it only while its files, configuration and environment remain valid. After `graphGuardrails.maxRepatch` failed attempts on the same file, route to `/debug recover`. Re-review the whole corrected diff once with a fresh evaluator; P0/P1 remains REQUEST CHANGES. Leave changes unstaged and never commit.
+Runs unless `--no-fix`/`--quick` or the target head is not checked out (never switch). Decide each item by § 4.1; `clarify` ones stay unfixed. Route accepted in-scope items and follow-ups by disjoint ownership: general/security → `graph-powers:debugger`; web → `graph-powers:frontend-specialist`; performance → `graph-powers:performance-optimizer`; mobile → `graph-powers:mobile-developer`. Mechanical fixes stay local. Run focused regression evidence per package, then one final gate. After `graphGuardrails.maxRepatch` failures on a file, use `/debug recover`. Re-review the fixed diff once with a fresh evaluator; P0/P1 remains REQUEST CHANGES. Report fixes, evidence and open follow-ups. Leave changes unstaged; never commit.
 
 ## 4. Modes
-
-§§ 0–2 define mode coverage; only `--fix` enters § 3, for accepted findings.
 
 ### 4.1 Feedback evaluation
 

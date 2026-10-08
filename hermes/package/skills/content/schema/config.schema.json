@@ -106,7 +106,7 @@
     },
     "git": {
       "type": "object",
-      "description": "The git rails. Read by git_commit_gate, git_push_gate, git_branch_gate and branch_session_notice.",
+      "description": "The git rails. Read by git_commit_gate, git_push_gate, git_branch_gate and branch_session_notice. In ~/.graph-powers/config.json only workBranch (and protectedBranches with autonomy.machineWide) apply, as the default for repositories that declare none.",
       "properties": {
         "workBranch": {
           "type": "string",

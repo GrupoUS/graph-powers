@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: "Review a PR, branch or diff before merge. Read-only unless --fix; never approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --fix."
+description: "Review a PR, branch or diff and its comments, then fix accepted findings. Never commits, approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --no-fix."
 ---
 
 # $graph-powers:pr-review

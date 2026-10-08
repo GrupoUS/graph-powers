@@ -4843,7 +4843,7 @@ def main() -> int:
     # RELEASES a guarantee there is a decision taken on behalf of code nobody has read — which is
     # what `_sanitise_user_scope`'s own docstring said, in a function that only enforced it for
     # `autonomy.git`. These cases pin the whole contract: tightening crosses, releasing does not,
-    # the project outranks the person, `git` identity never crosses, and a broken file is still
+    # the project outranks the person, only the branch shape of `git` crosses, and a broken file is still
     # fail-open.
     print("\nUser-scope config")
 
@@ -4897,6 +4897,26 @@ def main() -> int:
         project_off = mkproj({"claude": {"evaluation": {"enabled": False}}})
         check("a project may disable user Claude Jev opt-in",
               config_module.load(project_off)["claude"]["evaluation"]["enabled"], False)
+
+    # The operator's branch shape crosses from home; the opt-in prefix never does, and shrinking
+    # `protectedBranches` needs the same machine-wide acknowledgement as any other release.
+    git_home = {"git": {"workBranch": "main", "protectedBranches": [], "optInPrefix": "HOME"}}
+    with patch.dict(os.environ, as_home(mkhome(git_home))):
+        git_cfg = config_module.load(bare)["git"]
+        check("user workBranch reaches a bare repository", git_cfg["workBranch"], "main")
+        check("...but not protectedBranches without machineWide",
+              git_cfg["protectedBranches"], ["main", "master"])
+        check("...nor the opt-in prefix", git_cfg["optInPrefix"], "GRAPHPOWERS")
+    with patch.dict(os.environ, as_home(mkhome({**git_home, "autonomy": {"machineWide": True}}))):
+        check("machine-wide user protectedBranches reaches a bare repository",
+              config_module.load(bare)["git"]["protectedBranches"], [])
+        project_git = config_module.load(mkproj({"git": {"workBranch": "dev-test",
+                                                         "protectedBranches": ["main"]}}))["git"]
+        check("a project's own branch shape outranks the user's",
+              (project_git["workBranch"], project_git["protectedBranches"]), ("dev-test", ["main"]))
+    with patch.dict(os.environ, as_home(mkhome({"git": "main"}))):
+        check("a malformed user git block falls back to defaults",
+              config_module.load(bare)["git"]["workBranch"], "dev-test")
 
     # The project outranks the person, and now so does the plugin's own default: `autonomous` is a
     # word the repository it applies to has to carry, where a reviewer sees it.

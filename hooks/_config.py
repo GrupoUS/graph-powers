@@ -77,9 +77,10 @@ USER_CONFIG_PATHS = (".graph-powers/config.json",)
 # `git` is the sharp one, and it is excluded deliberately. `optInPrefix` is per project by
 # design: two repositories sharing a prefix would make an approval typed in one of them release
 # the same gate in the other, and `test_hooks.py` proves that isolation. A user-level prefix
-# would delete the guarantee for every project at once.
+# would delete the guarantee for every project at once. Only the operator's default branch shape
+# (`workBranch`, `protectedBranches`) crosses from home; `_sanitise_user_scope` drops the rest.
 # Claude Jev evaluation is an explicit personal opt-in; a project may override it with false.
-USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate", "claude")
+USER_SCOPED_KEYS = ("autonomy", "graphGuardrails", "protectedFiles", "autoUpdate", "claude", "git")
 
 DEFAULTS: dict[str, Any] = {
     # Optional code context backend; only an explicit project selection enables Graft.
@@ -492,15 +493,31 @@ def _sanitise_user_scope(user: dict[str, Any]) -> dict[str, Any]:
     `graphGuardrails` is deliberately left alone. Its ceilings are spend on the operator's own
     machine, not a guarantee about somebody's files, and "how much fan-out I am willing to pay
     for" is the exact kind of thing a personal scope exists to carry.
+
+    **`git`.** Only the default branch shape: `workBranch` always, `protectedBranches` only under
+    the same `machineWide: true`, because shrinking it releases the checkout gate in unread
+    repositories. `optInPrefix` never crosses (see `USER_SCOPED_KEYS`), and a push naming
+    `main`/`master` keeps its second opt-in whatever the list says.
     """
     if not user:
         return user
     out = dict(user)
-
     autonomy = out.get("autonomy")
+    machine_wide = isinstance(autonomy, dict) and autonomy.get("machineWide") is True
+
+    git = out.get("git")
+    if isinstance(git, dict):
+        allowed = ("workBranch", "protectedBranches") if machine_wide else ("workBranch",)
+        git = {k: v for k, v in git.items() if k in allowed}
+        if git:
+            out["git"] = git
+        else:
+            out.pop("git")
+    else:
+        out.pop("git", None)
+
     if isinstance(autonomy, dict):
         autonomy = dict(autonomy)
-        machine_wide = autonomy.get("machineWide") is True
         # A preset that releases routine Bash decisions across every repository needs an explicit
         # machine-wide opt-in. `guarded` is a tightening and always survives.
         if autonomy.get("level") != "guarded" and not (

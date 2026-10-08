@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "022dd2fe61195ea793166ee550d3300e39d6cd51",
+    "base_revision": "fbaa58782a475351c3fb6967e6dac5f76106f53c",
     "version": "1.23.7+local.20261007175329",
     "dirty": true
   },
@@ -184,7 +184,7 @@
     {
       "name": "pr-review",
       "path": "skills/pr-review.md",
-      "description": "Review a PR, branch or diff before merge. Read-only unless --fix; never approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --fix.",
+      "description": "Review a PR, branch or diff and its comments, then fix accepted findings. Never commits, approves or merges. Modes: <PR#>, --current, --branch <name>, full. Flags: --quick, --no-fix.",
       "source": "commands/pr-review.md"
     },
     {
@@ -246,8 +246,8 @@
     {
       "path": ".claude-plugin/plugin.json",
       "sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
-      "base_sha256": "4787fbfa29320f866cb2db8417759fb13a5b317f8087daca4136dd34176534bf",
-      "dirty": true
+      "base_sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
+      "dirty": false
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -264,8 +264,8 @@
     {
       "path": "AGENT_SETUP.md",
       "sha256": "bfe7f2207a7fe1adc4d2927a26aaf53795cd5c9491b2a3f1221eaa0ac0d19ffd",
-      "base_sha256": "2e7705358cd0bad77277a08f7772f6bf3d9473b269b063c29242e8c2fea19e40",
-      "dirty": true
+      "base_sha256": "bfe7f2207a7fe1adc4d2927a26aaf53795cd5c9491b2a3f1221eaa0ac0d19ffd",
+      "dirty": false
     },
     {
       "path": "LICENSE",
@@ -342,8 +342,8 @@
     {
       "path": "agents/ui-ux-designer.md",
       "sha256": "dbda4e9208531714f7731426923742296e3aad321eb1b1c5259d62352696a5b0",
-      "base_sha256": "5fb34efec6a36a8cdfdd86a919d60c71144261ccb6b12d76056edf058f741bc7",
-      "dirty": true
+      "base_sha256": "dbda4e9208531714f7731426923742296e3aad321eb1b1c5259d62352696a5b0",
+      "dirty": false
     },
     {
       "path": "agents/verification.md",
@@ -384,14 +384,14 @@
     {
       "path": "codex/model-policy.json",
       "sha256": "78dbccf4d91bf4afdadd06336d49a467225a1ca1c98ab466606218b8dabf9c86",
-      "base_sha256": "35d81fb3588db3ec3d3aa4096065919e88eb663605676b30fbb58c833227be18",
-      "dirty": true
+      "base_sha256": "78dbccf4d91bf4afdadd06336d49a467225a1ca1c98ab466606218b8dabf9c86",
+      "dirty": false
     },
     {
       "path": "codex/model-policy.mjs",
       "sha256": "ce2e0762b8c4f48ea5cd056ff5e17da39e8f261cce1e38c68c3790b48bfec261",
-      "base_sha256": "bb24318d884d6c938c6bfdb7c4bbd30432d255bf9c1db8dfd7cf10bb81d1895f",
-      "dirty": true
+      "base_sha256": "ce2e0762b8c4f48ea5cd056ff5e17da39e8f261cce1e38c68c3790b48bfec261",
+      "dirty": false
     },
     {
       "path": "commands/debug.md",
@@ -443,9 +443,9 @@
     },
     {
       "path": "commands/pr-review.md",
-      "sha256": "2ebe365240f7a096759ea4a68544b24af289e8aea292924bd5d9815463e50d09",
+      "sha256": "137703bbd646fe3fe0ca8f8c2ee36565d488145e1843a16554592faa018b49af",
       "base_sha256": "2ebe365240f7a096759ea4a68544b24af289e8aea292924bd5d9815463e50d09",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/prime.md",
@@ -497,9 +497,9 @@
     },
     {
       "path": "hooks/_config.py",
-      "sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
+      "sha256": "ed7660b8cf829a309ae63a0ed1cb77822df470f408e0663dc383bbff69c08b76",
       "base_sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "kilo/model-policy.json",
@@ -743,8 +743,8 @@
     },
     {
       "path": "schema/config.schema.json",
-      "sha256": "81ebdb47a25f444a349148d97c55f0a828a2efbcadb90591c78abca3327948bc",
-      "base_sha256": "9f61a9dc9266aaa2645a457d8197f5058682b0feb9d6d9093d1f77ccdb1456f2",
+      "sha256": "229b750500f320bf51fc5aa2fa2a74376e875e993f68bb63b9889f49646af9d7",
+      "base_sha256": "81ebdb47a25f444a349148d97c55f0a828a2efbcadb90591c78abca3327948bc",
       "dirty": true
     },
     {
@@ -978,8 +978,8 @@
     {
       "path": "skills/planning/evals/evals.json",
       "sha256": "7b8efcf711c266b14f058f14bd077838596d43d93c8cb3652620b32301b896f4",
-      "base_sha256": "462e760a3b5cc0f32c4e8fc0372471085186ac15c7519cc526e681c035289dea",
-      "dirty": true
+      "base_sha256": "7b8efcf711c266b14f058f14bd077838596d43d93c8cb3652620b32301b896f4",
+      "dirty": false
     },
     {
       "path": "skills/planning/references/dispatch-matrix.md",
@@ -1667,7 +1667,7 @@
     },
     {
       "path": "skills/content/commands/pr-review.md",
-      "sha256": "1669d2939efb11eef0150f8734e41dac3abaac69b5f39d469d30e40f33476b70",
+      "sha256": "4c9007d252a2722dc173ea7fd01f0e90a5693434bfbd8e93e2944a87d2afb516",
       "sources": [
         "commands/pr-review.md"
       ],
@@ -1723,7 +1723,7 @@
     },
     {
       "path": "skills/content/hooks/_config.py",
-      "sha256": "60c34135b1f1f366d3df6cc40f0aa6e3cf2e28095b44c5224bcb009430ca10c3",
+      "sha256": "ed7660b8cf829a309ae63a0ed1cb77822df470f408e0663dc383bbff69c08b76",
       "sources": [
         "hooks/_config.py"
       ],
@@ -2051,7 +2051,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "f31464c8d65329a7244f6a89fc1d08f70d47f45d1aaadc7408f1c1daad2c87d7",
+      "sha256": "bfaa30d4b76027e6cc1e3c86a88947cd9780dec096adf749ac32df50b081a84e",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2907,7 +2907,7 @@
     },
     {
       "path": "skills/pr-review.md",
-      "sha256": "1669d2939efb11eef0150f8734e41dac3abaac69b5f39d469d30e40f33476b70",
+      "sha256": "4c9007d252a2722dc173ea7fd01f0e90a5693434bfbd8e93e2944a87d2afb516",
       "sources": [
         "commands/pr-review.md"
       ],
