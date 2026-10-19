@@ -827,10 +827,10 @@ function gateScriptIssue(gate, command) {
   if (hasNetworkFallback(value)) return "network package launcher without --no-install";
 
   if (gate === "typeCheck") {
-    if (!/\boxlint\b/.test(value) || !/--type-aware\b/.test(value) || !/--type-check\b/.test(value))
-      return "typeCheck must be a local type-aware Oxlint final gate";
+    if (!/\bbun(?:\.exe|\.cmd)?\s+check\b/.test(value))
+      return "typeCheck must be bun check (Bun 1.4.3+), not tsc or the TypeScript server";
     if (!/(?:^|\s)--threads(?:=|\s+)1(?=\s|$)/.test(value))
-      return "type-aware Oxlint must use --threads 1";
+      return "bun check must use --threads 1";
   }
 
   if (gate === "format") {
@@ -929,7 +929,7 @@ function detectStack() {
   const hasTsconfig = hasFile("tsconfig.json");
   const hasTypeScript = hasTsconfig || Boolean(deps.typescript);
   if (hasTypeScript && !commands.typeCheck)
-    blockedGates.push("typeCheck: declare a local type-aware Oxlint final-gate script");
+    blockedGates.push("typeCheck: declare bun check --threads 1");
   const hasVitestScript = Object.values(scripts).some((script) =>
     /\bvitest(?:\.exe|\.cmd)?\b/i.test(script),
   );

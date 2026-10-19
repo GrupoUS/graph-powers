@@ -168,7 +168,9 @@ def read_baseline() -> dict[str, dict[str, int]] | None:
 # and their stop rule — plus the `Review binding` section of the Gauntlet profile; measured:
 # floor 50,320 → 50,938 B, ceiling 204,782 → 207,576 B after the final review. 51,000 would leave
 # 62 B, below the editing margin the header keeps.
-FLOOR_CEILING = 51_500
+# 1.23.8 bought +500 floor: `/verify` § 4, the conditional issue close-out line (its procedure,
+# `verify-issue-closeout.md`, is ceiling only); the set was 162 B under 51,500 before it.
+FLOOR_CEILING = 52_000
 CEILING_CEILING = 208_000
 WORST_FLOOR = 15_000
 

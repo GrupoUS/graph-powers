@@ -162,7 +162,7 @@
             "typeCheck": {
               "type": "string",
               "examples": ["bun run type-check"],
-              "description": "For JavaScript and TypeScript, use a project script that runs `oxlint --type-aware --type-check --threads 1` only at `/verify`, commit or CI. Keep type-aware analysis out of Zed and edit hooks."
+              "description": "For JavaScript and TypeScript, use a project script that runs `bun check --threads 1` (Bun 1.4.3+; add `-b` for project references or `-p` for one tsconfig) only at `/verify`, commit or CI. Do not use `tsc --noEmit`, `tsgo` or the TypeScript server. Keep typed analysis out of Zed and edit hooks."
             },
             "lint": {
               "type": "string",

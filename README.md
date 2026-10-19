@@ -659,25 +659,25 @@ bun add -d oxlint oxfmt typescript@7
   "scripts": {
     "format": "oxfmt --write",
     "lint": "oxlint --deny-warnings",
-    "type-check": "oxlint --type-aware --type-check --threads 1"
+    "type-check": "bun check --threads 1"
   }
 }
 ```
 
 Session start reports missing local tools without pretending that a gate ran. A package-script
 command such as `bun run lint --` is resolved by the project's manifest; hooks pass only the edited
-or changed paths and never invoke a network launcher. Type-aware Oxlint is a final gate only at
-`/verify`, commit or CI. Test runners keep their project configuration.
+or changed paths and never invoke a network launcher. The type gate is `bun check --threads 1`
+(Bun 1.4.3+) only at `/verify`, commit or CI. Test runners keep their project configuration.
 
 ### Oxc + Zed for JS/TS
 
 Oxlint is the sole editor diagnostic provider, Oxfmt is the sole formatter, and vtsls is the sole
 TypeScript provider for types, completion and navigation. The editor uses vtsls's bundled compatible
-TypeScript SDK; the project-local `typescript@7` remains the compiler used by gates. Do not set
-`tsdk` to `node_modules/typescript/lib`, because TypeScript 7 does not ship the legacy `tsserver.js`
-that vtsls expects. Keep `vtsls.autoUseWorkspaceTsdk` disabled in
-`templates/zed/settings.json`. Type-aware Oxlint belongs only to `/verify`, commit and CI; edit
-hooks use regular diagnostics and formatting.
+TypeScript SDK. The type gate is `bun check --threads 1`, not `tsc` and not the TypeScript server.
+Do not set `tsdk` to `node_modules/typescript/lib`, because TypeScript 7 does not ship the legacy
+`tsserver.js` that vtsls expects. Keep `vtsls.autoUseWorkspaceTsdk` disabled in
+`templates/zed/settings.json`. `bun check` belongs only to `/verify`, commit and CI; edit hooks
+use regular diagnostics and formatting.
 
 The full policy and official links live in
 [`references/shared/130-typescript7-oxc-gates.md`](references/shared/130-typescript7-oxc-gates.md).

@@ -12,13 +12,9 @@ TypeScript gate was rejected. The executable policy lives in
 - `oxlint --lsp` is the only interactive diagnostic provider, with type-aware mode disabled.
 - `oxfmt --lsp` is the only formatter and runs on save; PostToolUse runs one local `oxfmt --write`
   operation for one edited file.
-- Type-aware Oxlint is a final signal only:
-
-  ```text
-  oxlint --type-aware --type-check --threads 1
-  ```
-
-  Run it only at `/verify`, commit or CI. Hooks and fix loops never run it.
+- The final type gate is `bun check --threads 1` (Bun 1.4.3+; `-b` for references, `-p` for one
+  project). Do not use `tsc --noEmit`, `tsgo` or the TypeScript server. Run it only at `/verify`,
+  commit or CI. Hooks and fix loops never run it.
 
 ## Hook resource floor
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generator": "hermes/install.mjs",
   "source": {
-    "base_revision": "1ed0e9f03509fafc8fae747063d2b6bf4d942efa",
+    "base_revision": "20a55f291f71e1c2384646b4cffa4e10f1a0cc1a",
     "version": "1.23.8+local.20261008213107",
     "dirty": true
   },
@@ -246,8 +246,8 @@
     {
       "path": ".claude-plugin/plugin.json",
       "sha256": "cf3fb2ee952bd1203eb53427a953ec99f43d338692a8c76d66e3f40250048d07",
-      "base_sha256": "44709620c69e459cb245f1edb5a47d3c4a676596a46f064c3e4ddcfe823bd917",
-      "dirty": true
+      "base_sha256": "cf3fb2ee952bd1203eb53427a953ec99f43d338692a8c76d66e3f40250048d07",
+      "dirty": false
     },
     {
       "path": ".github/check_listing_budget.py",
@@ -444,8 +444,8 @@
     {
       "path": "commands/pr-review.md",
       "sha256": "6c18e50c79145882ca37fde50c11b302c82271d3c255d1897030d46f9c4f4b4b",
-      "base_sha256": "137703bbd646fe3fe0ca8f8c2ee36565d488145e1843a16554592faa018b49af",
-      "dirty": true
+      "base_sha256": "6c18e50c79145882ca37fde50c11b302c82271d3c255d1897030d46f9c4f4b4b",
+      "dirty": false
     },
     {
       "path": "commands/prime.md",
@@ -461,15 +461,15 @@
     },
     {
       "path": "commands/setup.md",
-      "sha256": "3271a377601f55e0e55b83da413e472caa7267a83cf7375dae6f2da5d53f90e0",
+      "sha256": "9bf95f7a118b9f2bf4755e62d3aad53189be8482b634f35721d9512e87b345ac",
       "base_sha256": "3271a377601f55e0e55b83da413e472caa7267a83cf7375dae6f2da5d53f90e0",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "commands/verify.md",
-      "sha256": "85c166af56de326c9cd3fff2fd18cb95b671ece7af463372dbc59a44c941b5af",
+      "sha256": "c7dea05beae81b93fc5de4072c682a67735fe5f0e19ab62b2b404d7e8a20c6d9",
       "base_sha256": "85c166af56de326c9cd3fff2fd18cb95b671ece7af463372dbc59a44c941b5af",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "docs/client-compatibility.md",
@@ -725,15 +725,21 @@
     },
     {
       "path": "references/shared/130-typescript7-oxc-gates.md",
-      "sha256": "8281ac6f84306d45f31a208e6591bc208ebb22012de15a34c4ae53ba74de08bc",
+      "sha256": "b672ee6dbdeb9a37f0e72edefeadb000a28f2168d60bbfadd17ff3bc11af7621",
       "base_sha256": "8281ac6f84306d45f31a208e6591bc208ebb22012de15a34c4ae53ba74de08bc",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "references/shared/130-workflow-authoring.md",
       "sha256": "404a303218d201815b148cff3858acd4dcc5207f9c88a33cd00c8c9805b586f1",
       "base_sha256": "404a303218d201815b148cff3858acd4dcc5207f9c88a33cd00c8c9805b586f1",
       "dirty": false
+    },
+    {
+      "path": "references/verify-issue-closeout.md",
+      "sha256": "9f17757a24187cada44206ebf41bea6101f5d2b8aac38980062c74b2d6475da5",
+      "base_sha256": null,
+      "dirty": true
     },
     {
       "path": "references/verify-loop-fallback.md",
@@ -743,9 +749,9 @@
     },
     {
       "path": "schema/config.schema.json",
-      "sha256": "229b750500f320bf51fc5aa2fa2a74376e875e993f68bb63b9889f49646af9d7",
+      "sha256": "80dbefaf37779ae33d4d9c3145564e49a152b862053b7ccd5a82a604adfc839c",
       "base_sha256": "229b750500f320bf51fc5aa2fa2a74376e875e993f68bb63b9889f49646af9d7",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/animate/SKILL.md",
@@ -941,9 +947,9 @@
     },
     {
       "path": "skills/performance-optimization/SKILL.md",
-      "sha256": "13d2adc38ef8594e40d2a0dd91ae859545093afeb5a298e2e088d413c71202fa",
+      "sha256": "442110bd494c0f644d3d5c999ef67b7e8f74c94eaabbfcc00a5a3f313293e52c",
       "base_sha256": "13d2adc38ef8594e40d2a0dd91ae859545093afeb5a298e2e088d413c71202fa",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/performance-optimization/references/psi-api.md",
@@ -1031,9 +1037,9 @@
     },
     {
       "path": "skills/planning/references/issue-triage.md",
-      "sha256": "34f35fa0416f6394fc1cacc1e806b4fd5937dafbc2183b88b0d4ee89ee008039",
+      "sha256": "73e2177dbe835d39f7a1d677a19f6d1c618d340da3798816682a604d85a169e5",
       "base_sha256": "34f35fa0416f6394fc1cacc1e806b4fd5937dafbc2183b88b0d4ee89ee008039",
-      "dirty": false
+      "dirty": true
     },
     {
       "path": "skills/planning/references/layer-map.md",
@@ -1691,7 +1697,7 @@
     },
     {
       "path": "skills/content/commands/setup.md",
-      "sha256": "2370f49e557ecab4afcb07ea2124b4f8639f6a2a3beb2cbc9163fd6c2d5adcab",
+      "sha256": "c1f8e459ac62e93df6a40db0737e9af57239bf532cd789c437e0cd0ff4b634ad",
       "sources": [
         "commands/setup.md"
       ],
@@ -1699,7 +1705,7 @@
     },
     {
       "path": "skills/content/commands/verify.md",
-      "sha256": "108b2fdbf1b2ff5f6a197b9db0ea91bd816f0ee280da47d5ee7a4a27b29a6c8b",
+      "sha256": "ea52beebe674b0ffdf9978ca438aa67a9f594c65abad37927a4c9d20cc5364e3",
       "sources": [
         "commands/verify.md"
       ],
@@ -2027,7 +2033,7 @@
     },
     {
       "path": "skills/content/references/shared/130-typescript7-oxc-gates.md",
-      "sha256": "c79df472de4df1d45b4430d717d34b2a17e2310f5ad0b31e62ab495edc66c9a2",
+      "sha256": "680394cae20fa678f466189fb7944dd6f754b3c9c83c95bd31ea94885e8e6f3e",
       "sources": [
         "references/shared/130-typescript7-oxc-gates.md"
       ],
@@ -2042,6 +2048,14 @@
       "kind": "content"
     },
     {
+      "path": "skills/content/references/verify-issue-closeout.md",
+      "sha256": "e273cc092aa0e25fdff9e41938cb0f5fdae136094658154aa4d01ea41c3970b9",
+      "sources": [
+        "references/verify-issue-closeout.md"
+      ],
+      "kind": "content"
+    },
+    {
       "path": "skills/content/references/verify-loop-fallback.md",
       "sha256": "4d6e65b184034642160e395325f4341887db06aba3294e32e8639ff09836bba7",
       "sources": [
@@ -2051,7 +2065,7 @@
     },
     {
       "path": "skills/content/schema/config.schema.json",
-      "sha256": "bfaa30d4b76027e6cc1e3c86a88947cd9780dec096adf749ac32df50b081a84e",
+      "sha256": "65fe29317c0991506bf996b7858569b00708197ecfdbca1336f8a32c00d68dff",
       "sources": [
         "schema/config.schema.json"
       ],
@@ -2315,7 +2329,7 @@
     },
     {
       "path": "skills/content/skills/performance-optimization/SKILL.md",
-      "sha256": "f747cbf0d8ef56e13121366d9db0d87e2384a2677af3e3c06a96c66ad030f457",
+      "sha256": "520983fb37e05520acc20aedb886aec8b76f4ab976918be0181812e04581656f",
       "sources": [
         "skills/performance-optimization/SKILL.md"
       ],
@@ -2435,7 +2449,7 @@
     },
     {
       "path": "skills/content/skills/planning/references/issue-triage.md",
-      "sha256": "bbe9188425e2ca1f2c87950f5a0144be3541c8d85e9e5113b5f29d4ff724081e",
+      "sha256": "68c1e2276b8902613d2f5c4e2a31d30998c090b6453c688bcb5e4f35edf401d8",
       "sources": [
         "skills/planning/references/issue-triage.md"
       ],
@@ -2883,7 +2897,7 @@
     },
     {
       "path": "skills/performance-optimization.md",
-      "sha256": "f747cbf0d8ef56e13121366d9db0d87e2384a2677af3e3c06a96c66ad030f457",
+      "sha256": "520983fb37e05520acc20aedb886aec8b76f4ab976918be0181812e04581656f",
       "sources": [
         "skills/performance-optimization/SKILL.md"
       ],
@@ -2947,7 +2961,7 @@
     },
     {
       "path": "skills/setup.md",
-      "sha256": "2370f49e557ecab4afcb07ea2124b4f8639f6a2a3beb2cbc9163fd6c2d5adcab",
+      "sha256": "c1f8e459ac62e93df6a40db0737e9af57239bf532cd789c437e0cd0ff4b634ad",
       "sources": [
         "commands/setup.md"
       ],
@@ -2971,7 +2985,7 @@
     },
     {
       "path": "skills/verify.md",
-      "sha256": "108b2fdbf1b2ff5f6a197b9db0ea91bd816f0ee280da47d5ee7a4a27b29a6c8b",
+      "sha256": "ea52beebe674b0ffdf9978ca438aa67a9f594c65abad37927a4c9d20cc5364e3",
       "sources": [
         "commands/verify.md"
       ],
@@ -4184,6 +4198,12 @@
       },
       {
         "from": "commands/verify.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/verify-issue-closeout.md",
+        "to": "references/verify-issue-closeout.md",
+        "kind": "reference"
+      },
+      {
+        "from": "commands/verify.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/verify-loop-fallback.md",
         "to": "references/verify-loop-fallback.md",
         "kind": "reference"
@@ -4618,6 +4638,36 @@
         "from": "references/shared/130-workflow-authoring.md",
         "reference": "codex/model-policy.json",
         "to": "codex/model-policy.json",
+        "kind": "reference"
+      },
+      {
+        "from": "references/verify-issue-closeout.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md",
+        "to": "references/safety-floor.md",
+        "kind": "reference"
+      },
+      {
+        "from": "references/verify-issue-closeout.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/skills/planning/references/issue-triage.md",
+        "to": "skills/planning/references/issue-triage.md",
+        "kind": "reference"
+      },
+      {
+        "from": "references/verify-issue-closeout.md",
+        "reference": "fetch_issue.py",
+        "to": "skills/planning/scripts/fetch_issue.py",
+        "kind": "reference"
+      },
+      {
+        "from": "references/verify-issue-closeout.md",
+        "reference": "issue-triage.md",
+        "to": "skills/planning/references/issue-triage.md",
+        "kind": "reference"
+      },
+      {
+        "from": "references/verify-issue-closeout.md",
+        "reference": "issue_comment.py",
+        "to": "skills/planning/scripts/issue_comment.py",
         "kind": "reference"
       },
       {
@@ -5230,6 +5280,12 @@
         "from": "skills/planning/references/issue-triage.md",
         "reference": "${CLAUDE_PLUGIN_ROOT}/references/safety-floor.md",
         "to": "references/safety-floor.md",
+        "kind": "reference"
+      },
+      {
+        "from": "skills/planning/references/issue-triage.md",
+        "reference": "${CLAUDE_PLUGIN_ROOT}/references/verify-issue-closeout.md",
+        "to": "references/verify-issue-closeout.md",
         "kind": "reference"
       },
       {
@@ -6777,6 +6833,11 @@
         "from": "references/shared/120-skill-invocation-order.md",
         "reference": "AGENTS.md",
         "reason": "host-project instruction hierarchy, not installed plugin instructions"
+      },
+      {
+        "from": "references/shared/130-typescript7-oxc-gates.md",
+        "reference": "tsconfig.json",
+        "reason": "host-project input or output, resolved by the caller"
       },
       {
         "from": "references/shared/130-typescript7-oxc-gates.md",

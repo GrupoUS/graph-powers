@@ -1618,6 +1618,9 @@ def main() -> int:
                 "scripts": {
                     "type-check": "oxlint --type-aware --type-check --threads 1",
                     "type-check-bad": "oxlint --type-aware --type-check",
+                    "type-check-bun": "bun check -b --threads 1",
+                    "type-check-tsc": "tsc --noEmit -p tsconfig.json --checkers 1",
+                    "type-check-open": "bun check",
                     "lint": "oxlint --deny-warnings",
                     "format": "oxfmt --write",
                     "format:bad": "oxfmt --check --write",
@@ -1630,6 +1633,10 @@ def main() -> int:
         encoding="utf-8",
     )
     for label, cmd in [
+        ("unbounded bun check", "bun check"),
+        ("bun check with too many threads", "bun check --threads 4"),
+        ("tsc --noEmit", "tsc --noEmit -p tsconfig.json --checkers 1"),
+        ("tsgo --noEmit", "tsgo --noEmit"),
         ("type-aware Oxlint outside the final gate", "oxlint --type-aware --type-check"),
         (
             "type-aware Oxlint with an unbounded thread count",
@@ -1663,6 +1670,8 @@ def main() -> int:
         )
 
     for label, cmd in [
+        ("bounded bun check", "bun check --threads 1"),
+        ("bounded bun check for project references", "bun check -b --threads 1"),
         ("serial Oxc diagnostics", "oxlint --deny-warnings"),
         ("Oxfmt formatting command", "oxfmt --write"),
         ("serial low-memory Bun tests", "bun test --smol"),
@@ -1701,6 +1710,8 @@ def main() -> int:
 
     for label, cmd in [
         ("a type-check script with an unbounded type-aware run", "bun run type-check-bad"),
+        ("a type-check script hiding tsc", "bun run type-check-tsc"),
+        ("a type-check script hiding unbounded bun check", "bun run type-check-open"),
         ("a test script hiding Node", "bun run test"),
         ("a test script hiding unbounded workers", "bun run test:parallel"),
         ("a format script combining check and write", "bun run format:bad"),
@@ -1710,6 +1721,11 @@ def main() -> int:
             call("smart_bash_approver", bash(cmd), pm_bun_auto)[0],
             "deny",
         )
+    check(
+        "a safe package bun check still runs",
+        call("smart_bash_approver", bash("bun run type-check-bun"), pm_bun_auto)[0],
+        "allow",
+    )
     check(
         "a safe package type-aware Oxc check still runs",
         call("smart_bash_approver", bash("bun run type-check"), pm_bun_auto)[0],
@@ -3198,7 +3214,7 @@ def main() -> int:
         {**write_to("src/a.py"), "sessionId": "session-a"}, ceil)[0], None)
     native_ids = ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "GROK_SESSION_ID")
     for index, variable in enumerate(native_ids):
-        native_env = {name: "session-b" for name in native_ids[index + 1:]}
+        native_env = dict.fromkeys(native_ids[index + 1:], "session-b")
         native_env[variable] = "session-a"
         check(f"{variable} owns its lease with native priority", call("graph_guardrails",
             write_to("src/a.py"), ceil, env=native_env)[0], None)

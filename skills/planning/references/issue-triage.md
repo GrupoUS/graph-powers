@@ -4,7 +4,8 @@
 > issue. Such issues are frequently agent-authored: they over-specify, invent
 > abstractions with no consumer, and sometimes contradict the code. This file turns the issue
 > from a specification into an input to be interrogated. Consumers: `${CLAUDE_PLUGIN_ROOT}/commands/plan.md`
-> (its issue entry below), `SKILL.md § Step 0`. Emitted output (ledger, questions, report) follows
+> (its issue entry below), `SKILL.md § Step 0`, `${CLAUDE_PLUGIN_ROOT}/references/verify-issue-closeout.md`
+> (`/verify full` on an issue). Emitted output (ledger, questions, report) follows
 > `${project.locale}`; this file is English to match its sibling references.
 
 The verdict vocabulary `KEEP / SIMPLIFY / CUT / DEFER` is defined here and nowhere else in the

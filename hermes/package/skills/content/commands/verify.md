@@ -45,3 +45,7 @@ Check the safety floor: no unapproved irreversible/data action, secret in tracke
 ## 3. Verdict
 
 At verdict read `content/references/shared/090-verdict-matrix.md`. Return `VERIFIED` (gates/floor/checklist clean), `VERIFIED-WITH-NOTES` (non-blocking notes) or `NEEDS-WORK` (failure, violation or unverified item). Include base/confidence, commands/exit/evidence, skipped/undeclared rows and remaining decision. Include graph provider/scope/freshness and unsupported capabilities; missing graph proof is not a clean risk score.
+
+## 4. Issue close-out
+
+Only in `full` when the subject is one GitHub issue (argument `N`, `#N` or URL, or this session's target) outside `/plan <issue>`: after § 3, read `content/references/verify-issue-closeout.md` to recheck it and its comments, fix through `/debug`, comment and close.

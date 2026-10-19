@@ -11,7 +11,7 @@ workflow_type: augmented-llm
 
 ## 1. Inspect
 
-Identify package manager from lockfile; report declared and installed local TypeScript, Oxlint and Oxfmt, their versions, PATH tools, Zed settings, competitors and test/runtime hints. Prefer `node_modules` and lockfile evidence over PATH. Report each as PASS, MISSING or NEEDS-WORK. TypeScript requires declared stable local major 7; PATH-only or prerelease is NEEDS-WORK. The final low-resource gate is `oxlint --type-aware --type-check --threads 1`, never an edit-loop/editor hook.
+Identify package manager from lockfile; report declared and installed local TypeScript, Oxlint and Oxfmt, their versions, PATH tools, Zed settings, competitors and test/runtime hints. Prefer `node_modules` and lockfile evidence over PATH. Report each as PASS, MISSING or NEEDS-WORK. TypeScript requires declared stable local major 7; PATH-only or prerelease is NEEDS-WORK. The final low-resource type gate is `bun check --threads 1` (Bun 1.4.3+; `-b` for project references, `-p` for one project), never `tsc`, `tsgo`, the TypeScript server, or an edit-loop/editor hook.
 
 When `codeGraph.provider` selects `graft` or Graft diagnosis is explicitly requested (even missing), read `content/references/shared/000-config-loader.md` and follow its static graph-diagnosis branch. Report selection, package/runtime, MCP, index, freshness, policy and duplicates separately; start no backend or MCP health check. A graph-only request needs no unrelated toolchain audit.
 

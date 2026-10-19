@@ -47,8 +47,8 @@ On the same machine, measure elapsed time, process count, CPU and peak memory fo
 Stop/PostToolUse invocations, verification fan-out and test workers. Read the declared runner and
 JS/TS policy in `content/references/shared/130-typescript7-oxc-gates.md` when relevant.
 Stop and PostToolUse each launch at most one changed-file process: no package fetch, full-tree
-fallback or persistent result cache. Type-aware Oxlint stays at the final boundary with
-`oxlint --type-aware --type-check --threads 1`; editor/edit hooks use regular Oxlint.
+fallback or persistent result cache. The type gate stays at the final boundary with `bun check --threads 1` (Bun 1.4.3+). Editor and
+edit hooks use regular Oxlint, not `tsc` or the TypeScript server.
 Preserve security, trust, approval, protected-file and branch checks while reducing repeated work.
 Report the dominant cost and repeat the same measurement after one scoped change.
 

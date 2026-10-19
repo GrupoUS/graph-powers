@@ -28,20 +28,26 @@ BLOCKED: vtsls + local TypeScript 7 — the current Zed adapter requires tsserve
 ```
 
 `/setup` must report this state honestly. When the adapter supports the TypeScript 7 SDK, the one
-vtsls setting can be changed; until then, vtsls uses its bundled compatible SDK and the local
-TypeScript 7 package is reserved for the final Oxc gate.
+vtsls setting can be changed; until then, vtsls uses its bundled compatible SDK. The local TypeScript 7 package is not the type gate:
+`bun check` is. Keep TypeScript 7 only if something must emit `.d.ts`.
 
-## Oxc diagnostics and final typed lint
+## Oxc diagnostics and the final type gate
 
 Oxlint's editor LSP is the fast syntax and correctness signal. Do not run typed analysis in Zed,
-PostToolUse, Stop or a repair loop. Type-aware Oxlint is a bounded final signal only:
+PostToolUse, Stop or a repair loop. The final type gate is Bun's checker, not `tsc`, `tsgo` or the
+TypeScript language server. It needs Bun 1.4.3 or newer and matches TypeScript 7's checker:
 
 ```text
-oxlint --type-aware --type-check --threads 1
+bun check --threads 1
+bun check -b --threads 1
+bun check -p tsconfig.json --threads 1
 ```
 
-It may run at `/verify`, commit or CI. It must receive the project's declared configuration and
-never a whole-tree fallback from an interactive hook.
+Use `-b` when the root `tsconfig.json` only references projects, and `-p` for one project. `--threads 1`
+is required: `bun check` otherwise starts one thread per core, and this machine already OOMs when
+type-check fans out. It may run at `/verify`, commit or CI. It never writes files. Keep `tsc` only
+to emit `.d.ts`. Do not run `tsc --noEmit`, `tsgo` or `tsserver` as the gate. An empty project exits
+1; that is a failure, not a pass.
 
 ## Editor-independent debug diagnostics
 
@@ -61,7 +67,7 @@ required; fail-open hooks are not proof.
    lint/format checks and focused tests after fixes; retain the debugger's recovery limits.
 4. Finally recheck the initial scope and run the full declared test suite once, plus applicable
    declared type-check/lint/format/build gates. Reuse valid equivalent evidence. New failures
-   re-enter diagnosis. Declared typed Oxlint belongs to final `/verify`, never the repair loop.
+   re-enter diagnosis. Declared `bun check --threads 1` belongs to final `/verify`, never the repair loop.
 5. Report Oxlint, Oxfmt and tests separately with evidence and remaining findings. Missing tools:
    `UNAVAILABLE`; unsupported files: `NOT APPLICABLE`; absent gates: `NOT DECLARED`; timeout/config
    errors: `BLOCKED`. Give unblock actions, never a false PASS. Type/framework diagnostics need
@@ -95,3 +101,4 @@ Official references:
 - Zed TypeScript: https://zed.dev/docs/languages/typescript
 - Zed language settings: https://zed.dev/docs/configuring-languages
 - TypeScript 7 announcement: https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/
+- bun check: https://bun.com/docs/runtime/check

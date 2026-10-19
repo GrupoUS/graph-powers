@@ -834,6 +834,20 @@ _JS_GATE_REASON = (
     "Type-aware Oxlint is reserved for the configured final gate; do not use a network fallback. "
     "Read references/shared/130-typescript7-oxc-gates.md."
 )
+_BUN_CHECK = re.compile(
+    r"(?:^|[\s;&|])bun(?:\.exe|\.cmd)?\s+check\b",
+    re.IGNORECASE,
+)
+_BUN_CHECK_THREADS = re.compile(r"(?:^|\s)--threads(?:=|\s+)1(?=\s|$)", re.IGNORECASE)
+_TSC_NOEMIT = re.compile(
+    r"(?:^|[\s;&|])(?:tsc|tsgo)(?:\.exe|\.cmd)?\b(?=[^\r\n]*--no-?emit)",
+    re.IGNORECASE,
+)
+_BUN_CHECK_REASON = (
+    "BLOCKED: bun check is the final type gate and must use --threads 1. "
+    "Run `bun check --threads 1` from /verify, commit, or CI; do not use tsc, tsgo, "
+    "or an unbounded bun check in an edit loop."
+)
 _TYPE_AWARE_REASON = (
     "BLOCKED: type-aware Oxlint is a final gate. Run the configured type-check command from "
     "/verify, commit, or CI; do not run it in an edit loop."
@@ -880,6 +894,10 @@ def _js_gate_denial(
         return None
     names = [_basename(part) for part in parts]
     lowered = [part.lower() for part in parts]
+    if _BUN_CHECK.search(command) and _BUN_CHECK_THREADS.search(command) is None:
+        return _BUN_CHECK_REASON
+    if _TSC_NOEMIT.search(command):
+        return _BUN_CHECK_REASON
     if _TYPE_AWARE_OXLINT.search(command):
         kind = gate_kind or (_configured_gate_kind(command, cfg) if cfg is not None else None)
         if kind != "typeCheck" or not _TYPE_AWARE_FINAL.search(command):
@@ -977,6 +995,10 @@ def _package_script_denial(
         return None
     if not isinstance(body, str):
         return None
+    if kind == "typeCheck" and _BUN_CHECK.search(body) and _BUN_CHECK_THREADS.search(body) is None:
+        return _BUN_CHECK_REASON
+    if kind == "typeCheck" and _TSC_NOEMIT.search(body):
+        return _BUN_CHECK_REASON
     if kind == "typeCheck" and _TYPE_AWARE_OXLINT.search(body) and not _TYPE_AWARE_FINAL.search(body):
         return _TYPE_AWARE_REASON
     if kind == "test" and _SCRIPT_NODE.search(body):
