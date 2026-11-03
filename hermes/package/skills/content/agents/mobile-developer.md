@@ -1,7 +1,8 @@
 ---
 name: mobile-developer
 description: "Use for React Native and Flutter work: navigation, native modules, offline sync, iOS/Android behavior, builds, and store delivery. Writes code."
-model: sonnet
+model: gpt-6.1-sol
+model_tier: standard
 color: orange
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

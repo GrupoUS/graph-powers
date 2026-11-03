@@ -143,6 +143,7 @@ const dispatch = async (prompt, options) => {
   return await agent(prompt, options)
 }
 
+// The bootstrap uses the preset's scout alias until the canonical model map has been read.
 async function resolveConfig() {
   const supplied = args?.config && typeof args.config === 'object' ? args.config : null
   if (supplied) {
@@ -373,7 +374,7 @@ const [g0, scope] = await boundedParallel([
     openingGateList.length
       ? `Read ${GATE_GUIDE} first. Run these gates from the repository root. Run each as a SEPARATE command — never chained with \`;\` or \`&&\` — and capture the exit code of each:\n${openingGateBlock}\n${turboGuidance()}\nA forbidden command is a failed gate: do not execute it and do not fall back. Report pass/fail per gate with exit code + failing lines. Read-only — do NOT fix here.`
       : `This project declares no gate commands in its config. Return allGreen:true with an empty gates list, and note in \`failing\` that no gate was declared. Read-only.`,
-    { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: 'haiku' }
+    { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'gates', model: M('debugger') }
   ),
   () => dispatch(
     `Compute the working-tree change set + the surfaces it touches, for surface-gating the downstream checks. Read-only — run git, do NOT edit.
@@ -524,7 +525,7 @@ if (firedGates.length) {
   const extra = await dispatch(
     `Run these additional project gates and capture each exit code. They are declared by the project, not by this workflow; run each exactly as written. Read-only — do NOT fix.
 ${firedGates.map((cg) => `- ${cg.name}: ${cg.command}${cg.needsServer ? ` (needs a server: start \`${cg.needsServer}\` in the background, run the gate, then terminate that process — \`taskkill /PID <pid> /T /F\` on Windows, \`kill <pid>\` elsewhere. Say so if you cannot stop it: a server left holding the port makes the NEXT gate fail for the wrong reason)` : ''}${cg.runtime ? ` (run under ${cg.runtime}, not the project's default runtime)` : ''}`).join('\n')}`,
-    { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'contract-gates', model: 'haiku' }
+    { agentType: AG('debugger'), phase: 'Gates', schema: GATES, label: 'contract-gates', model: M('debugger') }
   )
   if (extra) {
     g = {
@@ -881,7 +882,7 @@ while (state.total > 0 && round < MAX_ROUNDS) {
     finalGateBlock
       ? `Read ${GATE_GUIDE} first. Run the FINAL gate set for correction round ${round} from the repository root, each as a separate command:\n${finalGateBlock}\nDo not reuse opening or prior-round results. A forbidden command is a failed gate: do not execute it and do not fall back. Capture every exit code. Read-only.`
       : 'This project declares no final gate commands. Return allGreen:true with an empty gates list and record that the final boundary had no declared command. Read-only.',
-    { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: 'gates:final', model: 'haiku' }
+    { agentType: AG('debugger'), phase: 'Fix loop', schema: GATES, label: 'gates:final', model: M('debugger') }
   )
   state = openItems(c, actionableFrom(sk), g)
 }

@@ -125,6 +125,7 @@ const dispatch = async (prompt, options) => {
   return await agent(prompt, options)
 }
 
+// The bootstrap uses the preset's scout alias until the canonical model map has been read.
 async function resolveConfig() {
   const supplied = args?.config && typeof args.config === 'object' ? args.config : null
   if (supplied) {

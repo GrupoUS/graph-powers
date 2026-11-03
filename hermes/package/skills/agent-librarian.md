@@ -2,7 +2,8 @@
 name: librarian
 description: "Use when the answer is outside this repository: current library/API behavior, migrations, security advisories, and official documentation. Never reads or edits local files; read-only."
 tools: WebFetch, mcp__tavily__tavily_search, mcp__tavily__tavily_research, mcp__tavily__tavily_extract, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__sequential-thinking__sequentialthinking, mcp__claude_ai_Context7__resolve-library-id, mcp__claude_ai_Context7__query-docs
-model: haiku
+model: gpt-6-luna
+model_tier: light
 color: yellow
 role_type: researcher
 background: true

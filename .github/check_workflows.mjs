@@ -18,7 +18,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { CODEX_AGENT_PROFILES } from "../codex/model-policy.mjs";
+import { CODEX_AGENT_PROFILES, CODEX_PROFILE_DEFAULTS } from "../codex/model-policy.mjs";
 
 const CONFIG_SCHEMA = JSON.parse(readFileSync("schema/config.schema.json", "utf8"));
 const GUARDRAIL_SCHEMA = CONFIG_SCHEMA.properties.graphGuardrails.properties;
@@ -201,18 +201,18 @@ function checkWriterSet(path, source, writable) {
  * spawned `explorer`, a `haiku` scout, on `opus`: the cheap lane is only cheap while nobody
  * overrides it.
  *
- * A DOWNGRADE stays legal: §2 of `references/shared/020-complexity-routing.md` tiers by what the
- * unit of work is, so a mechanical `debugger` pass may ask for `haiku`. Upgrading a light agent is
- * what is refused, because that is never the unit of work getting harder — it is a spawn that
- * forgot which lane it was in.
+ * Every call retains the canonical role model, including mechanical debugger passes.
  */
 function checkModels(path, spawned, agentModels, { allowEvaluatorCapabilityFallback = false } = {}) {
   const problems = [];
   const seen = new Set();
-  for (const { agentType, model } of spawned) {
+  for (const { agentType, model, label } of spawned) {
     const bare = String(agentType).split(":").pop();
     const declared = agentModels.get(bare) ?? null;
-    const key = `${agentType}|${model ?? ""}`;
+    // The bootstrap reads the model map before M(role) is available; the preset resolves Haiku.
+    const scoutBootstrap = bare === "explorer" && ["config", "config:policy"].includes(label) &&
+      model === "haiku" && declared === CODEX_PROFILE_DEFAULTS.scout.model;
+    const key = `${agentType}|${model ?? ""}|${scoutBootstrap}`;
     if (seen.has(key)) continue;
     seen.add(key);
     if (!model) {
@@ -221,18 +221,13 @@ function checkModels(path, spawned, agentModels, { allowEvaluatorCapabilityFallb
       );
       continue;
     }
-    if (CODEX_SCOUT_AGENTS.has(bare) && String(model).toLowerCase() !== "haiku")
-      problems.push(
-        `MODEL  ${path}: semantic scout ${agentType} must retain the Claude haiku lane, got \`${model}\``,
-      );
     const actual = String(model).toLowerCase();
     const expected = String(declared).toLowerCase();
-    const mechanicalDowngrade = bare === "debugger" && actual === "haiku";
     const evaluatorCapabilityFallback =
       allowEvaluatorCapabilityFallback && bare === "evaluator" && expected === "fable" && actual === "opus";
-    if (declared && actual !== expected && !mechanicalDowngrade && !evaluatorCapabilityFallback)
+    if (declared && actual !== expected && !scoutBootstrap && !evaluatorCapabilityFallback)
       problems.push(
-        `MODEL  ${path}: spawns ${agentType} on \`${model}\` while agents/${bare}.md declares \`${declared}\` — only the named debugger/haiku mechanical downgrade is allowed`,
+        `MODEL  ${path}: spawns ${agentType} on \`${model}\` while agents/${bare}.md declares \`${declared}\``,
       );
   }
   return problems;

@@ -1,7 +1,8 @@
 ---
 name: project-planner
 description: "Use after research and before implementation to produce a scoped, testable plan with acceptance criteria, risks, decisions, ownership, and gates. Writes only the plan."
-model: opus
+model: gpt-6.1-sol
+model_tier: standard
 color: yellow
 role_type: orchestrator
 effort: xhigh

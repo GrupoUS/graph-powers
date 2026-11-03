@@ -345,11 +345,24 @@ operator configured is kept and reported; add `--adopt` only at the operator's r
 model, effort, directory, branch, the context used and what is left of the 5-hour and 7-day
 windows.
 
-Each agent's frontmatter alias (`opus`, `sonnet`, `haiku`) selects its model. `CLAUDE_CODE_SUBAGENT_MODEL`
-is only the fallback for agents without one; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every role,
-so leave it unset. A gateway may map aliases through `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`;
-prove the route from the `model` recorded in a subagent transcript or the gateway log, never from
-the alias alone.
+Each agent's frontmatter `model` selects its full model ID or Claude alias. Codex-routed roles use
+explicit IDs so the plugin displays the requested model; `model_tier` preserves legacy adapter
+overrides and does not select the Claude runtime model. `CLAUDE_CODE_SUBAGENT_MODEL` is only the
+fallback for agents without a model; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every role, so
+leave it unset. A gateway may map remaining aliases through
+`ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`; prove the route from a subagent transcript or gateway
+log, never from a displayed alias alone.
+
+**Codex model preset for Claude Code.** With an Anthropic-compatible router already configured,
+run `python -X utf8 "<PLUGIN>/bin/claude-codex-preset.py" --apply`. This reads the plugin's existing
+`content/codex/model-policy.json`: the evaluator default supplies the Sonnet alias and the scout profile
+supplies Haiku for built-in agents and the workflow bootstrap. Codex-routed plugin roles
+declare their IDs directly. Without `--apply`, it previews the mapping. It merges only these aliases into
+the global Claude settings, preserving the main model, Opus alias, endpoint, credentials and
+permissions. Plugins cannot apply `env` through their own `settings.json`, so this explicit setup
+step is required. The aliases affect every agent using Sonnet or Haiku, including other plugins.
+This preset does not install a router or prove provider availability; verify both model IDs against
+the existing proxy before claiming the agents run successfully.
 
 Effort splits the same way: each agent's `effort:` overrides the session level, so
 `graph-powers:project-planner`, `graph-powers:evaluator`, `graph-powers:security-reviewer` and

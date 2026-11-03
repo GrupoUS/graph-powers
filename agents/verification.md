@@ -1,7 +1,8 @@
 ---
 name: verification
 description: "Use after a UI or user-flow change to verify it in a real browser: acceptance flows, screenshots, console/page errors, network evidence, and regressions. Report-only."
-model: sonnet
+model: gpt-6.1-sol
+model_tier: standard
 color: green
 role_type: worker
 tools: Read, Bash, Grep, Skill

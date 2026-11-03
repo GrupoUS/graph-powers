@@ -1,7 +1,8 @@
 ---
 name: debugger
 description: "Use proactively whenever something is broken: an error, crash, failing test or CI, 500, hydration mismatch, or regression. Finds and fixes the root cause."
-model: sonnet
+model: gpt-6.1-sol
+model_tier: standard
 color: orange
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep, Skill

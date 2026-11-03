@@ -1,7 +1,8 @@
 ---
 name: explorer
 description: "Use before writing code in unfamiliar territory: find ownership, callers, patterns, and change impact. Searches this repository only; external facts go to librarian. Read-only."
-model: haiku
+model: gpt-6-luna
+model_tier: light
 color: cyan
 role_type: researcher
 background: true

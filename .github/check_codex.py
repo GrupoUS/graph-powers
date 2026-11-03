@@ -13,16 +13,16 @@ import sys
 import tomllib
 
 EXPECTED_POLICY = {
-    "evaluator": ("judge", "gpt-6-astra", "high"),
-    "security-reviewer": ("judge", "gpt-6-astra", "high"),
+    "evaluator": ("judge", "gpt-6.1-sol", "xhigh"),
+    "security-reviewer": ("judge", "gpt-6.1-sol", "xhigh"),
     "skill-improver": ("judge", "gpt-6-astra", "high"),
-    "ui-ux-designer": ("judge", "gpt-6-astra", "high"),
-    "project-planner": ("architect", "gpt-6-astra", "high"),
-    "debugger": ("executor", "gpt-6-luna", "medium"),
-    "frontend-specialist": ("executor", "gpt-6-luna", "medium"),
+    "ui-ux-designer": ("judge", "gpt-6.1-sol", "xhigh"),
+    "project-planner": ("architect", "gpt-6.1-sol", "xhigh"),
+    "debugger": ("executor", "gpt-6.1-sol", "medium"),
+    "frontend-specialist": ("executor", "gpt-6.1-sol", "xhigh"),
     "mobile-developer": ("executor", "gpt-6-luna", "medium"),
-    "performance-optimizer": ("executor", "gpt-6-luna", "medium"),
-    "verification": ("verifier", "gpt-6-astra", "high"),
+    "performance-optimizer": ("executor", "gpt-6.1-sol", "medium"),
+    "verification": ("verifier", "gpt-6.1-sol", "high"),
     "explorer": ("scout", "gpt-6-luna", "medium"),
     "librarian": ("scout", "gpt-6-luna", "medium"),
 }

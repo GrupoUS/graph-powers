@@ -4,8 +4,8 @@
  * Canonical agent Markdown remains Claude-oriented. Both Codex generators call this resolver,
  * and workflows read the adjacent JSON contract through their existing configuration bootstrap.
  * Model selection is semantic: judges, architects and verifiers use Astra; executors and scouts
- * use Luna; `agentDefaults` moves named roles (planner, evaluator, security, design, frontend) to
- * Sol without changing the profile their peers share. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
+ * use Luna; `agentDefaults` pins selected roles to Sol without changing the profile their peers
+ * share. Ultra is deliberately absent from the subagent effort set because Codex treats it as a
  * proactive orchestration policy, not a larger single-agent reasoning budget.
  */
 
@@ -97,9 +97,13 @@ function validateEffort(value, source, allowed = SUBAGENT_EFFORTS) {
 function legacySource(sourceAgent = {}) {
   const family = text(Array.isArray(sourceAgent.model) ? sourceAgent.model[0] : sourceAgent.model)
     .toLowerCase();
+  const tier = sourceAgent.model_tier;
+  if (tier !== undefined && !Object.values(TIER_BY_MODEL).includes(tier)) {
+    throw new Error("invalid source agent model tier");
+  }
   return {
     family,
-    tier: TIER_BY_MODEL[family] ?? null,
+    tier: tier ?? TIER_BY_MODEL[family] ?? null,
     effort: text(
       Array.isArray(sourceAgent.effort) ? sourceAgent.effort[0] : sourceAgent.effort,
     ).toLowerCase(),

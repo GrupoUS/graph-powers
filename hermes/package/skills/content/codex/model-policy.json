@@ -80,6 +80,10 @@
     "timeoutMs": 10000
   },
   "agentDefaults": {
+    "debugger": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
+    },
     "evaluator": {
       "model": "gpt-6.1-sol",
       "reasoningEffort": "xhigh"
@@ -87,6 +91,10 @@
     "frontend-specialist": {
       "model": "gpt-6.1-sol",
       "reasoningEffort": "xhigh"
+    },
+    "performance-optimizer": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "medium"
     },
     "project-planner": {
       "model": "gpt-6.1-sol",
@@ -99,6 +107,10 @@
     "ui-ux-designer": {
       "model": "gpt-6.1-sol",
       "reasoningEffort": "xhigh"
+    },
+    "verification": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high"
     }
   },
   "leafAgents": [

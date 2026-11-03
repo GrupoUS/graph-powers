@@ -11,6 +11,9 @@ const actor = { requesterRole: "parent", depth: 0 };
 const capabilities = [
   ["gpt-6-astra", "high"],
   ["gpt-6-luna", "medium"],
+  ["gpt-6.1-luna", "medium"],
+  ["gpt-6.1-sol", "medium"],
+  ["gpt-6.1-sol", "high"],
   ["gpt-6.1-sol", "xhigh"],
 ].map(([model, reasoningEffort]) => ({
   model,
@@ -520,7 +523,7 @@ try {
   const request = {
     ...actor,
     allowed: ["agent:debugger", "agent:security-reviewer"],
-    capabilities: [{ model: "sonnet", reasoningEffort: "xhigh", status: "SUPPORTED", evidence: "native role fixture" }],
+    capabilities: [{ model: "gpt-6.1-sol", reasoningEffort: "xhigh", status: "SUPPORTED", evidence: "native role fixture" }],
   };
   const action = await coordinate("next", request, {
     ...settings,
@@ -532,7 +535,7 @@ try {
   });
   assert.equal(action.status, "PENDING");
   assert.equal(action.executionAuthorized, true);
-  assert.equal(action.action.candidate.model, "sonnet");
+  assert.equal(action.action.candidate.model, "gpt-6.1-sol");
   assert.equal(action.action.candidate.reasoningEffort, "xhigh");
   assert.deepEqual(action.handoff.nativeRoute, {
     tool: "Agent", subagent_type: "graph-powers:security-reviewer",
@@ -549,7 +552,7 @@ try {
       encoding: "utf8", input: JSON.stringify(actor),
     });
   assert.equal(cli.status, 0, cli.stderr);
-  assert.equal(JSON.parse(cli.stdout).actions.find((item) => item.id === "agent:debugger").model, "sonnet");
+  assert.equal(JSON.parse(cli.stdout).actions.find((item) => item.id === "agent:debugger").model, "gpt-6.1-sol");
 } finally {
   claudeFixture.cleanup();
 }

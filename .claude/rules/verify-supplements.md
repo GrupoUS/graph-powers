@@ -70,6 +70,7 @@ and returns nonzero pending separately approved native identity, exact-byte scan
 | 31 | Claude mod manifest | `claude plugin validate .claude-plugin/plugin.json` | the manifest-declared module does not load, registers more than prompt.context, or calls something on $ |
 | 32 | Claude mod behaviour | `claude plugin test .` | the routing block is no longer appended once with constant text, or a typed prompt no longer passes through |
 | 33 | Status line | `python3 bin/test_statusline.py` | the shipped status line stopped rendering a field, or `--install` overwrote an operator's line, lost a setting or wrote over unreadable settings |
+| 34 | Claude Codex preset | `python3 .github/test_claude_codex_preset.py` | model aliases diverge from plugin policy, or applying the preset overwrites unrelated settings or invalid input |
 
 Below Claude Code 2.1.287, both mod gates need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set in the
 shell's own syntax. Without it (no `hooks: prompt.context` line, or "hooks modules are not turned

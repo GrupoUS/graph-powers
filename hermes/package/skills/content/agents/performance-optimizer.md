@@ -1,7 +1,8 @@
 ---
 name: performance-optimizer
 description: "Use when something is measurably slow, large, or exposed: runtime, CPU/memory, bundle, Core Web Vitals, OWASP baseline, or SEO/GEO. Writes the optimization."
-model: sonnet
+model: gpt-6.1-sol
+model_tier: standard
 color: blue
 role_type: worker
 tools: Read, Write, Edit, Bash, Glob, Grep

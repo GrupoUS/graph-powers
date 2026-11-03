@@ -20,6 +20,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseFrontmatter } from "../codex/lib.mjs";
 
 const EXPECTED_POLICY = {
   evaluator: ["judge", "gpt-6.1-sol", "xhigh"],
@@ -27,11 +28,11 @@ const EXPECTED_POLICY = {
   "skill-improver": ["judge", "gpt-6-astra", "high"],
   "ui-ux-designer": ["judge", "gpt-6.1-sol", "xhigh"],
   "project-planner": ["architect", "gpt-6.1-sol", "xhigh"],
-  debugger: ["executor", "gpt-6-luna", "medium"],
+  debugger: ["executor", "gpt-6.1-sol", "medium"],
   "frontend-specialist": ["executor", "gpt-6.1-sol", "xhigh"],
   "mobile-developer": ["executor", "gpt-6-luna", "medium"],
-  "performance-optimizer": ["executor", "gpt-6-luna", "medium"],
-  verification: ["verifier", "gpt-6-astra", "high"],
+  "performance-optimizer": ["executor", "gpt-6.1-sol", "medium"],
+  verification: ["verifier", "gpt-6.1-sol", "high"],
   explorer: ["scout", "gpt-6-luna", "medium"],
   librarian: ["scout", "gpt-6-luna", "medium"],
 };
@@ -93,6 +94,40 @@ const rejects = (action, message) => {
   }
   assert(rejected, message);
 };
+
+for (const [name, tier] of [
+  ["evaluator", "standard"],
+  ["debugger", "standard"],
+  ["project-planner", "standard"],
+  ["verification", "standard"],
+  ["performance-optimizer", "standard"],
+  ["explorer", "light"],
+  ["librarian", "light"],
+]) {
+  const { data } = parseFrontmatter(
+    readFileSync(new URL(`../agents/${name}.md`, import.meta.url), "utf8"),
+  );
+  assert(
+    data.model === EXPECTED_POLICY[name][1],
+    `${name}: canonical model is not the explicit ID`,
+  );
+  assert(data.model_tier === tier, `${name}: canonical model lost its legacy tier`);
+  const resolved = resolveCodexAgentPolicy(
+    name,
+    { model: "legacy-flat", models: { [tier]: "legacy-tier" } },
+    data,
+  );
+  assert(
+    resolved.model === "legacy-tier" && resolved.modelSource === `legacy-models.${tier}`,
+    `${name}: explicit canonical model lost tier-over-flat precedence`,
+  );
+}
+for (const tier of ["unknown", "", null, ["light"]]) {
+  rejects(
+    () => resolveCodexAgentPolicy("librarian", {}, { model: "gpt-6-luna", model_tier: tier }),
+    "invalid source model tier accepted",
+  );
+}
 
 assert(Object.keys(EXPECTED_POLICY).length === 12, "oracle must contain all 12 canonical agents");
 for (const [name, value] of Object.entries({
@@ -184,7 +219,7 @@ for (const [name, settings, expected, warning] of [
   [
     "debugger",
     { profile: "native-economic" },
-    ["executor", "gpt-6-luna", "medium"],
+    ["executor", "gpt-6.1-sol", "medium"],
     "topLevelProfileDowngraded",
   ],
 ]) {
@@ -400,7 +435,7 @@ for (const settings of [
   { agents: { evaluator: { model: "typesafe-ai/jev" } } },
   { profiles: { judge: { model: "typesafe-ai/jev" } } },
   { model: "typesafe-ai/jev" },
-  { models: { heavy: "typesafe-ai/jev" } },
+  { models: { standard: "typesafe-ai/jev" } },
 ]) {
   rejects(
     () =>
